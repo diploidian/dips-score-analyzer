@@ -413,7 +413,8 @@ class GroupTab(QWidget):
             dot = item("" if ic else "●", c)
             if ic:
                 dot.setIcon(ic)
-            dot.setToolTip(f"{(p.cls or '?').title()}")
+            race = "".join(" " + ch if ch.isupper() and i else ch for i, ch in enumerate(p.race or ""))  # NightElf -> Night Elf
+            dot.setToolTip(" ".join(x for x in (race, (p.cls or "?").title()) if x))
             self.t.setItem(r, 0, dot)
             name = item(p.name + ("  (you)" if p.is_me else ""), c)
             f = QFont()

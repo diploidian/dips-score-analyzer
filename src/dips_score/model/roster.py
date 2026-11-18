@@ -79,6 +79,7 @@ class Player:
     cls_from: str = "?"      # "you", "addon", "spells"
     role_from: str = "?"
     is_me: bool = False
+    race: str | None = None  # the game's token, e.g. "NightElf"; None for logs from before races were recorded
 
     @property
     def color(self) -> tuple[float, float, float]:
@@ -130,7 +131,7 @@ def _is_group(flags: int) -> bool:
 
 def build_roster(events: list[Event], addon_lines, me: str | None, overrides: Overrides | None = None) -> dict[str, Player]:
     """guid -> Player for everyone in the group. addon_lines: the run's P lines (TLine-like, fields
-    guid, name, class, role)."""
+    guid, name, class, role, race)."""
     players: dict[str, Player] = {}
     for e in events:
         for g, n, fl in ((e.src, e.src_name, e.src_flags), (e.dst, e.dst_name, e.dst_flags)):
@@ -139,12 +140,14 @@ def build_roster(events: list[Event], addon_lines, me: str | None, overrides: Ov
 
     # 2. the addon's roster
     for ln in addon_lines:
-        guid, name, cls, role = (ln.f(0), ln.f(1), ln.f(2), ln.f(3))
+        guid, name, cls, role, race = (ln.f(0), ln.f(1), ln.f(2), ln.f(3), ln.f(4))
         if not guid.startswith("Player-"):
             continue
         p = players.setdefault(guid, Player(guid, name or "?", is_me=(guid == me)))
         if name and name != "?":
             p.name = name
+        if race:  # older logs have no race field: ln.f gives "" and the player keeps None
+            p.race = race
         if cls in CLASS_COLORS:
             p.cls, p.cls_from = cls, "addon"
         if role in GROUP_ROLE:

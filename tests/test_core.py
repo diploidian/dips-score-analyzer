@@ -75,6 +75,19 @@ class SavedVariables(unittest.TestCase):
         self.assertEqual(d["x"][5], "a\nb")
 
 
+class Roster(unittest.TestCase):
+    def test_race_from_p_line(self):
+        from dips_score.model.roster import build_roster
+        from dips_score.sources.savedvars import Line
+        lines = [Line(0, "P", ["Player-1-0000AAAA", "Anna Smith", "PRIEST", "HEALER", "NightElf"]),
+                 Line(0, "P", ["Player-2-0000BBBB", "Bo Lee", "WARRIOR", "TANK"])]  # a 4-field line from an older log
+        roster = build_roster([], lines, None)
+        self.assertEqual(roster["Player-1-0000AAAA"].race, "NightElf")
+        self.assertEqual(roster["Player-1-0000AAAA"].cls, "PRIEST")
+        self.assertIsNone(roster["Player-2-0000BBBB"].race)
+        self.assertEqual(roster["Player-2-0000BBBB"].cls, "WARRIOR")
+
+
 class CombatLog(unittest.TestCase):
     def test_heal_with_advanced(self):
         e = combatlog.parse_line(ADV_HEAL)
