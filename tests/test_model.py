@@ -348,6 +348,49 @@ class Interrupts(unittest.TestCase):
         self.assertIn("Curse", cat.tip)
 
 
+class Phase5(unittest.TestCase):
+    """shields only count if they absorb; dispels show in the healer summary"""
+    def healer(self, shield_on, advanced=True, absorb=0, dispel=False, reading=TANK):
+        from dips_score.scoring.healer import measure_healer
+        from dips_score.sources.combatlog import UnitInfo
+        hit = ev(10, "SWING_DAMAGE", MOB1, TANK, amount=500)
+        events = [hit, ev(0, "SWING_DAMAGE", MOB1, ME, amount=1),
+                  sp(10.5, "SPELL_AURA_APPLIED", ME, shield_on, "Shield", 9)]
+        if advanced:
+            hit.info = UnitInfo(TANK, 400, 1000, 0, 0, 0, 0.0, 0.0, 0, 0.0, 60)   # tank dips to 40%
+            r = ev(11, "SWING_DAMAGE", MOB1, TANK, amount=1)
+            r.info = UnitInfo(reading, 400, 1000, 0, 0, 0, 0.0, 0.0, 0, 0.0, 60, 0, absorb)
+            events.append(r)
+        if dispel:
+            events.append(sp(12, "SPELL_DISPEL", ME, TANK, "Dispel", 2, 300))
+        return measure_healer(rundata(sorted(events, key=lambda e: e.ts), [Fight(0, 30)]))
+
+    def test_self_buff_is_not_a_response(self):
+        hm = self.healer(ME)
+        self.assertEqual((len(hm.dips), hm.missed), (1, 1))
+        self.assertNotIn("Shield", hm.heal_spells)
+        self.assertNotIn("Shield", self.healer(ME, advanced=False).heal_spells)
+
+    def test_absorbing_shield_counts(self):
+        hm = self.healer(TANK, absorb=300)
+        self.assertEqual((hm.missed, hm.dips[0].spell), (0, "Shield"))
+        self.assertEqual(self.healer(TANK, absorb=0).missed, 0)   # on a party member: counts without a reading
+
+    def test_self_shield_needs_an_absorb(self):
+        hm = self.healer(ME)
+        hm2 = self.healer(ME, absorb=300, reading=ME)
+        self.assertEqual((hm.missed, "Shield" in hm.heal_spells), (1, False))
+        self.assertIn("Shield", hm2.heal_spells)
+
+    def test_no_advanced_shield_on_other_counts(self):
+        self.assertIn("Shield", self.healer(TANK, advanced=False).heal_spells)
+
+    def test_dispels_in_summary(self):
+        from dips_score.scoring.score import healer_categories
+        eff = {c.name: c for c in healer_categories(self.healer(TANK, dispel=True))}["Efficiency"]
+        self.assertTrue(eff.summary.endswith(", 1 dispels"))
+
+
 class Phase4(unittest.TestCase):
     """capped rage, and cooldowns left ready"""
     def card(self, power_type):

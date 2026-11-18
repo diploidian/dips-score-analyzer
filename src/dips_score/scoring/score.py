@@ -373,7 +373,7 @@ def healer_categories(hm: HealerMetrics, you: bool = True) -> list[Category]:
     if s < 85:
         tip = (f"{who} died. Check the timeline for the seconds before it: were {them} casting on someone else, "
                f"or moving?" if n_dead else
-               f"Someone was under 35% health for {hm.danger_time:.0f}s. Shield or Renew the tank before big pulls.")
+               f"Someone was under 35% health for {hm.danger_time:.0f}s. Get a shield or a heal-over-time on the tank before big pulls.")
     cats.append(Category("Group health", s, W["Group health"],
                          f"{n_dead} deaths" + (f" ({who})" if who else "") +
                          f"; someone under 35% for {hm.danger_time:.0f}s ({hm.danger_share:.0%} of combat)", tip))
@@ -407,11 +407,11 @@ def healer_categories(hm: HealerMetrics, you: bool = True) -> list[Category]:
     if s < 85:
         tip = (f"{hm.overheal_share:.0%} of the cast healing was overhealing. Use a smaller heal or a lower rank "
                f"when they're only a little hurt." if s_over < s_mana else
-               f"Ran low on mana ({mana_txt}, {hm.oom_refusals} casts refused for mana). Wand between pulls "
-               f"and use lower ranks on small damage.")
+               f"Ran low on mana ({mana_txt}, {hm.oom_refusals} casts refused for mana). Regenerate between pulls "
+               f"and use cheaper heals on small damage.")
     cats.append(Category("Efficiency", s, W["Efficiency"],
                          f"{hm.cast_heal:,} cast healing, {hm.overheal_share:.0%} overheal; {hm.passive_heal:,} passive; "
-                         f"{mana_txt}, {hm.oom_refusals} refused for mana", tip))
+                         f"{mana_txt}, {hm.oom_refusals} refused for mana" + (f", {hm.dispels} dispels" if hm.dispels else ""), tip))
     if not hm.has_advanced:   # no health readings: dips and danger can't be seen, don't score them 100
         need = "needs Advanced Combat Logging"
         cats[0] = Category("Group health", 0.0, W["Group health"], need, unavailable=need)
@@ -543,7 +543,7 @@ def _fail_tip(m: Metrics, ignore: set[str] = frozenset()) -> str:
         "Not yet recovered": "you're pressing before the cooldown or GCD is back - that's mashing",
         "Invalid target": "check your target before pressing",
         "Out of range": "you're pressing while out of range",
-        "Not enough mana": "you ran out of mana - wand more, cast cheaper ranks",
+        "Not enough mana": "you ran out of mana - regenerate more, cast cheaper heals",
         "Can't do that while moving": "stop before you cast",
         "Another action is in progress": "you're pressing while already casting",
         "Interrupted": "you're starting casts that get stopped",

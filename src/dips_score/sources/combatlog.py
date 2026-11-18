@@ -76,6 +76,7 @@ class UnitInfo:
     facing: float
     level: int
     cost: int = 0          # power the cast cost (on SPELL_CAST_SUCCESS)
+    absorb: int = 0        # damage absorbing shields on the unit
 
     @property
     def hp_pct(self) -> float:
@@ -175,7 +176,7 @@ def parse_line(line: str) -> Event | None:
         try:
             e.info = UnitInfo(f[p], _int(f[p + 2]), _int(f[p + 3]), _int(f[p + 10]), _int(f[p + 11]),
                               _int(f[p + 12]), float(f[p + 14]), float(f[p + 15]), _int(f[p + 16]),
-                              float(f[p + 17]), _int(f[p + 18]), _int(f[p + 13]))
+                              float(f[p + 17]), _int(f[p + 18]), _int(f[p + 13]), _int(f[p + 7]))
             p += ADV_LEN
         except ValueError:
             e.info = None

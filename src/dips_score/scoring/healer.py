@@ -4,7 +4,9 @@
 Your heals are split by what you did:
     cast heals   spells you hard-cast that heal (Heal, Flash Heal, Greater Heal, Prayer of Healing)
     HoTs         your periodic heals (Renew)
-    shields      buffs you put on the group with "Shield" in the name (Power Word: Shield)
+    shields      buffs you put on the group with "Shield" in the name (Power Word: Shield) that, at least once, went on
+                 a group player other than you, or showed an absorb reading on the target within 2 s
+                 of applying - so a self-only Lightning Shield, Divine Shield or Holy Shield isn't a heal
     passive      everything else that heals (Vampiric Embrace, Devouring Plague, Touch of the Grave,
                  potions) - not judged: you don't choose when those land
 Overhealing is judged on cast heals and HoTs only.
@@ -60,6 +62,7 @@ class HealerMetrics:
     passive_heal: int = 0
     lowest_mana: float | None = None
     oom_refusals: int = 0
+    dispels: int = 0
     heal_spells: set[str] = field(default_factory=set)
     # for the hybrid bonus
     my_damage: int = 0             # your damage to enemies
@@ -117,6 +120,7 @@ class HealerBase:
     heals: list[tuple[float, int, int, bool]] = field(default_factory=list)          # t, effective, overheal, active
     mana: list[tuple[float, float]] = field(default_factory=list)
     oom: list[float] = field(default_factory=list)
+    dispels: list[float] = field(default_factory=list)
     deaths: list[tuple[float, str]] = field(default_factory=list)
     damage: list[tuple[float, str, int]] = field(default_factory=list)   # t, group member, amount to an enemy
     who: str | None = None         # the healer measured
@@ -132,7 +136,11 @@ def healer_base(rd: RunData, deaths: list[tuple[float, str]] | None = None, who:
         return b
     # who's in the group, and what your healing spells are
     cast_started, periodic, shields, healed = set(), set(), set(), set()
+    applied: list[tuple[int, str, float]] = []   # your shield-like auras: spell, target, time
+    absorbing: dict[str, list[float]] = {}       # when each unit showed an absorb
     for e in rd.events:
+        if e.info and e.info.absorb > 0:
+            absorbing.setdefault(e.info.guid, []).append(rd.rel(e.ts))
         for g, n, fl in ((e.src, e.src_name, e.src_flags), (e.dst, e.dst_name, e.dst_flags)):
             if g.startswith("Player-") and g not in b.party and _is_group(fl):
                 b.party[g] = clean_name(n)
@@ -145,6 +153,10 @@ def healer_base(rd: RunData, deaths: list[tuple[float, str]] | None = None, who:
                 healed.add(e.spell_id)
             elif e.event == "SPELL_AURA_APPLIED" and "Shield" in e.spell_name and e.dst.startswith("Player-"):
                 shields.add(e.spell_id)
+                applied.append((e.spell_id, e.dst, rd.rel(e.ts)))
+    # a shield only counts if it absorbs (see the module docstring)
+    shields = {s for s, d, t in applied if (d in b.party and d != me)
+               or any(t <= a <= t + 2.0 for a in absorbing.get(d, ()))}
     cast_heals = cast_started & healed
     active = cast_heals | periodic | shields
     b.heal_spells = {e.spell_name for e in rd.events if e.spell_id in active and e.src == me}
@@ -175,6 +187,8 @@ def healer_base(rd: RunData, deaths: list[tuple[float, str]] | None = None, who:
                 b.heals.append((t, max(0, e.amount - e.overheal), e.overheal, e.spell_id in active))
             if e.event == "SPELL_CAST_FAILED" and e.reason == "Not enough mana":
                 b.oom.append(t)
+            if e.event == "SPELL_DISPEL":
+                b.dispels.append(t)
         if e.src in b.party and e.event.endswith("_DAMAGE") and not e.event.endswith("_LANDED")                 and e.amount and is_enemy(e.dst, e.dst_flags):
             b.damage.append((t, e.src, e.amount))
         if deaths is None and e.event == "UNIT_DIED" and e.dst in b.party:
@@ -206,6 +220,7 @@ def measure_healer(rd: RunData, windows: list[Interval] | None = None, base: Hea
     lows = [pct for t, pct in b.mana if inside(t, windows)]
     hm.lowest_mana = min(lows) if lows else None
     hm.oom_refusals = sum(1 for t in b.oom if inside(t, windows))
+    hm.dispels = sum(1 for t in b.dispels if inside(t, windows))
     hm.deaths = [(t, n) for t, n in b.deaths if any(a - 5 <= t <= c + 15 for a, c in windows)]
 
     # damage: yours, yours in spare time (nobody under SAFE_HP), and the group's
