@@ -2,7 +2,6 @@
 -- in dungeons, as flat text lines the dips-score analyzer lines up with WoWCombatLog.txt.
 -- Config: settings and loading.
 local ADDON, ns = ...
-local D = dips
 
 ns.DEFAULTS = {
     record = {          -- where a run starts by itself
@@ -25,13 +24,11 @@ ns.DEFAULTS = {
 local loaders = {}
 function ns.OnLoad(fn) loaders[#loaders + 1] = fn end
 
-function ns.Print(msg) D:Print("score: " .. msg) end
-
 local E = CreateFrame("Frame")
 E:RegisterEvent("ADDON_LOADED")
 E:SetScript("OnEvent", function(self, event, name)
     if name ~= ADDON then return end
     self:UnregisterEvent("ADDON_LOADED")
-    ns.db = D:LoadProfile(ADDON, "dipsScoreDB", ns.DEFAULTS)
+    ns.db = ns.LoadSettings(ns.DEFAULTS)
     for _, fn in ipairs(loaders) do fn() end
 end)

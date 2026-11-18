@@ -42,10 +42,9 @@
 --   E,1,encounterID / E,0,encounterID,success    boss pull / boss end (success 1/0)
 --   MP,1,mapID / MP,0         keystone started / completed
 --   P,guid,name,class,role    a group member (see Intent.lua): at segment start and on changes
---   X,note                    marker (manual /dips score mark, segment notes)
+--   X,note                    marker (manual /dscore mark, segment notes)
 local ADDON, ns = ...
-local D = dips
-local IsSecret = D.IsSecret
+local IsSecret = ns.IsSecret
 
 local now = debugprofilestop
 local floor = math.floor

@@ -82,7 +82,6 @@ class SettingsDialog(QDialog):
         on, alpha, following = texture_choice(self.paths, self.settings)
         self.tex_on = QCheckBox("Draw the dips-Core texture behind the windows")
         self.tex_on.setChecked(on)
-        self.tex_on.setEnabled(texture.source(self.paths) is not None)
         self.tex_on.toggled.connect(self._tex_toggled)
         tl.addWidget(self.tex_on)
         row = QHBoxLayout()
@@ -103,6 +102,7 @@ class SettingsDialog(QDialog):
         self.tex_note = dim_label()
         tl.addWidget(self.tex_note)
         self._tex_note(following)
+        box.setVisible(texture.source(self.paths) is not None)   # nothing to draw without dips-Core's texture
         lay.addWidget(box)
 
         box = QGroupBox("After each fight")

@@ -7,13 +7,12 @@
 -- the same frame (same GetTime()). A key binding wins over a click.
 -- Addon action bars (Bartender, Dominos, ...) still show up through UseAction, as "?".
 local ADDON, ns = ...
-local D = dips
-local IsSecret = D.IsSecret
+local IsSecret = ns.IsSecret
 
 local Write, Field = ns.Write, ns.Field
 local GetTime = GetTime
 
-local watching = false -- /dips score watch: print each press to chat
+local watching = false -- /dscore watch: print each press to chat
 
 ----------------------------------------------------------------------
 -- Action presses
@@ -145,7 +144,7 @@ function ns.WriteRoster()
     if not ns.IsRecording() then return end
     for _, unit in ipairs(RosterUnits()) do
         local guid = UnitExists(unit) and UnitGUID(unit)
-        if guid and not D.IsSecret(guid) then
+        if guid and not ns.IsSecret(guid) then
             local name = (GetUnitName and GetUnitName(unit, true)) or UnitName(unit)
             local _, class = UnitClass(unit)
             local role = UnitGroupRolesAssigned and UnitGroupRolesAssigned(unit) or "NONE"
@@ -191,12 +190,12 @@ function ns.OnSegmentOpened()
 end
 
 ----------------------------------------------------------------------
--- /dips score watch
+-- /dscore watch
 ----------------------------------------------------------------------
 function ns.ToggleWatch()
     watching = not watching
     ns.Print("watch " .. (watching and "on: each press prints with how it was pressed." or "off."))
     if watching and not ns.IsRecording() then
-        ns.Print("not recording right now - /dips score start to record here.")
+        ns.Print("not recording right now - /dscore start to record here.")
     end
 end

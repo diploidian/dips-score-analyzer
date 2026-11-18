@@ -2,9 +2,8 @@
 --
 -- A run starts when you enter an instance of a kind turned on in the settings (dungeons by
 -- default) and ends when you leave it. A /reload inside keeps the run going in a new segment
--- (the reload saved the old one). /dips score start|stop does it by hand, anywhere.
+-- (the reload saved the old one). /dscore start|stop does it by hand, anywhere.
 local ADDON, ns = ...
-local D = dips
 
 local RESUME_WINDOW = 30 * 60 -- seconds: back in the same instance within this, same run
 
@@ -46,7 +45,7 @@ local function StartRun(zone, kind, difficulty, instanceID)
     local started = time()
     run = {
         id = started .. "-" .. (UnitName("player") or "?"),
-        char = D:CharKey(),
+        char = ns.CharKey(),
         zone = zone, kind = kind, difficulty = difficulty, instanceID = instanceID,
         started = started,
         segments = {},
@@ -108,7 +107,7 @@ function ns.StartManual()
         -- already recording: keep this run, it just won't end by itself now
         manual = true
         if not ns.IsRecording() then OpenSegment() end
-        ns.Print("already recording " .. (run.zone or "?") .. "; it now runs until /dips score stop.")
+        ns.Print("already recording " .. (run.zone or "?") .. "; it now runs until /dscore stop.")
         return
     end
     manual = true
