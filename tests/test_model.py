@@ -522,5 +522,98 @@ class Upkeep(unittest.TestCase):
             score.reset_weights()
 
 
+class Positioning(unittest.TestCase):
+    """behind the target, range when refused, distance from the tank; nothing changes a total"""
+    def at(self, e, guid, x, y, facing=0.0):
+        from dips_score.sources.combatlog import UnitInfo
+        e.info = UnitInfo(guid, 1, 1, 0, 0, 0, x, y, 1, facing, 60)
+        return e
+
+    def measure(self, events):
+        from dips_score.scoring.positioning import measure_positioning, position_base
+        rd = rundata(events, [Fight(0, 60)])
+        return measure_positioning(rd, base=position_base(rd, TANK))
+
+    def swings(self, mob_at=0.2, n=12, behind=8):
+        out = []
+        for i in range(n):
+            t = i + 1
+            out.append(self.at(ev(t, "SWING_DAMAGE", ME, MOB1, amount=1), ME, -5 if i < behind else 5, 0))
+            out.append(self.at(ev(t + mob_at, "SWING_DAMAGE", MOB1, TANK, amount=1), MOB1, 0, 0, 0.0))
+        return out
+
+    def test_angle(self):
+        from dips_score.scoring.positioning import faces
+        self.assertFalse(faces(0, 0, 0.0, -10, 0))   # facing north, you directly south: behind
+        self.assertTrue(faces(0, 0, 0.0, 10, 0))     # directly north: in front
+
+    def test_behind_share(self):
+        pm = self.measure(self.swings())
+        self.assertEqual((pm.behind, pm.behind_judged, pm.swings), (8, 12, 12))
+        self.assertAlmostEqual(pm.behind_share, 8 / 12)
+
+    def test_stale_readings_and_too_few(self):
+        from dips_score.scoring.metrics import Metrics
+        from dips_score.scoring.score import _positioning
+        pm = self.measure(self.swings(mob_at=100))   # enemy readings far from every swing
+        self.assertEqual((pm.behind_judged, pm.swings), (0, 12))
+        m = Metrics(combat_time=60, has_log=True, has_advanced=True, swings=100)
+        self.assertEqual(_positioning(pm, m, 0).unavailable, "too few position readings to judge")
+        self.assertEqual(_positioning(self.measure(self.swings(n=9, behind=9)), m, 0).unavailable,
+                         "too few position readings to judge")
+        cat = _positioning(self.measure(self.swings()), m, 5)
+        self.assertFalse(cat.unavailable)
+        self.assertIn("(12 of 12 judged)", cat.summary)
+
+    def test_far_from_tank_and_range(self):
+        events = []
+        for i in range(10):
+            t = i + 1
+            events.append(self.at(ev(t, "SWING_DAMAGE", MOB1, ME, amount=5), ME, 10 if i < 6 else 20, 0))
+            events.append(self.at(ev(t + 0.2, "SWING_DAMAGE", MOB1, TANK, amount=5), TANK, 0, 0))
+        refused = ev(15, "SPELL_CAST_FAILED", ME, spell="Smite")
+        refused.reason = "Out of range"
+        events += [self.at(refused, ME, 0, 0), self.at(ev(15.1, "SWING_DAMAGE", MOB1, TANK), MOB1, 30, 0)]
+        pm = self.measure(events)
+        self.assertEqual((len(pm.tank_dists), pm.hits), (10, 10))
+        self.assertEqual((pm.median_tank, pm.far_share), (10, 0.4))
+        self.assertEqual((pm.range_dists, pm.refused), ([30.0], 1))
+
+    def test_no_advanced(self):
+        from dips_score.scoring.metrics import Metrics
+        from dips_score.scoring.positioning import PositionMetrics
+        from dips_score.scoring.score import _positioning
+        cat = _positioning(PositionMetrics(), Metrics(combat_time=60, has_log=True), 0)
+        self.assertEqual(cat.unavailable, "needs Advanced Combat Logging")
+
+    def test_totals_unchanged(self):
+        from dips_score.scoring.healer import HealerMetrics
+        from dips_score.scoring.metrics import Metrics
+        from dips_score.scoring.score import score
+        from dips_score.scoring.tank import TankMetrics
+        m = Metrics(combat_time=60, has_log=True, has_advanced=True, swings=100)
+        pm = self.measure(self.swings())
+        hm, tm = HealerMetrics(combat_time=60), TankMetrics(mobs=3, held=3)
+        for role in ("dps", "tank", "healer"):
+            a, b = score(m, role, hm, tm), score(m, role, hm, tm, pm=pm)
+            self.assertEqual(a.total, b.total, role)
+            self.assertEqual(b.categories[-1].name, "Positioning")
+            self.assertTrue(b.categories[-1].info_only)
+            self.assertEqual([c.name for c in b.categories[:-1]], [c.name for c in a.categories])
+
+    def test_old_weights_file(self):
+        import json
+        import tempfile
+        from dips_score.scoring import score
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "weights.json"
+            path.write_text(json.dumps({"healer": {"Response": 50}}), encoding="utf-8")
+            score.load_weights(path)
+        try:
+            self.assertEqual([score.WEIGHTS[r]["Positioning"] for r in score.ROLES], [0, 0, 0])
+        finally:
+            score.reset_weights()
+
+
 if __name__ == "__main__":
     unittest.main()

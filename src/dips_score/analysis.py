@@ -22,6 +22,7 @@ from .scoring.radar import radars
 from .scoring.healer import HealerMetrics, healer_base, measure_healer
 from .scoring.interrupts import InterruptMetrics, interrupt_base, measure_interrupts
 from .scoring.metrics import Metrics, measure
+from .scoring.positioning import PositionMetrics, measure_positioning, position_base
 from .scoring.score import Scorecard, score
 from .scoring.upkeep import UpkeepMetrics, measure_upkeep, upkeep_base
 from .scoring.tank import TankMetrics, measure_tank, tank_base
@@ -43,6 +44,7 @@ class FightResult:
     interrupts: InterruptMetrics | None = None    # dps/tank
     cooldowns: CooldownMetrics | None = None      # dps/tank
     upkeep: UpkeepMetrics | None = None           # dps/tank
+    positioning: PositionMetrics | None = None
 
 
 @dataclass
@@ -69,6 +71,7 @@ class Analysis:
     interrupts: InterruptMetrics | None = None    # dps/tank
     cooldowns: CooldownMetrics | None = None      # dps/tank
     upkeep: UpkeepMetrics | None = None           # dps/tank
+    positioning: PositionMetrics | None = None
 
     @property
     def me(self) -> Player | None:
@@ -110,9 +113,9 @@ def load_saved(paths: Paths, saved: Path | None = None, merge: bool = True) -> t
 
 def rescore(a: Analysis):
     """Score again with the weights in use now (after they were changed): the measuring stays."""
-    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts, a.cooldowns, a.upkeep)
+    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts, a.cooldowns, a.upkeep, a.positioning)
     for fr in a.fights:
-        fr.card = score(fr.metrics, a.role, fr.healer, fr.tank, fr.damage, fr.interrupts, fr.cooldowns, fr.upkeep)
+        fr.card = score(fr.metrics, a.role, fr.healer, fr.tank, fr.damage, fr.interrupts, fr.cooldowns, fr.upkeep, fr.positioning)
     if a.group is not None:
         a.ranking = rank_group(a)
 
@@ -162,6 +165,11 @@ def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
         a.cooldowns, per_fight = measure_cooldowns(rd, History(paths).cooldowns)
         for fr, cm in zip(fights, per_fight):
             fr.cooldowns = cm
+    if rd.has_combat_log:   # every role
+        pb = position_base(rd, next((g for g, p in roster.items() if p.role == "TANK" and g != me), None))
+        a.positioning = measure_positioning(rd, base=pb)
+        for fr in fights:
+            fr.positioning = measure_positioning(rd, [(fr.fight.start, fr.fight.end)], pb)
     rescore(a)   # with the extras (also ranks the group)
     a.radars = radars(a)
     return a

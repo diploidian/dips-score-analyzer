@@ -28,6 +28,9 @@ the add-on categories only.
 Upkeep (dps, tank): the buffs and DoTs your class keeps up (classes.py), as the share of combat they
 were up, for the ones you applied this run (upkeep.py). Nothing applied, no row.
 
+Positioning (every role, info only by default): melee players by how often you stood behind your target,
+everyone else by how often you took hits far from the tank (positioning.py). Needs Advanced Combat Logging.
+
 Hybrid bonus (healer): your damage, as a share of an even split of the group's damage (damage
 done while everyone was above 80% health counts fully, the rest half), times how well you healed
 (Group health x Response). So damage only adds to your score when the healing held up.
@@ -46,6 +49,7 @@ from .healer import DIP_HP, RESPONSE_CAP, SAFE_HP, HealerMetrics
 from .cooldowns import CooldownMetrics
 from .interrupts import InterruptMetrics
 from .metrics import Metrics
+from .positioning import FAR, PositionMetrics
 from .tank import PICKUP_CAP, TankMetrics
 from .upkeep import UpkeepMetrics
 
@@ -92,17 +96,20 @@ TUNING = {
     "cd_lost_zero": 0.15, "cd_lost_full": 0.0,
     # upkeep: mean uptime of the buffs and DoTs you applied
     "upkeep_zero": 0.40, "upkeep_full": 0.90,
+    # positioning: share of swings from behind (melee), share of hits taken far from the tank (others)
+    "behind_zero": 0.2, "behind_full": 0.8, "far_zero": 0.5, "far_full": 0.05, "min_judged": 10,
 }
 POWER_WORD = {1: "rage", 3: "energy"}   # Metrics.power_type
 
 BONUS = "Hybrid bonus"   # not a category: its "weight" is the most points it can add
 DEFAULT_WEIGHTS = {
     "healer": {"Group health": 35, "Response": 35, "Efficiency": 20, "Casting": 10, "Movement": 0, "Input": 0,
-               BONUS: 10},
+               "Positioning": 0, BONUS: 10},
     "dps": {"Damage": 20, "Activity": 15, "Cooldowns": 10, "Interrupts": 10, "Casting": 10, "Movement": 10,
-            "Survival": 10, "Upkeep": 5, "Input": 5, "Resource": 5},
+            "Survival": 10, "Upkeep": 5, "Input": 5, "Resource": 5, "Positioning": 0},
     "tank": {"Holding mobs": 25, "Pickups": 25, "Survival": 20, "Activity": 10, "Upkeep": 10, "Casting": 5,
-             "Input": 5, "Movement": 0, "Interrupts": 0, "Cooldowns": 0, "Resource": 0},
+             "Input": 5, "Movement": 0, "Interrupts": 0, "Cooldowns": 0, "Resource": 0,
+             "Positioning": 0},
 }
 WEIGHTS = {role: dict(w) for role, w in DEFAULT_WEIGHTS.items()}   # in use (load_weights fills it)
 
@@ -305,6 +312,36 @@ def _upkeep(um: UpkeepMetrics | None, w: int) -> Category | None:
                     f"falls off." if s < 85 else None)
 
 
+def _positioning(pm: PositionMetrics, m: Metrics, w: int) -> Category:
+    """where you stood: behind your target (melee) or near the tank (others); info only unless weighted"""
+    T = TUNING
+    if not m.has_advanced:
+        need = "needs Advanced Combat Logging"
+        return Category("Positioning", 0.0, w, need, unavailable=need)
+    parts = []
+    if pm.behind_judged:
+        parts.append(f"behind the target for {pm.behind_share:.0%} of swings ({pm.behind_judged} of {pm.swings} judged)")
+    if pm.range_dists:
+        parts.append(f"median {pm.median_range:.0f} yd from the nearest enemy when out of range "
+                     f"({len(pm.range_dists)} of {pm.refused} judged)")
+    if pm.tank_dists:
+        parts.append(f"hits taken median {pm.median_tank:.0f} yd from the tank, {pm.far_share:.0%} beyond "
+                     f"{FAR:.0f} yd ({len(pm.tank_dists)} of {pm.hits} judged)")
+    summary = "; ".join(parts)
+    melee = _melee(m)
+    if (pm.behind_judged if melee else len(pm.tank_dists)) < T["min_judged"]:
+        why = "too few position readings to judge"
+        return Category("Positioning", 0.0, w, summary or why, unavailable=why)
+    s = (ramp(pm.behind_share, T["behind_zero"], T["behind_full"]) if melee
+         else ramp(pm.far_share, T["far_zero"], T["far_full"]))
+    tip = None
+    if s < 85 and w > 0:
+        tip = ("Get behind your target: hits from behind can't be parried or blocked." if melee else
+               f"{pm.far_share:.0%} of the hits you took landed more than {FAR:.0f} yd from the tank. "
+               f"Stay close to the tank.")
+    return Category("Positioning", s, w, summary, tip)
+
+
 def _survival(m: Metrics, w: int) -> Category:
     """your own deaths and time under 35%"""
     T = TUNING
@@ -450,7 +487,7 @@ def hybrid_bonus(hm: HealerMetrics, cats: list[Category]) -> tuple[float, str]:
     return W[BONUS] * share * quality, note
 
 
-def score_healer(m: Metrics, hm: HealerMetrics) -> Scorecard:
+def score_healer(m: Metrics, hm: HealerMetrics, pm: PositionMetrics | None = None) -> Scorecard:
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "healer", note="no combat in this run, nothing to score")
     if not m.has_log:
@@ -460,13 +497,16 @@ def score_healer(m: Metrics, hm: HealerMetrics) -> Scorecard:
     cats.append(_casting(m, W["Casting"], MASHING))
     cats.append(_movement(m, W["Movement"]))
     cats.append(_input(m, W["Input"]))
+    if pm is not None:
+        cats.append(_positioning(pm, m, W["Positioning"]))
     bonus, note = hybrid_bonus(hm, cats)
     return _card(cats, "healer", bonus, note)
 
 
 # ----------------------------------------------------------------------------- dps
 def score_dps(m: Metrics, dmg: tuple[int, float] | None = None, im: InterruptMetrics | None = None,
-              cm: CooldownMetrics | None = None, um: UpkeepMetrics | None = None) -> Scorecard:
+              cm: CooldownMetrics | None = None, um: UpkeepMetrics | None = None,
+              pm: PositionMetrics | None = None) -> Scorecard:
     """dmg: your damage and its share of an even split (group.py damage_share; None when solo)"""
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "dps", note="no combat in this run, nothing to score")
@@ -484,6 +524,8 @@ def score_dps(m: Metrics, dmg: tuple[int, float] | None = None, im: InterruptMet
             cats.append(up)
     if res := _resource(m, W["Resource"]):
         cats.append(res)
+    if pm is not None and m.has_log:
+        cats.append(_positioning(pm, m, W["Positioning"]))
     return _card(cats, "dps")
 
 
@@ -530,7 +572,8 @@ def tank_categories(tm: TankMetrics, weights: dict, you: bool = True, m: Metrics
 
 
 def score_tank(m: Metrics, tm: TankMetrics, im: InterruptMetrics | None = None,
-               cm: CooldownMetrics | None = None, um: UpkeepMetrics | None = None) -> Scorecard:
+               cm: CooldownMetrics | None = None, um: UpkeepMetrics | None = None,
+              pm: PositionMetrics | None = None) -> Scorecard:
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "tank", note="no combat in this run, nothing to score")
     if not m.has_log:
@@ -545,18 +588,20 @@ def score_tank(m: Metrics, tm: TankMetrics, im: InterruptMetrics | None = None,
         cats.append(up)
     if res := _resource(m, W["Resource"]):
         cats.append(res)
+    if pm is not None:
+        cats.append(_positioning(pm, m, W["Positioning"]))
     return _card(cats, "tank")
 
 
 def score(m: Metrics, role: str = "healer", hm: HealerMetrics | None = None,
           tm: TankMetrics | None = None, dmg: tuple[int, float] | None = None,
           im: InterruptMetrics | None = None, cm: CooldownMetrics | None = None,
-          um: UpkeepMetrics | None = None) -> Scorecard:
+          um: UpkeepMetrics | None = None, pm: PositionMetrics | None = None) -> Scorecard:
     if role == "healer" and hm is not None:
-        return score_healer(m, hm)
+        return score_healer(m, hm, pm)
     if role == "tank" and tm is not None:
-        return score_tank(m, tm, im, cm, um)
-    return score_dps(m, dmg, im, cm, um)
+        return score_tank(m, tm, im, cm, um, pm)
+    return score_dps(m, dmg, im, cm, um, pm)
 
 
 def _fail_tip(m: Metrics, ignore: set[str] = frozenset()) -> str:
