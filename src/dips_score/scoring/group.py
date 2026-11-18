@@ -3,7 +3,8 @@
 The add-on only records *your* presses and movement, so to rank the whole group fairly every
 player (you included) is judged on what the combat log shows, by role:
 
-    TANK     Holding mobs 40 (share of mobs whose first hit went to them), Survival 35, Damage 25
+    TANK     Holding mobs 40 (share of mobs whose first hit went to them), Pickups 25 (seconds until a
+             mob that turned to someone else is back on them), Survival 35, Damage 25
     HEALER   Group health, Response, Efficiency (as on your own scorecard) + the hybrid bonus
     DPS      Damage 60 (against an even split of the group's damage), Survival 25, Utility 15
              (interrupts and dispels)
@@ -21,12 +22,14 @@ from dataclasses import dataclass, field
 from ..sources.combatlog import is_enemy
 from .healer import HealerBase, healer_base, measure_healer
 from .metrics import Interval, union
-from .score import Category, Scorecard, _card, healer_categories, hybrid_bonus, ramp
+from .score import Category, Scorecard, _card, healer_categories, hybrid_bonus, ramp, tank_categories
+from .tank import TankBase, measure_tank, tank_base
 
 AWARD_POINTS, AWARD_CAP = 2.0, 6.0
 # who can interrupt or dispel at all (a hunter can't, so Utility doesn't count for one)
 CAN_UTILITY = {"WARRIOR", "ROGUE", "MAGE", "SHAMAN", "WARLOCK", "PRIEST", "PALADIN", "DRUID"}
 ORDINAL = {1: "1st", 2: "2nd", 3: "3rd"}
+TANK_WEIGHTS = {"Holding mobs": 40, "Pickups": 25, "Survival": 35}
 
 
 def ordinal(n: int) -> str:
@@ -42,6 +45,7 @@ class GroupData:
     deaths: dict[str, list[float]] = field(default_factory=dict)
     first_hits: list[tuple[float, str]] = field(default_factory=list)   # (time, player) per enemy
     healer_bases: dict[str, HealerBase] = field(default_factory=dict)
+    tank_bases: dict[str, TankBase] = field(default_factory=dict)
 
 
 @dataclass
@@ -86,6 +90,8 @@ def group_data(a) -> GroupData:
     for guid, p in roster.items():
         if p.role == "HEALER":
             g.healer_bases[guid] = healer_base(rd, deaths, guid)
+        elif p.role == "TANK":
+            g.tank_bases[guid] = tank_base(rd, a.pulls, g.deaths[guid], guid)
     return g
 
 
@@ -128,15 +134,8 @@ def player_card(a, guid: str, windows: list[Interval] | None = None) -> Scorecar
         return _card(cats, "healer", bonus, note)
 
     if role == "TANK":
-        firsts = [(t, who) for t, who in g.first_hits if any(c - 20 <= t <= b for c, b in windows)]
-        held = sum(1 for _, who in firsts if who == guid)
-        share = held / len(firsts) if firsts else 1.0
-        cats.append(Category("Holding mobs", ramp(share, 0.4, 0.9), 40,
-                             f"{held} of {len(firsts)} mobs went for them first ({share:.0%})",
-                             "Mobs went for other players first: pick them up faster (taunt, or tag every mob)."
-                             if share < 0.8 else None))
-        cats.append(Category("Survival", max(0.0, 100 - 40 * deaths), 35, surv_txt,
-                             "Died: look at the hits before it, and use cooldowns earlier." if deaths else None))
+        tm = measure_tank(rd, windows, g.tank_bases[guid])
+        cats = tank_categories(tm, TANK_WEIGHTS, you=p.is_me)
         rel = mine / even if even else 0
         cats.append(Category("Damage", ramp(rel, 0.3, 1.0), 25,
                              f"{mine:,} damage ({rel:.0%} of an even share)", None))

@@ -191,6 +191,7 @@ class ScorePanel(QWidget):
 FIGHT_COLUMNS = {
     "healer": ["At", "Fight", "Length", "Score", "Response", "Missed", "Died"],
     "dps": ["At", "Fight", "Length", "Score", "Busy", "Refused", "Presses/cast"],
+    "tank": ["At", "Fight", "Length", "Score", "Pickup", "Missed", "Died"],
     "other": ["At", "Fight", "Length", "Score", "Damage", "Taken", "Died"],   # anyone but you
 }
 
@@ -302,6 +303,10 @@ class ScoreTab(QWidget):
                 elif a.role == "healer":
                     resp = f"{h.median_response:.1f}s" if h.median_response is not None else "-"
                     vals += [resp, f"{h.missed}/{len(h.judged)}" if h.judged else "-", died]
+                elif a.role == "tank" and fr.tank:
+                    t = fr.tank
+                    pick = f"{t.median_pickup:.1f}s" if t.median_pickup is not None else "-"
+                    vals += [pick, f"{t.missed}/{len(t.judged)}" if t.judged else "-", died]
                 else:
                     vals += [f"{m.uptime:.0%}", str(m.failed), f"{m.presses_per_cast:.1f}"]
                 r = self.fights.rowCount()

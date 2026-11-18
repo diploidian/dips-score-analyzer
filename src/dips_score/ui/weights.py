@@ -7,7 +7,7 @@ from PyQt6.QtWidgets import (QDialog, QGridLayout, QGroupBox, QHBoxLayout, QLabe
                              QVBoxLayout)
 
 from ..config import Paths
-from ..scoring.score import BONUS, DEFAULT_WEIGHTS, WEIGHTS, reset_weights, save_weights
+from ..scoring.score import BONUS, DEFAULT_WEIGHTS, ROLES, WEIGHTS, reset_weights, save_weights
 from .pages import dim_label
 
 HELP = {
@@ -19,6 +19,8 @@ HELP = {
     "Input": "mashing, and pressing buttons with the mouse",
     "Activity": "share of combat spent casting, on the GCD or wanding",
     "Survival": "your own deaths and time under 35%",
+    "Holding mobs": "share of mobs whose first hit went to you",
+    "Pickups": "how fast a mob that turned to someone else is back on you",
     BONUS: "most points added for the damage you also did, scaled by how well you healed",
 }
 
@@ -36,7 +38,8 @@ class WeightsDialog(QDialog):
                                 "only: still shown, but it doesn't count and gives no tips. Weights are relative "
                                 "(35/35/20/10 is the same as 7/7/4/2). Changes apply at once and are saved."))
         self.sliders: dict[tuple[str, str], tuple[QSlider, QLabel]] = {}
-        for role, title in (("healer", "Healer"), ("dps", "DPS")):
+        for role in ROLES:
+            title = "DPS" if role == "dps" else role.title()
             box = QGroupBox(title)
             grid = QGridLayout(box)
             for i, key in enumerate(DEFAULT_WEIGHTS[role]):

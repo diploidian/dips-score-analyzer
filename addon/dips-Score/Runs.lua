@@ -80,7 +80,7 @@ local function StartRun(zone, kind, difficulty, instanceID)
     log.runs[#log.runs + 1] = run
     log.active = run.id
     OpenSegment()
-    if ns.db.combatLog then EnsureCombatLog() end
+    if ns.db.combatLog then pcall(EnsureCombatLog) end
     if ns.db.announce then ns.Print("recording " .. (zone or "?") .. ".") end
 end
 

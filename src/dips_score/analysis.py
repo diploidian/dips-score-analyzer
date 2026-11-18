@@ -20,6 +20,7 @@ from .scoring.radar import radars
 from .scoring.healer import HealerMetrics, healer_base, measure_healer
 from .scoring.metrics import Metrics, measure
 from .scoring.score import Scorecard, score
+from .scoring.tank import TankMetrics, measure_tank, tank_base
 from .sources import combatlog
 from .sources.savedvars import Run, load_runs
 
@@ -33,6 +34,7 @@ class FightResult:
     metrics: Metrics
     healer: HealerMetrics
     card: Scorecard
+    tank: TankMetrics | None = None   # only when scored as a tank
 
 
 @dataclass
@@ -54,6 +56,7 @@ class Analysis:
     group: object = None             # scoring.group.GroupData
     ranking: list = field(default_factory=list)   # scoring.group.Placing, best first
     radars: dict = field(default_factory=dict)    # guid -> scoring.radar.Radar
+    tank: TankMetrics | None = None               # only when scored as a tank
 
     @property
     def me(self) -> Player | None:
@@ -95,9 +98,9 @@ def load_saved(paths: Paths, saved: Path | None = None, merge: bool = True) -> t
 
 def rescore(a: Analysis):
     """Score again with the weights in use now (after they were changed): the measuring stays."""
-    a.card = score(a.metrics, a.role, a.healer)
+    a.card = score(a.metrics, a.role, a.healer, a.tank)
     for fr in a.fights:
-        fr.card = score(fr.metrics, a.role, fr.healer)
+        fr.card = score(fr.metrics, a.role, fr.healer, fr.tank)
     if a.group is not None:
         a.ranking = rank_group(a)
 
@@ -105,7 +108,7 @@ def rescore(a: Analysis):
 def role_of(p: Player | None) -> str:
     if p is None or p.role is None:
         return DEFAULT_ROLE      # no combat log to tell from
-    return "healer" if p.role == "HEALER" else "dps"
+    return {"HEALER": "healer", "TANK": "tank"}.get(p.role, "dps")
 
 
 def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
@@ -115,16 +118,19 @@ def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
     role = role or role_of(roster.get(rd.player_guid or ""))
     deaths, wipes = find_deaths(rd, roster)
     base = healer_base(rd, [(d.t, d.name) for d in deaths])
+    pulls, loose = build_pulls(rd, roster)
+    tb = tank_base(rd, pulls, [d.t for d in deaths if d.guid == rd.player_guid]) if role == "tank" else None
     m, hm = measure(rd), measure_healer(rd, base=base)
+    tm = measure_tank(rd, base=tb) if tb else None
     fights = []
     for f in rd.fights:
         w = [(f.start, f.end)]
         fm, fh = measure(rd, w), measure_healer(rd, w, base)
-        fights.append(FightResult(f, fm, fh, score(fm, role, fh)))
-    pulls, loose = build_pulls(rd, roster)
+        ft = measure_tank(rd, w, tb) if tb else None
+        fights.append(FightResult(f, fm, fh, score(fm, role, fh, ft), ft))
     pets = pets_of(rd, roster)
-    a = Analysis(rd, role, m, hm, score(m, role, hm), fights, roster, pulls, loose, deaths, wipes,
-                 player_casts(rd, roster), pets, summarize(rd, roster, pulls, deaths, pets, len(wipes)))
+    a = Analysis(rd, role, m, hm, score(m, role, hm, tm), fights, roster, pulls, loose, deaths, wipes,
+                 player_casts(rd, roster), pets, summarize(rd, roster, pulls, deaths, pets, len(wipes)), tank=tm)
     a.group = group_data(a)
     a.ranking = rank_group(a)
     a.radars = radars(a)

@@ -11,7 +11,7 @@ import sys
 
 from . import analysis
 from .config import paths as get_paths
-from .scoring.score import load_weights
+from .scoring.score import ROLES, load_weights
 
 
 def _fmt_time(s: float) -> str:
@@ -37,6 +37,10 @@ def _fight_detail(fr, role: str) -> str:
         resp = f"{h.median_response:.1f}s" if h.median_response is not None else "-"
         dead = f"  {len(h.deaths)} died" if h.deaths else ""
         return f"response {resp}, {len(h.judged)} dips, {h.missed} missed{dead}"
+    if role == "tank" and fr.tank:
+        t = fr.tank
+        pick = f"{t.median_pickup:.1f}s" if t.median_pickup is not None else "-"
+        return f"pickup {pick}, {len(t.judged)} lost, {t.missed} missed"
     return f"busy {fr.metrics.uptime:.0%}"
 
 
@@ -92,7 +96,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("runs", help="list saved runs")
     rp = sub.add_parser("report", help="print a run's scorecard")
     rp.add_argument("n", nargs="?", type=int, help="run number from `runs` (default: latest)")
-    rp.add_argument("--role", choices=["healer", "dps"], default=None,
+    rp.add_argument("--role", choices=list(ROLES), default=None,
                     help="what to judge you as (default: your role in the group, else healer)")
     sub.add_parser("gui", help="open the window (default)")
     sub.add_parser("live", help="just the after-fight overlay, from the system tray")

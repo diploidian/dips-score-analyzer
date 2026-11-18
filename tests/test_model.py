@@ -130,5 +130,50 @@ class AdvancedLogging(unittest.TestCase):
         self.assertGreater(bonus, 0)
 
 
+class Pickups(unittest.TestCase):
+    """a tank run: a mob turns to the healer (ME) and comes back, or doesn't"""
+    def tank(self, *events):
+        from dips_score.scoring.tank import measure_tank, tank_base
+        rd = rundata([ev(10, "SWING_DAMAGE", MOB1, TANK, amount=100), *events], [Fight(0, 60)])
+        return measure_tank(rd, base=tank_base(rd, [], [], TANK))
+
+    def test_picked_up(self):
+        tm = self.tank(ev(12, "SWING_DAMAGE", MOB1, ME, amount=100), ev(14, "SWING_MISSED", MOB1, TANK))
+        self.assertEqual(len(tm.judged), 1)
+        self.assertAlmostEqual(tm.judged[0].response, 2.0)
+        self.assertEqual(tm.missed, 0)
+
+    def test_never_back_is_a_miss(self):
+        tm = self.tank(ev(12, "SWING_DAMAGE", MOB1, ME, amount=100), ev(25, "SWING_DAMAGE", MOB1, TANK, amount=100))
+        self.assertEqual((len(tm.judged), tm.missed), (1, 1))
+
+    def test_mob_died_first_is_left_out(self):
+        tm = self.tank(ev(12, "SWING_DAMAGE", MOB1, ME, amount=100), ev(14, "UNIT_DIED", "", MOB1))
+        self.assertEqual((len(tm.losses), len(tm.judged), tm.missed), (1, 0, 0))
+
+    def test_tank_card(self):
+        from dips_score.scoring.metrics import Metrics
+        from dips_score.scoring.score import score
+        tm = self.tank(ev(12, "SWING_DAMAGE", MOB1, ME, amount=100), ev(14, "SWING_DAMAGE", MOB1, TANK, amount=100))
+        card = score(Metrics(combat_time=60, has_log=True), "tank", tm=tm)
+        self.assertEqual(card.role, "tank")
+        self.assertEqual([c.name for c in card.categories],
+                         ["Holding mobs", "Pickups", "Survival", "Activity", "Casting", "Input", "Movement"])
+
+    def test_weights_without_tank_key(self):
+        import json
+        import tempfile
+        from dips_score.scoring import score
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "weights.json"
+            path.write_text(json.dumps({"healer": {"Response": 50}, "dps": {}}), encoding="utf-8")
+            score.load_weights(path)
+        try:
+            self.assertEqual(score.WEIGHTS["healer"]["Response"], 50)
+            self.assertEqual(score.WEIGHTS["tank"], score.DEFAULT_WEIGHTS["tank"])
+        finally:
+            score.reset_weights()
+
+
 if __name__ == "__main__":
     unittest.main()

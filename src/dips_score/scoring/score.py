@@ -5,6 +5,7 @@ change them in the window, saved in weights.json):
     healer   Group health 35, Response 35, Efficiency 20, Casting 10, Movement 0, Input 0
              + a hybrid bonus of up to 10 for the damage you also did
     dps      Activity 30, Casting 20, Movement 15, Survival 20, Input 15
+    tank     Holding mobs 25, Pickups 25, Survival 20, Activity 10, Casting 10, Input 10, Movement 0
 
 A category weighted 0 is info only: still shown with its numbers, but it doesn't count toward the
 total and gives no tips. For a healer, mashing and casts cut by moving are info only by default,
@@ -26,8 +27,9 @@ from pathlib import Path
 
 from .healer import DIP_HP, RESPONSE_CAP, SAFE_HP, HealerMetrics
 from .metrics import Metrics
+from .tank import PICKUP_CAP, TankMetrics
 
-ROLES = ("healer", "dps")
+ROLES = ("healer", "dps", "tank")
 
 TUNING = {
     # activity (dps): share of combat time casting, channeling, on the GCD or wanding
@@ -49,6 +51,12 @@ TUNING = {
     # efficiency (healer): overhealing on your cast heals and HoTs; running out of mana
     "overheal_full": 0.15, "overheal_zero": 0.50,
     "oom_cost": 25, "low_mana": 0.05, "low_mana_cost": 30,
+    # holding mobs (tank): share of mobs whose first hit went to the tank
+    "hold_zero": 0.4, "hold_full": 0.9,
+    # pickups (tank): median seconds until a mob that left is back on the tank, and share never back
+    "pickup_full": 1.5, "pickup_zero": PICKUP_CAP, "pickup_missed_zero": 0.5,
+    # survival (tank, group card): each death
+    "tank_death_cost": 40,
 }
 
 BONUS = "Hybrid bonus"   # not a category: its "weight" is the most points it can add
@@ -56,6 +64,8 @@ DEFAULT_WEIGHTS = {
     "healer": {"Group health": 35, "Response": 35, "Efficiency": 20, "Casting": 10, "Movement": 0, "Input": 0,
                BONUS: 10},
     "dps": {"Activity": 30, "Casting": 20, "Movement": 15, "Survival": 20, "Input": 15},
+    "tank": {"Holding mobs": 25, "Pickups": 25, "Survival": 20, "Activity": 10, "Casting": 10, "Input": 10,
+             "Movement": 0},
 }
 WEIGHTS = {role: dict(w) for role, w in DEFAULT_WEIGHTS.items()}   # in use (load_weights fills it)
 
@@ -182,6 +192,32 @@ def _input(m: Metrics, w: int) -> Category:
                                    f"{m.click_share:.0%} clicks{hold}", tip)
 
 
+def _activity(m: Metrics, w: int) -> Category:
+    T = TUNING
+    s = ramp(m.uptime, T["uptime_zero"], T["uptime_full"])
+    longest = max((b - a for a, b in m.idle_gaps), default=0)
+    return Category(
+        "Activity", s, w,
+        f"busy {m.uptime:.0%} of {m.combat_time:.0f}s in combat; {len(m.idle_gaps)} gaps of 2.5s+"
+        + (f", longest {longest:.1f}s" if m.idle_gaps else ""),
+        f"Always be casting: you were doing nothing {1 - m.uptime:.0%} of combat. "
+        f"Fill gaps with an instant, a DoT refresh or your wand." if s < 85 else None)
+
+
+def _survival(m: Metrics, w: int) -> Category:
+    """your own deaths and time under 35%"""
+    T = TUNING
+    lowhp_share = m.low_hp_time / m.combat_time if m.combat_time else 0
+    s = max(0.0, 100 - T["death_cost"] * m.deaths - (100 - ramp(lowhp_share, T["lowhp_share_zero"], 0)) * 0.4)
+    hp_txt = f"lowest health {m.lowest_hp:.0%}, {m.low_hp_time:.0f}s under 35%" if m.lowest_hp is not None \
+        else "no health data (needs Advanced Combat Logging)"
+    return Category(
+        "Survival", s, w, f"{m.deaths} deaths; {hp_txt}",
+        ("You died - look at what hit you in the seconds before it." if m.deaths else
+         "You spent a lot of time low on health. Step out of hits and use your shield earlier.")
+        if s < 85 else None)
+
+
 def _card(cats: list[Category], role: str, bonus: float = 0.0, bonus_note: str = "") -> Scorecard:
     weight = sum(c.weight for c in cats if not c.info_only)
     base = sum(c.score * c.weight for c in cats if not c.info_only) / weight if weight else 0.0
@@ -283,38 +319,72 @@ def score_healer(m: Metrics, hm: HealerMetrics) -> Scorecard:
 def score_dps(m: Metrics) -> Scorecard:
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "dps", note="no combat in this run, nothing to score")
-    T, W = TUNING, WEIGHTS["dps"]
-    cats: list[Category] = []
-
-    s = ramp(m.uptime, T["uptime_zero"], T["uptime_full"])
-    longest = max((b - a for a, b in m.idle_gaps), default=0)
-    cats.append(Category(
-        "Activity", s, W["Activity"],
-        f"busy {m.uptime:.0%} of {m.combat_time:.0f}s in combat; {len(m.idle_gaps)} gaps of 2.5s+"
-        + (f", longest {longest:.1f}s" if m.idle_gaps else ""),
-        f"Always be casting: you were doing nothing {1 - m.uptime:.0%} of combat. "
-        f"Fill gaps with an instant, a DoT refresh or your wand." if s < 85 else None))
-
-    cats.append(_casting(m, W["Casting"]))
-    cats.append(_movement(m, W["Movement"]))
-
-    lowhp_share = m.low_hp_time / m.combat_time if m.combat_time else 0
-    s = max(0.0, 100 - T["death_cost"] * m.deaths - (100 - ramp(lowhp_share, T["lowhp_share_zero"], 0)) * 0.4)
-    hp_txt = f"lowest health {m.lowest_hp:.0%}, {m.low_hp_time:.0f}s under 35%" if m.lowest_hp is not None \
-        else "no health data (needs Advanced Combat Logging)"
-    cats.append(Category(
-        "Survival", s, W["Survival"], f"{m.deaths} deaths; {hp_txt}",
-        ("You died - look at what hit you in the seconds before it." if m.deaths else
-         "You spent a lot of time low on health. Step out of hits and use your shield earlier.")
-        if s < 85 else None))
-
-    cats.append(_input(m, W["Input"]))
+    W = WEIGHTS["dps"]
+    cats = [_activity(m, W["Activity"]), _casting(m, W["Casting"]), _movement(m, W["Movement"]),
+            _survival(m, W["Survival"]), _input(m, W["Input"])]
     return _card(cats, "dps")
 
 
-def score(m: Metrics, role: str = "healer", hm: HealerMetrics | None = None) -> Scorecard:
+# ----------------------------------------------------------------------------- tank
+def tank_categories(tm: TankMetrics, weights: dict, you: bool = True, m: Metrics | None = None) -> list[Category]:
+    """Holding mobs, Pickups and Survival: what any tank can be judged on from the combat log.
+    m (your own add-on measurements) gives Survival your time low on health too; without it Survival
+    is deaths only. you=False words it about someone else."""
+    T = TUNING
+    them = "you" if you else "them"
+    cats: list[Category] = []
+
+    share = tm.held / tm.mobs if tm.mobs else 1.0
+    cats.append(Category("Holding mobs", ramp(share, T["hold_zero"], T["hold_full"]), weights["Holding mobs"],
+                         f"{tm.held} of {tm.mobs} mobs went for {them} first ({share:.0%})",
+                         "Mobs went for other players first: pick them up faster (taunt, or tag every mob)."
+                         if share < 0.8 else None))
+
+    j = tm.judged
+    if j:
+        med = tm.median_pickup
+        s = 0.6 * ramp(med, T["pickup_zero"], T["pickup_full"]) + 0.4 * ramp(tm.missed_share, T["pickup_missed_zero"], 0)
+        summary = (f"{len(j)} times a mob left {them}: median {med:.1f}s to get it back, "
+                   f"{tm.missed} not back within {PICKUP_CAP:.0f}s")
+        tip = None
+        if s < 85:
+            names: dict[str, int] = {}
+            for x in j:
+                names[x.to_name] = names.get(x.to_name, 0) + 1
+            worst = max(names, key=names.get)
+            tip = (f"Mobs got away: median {med:.1f}s to get them back, most often from {worst} "
+                   f"({names[worst]} times). Taunt or hit a mob as soon as it turns.")
+    else:
+        s, summary, tip = 100.0, f"no mob left {them}", None
+    cats.append(Category("Pickups", s, weights["Pickups"], summary, tip))
+
+    if m is not None:
+        cats.append(_survival(m, weights["Survival"]))
+    else:
+        txt = f"{tm.deaths} death{'s' if tm.deaths != 1 else ''}"
+        cats.append(Category("Survival", max(0.0, 100 - T["tank_death_cost"] * tm.deaths), weights["Survival"], txt,
+                             "Died: look at the hits before it, and use cooldowns earlier." if tm.deaths else None))
+    return cats
+
+
+def score_tank(m: Metrics, tm: TankMetrics) -> Scorecard:
+    if m.combat_time <= 0:
+        return Scorecard(0.0, "-", "tank", note="no combat in this run, nothing to score")
+    if not m.has_log:
+        return Scorecard(0.0, "-", "tank", note="no combat log covers this run, so tanking can't be judged")
+    W = WEIGHTS["tank"]
+    cats = tank_categories(tm, W, True, m)
+    cats += [_activity(m, W["Activity"]), _casting(m, W["Casting"]), _input(m, W["Input"]),
+             _movement(m, W["Movement"])]
+    return _card(cats, "tank")
+
+
+def score(m: Metrics, role: str = "healer", hm: HealerMetrics | None = None,
+          tm: TankMetrics | None = None) -> Scorecard:
     if role == "healer" and hm is not None:
         return score_healer(m, hm)
+    if role == "tank" and tm is not None:
+        return score_tank(m, tm)
     return score_dps(m)
 
 
