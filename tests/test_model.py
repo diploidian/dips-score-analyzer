@@ -162,7 +162,9 @@ class Pickups(unittest.TestCase):
         card = score(Metrics(combat_time=60, has_log=True), "tank", tm=tm)
         self.assertEqual(card.role, "tank")
         self.assertEqual([c.name for c in card.categories],
-                         ["Holding mobs", "Pickups", "Survival", "Activity", "Casting", "Input", "Movement"])
+                         ["Holding mobs", "Pickups", "Survival", "Activity", "Casting", "Input", "Movement",
+                          "Interrupts"])
+        self.assertTrue(card.categories[-1].info_only)   # weight 0 for a tank
 
     def test_weights_without_tank_key(self):
         import json
@@ -248,6 +250,102 @@ class Activity(unittest.TestCase):
         self.assertEqual(energy.score, 100)
         self.assertIn("Not enough energy x5", energy.summary)
         self.assertLess(casting(0).score, 100)
+
+
+class DpsDamage(unittest.TestCase):
+    def test_share_of_even(self):
+        from dips_score.scoring.group import GroupData, damage_share
+        from dips_score.scoring.metrics import Metrics
+        from dips_score.scoring.score import score_dps
+        g = GroupData(damage={ME: [(10, 600)], TANK: [(10, 400)]})
+        mine, rel = damage_share(g, {ME: None, TANK: None}, ME, [(0, 60)])
+        self.assertEqual((mine, rel), (600, 1.2))
+        m = Metrics(combat_time=60, has_log=True)
+
+        def dmg(share):
+            return next(c for c in score_dps(m, share).categories if c.name == "Damage")
+        self.assertGreater(dmg((600, 1.2)).score, dmg((500, 1.0)).score)
+
+    def test_solo(self):
+        from dips_score.scoring.metrics import Metrics
+        from dips_score.scoring.score import score_dps
+        card = score_dps(Metrics(combat_time=60, has_log=True))
+        cats = {c.name: c for c in card.categories}
+        self.assertTrue(cats["Damage"].unavailable and cats["Interrupts"].unavailable)
+        rest = [c for c in card.categories if not c.info_only]
+        self.assertAlmostEqual(card.total, sum(c.score * c.weight for c in rest) / sum(c.weight for c in rest))
+
+    def test_weights_without_new_dps_keys(self):
+        import json
+        import tempfile
+        from dips_score.scoring import score
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "weights.json"
+            path.write_text(json.dumps({"dps": {"Activity": 30, "Casting": 20}}), encoding="utf-8")
+            score.load_weights(path)
+        try:
+            self.assertEqual(score.WEIGHTS["dps"]["Activity"], 30)
+            self.assertEqual((score.WEIGHTS["dps"]["Damage"], score.WEIGHTS["dps"]["Interrupts"]), (25, 10))
+        finally:
+            score.reset_weights()
+
+
+def sp(sec, event, src, dst, spell, sid, extra=None, aura=""):
+    """ev with a spell id (and the spell it stopped or removed, and the aura type)"""
+    e = ev(sec, event, src, dst, spell)
+    e.spell_id, e.extra_spell_id, e.aura_type = sid, extra, aura
+    return e
+
+
+class Interrupts(unittest.TestCase):
+    BOLT, NOVA = 100, 200
+
+    def measure(self, *events):
+        from dips_score.scoring.interrupts import interrupt_base, measure_interrupts
+        rd = rundata(list(events), [Fight(0, 60)])
+        return measure_interrupts(rd, base=interrupt_base(rd, {ME}))
+
+    def kick(self, sec, who=ME):
+        return sp(sec, "SPELL_INTERRUPT", who, MOB1, "Kick", 1, self.BOLT)
+
+    def bolt(self, sec, event="SPELL_CAST_START"):
+        return sp(sec, event, MOB1, TANK, "Shadow Bolt", self.BOLT)
+
+    def test_you_interrupt(self):
+        im = self.measure(self.bolt(10), self.kick(11))
+        self.assertEqual(len(im.judged), 1)
+        self.assertAlmostEqual(im.median_response, 1.0)
+
+    def test_completed_is_a_miss_and_never_kicked_not_judged(self):
+        im = self.measure(self.bolt(10), self.kick(11), self.bolt(20), self.bolt(22, "SPELL_CAST_SUCCESS"),
+                          sp(30, "SPELL_CAST_START", MOB2, TANK, "Fire Nova", self.NOVA),
+                          sp(32, "SPELL_CAST_SUCCESS", MOB2, TANK, "Fire Nova", self.NOVA))
+        self.assertEqual((len(im.judged), im.missed), (2, 1))
+        self.assertNotIn("Fire Nova", [x.spell for x in im.chances])
+
+    def test_someone_else_is_left_out(self):
+        im = self.measure(self.bolt(10), self.kick(11), self.bolt(20), self.kick(21, TANK))
+        self.assertEqual((len(im.chances), len(im.judged), im.missed), (2, 1, 0))
+
+    def test_never_interrupted_is_unavailable(self):
+        from dips_score.scoring.score import _interrupts
+        im = self.measure(self.bolt(10), self.kick(11, TANK))
+        self.assertFalse(im.used)
+        self.assertTrue(_interrupts(im, 10).unavailable)
+
+    def test_dispels(self):
+        from dips_score.scoring.score import _interrupts
+        curse = 300
+        im = self.measure(sp(10, "SPELL_AURA_APPLIED", MOB1, TANK, "Curse", curse, aura="DEBUFF"),
+                          sp(12, "SPELL_DISPEL", ME, TANK, "Dispel", 2, curse),
+                          sp(20, "SPELL_AURA_APPLIED", MOB1, TANK, "Curse", curse, aura="DEBUFF"),
+                          sp(40, "SPELL_AURA_REMOVED", MOB1, TANK, "Curse", curse))
+        d = im.dispel
+        self.assertEqual((len(d.judged), d.missed), (2, 1))
+        self.assertAlmostEqual(d.median_response, 2.0)
+        cat = _interrupts(im, 10)    # no interrupt used: the dispel part alone
+        self.assertFalse(cat.unavailable)
+        self.assertIn("Curse", cat.tip)
 
 
 if __name__ == "__main__":

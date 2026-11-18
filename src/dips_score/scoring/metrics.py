@@ -20,6 +20,7 @@ GCD = 1.5               # seconds; this client's global cooldown
 ENERGY_GCD = 1.0        # energy users (rogues, cat druids) have a shorter one
 RAGE, ENERGY = 1, 3     # UnitInfo.power_type (0 is mana)
 POWER_HOLD = 5.0        # a power reading stands until the next one, at most this long
+ENERGY_HOLD = 2.0       # ...but energy refills quickly, so an energy reading stands at most this long
 SWING_SLACK = 0.6       # a swing gap counts a swing lost once it's longer than 1.6 swings
 AUTO_GAP = 2.0          # a wand shot keeps you "busy" this long (or until the next shot)
 IDLE_GAP = 2.5          # gaps in activity at least this long are listed
@@ -386,10 +387,11 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
         cheapest = min((e.info.cost for e in rd.events if e.event == "SPELL_CAST_SUCCESS" and rd.mine(e)
                         and e.info and e.info.guid == me and e.info.power_type == m.power_type and e.info.cost),
                        default=0)
+        hold = ENERGY_HOLD if m.power_type == ENERGY else POWER_HOLD
         for i, (t, p) in enumerate(power):
             if cheapest and p < cheapest:
-                nxt = power[i + 1][0] if i + 1 < len(power) else t + POWER_HOLD
-                starved.append((t, min(nxt, t + POWER_HOLD)))
+                nxt = power[i + 1][0] if i + 1 < len(power) else t + hold
+                starved.append((t, min(nxt, t + hold)))
     m.busy_time = total(clip(busy, windows))
     m.starved_time = total(clip(busy + starved, windows)) - m.busy_time
     m.idle_gaps = gaps(busy + starved, windows, IDLE_GAP)

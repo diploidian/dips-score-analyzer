@@ -15,9 +15,10 @@ from .model.pulls import Enemy, Pull, build_pulls
 from .model.roster import Overrides, Player, build_roster
 from .model.run import Fight, RunData, build
 from .model.summary import Summary, summarize
-from .scoring.group import group_data, rank_group
+from .scoring.group import damage_share, group_data, rank_group
 from .scoring.radar import radars
 from .scoring.healer import HealerMetrics, healer_base, measure_healer
+from .scoring.interrupts import InterruptMetrics, interrupt_base, measure_interrupts
 from .scoring.metrics import Metrics, measure
 from .scoring.score import Scorecard, score
 from .scoring.tank import TankMetrics, measure_tank, tank_base
@@ -35,6 +36,8 @@ class FightResult:
     healer: HealerMetrics
     card: Scorecard
     tank: TankMetrics | None = None   # only when scored as a tank
+    damage: tuple[int, float] | None = None       # dps/tank: yours, and its share of an even split (None: solo)
+    interrupts: InterruptMetrics | None = None    # dps/tank
 
 
 @dataclass
@@ -57,6 +60,8 @@ class Analysis:
     ranking: list = field(default_factory=list)   # scoring.group.Placing, best first
     radars: dict = field(default_factory=dict)    # guid -> scoring.radar.Radar
     tank: TankMetrics | None = None               # only when scored as a tank
+    damage: tuple[int, float] | None = None       # dps/tank: yours, and its share of an even split (None: solo)
+    interrupts: InterruptMetrics | None = None    # dps/tank
 
     @property
     def me(self) -> Player | None:
@@ -98,9 +103,9 @@ def load_saved(paths: Paths, saved: Path | None = None, merge: bool = True) -> t
 
 def rescore(a: Analysis):
     """Score again with the weights in use now (after they were changed): the measuring stays."""
-    a.card = score(a.metrics, a.role, a.healer, a.tank)
+    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts)
     for fr in a.fights:
-        fr.card = score(fr.metrics, a.role, fr.healer, fr.tank)
+        fr.card = score(fr.metrics, a.role, fr.healer, fr.tank, fr.damage, fr.interrupts)
     if a.group is not None:
         a.ranking = rank_group(a)
 
@@ -132,6 +137,16 @@ def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
     a = Analysis(rd, role, m, hm, score(m, role, hm, tm), fights, roster, pulls, loose, deaths, wipes,
                  player_casts(rd, roster), pets, summarize(rd, roster, pulls, deaths, pets, len(wipes)), tank=tm)
     a.group = group_data(a)
-    a.ranking = rank_group(a)
+    me = rd.player_guid
+    if role in ("dps", "tank") and rd.has_combat_log:   # these need the group data, so they come last
+        ib = interrupt_base(rd, {me, *pets.get(me, ())})
+        solo = len(roster) < 2 or me not in roster
+
+        def extras(w):
+            return (None if solo else damage_share(a.group, roster, me, w)), measure_interrupts(rd, w, ib)
+        a.damage, a.interrupts = extras([(f.start, f.end) for f in rd.fights])
+        for fr in fights:
+            fr.damage, fr.interrupts = extras([(fr.fight.start, fr.fight.end)])
+    rescore(a)   # with the extras (also ranks the group)
     a.radars = radars(a)
     return a

@@ -106,6 +106,7 @@ class Event:
     reason: str = ""         # SPELL_CAST_FAILED: "Not yet recovered", ...
     extra_spell_id: int | None = None  # _INTERRUPT, _DISPEL: the spell it hit
     raw: list[str] | None = None       # special events: their fields
+    aura_type: str = ""                # SPELL_AURA_APPLIED: BUFF or DEBUFF
 
 
 def split_fields(s: str) -> list[str]:
@@ -190,6 +191,8 @@ def parse_line(line: str) -> Event | None:
         e.reason = s[0]
     elif ev.endswith(("_INTERRUPT", "_DISPEL", "_STOLEN", "_AURA_BROKEN_SPELL")) and s:
         e.extra_spell_id = _int(s[0])
+    elif ev == "SPELL_AURA_APPLIED" and s:
+        e.aura_type = s[0]
     return e
 
 

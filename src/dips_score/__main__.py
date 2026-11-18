@@ -41,7 +41,13 @@ def _fight_detail(fr, role: str) -> str:
         t = fr.tank
         pick = f"{t.median_pickup:.1f}s" if t.median_pickup is not None else "-"
         return f"pickup {pick}, {len(t.judged)} lost, {t.missed} missed"
-    return f"busy {fr.metrics.uptime:.0%}"
+    out = f"busy {fr.metrics.uptime:.0%}"
+    if fr.damage:
+        out += f", damage {fr.damage[1]:.0%} of even"
+    if fr.interrupts and fr.interrupts.used and fr.interrupts.judged:
+        j = fr.interrupts.judged
+        out += f", interrupted {len(j) - fr.interrupts.missed}/{len(j)}"
+    return out
 
 
 def cmd_report(p, n: int | None, role: str) -> int:

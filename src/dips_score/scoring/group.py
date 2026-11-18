@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from ..sources.combatlog import is_enemy
 from .healer import HealerBase, healer_base, measure_healer
 from .metrics import Interval, union
-from .score import Category, Scorecard, _card, healer_categories, hybrid_bonus, ramp, tank_categories
+from .score import Category, Scorecard, _card, damage_category, healer_categories, hybrid_bonus, ramp, tank_categories
 from .tank import TankBase, measure_tank, tank_base
 
 AWARD_POINTS, AWARD_CAP = 2.0, 6.0
@@ -104,6 +104,13 @@ def _sum(series: list[tuple[float, int]], windows: list[Interval]) -> int:
     return total
 
 
+def damage_share(g: GroupData, roster, guid: str, windows: list[Interval]) -> tuple[int, float]:
+    """a player's damage (their pets' included), and it against an even split of the group's"""
+    dmg = {x: _sum(g.damage[x], union(windows)) for x in roster}
+    even = sum(dmg.values()) / len(dmg) if dmg else 0
+    return dmg[guid], (dmg[guid] / even if even else 0)
+
+
 def _count(times: list[float], windows: list[Interval]) -> int:
     return sum(bisect_right(times, b) - bisect_left(times, a) for a, b in windows)
 
@@ -119,9 +126,7 @@ def player_card(a, guid: str, windows: list[Interval] | None = None) -> Scorecar
         return Scorecard(0.0, "-", (p.role or "dps").lower(), note="nothing to score here")
     # deaths count a little past a window's end (dying as the fight ends)
     late = [(c, b + 10) for c, b in windows]
-    dmg = {x: _sum(g.damage[x], windows) for x in a.roster}
-    even = sum(dmg.values()) / len(dmg) if dmg else 0
-    mine = dmg[guid]
+    mine, rel = damage_share(g, a.roster, guid, windows)
     deaths = _count(g.deaths.get(guid, []), late)
     surv_txt = f"{deaths} death{'s' if deaths != 1 else ''}"
     role = p.role or "DPS"
@@ -136,14 +141,11 @@ def player_card(a, guid: str, windows: list[Interval] | None = None) -> Scorecar
     if role == "TANK":
         tm = measure_tank(rd, windows, g.tank_bases[guid])
         cats = tank_categories(tm, TANK_WEIGHTS, you=p.is_me)
-        rel = mine / even if even else 0
         cats.append(Category("Damage", ramp(rel, 0.3, 1.0), 25,
                              f"{mine:,} damage ({rel:.0%} of an even share)", None))
         return _card(cats, "tank")
 
-    rel = mine / even if even else 0
-    cats.append(Category("Damage", ramp(rel, 0.5, 1.3), 60, f"{mine:,} damage ({rel:.0%} of an even share, "
-                         f"{mine / combat:.0f}/s)", "Damage was low: keep casting through the whole pull." if rel < 0.9 else None))
+    cats.append(damage_category(mine, rel, combat, 60))
     taken = _sum(g.taken[guid], windows)
     dps_taken = [_sum(g.taken[x], windows) for x, q in a.roster.items() if (q.role or "DPS") == "DPS"]
     median = statistics.median(dps_taken) if dps_taken else 0
