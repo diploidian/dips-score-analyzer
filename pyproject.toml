@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dips-score"
+version = "0.1.0"
+description = "Scores a WoW dungeon run from the dips-Score addon's input log and WoWCombatLog.txt"
+requires-python = ">=3.13"
+dependencies = ["PyQt6>=6.6"]
+
+[project.scripts]
+dips-score = "dips_score.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

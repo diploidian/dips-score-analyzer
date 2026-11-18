@@ -1,0 +1,99 @@
+"""Tests for the roster, visits, deaths and pulls, on small made-up logs."""
+import sys
+import unittest
+from datetime import datetime, timedelta
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from dips_score.analysis import merge_visits  # noqa: E402
+from dips_score.model.deaths import find_deaths  # noqa: E402
+from dips_score.model.pulls import build_pulls  # noqa: E402
+from dips_score.model.roster import Player, build_roster, clean_name  # noqa: E402
+from dips_score.model.run import Fight, RunData  # noqa: E402
+from dips_score.sources.combatlog import Event  # noqa: E402
+from dips_score.sources.savedvars import Line, Run, Segment  # noqa: E402
+
+T0 = datetime(2026, 11, 16, 21, 0, 0)
+ME, TANK, HUNTER = "Player-1-A", "Player-1-B", "Player-1-C"
+MOB1, MOB2, MOB3 = ("Creature-0-1-1-1-100-%d" % i for i in (1, 2, 3))
+NAMES = {ME: "Nikana-Diploidian-PvP-US", TANK: "Priime-Tiime-PvP-US", HUNTER: "The-Kommando-PvP-US",
+         MOB1: "Grunt", MOB2: "Grunt", MOB3: "Outrider"}
+FLAGS = {ME: 0x511, TANK: 0x512, HUNTER: 0x512, MOB1: 0xa48, MOB2: 0xa48, MOB3: 0xa48}
+
+
+def ev(sec, event, src="", dst="", spell="", amount=0, raid_dst=0):
+    return Event(T0 + timedelta(seconds=sec), event, src, NAMES.get(src, ""), FLAGS.get(src, 0),
+                 dst, NAMES.get(dst, ""), FLAGS.get(dst, 0), 0, raid_dst, 1 if spell else None, spell,
+                 amount=amount)
+
+
+def rundata(events, fights):
+    run = Run("1", "Nikana - X", "Somewhere", "party", 1, 1, int(T0.timestamp()), None)
+    rd = RunData(run, T0, T0 + timedelta(seconds=300), [], events, ME, [])
+    rd.fights = fights
+    return rd
+
+
+class Names(unittest.TestCase):
+    def test_clean(self):
+        self.assertEqual(clean_name("Priime-Tiime-PvP-US"), "Priime Tiime")
+        self.assertEqual(clean_name("Bob-Stormrage"), "Bob")
+        self.assertEqual(clean_name("Solo"), "Solo")
+
+
+class Visits(unittest.TestCase):
+    def test_merges_close_pieces_of_same_place(self):
+        def run(i, start, zone="Krol", inst=3039, ended=None):
+            return Run(str(i), "x", zone, "party", 1, inst, start, ended, [Segment(0, [], [Line(60000, "X", [])])])
+        out = merge_visits([run(1, 1000, ended=1100), run(2, 1200, ended=1300), run(3, 9000), run(4, 9100, "SM", 2)])
+        self.assertEqual([r.parts for r in out], [["1", "2"], ["3"], ["4"]])
+        self.assertEqual(len(out[0].segments), 2)
+
+
+class Deaths(unittest.TestCase):
+    def test_real_death_and_feign(self):
+        events = [
+            ev(10, "SWING_DAMAGE", MOB1, TANK, amount=500),
+            ev(11, "UNIT_DIED", "", TANK),                          # real: does nothing after
+            ev(20, "UNIT_DIED", "", HUNTER),                        # feign: shoots 3 s later
+            ev(23, "RANGE_DAMAGE", HUNTER, MOB1, "Auto Shot", 100),
+        ]
+        roster = {g: Player(g, clean_name(NAMES[g])) for g in (ME, TANK, HUNTER)}
+        deaths, wipes = find_deaths(rundata(events, []), roster)
+        self.assertEqual([d.name for d in deaths], ["Priime Tiime"])
+        self.assertEqual(deaths[0].killed_by, "Melee (Grunt)")
+        self.assertEqual(wipes, [])
+
+    def test_wipe_when_everyone_is_dead(self):
+        events = [ev(5, "UNIT_DIED", "", g) for g in (ME, TANK, HUNTER)]
+        roster = {g: Player(g, NAMES[g]) for g in (ME, TANK, HUNTER)}
+        _, wipes = find_deaths(rundata(events, [Fight(0, 10)]), roster)
+        self.assertEqual(len(wipes), 1)
+        self.assertEqual(len(wipes[0].deaths), 3)
+
+
+class Pulls(unittest.TestCase):
+    def test_packs_puller_marker_and_kills(self):
+        events = [
+            ev(100, "SPELL_CAST_SUCCESS", TANK, MOB1, "Charge", raid_dst=0x80),
+            ev(101, "SPELL_DAMAGE", TANK, MOB2, "Thunder Clap", 50),
+            ev(110, "SWING_DAMAGE", MOB3, HUNTER, amount=80),        # a second pack, body pulled
+            ev(120, "SPELL_DAMAGE", ME, MOB1, "Mind Blast", 400),
+            ev(120, "PARTY_KILL", ME, MOB1),
+            ev(120.01, "UNIT_DIED", "", MOB1),
+        ]
+        roster = build_roster(events, [], ME)
+        pulls, loose = build_pulls(rundata(events, [Fight(102, 140)]), roster)
+        packs = pulls[0].packs
+        self.assertEqual(len(packs), 2)
+        self.assertEqual((packs[0].puller, packs[0].how, packs[0].extra), (TANK, "Charge", False))
+        self.assertEqual((packs[1].puller, packs[1].how, packs[1].extra), (HUNTER, "body pull", True))
+        mob1 = packs[0].enemies[0]
+        self.assertEqual(mob1.marker, "Skull")
+        self.assertEqual((mob1.killer, mob1.killing_blow), (ME, "Mind Blast"))
+        self.assertEqual(loose, [])
+
+
+if __name__ == "__main__":
+    unittest.main()
