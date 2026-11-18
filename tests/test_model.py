@@ -448,5 +448,79 @@ class Phase4(unittest.TestCase):
             score.reset_weights()
 
 
+class Upkeep(unittest.TestCase):
+    def measure(self, cls, *events):
+        from dips_score.scoring.upkeep import measure_upkeep, upkeep_base
+        rd = rundata(list(events), [Fight(0, 60)])
+        return measure_upkeep(rd, base=upkeep_base(rd, cls))
+
+    def test_self_buff(self):
+        um = self.measure("ROGUE", sp(10, "SPELL_AURA_APPLIED", ME, ME, "Slice and Dice", 1, aura="BUFF"),
+                          sp(40, "SPELL_AURA_REMOVED", ME, ME, "Slice and Dice", 1))
+        self.assertEqual([(r.name, r.uptime) for r in um.rows], [("Slice and Dice", 0.5)])
+
+    def test_target_is_union_over_enemies(self):
+        def dot(a, b, mob):
+            return [sp(a, "SPELL_AURA_APPLIED", ME, mob, "Corruption", 1, aura="DEBUFF"),
+                    sp(b, "SPELL_AURA_REMOVED", ME, mob, "Corruption", 1)]
+        um = self.measure("WARLOCK", *dot(0, 20, MOB1), *dot(10, 50, MOB2))
+        self.assertAlmostEqual(um.rows[0].uptime, 50 / 60)
+
+    def test_enemy_death_ends_aura(self):
+        um = self.measure("WARLOCK", sp(0, "SPELL_AURA_APPLIED", ME, MOB1, "Corruption", 1, aura="DEBUFF"),
+                          ev(30, "UNIT_DIED", "", MOB1))
+        self.assertAlmostEqual(um.rows[0].uptime, 0.5)
+
+    def test_unapplied_and_unknown_class_not_judged(self):
+        from dips_score.scoring.metrics import Metrics
+        from dips_score.scoring.score import score_dps
+        um = self.measure("ROGUE", sp(5, "SPELL_AURA_APPLIED", TANK, ME, "Slice and Dice", 1, aura="BUFF"))
+        self.assertEqual(um.rows, [])   # someone else's, and Rupture never applied
+        self.assertEqual(self.measure(None, sp(0, "SPELL_AURA_APPLIED", ME, ME, "Slice and Dice", 1)).rows, [])
+        m = Metrics(combat_time=60, has_log=True)
+        self.assertEqual(score_dps(m, None, None, None, um).total, score_dps(m).total)
+        self.assertNotIn("Upkeep", [c.name for c in score_dps(m, None, None, None, um).categories])
+
+    def test_upkeep_row(self):
+        from dips_score.scoring.metrics import Metrics
+        from dips_score.scoring.score import score_dps
+        um = self.measure("ROGUE", sp(0, "SPELL_AURA_APPLIED", ME, ME, "Slice and Dice", 1, aura="BUFF"),
+                          sp(15, "SPELL_AURA_REMOVED", ME, ME, "Slice and Dice", 1))
+        cat = next(c for c in score_dps(Metrics(combat_time=60, has_log=True), None, None, None, um).categories
+                   if c.name == "Upkeep")
+        self.assertEqual(cat.summary, "Slice and Dice 25%")
+        self.assertIn("Slice and Dice", cat.tip)
+
+    def test_classes_json(self):
+        import json
+        import tempfile
+        from dips_score.scoring import classes
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "classes.json"
+            path.write_text(json.dumps({"ROGUE": [["Garrote", "target"]]}), encoding="utf-8")
+            classes.load_upkeep(path)
+            try:
+                self.assertEqual(classes.UPKEEP["ROGUE"], [("Garrote", "target")])
+                self.assertEqual(classes.UPKEEP["MAGE"], classes.DEFAULT_UPKEEP["MAGE"])
+                path.write_text("{not json", encoding="utf-8")
+                classes.load_upkeep(path)
+                self.assertEqual(classes.UPKEEP["ROGUE"], classes.DEFAULT_UPKEEP["ROGUE"])
+            finally:
+                classes.load_upkeep(None)
+
+    def test_old_weights_file(self):
+        import json
+        import tempfile
+        from dips_score.scoring import score
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "weights.json"
+            path.write_text(json.dumps({"dps": {"Damage": 25}, "tank": {"Pickups": 30}}), encoding="utf-8")
+            score.load_weights(path)
+        try:
+            self.assertEqual((score.WEIGHTS["dps"]["Upkeep"], score.WEIGHTS["tank"]["Upkeep"]), (5, 10))
+        finally:
+            score.reset_weights()
+
+
 if __name__ == "__main__":
     unittest.main()

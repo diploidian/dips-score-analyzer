@@ -21,6 +21,7 @@ from .. import analysis
 from ..analysis import Analysis
 from ..config import Paths
 from ..model.roster import Overrides
+from ..scoring.classes import load_upkeep
 from ..scoring.score import load_weights
 from ..sources.savedvars import Run
 from . import settings as app_settings
@@ -406,6 +407,7 @@ def run_app(paths: Paths) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
     apply_look(paths, app_settings.load(paths))
     load_weights(paths.weights_file)
+    load_upkeep(paths.classes_file)
     w = Window(paths)
     w.show()
     return app.exec()

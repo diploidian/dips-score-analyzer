@@ -24,6 +24,7 @@ HELP = {
     "Damage": "your damage against an even split of the group's (needs a group)",
     "Interrupts": "enemy casts you stopped, and debuffs you dispelled (only spells someone stopped count)",
     "Cooldowns": "damage cooldowns that sat ready while you were free to use them (learned from your casts)",
+    "Upkeep": "share of combat your class's buffs and DoTs were up (only ones you applied; classes.json edits the list)",
     "Resource": "time spent at full rage or energy, so power was wasted (needs Advanced Combat Logging)",
     BONUS: "most points added for the damage you also did, scaled by how well you healed",
 }

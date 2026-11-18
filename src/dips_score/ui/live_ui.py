@@ -71,12 +71,14 @@ def tray_icon() -> QIcon:
 def run_tray(paths: Paths) -> int:
     """the overlay alone, from the system tray"""
     from .app import Window, apply_look
+    from ..scoring.classes import load_upkeep
     from ..scoring.score import load_weights
     app = QApplication.instance() or QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     settings = app_settings.load(paths)
     apply_look(paths, settings)
     load_weights(paths.weights_file)
+    load_upkeep(paths.classes_file)
     ctl = LiveController(paths, settings)
     holder: dict = {}
 

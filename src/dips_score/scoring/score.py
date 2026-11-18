@@ -4,10 +4,10 @@ change them in the window, saved in weights.json):
 
     healer   Group health 35, Response 35, Efficiency 20, Casting 10, Movement 0, Input 0
              + a hybrid bonus of up to 10 for the damage you also did
-    dps      Damage 20, Activity 20, Cooldowns 10, Interrupts 10, Casting 10, Movement 10, Survival 10,
-             Input 5, Resource 5
-    tank     Holding mobs 25, Pickups 25, Survival 20, Activity 10, Casting 10, Input 10, Movement 0,
-             Interrupts 0, Cooldowns 0, Resource 0
+    dps      Damage 20, Activity 15, Cooldowns 10, Interrupts 10, Casting 10, Movement 10, Survival 10,
+             Upkeep 5, Input 5, Resource 5
+    tank     Holding mobs 25, Pickups 25, Survival 20, Activity 10, Upkeep 10, Casting 5, Input 5,
+             Movement 0, Interrupts 0, Cooldowns 0, Resource 0
 
 A category weighted 0 is info only: still shown with its numbers, but it doesn't count toward the
 total and gives no tips. For a healer, mashing and casts cut by moving are info only by default,
@@ -24,6 +24,9 @@ measure the group card uses. Solo there's nothing to compare with, so it isn't j
 how many of the enemy casts you could have stopped you did, and how fast (interrupts.py; dispels are
 folded in when you dispelled anyone this run). Both need the combat log: without one the dps card is
 the add-on categories only.
+
+Upkeep (dps, tank): the buffs and DoTs your class keeps up (classes.py), as the share of combat they
+were up, for the ones you applied this run (upkeep.py). Nothing applied, no row.
 
 Hybrid bonus (healer): your damage, as a share of an even split of the group's damage (damage
 done while everyone was above 80% health counts fully, the rest half), times how well you healed
@@ -44,6 +47,7 @@ from .cooldowns import CooldownMetrics
 from .interrupts import InterruptMetrics
 from .metrics import Metrics
 from .tank import PICKUP_CAP, TankMetrics
+from .upkeep import UpkeepMetrics
 
 ROLES = ("healer", "dps", "tank")
 
@@ -86,6 +90,8 @@ TUNING = {
     "capped_zero": 0.20, "capped_full": 0.02,
     # cooldowns: damage lost to unused cooldowns, as a share of your damage plus that
     "cd_lost_zero": 0.15, "cd_lost_full": 0.0,
+    # upkeep: mean uptime of the buffs and DoTs you applied
+    "upkeep_zero": 0.40, "upkeep_full": 0.90,
 }
 POWER_WORD = {1: "rage", 3: "energy"}   # Metrics.power_type
 
@@ -93,10 +99,10 @@ BONUS = "Hybrid bonus"   # not a category: its "weight" is the most points it ca
 DEFAULT_WEIGHTS = {
     "healer": {"Group health": 35, "Response": 35, "Efficiency": 20, "Casting": 10, "Movement": 0, "Input": 0,
                BONUS: 10},
-    "dps": {"Damage": 20, "Activity": 20, "Cooldowns": 10, "Interrupts": 10, "Casting": 10, "Movement": 10,
-            "Survival": 10, "Input": 5, "Resource": 5},
-    "tank": {"Holding mobs": 25, "Pickups": 25, "Survival": 20, "Activity": 10, "Casting": 10, "Input": 10,
-             "Movement": 0, "Interrupts": 0, "Cooldowns": 0, "Resource": 0},
+    "dps": {"Damage": 20, "Activity": 15, "Cooldowns": 10, "Interrupts": 10, "Casting": 10, "Movement": 10,
+            "Survival": 10, "Upkeep": 5, "Input": 5, "Resource": 5},
+    "tank": {"Holding mobs": 25, "Pickups": 25, "Survival": 20, "Activity": 10, "Upkeep": 10, "Casting": 5,
+             "Input": 5, "Movement": 0, "Interrupts": 0, "Cooldowns": 0, "Resource": 0},
 }
 WEIGHTS = {role: dict(w) for role, w in DEFAULT_WEIGHTS.items()}   # in use (load_weights fills it)
 
@@ -287,6 +293,18 @@ def _cooldowns(cm: CooldownMetrics, w: int) -> Category:
                     if worst and s < 85 else None)
 
 
+def _upkeep(um: UpkeepMetrics | None, w: int) -> Category | None:
+    """buffs and DoTs you applied, by how much of combat they were up; None when there's nothing to judge"""
+    if um is None or not um.rows:
+        return None
+    mean = um.mean_uptime
+    s = ramp(mean, TUNING["upkeep_zero"], TUNING["upkeep_full"])
+    rows = sorted(um.rows, key=lambda r: r.uptime)
+    return Category("Upkeep", s, w, ", ".join(f"{r.name} {r.uptime:.0%}" for r in rows[:4]),
+                    f"{rows[0].name} was up only {rows[0].uptime:.0%} of combat. Refresh it before it "
+                    f"falls off." if s < 85 else None)
+
+
 def _survival(m: Metrics, w: int) -> Category:
     """your own deaths and time under 35%"""
     T = TUNING
@@ -448,7 +466,7 @@ def score_healer(m: Metrics, hm: HealerMetrics) -> Scorecard:
 
 # ----------------------------------------------------------------------------- dps
 def score_dps(m: Metrics, dmg: tuple[int, float] | None = None, im: InterruptMetrics | None = None,
-              cm: CooldownMetrics | None = None) -> Scorecard:
+              cm: CooldownMetrics | None = None, um: UpkeepMetrics | None = None) -> Scorecard:
     """dmg: your damage and its share of an even split (group.py damage_share; None when solo)"""
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "dps", note="no combat in this run, nothing to score")
@@ -462,6 +480,8 @@ def score_dps(m: Metrics, dmg: tuple[int, float] | None = None, im: InterruptMet
             cats.insert(1, _cooldowns(cm, W["Cooldowns"]))
         cats.insert(0, damage_category(*dmg, m.combat_time, W["Damage"]) if dmg else
                     Category("Damage", 0.0, W["Damage"], need, unavailable=need))
+        if up := _upkeep(um, W["Upkeep"]):
+            cats.append(up)
     if res := _resource(m, W["Resource"]):
         cats.append(res)
     return _card(cats, "dps")
@@ -510,7 +530,7 @@ def tank_categories(tm: TankMetrics, weights: dict, you: bool = True, m: Metrics
 
 
 def score_tank(m: Metrics, tm: TankMetrics, im: InterruptMetrics | None = None,
-               cm: CooldownMetrics | None = None) -> Scorecard:
+               cm: CooldownMetrics | None = None, um: UpkeepMetrics | None = None) -> Scorecard:
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "tank", note="no combat in this run, nothing to score")
     if not m.has_log:
@@ -521,6 +541,8 @@ def score_tank(m: Metrics, tm: TankMetrics, im: InterruptMetrics | None = None,
              _movement(m, 0 if _melee(m) else W["Movement"]), _interrupts(im, W["Interrupts"])]
     if cm is not None:
         cats.append(_cooldowns(cm, W["Cooldowns"]))
+    if up := _upkeep(um, W["Upkeep"]):
+        cats.append(up)
     if res := _resource(m, W["Resource"]):
         cats.append(res)
     return _card(cats, "tank")
@@ -528,12 +550,13 @@ def score_tank(m: Metrics, tm: TankMetrics, im: InterruptMetrics | None = None,
 
 def score(m: Metrics, role: str = "healer", hm: HealerMetrics | None = None,
           tm: TankMetrics | None = None, dmg: tuple[int, float] | None = None,
-          im: InterruptMetrics | None = None, cm: CooldownMetrics | None = None) -> Scorecard:
+          im: InterruptMetrics | None = None, cm: CooldownMetrics | None = None,
+          um: UpkeepMetrics | None = None) -> Scorecard:
     if role == "healer" and hm is not None:
         return score_healer(m, hm)
     if role == "tank" and tm is not None:
-        return score_tank(m, tm, im, cm)
-    return score_dps(m, dmg, im, cm)
+        return score_tank(m, tm, im, cm, um)
+    return score_dps(m, dmg, im, cm, um)
 
 
 def _fail_tip(m: Metrics, ignore: set[str] = frozenset()) -> str:

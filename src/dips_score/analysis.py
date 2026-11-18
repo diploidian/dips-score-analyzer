@@ -23,6 +23,7 @@ from .scoring.healer import HealerMetrics, healer_base, measure_healer
 from .scoring.interrupts import InterruptMetrics, interrupt_base, measure_interrupts
 from .scoring.metrics import Metrics, measure
 from .scoring.score import Scorecard, score
+from .scoring.upkeep import UpkeepMetrics, measure_upkeep, upkeep_base
 from .scoring.tank import TankMetrics, measure_tank, tank_base
 from .sources import combatlog
 from .sources.savedvars import Run, load_runs
@@ -41,6 +42,7 @@ class FightResult:
     damage: tuple[int, float] | None = None       # dps/tank: yours, and its share of an even split (None: solo)
     interrupts: InterruptMetrics | None = None    # dps/tank
     cooldowns: CooldownMetrics | None = None      # dps/tank
+    upkeep: UpkeepMetrics | None = None           # dps/tank
 
 
 @dataclass
@@ -66,6 +68,7 @@ class Analysis:
     damage: tuple[int, float] | None = None       # dps/tank: yours, and its share of an even split (None: solo)
     interrupts: InterruptMetrics | None = None    # dps/tank
     cooldowns: CooldownMetrics | None = None      # dps/tank
+    upkeep: UpkeepMetrics | None = None           # dps/tank
 
     @property
     def me(self) -> Player | None:
@@ -107,9 +110,9 @@ def load_saved(paths: Paths, saved: Path | None = None, merge: bool = True) -> t
 
 def rescore(a: Analysis):
     """Score again with the weights in use now (after they were changed): the measuring stays."""
-    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts, a.cooldowns)
+    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts, a.cooldowns, a.upkeep)
     for fr in a.fights:
-        fr.card = score(fr.metrics, a.role, fr.healer, fr.tank, fr.damage, fr.interrupts, fr.cooldowns)
+        fr.card = score(fr.metrics, a.role, fr.healer, fr.tank, fr.damage, fr.interrupts, fr.cooldowns, fr.upkeep)
     if a.group is not None:
         a.ranking = rank_group(a)
 
@@ -152,6 +155,10 @@ def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
         for fr in fights:
             fr.damage, fr.interrupts = extras([(fr.fight.start, fr.fight.end)])
         # cooldown lengths the live view learned (cooldowns.json); History also reads the fights file
+        ub = upkeep_base(rd, roster[me].cls if me in roster else None)
+        a.upkeep = measure_upkeep(rd, base=ub)
+        for fr in fights:
+            fr.upkeep = measure_upkeep(rd, [(fr.fight.start, fr.fight.end)], ub)
         a.cooldowns, per_fight = measure_cooldowns(rd, History(paths).cooldowns)
         for fr, cm in zip(fights, per_fight):
             fr.cooldowns = cm

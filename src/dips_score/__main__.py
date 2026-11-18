@@ -11,6 +11,7 @@ import sys
 
 from . import analysis
 from .config import paths as get_paths
+from .scoring.classes import load_upkeep
 from .scoring.score import ROLES, load_weights
 
 
@@ -112,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     p = get_paths(args.wow)
     load_weights(p.weights_file)
+    load_upkeep(p.classes_file)
     if args.cmd == "runs":
         return cmd_runs(p)
     if args.cmd == "report":

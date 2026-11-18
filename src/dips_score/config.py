@@ -39,6 +39,10 @@ class Paths:
     def weights_file(self) -> Path:
         return self.data_dir / "weights.json"
 
+    @property
+    def classes_file(self) -> Path:
+        return self.data_dir / "classes.json"
+
     def character_of(self, saved: Path) -> str:
         # .../Account/<account>/<realm>/<character>/SavedVariables/dips-Score.lua
         return saved.parent.parent.name
