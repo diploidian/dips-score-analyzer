@@ -3,12 +3,13 @@ combat log (no Advanced Combat Logging needed), so they work for any tank in the
 
 Holding mobs: of the mobs pulled, how many went for the tank first (model/pulls.py first_target).
 
-A loss is an enemy's attack (a hit, or a miss/dodge/parry) landing on a group member who isn't the
-tank, when that enemy's previous attack was on the tank or it is its first attack at all. The
-pickup is the seconds until that same enemy's next attack on the tank. None within PICKUP_CAP is a
-miss - unless the enemy died, the fight ended, or the tank was dead before the cap, which doesn't
-count either way (like a dip someone else covered). Attacks on pets and guardians are ignored, and
-so are damage-over-time ticks (a DoT ticking on the healer isn't the mob turning to them).
+Only an enemy's melee swings (a hit, or a miss/dodge/parry) say who it is attacking: a spell can
+hit anyone (an AoE on the healer isn't the mob turning to them), so caster mobs that never swing
+are simply not judged. A loss is a swing landing on a group member who isn't the tank, when that
+enemy's previous swing was on the tank or it is its first swing at all. The pickup is the seconds
+until that same enemy's next swing on the tank. None within PICKUP_CAP is a miss - unless the
+enemy died, the fight ended, or the tank was dead before the cap, which doesn't count either way
+(like a dip someone else covered). Swings on pets and guardians are ignored.
 """
 from __future__ import annotations
 
@@ -72,7 +73,7 @@ class TankBase:
     """Everything measure_tank needs from the whole run, gathered in one pass (then each fight only
     slices its window)."""
     losses: list[tuple[float, str, str, str, str]] = field(default_factory=list)   # t, enemy, name, to, to name
-    on_tank: dict[str, list[float]] = field(default_factory=dict)   # enemy -> its attacks on the tank
+    on_tank: dict[str, list[float]] = field(default_factory=dict)   # enemy -> its swings on the tank
     died: dict[str, float] = field(default_factory=dict)            # enemy -> when it died
     dead: list[Interval] = field(default_factory=list)              # the tank dead
     deaths: list[float] = field(default_factory=list)
@@ -97,8 +98,7 @@ def tank_base(rd: RunData, pulls, deaths: list[float], who: str | None = None) -
         if e.event == "UNIT_DIED" and is_enemy(e.dst, e.dst_flags):
             b.died.setdefault(e.dst, t)
             continue
-        ev = e.event
-        if not (ev.endswith("_DAMAGE") or ev.endswith("_MISSED")) or ev.startswith("SPELL_PERIODIC"):
+        if e.event not in ("SWING_DAMAGE", "SWING_MISSED"):
             continue
         if not is_enemy(e.src, e.src_flags) or not e.dst.startswith("Player-"):
             continue

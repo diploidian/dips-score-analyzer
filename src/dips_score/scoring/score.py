@@ -10,7 +10,8 @@ change them in the window, saved in weights.json):
 A category weighted 0 is info only: still shown with its numbers, but it doesn't count toward the
 total and gives no tips. For a healer, mashing and casts cut by moving are info only by default,
 and Casting only counts refusals that mean something went wrong (out of range, wrong target, no
-mana), not ones from pressing early.
+mana), not ones from pressing early. For rage and energy users, "Not enough rage/energy" refusals
+don't count either (that's pooling), and for melee Movement is info only.
 
 Hybrid bonus (healer): your damage, as a share of an even split of the group's damage (damage
 done while everyone was above 80% health counts fully, the rest half), times how well you healed
@@ -57,7 +58,11 @@ TUNING = {
     "pickup_full": 1.5, "pickup_zero": PICKUP_CAP, "pickup_missed_zero": 0.5,
     # survival (tank, group card): each death
     "tank_death_cost": 40,
+    # melee (dps, tank): at least this many swings, and more swings than hard casts; then Movement
+    # is info only (melee has no cast to cut)
+    "melee_swings": 10,
 }
+POWER_WORD = {1: "rage", 3: "energy"}   # Metrics.power_type
 
 BONUS = "Hybrid bonus"   # not a category: its "weight" is the most points it can add
 DEFAULT_WEIGHTS = {
@@ -151,15 +156,15 @@ def grade(total: float) -> str:
 
 
 # ----------------------------------------------------------------------------- shared categories
-def _casting(m: Metrics, w: float, ignore: set[str] = frozenset()) -> Category:
-    """refused presses; `ignore`: reasons that don't count (they're still listed)"""
+def _casting(m: Metrics, w: float, ignore: set[str] = frozenset(), why: str = "pressing early doesn't") -> Category:
+    """refused presses; `ignore`: reasons that don't count (they're still listed), `why` says which"""
     counted = sum(n for r, n in m.fail_reasons.items() if r not in ignore)
     rate = counted / (m.casts + counted) if m.casts + counted else 0.0
     s = ramp(rate, TUNING["fail_zero"], TUNING["fail_full"])
     top = ", ".join(f"{r} x{n}" for r, n in m.fail_reasons.most_common(3))
     if ignore:
         summary = (f"{m.casts} casts, {m.failed} refused" + (f" ({top})" if top else "")
-                   + f"; {counted} count ({rate:.0%}) - pressing early doesn't")
+                   + f"; {counted} count ({rate:.0%}) - {why}")
     else:
         summary = f"{m.casts} casts, {m.failed} refused ({rate:.0%})" + (f": {top}" if top else "")
     return Category("Casting", s, w, summary, _fail_tip(m, ignore) if s < 85 else None)
@@ -192,16 +197,39 @@ def _input(m: Metrics, w: int) -> Category:
                                    f"{m.click_share:.0%} clicks{hold}", tip)
 
 
+def _melee(m: Metrics) -> bool:
+    """you fight in melee: a fair number of swings, and more swings than hard casts"""
+    return m.swings >= TUNING["melee_swings"] and m.swings > m.hard_casts
+
+
+def _pooling_casting(m: Metrics, w: float) -> Category:
+    """Casting for dps and tanks: a rage or energy user pressing before the power is there is
+    pooling, not a mistake"""
+    word = POWER_WORD.get(m.power_type)
+    if word:
+        return _casting(m, w, {f"Not enough {word}"}, f"waiting for {word} doesn't")
+    return _casting(m, w)
+
+
 def _activity(m: Metrics, w: int) -> Category:
     T = TUNING
     s = ramp(m.uptime, T["uptime_zero"], T["uptime_full"])
     longest = max((b - a for a, b in m.idle_gaps), default=0)
+    word = POWER_WORD.get(m.power_type)
+    if _melee(m):
+        tip = (f"Always be attacking: you were doing nothing {1 - m.uptime:.0%} of combat and lost "
+               f"{m.swings_lost} swings while not casting. Stay in reach of your target and fill gaps "
+               f"with an ability.")
+    else:
+        tip = (f"Always be casting: you were doing nothing {1 - m.uptime:.0%} of combat. "
+               f"Fill gaps with an instant, a DoT refresh or your wand.")
     return Category(
         "Activity", s, w,
         f"busy {m.uptime:.0%} of {m.combat_time:.0f}s in combat; {len(m.idle_gaps)} gaps of 2.5s+"
-        + (f", longest {longest:.1f}s" if m.idle_gaps else ""),
-        f"Always be casting: you were doing nothing {1 - m.uptime:.0%} of combat. "
-        f"Fill gaps with an instant, a DoT refresh or your wand." if s < 85 else None)
+        + (f", longest {longest:.1f}s" if m.idle_gaps else "")
+        + (f"; {m.swings} swings, {m.swings_lost} lost while not casting" if m.swings else "")
+        + (f"; waiting for {word} {m.starved_time:.0f}s" if word and m.starved_time >= 0.5 else ""),
+        tip if s < 85 else None)
 
 
 def _survival(m: Metrics, w: int) -> Category:
@@ -320,8 +348,8 @@ def score_dps(m: Metrics) -> Scorecard:
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "dps", note="no combat in this run, nothing to score")
     W = WEIGHTS["dps"]
-    cats = [_activity(m, W["Activity"]), _casting(m, W["Casting"]), _movement(m, W["Movement"]),
-            _survival(m, W["Survival"]), _input(m, W["Input"])]
+    cats = [_activity(m, W["Activity"]), _pooling_casting(m, W["Casting"]),
+            _movement(m, 0 if _melee(m) else W["Movement"]), _survival(m, W["Survival"]), _input(m, W["Input"])]
     return _card(cats, "dps")
 
 
@@ -374,8 +402,8 @@ def score_tank(m: Metrics, tm: TankMetrics) -> Scorecard:
         return Scorecard(0.0, "-", "tank", note="no combat log covers this run, so tanking can't be judged")
     W = WEIGHTS["tank"]
     cats = tank_categories(tm, W, True, m)
-    cats += [_activity(m, W["Activity"]), _casting(m, W["Casting"]), _input(m, W["Input"]),
-             _movement(m, W["Movement"])]
+    cats += [_activity(m, W["Activity"]), _pooling_casting(m, W["Casting"]), _input(m, W["Input"]),
+             _movement(m, 0 if _melee(m) else W["Movement"])]
     return _card(cats, "tank")
 
 

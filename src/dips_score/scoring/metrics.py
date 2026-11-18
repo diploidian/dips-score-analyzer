@@ -2,6 +2,11 @@
 
 Everything is measured over combat time: the windows the player was in combat (the addon's R
 lines), so walking between pulls doesn't count against you.
+
+Busy time is casting, channeling, the GCD (1.0 s for energy users, else 1.5 s), wand shots and
+melee swings (each swing keeps you busy until the next one, at most one swing). For rage and
+energy users (Advanced Combat Logging), time you couldn't afford your cheapest ability is
+"starved": not busy, but not held against you either.
 """
 from __future__ import annotations
 
@@ -12,6 +17,10 @@ from dataclasses import dataclass, field
 from ..model.run import AUTO_REPEAT, RunData, TLine
 
 GCD = 1.5               # seconds; this client's global cooldown
+ENERGY_GCD = 1.0        # energy users (rogues, cat druids) have a shorter one
+RAGE, ENERGY = 1, 3     # UnitInfo.power_type (0 is mana)
+POWER_HOLD = 5.0        # a power reading stands until the next one, at most this long
+SWING_SLACK = 0.6       # a swing gap counts a swing lost once it's longer than 1.6 swings
 AUTO_GAP = 2.0          # a wand shot keeps you "busy" this long (or until the next shot)
 IDLE_GAP = 2.5          # gaps in activity at least this long are listed
 MOVE_INTERRUPT_S = 0.6  # an interrupted cast this soon after you started moving was cut by moving
@@ -71,7 +80,27 @@ def inside(t: float, windows: list[Interval]) -> bool:
 
 
 # ----------------------------------------------------------------------------- the pieces
-def busy_intervals(lines: list[TLine]) -> tuple[list[Interval], list[Interval]]:
+def swing_stats(swings: list[float], casting: list[Interval],
+                windows: list[Interval] | None = None) -> tuple[float, int, int]:
+    """(swing speed, swings lost while casting, swings lost otherwise) from your sorted melee swing
+    times. Speed is the median gap between swings; a gap of n speeds loses int(n - 0.6) swings,
+    put down to casting when a hard cast (casting) overlaps it. With windows, only gaps inside one
+    window count (the time between two fights isn't a lost swing)."""
+    pairs = [(a, b) for a, b in zip(swings, swings[1:])
+             if windows is None or any(wa <= a and b <= wb for wa, wb in windows)]
+    speed = statistics.median([b - a for a, b in pairs]) if pairs else 0.0
+    lost_casting = lost_other = 0
+    for a, b in pairs:
+        n_lost = int((b - a) / speed - SWING_SLACK) if speed else 0
+        if n_lost > 0:
+            if any(s <= b and e >= a for s, e in casting):
+                lost_casting += n_lost
+            else:
+                lost_other += n_lost
+    return speed, lost_casting, lost_other
+
+
+def busy_intervals(lines: list[TLine], gcd: float = GCD) -> tuple[list[Interval], list[Interval]]:
     """(busy, wasted): when you were casting, channeling, on the GCD or wanding; and the cast
     time thrown away by casts that got interrupted."""
     busy: list[Interval] = []
@@ -90,7 +119,7 @@ def busy_intervals(lines: list[TLine]) -> tuple[list[Interval], list[Interval]]:
         elif c in ("CK", "CF", "CI") and casting and casting[0] == sid:
             start = casting[1]
             if c == "CK":
-                busy.append((start, max(ln.t, start + GCD)))
+                busy.append((start, max(ln.t, start + gcd)))
             else:
                 busy.append((start, ln.t))
                 if c == "CI":
@@ -100,10 +129,10 @@ def busy_intervals(lines: list[TLine]) -> tuple[list[Interval], list[Interval]]:
             if sid in AUTO_REPEAT:
                 shots.append(ln.t)
             else:
-                busy.append((ln.t, ln.t + GCD))  # an instant: the GCD
+                busy.append((ln.t, ln.t + gcd))  # an instant: the GCD
         elif c == "CC":
             channel = ln.t
-            busy.append((ln.t, ln.t + GCD))
+            busy.append((ln.t, ln.t + gcd))
         elif c == "CE" and channel is not None:
             busy.append((channel, ln.t))
             channel = None
@@ -139,6 +168,12 @@ class Metrics:
     # activity
     busy_time: float = 0.0
     idle_gaps: list[Interval] = field(default_factory=list)
+    starved_time: float = 0.0  # not busy, and couldn't afford anything (rage/energy only)
+    swings: int = 0            # your melee swings (hits and misses)
+    swings_lost: int = 0       # swings lost while not casting
+    swing_speed: float = 0.0
+    hard_casts: int = 0        # casts with a cast bar (from the combat log)
+    power_type: int | None = None   # 0 mana, 1 rage, 3 energy; None without Advanced Combat Logging
     # casting
     casts: int = 0             # successful casts (not wand shots)
     failed: int = 0            # presses the game refused (not wand toggles)
@@ -170,7 +205,8 @@ class Metrics:
 
     @property
     def uptime(self) -> float:
-        return self.busy_time / self.combat_time if self.combat_time else 0.0
+        """busy, or starved (waiting for rage/energy isn't idling)"""
+        return (self.busy_time + self.starved_time) / self.combat_time if self.combat_time else 0.0
 
     @property
     def per_min(self) -> float:
@@ -228,9 +264,12 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
     # only the stretch of the log these windows cover (a fight is a small slice of a long run)
     events = rd.events_between(windows[0][0] - 1, windows[-1][1] + 1) if windows else []
 
-    busy, wasted = busy_intervals(lines)
-    m.busy_time = total(clip(busy, windows))
-    m.idle_gaps = gaps(busy, windows, IDLE_GAP)
+    me = rd.player_guid
+    # your power type: the one most of your readings carry (a druid's forms: the main one wins)
+    if m.has_advanced:
+        types = Counter(e.info.power_type for e in rd.events if e.info and e.info.guid == me)
+        m.power_type = types.most_common(1)[0][0] if types else None
+    busy, wasted = busy_intervals(lines, ENERGY_GCD if m.power_type == ENERGY else GCD)
     m.wasted_cast_time = total(clip(wasted, windows))
     moving = moving_intervals(lines, rd.segment_spans)
     m.moving_time = total(clip(moving, windows))
@@ -296,13 +335,27 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
 
     # the combat log: what it did
     hp: list[tuple[float, float]] = []
+    power: list[tuple[float, int]] = []
+    swings: list[float] = []
+    casting: list[Interval] = []      # your hard casts: cast start to cast success
+    starts: dict[int, float] = {}
     for e in events:
         t = rd.rel(e.ts)
+        if e.info and e.info.guid == me and e.info.power_type == m.power_type:
+            power.append((t, e.info.power))   # readings just before a window still hold into it
         if not inside(t, windows):
             continue
         ev = e.event
         if e.info and e.info.guid == rd.player_guid and e.info.max_hp:
             hp.append((t, e.info.hp_pct))
+        if ev in ("SWING_DAMAGE", "SWING_MISSED") and e.src == me:
+            swings.append(t)
+        elif ev == "SPELL_CAST_START" and rd.mine(e):
+            starts[e.spell_id] = t
+        elif ev == "SPELL_CAST_SUCCESS" and rd.mine(e):
+            began = starts.pop(e.spell_id, None)
+            if began is not None and t - began < 10:
+                casting.append((began, t))
         if ev.endswith("_DAMAGE") and not ev.endswith("_LANDED"):
             if rd.mine(e):
                 m.damage += e.amount
@@ -318,4 +371,26 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
         for (t1, p1), (t2, _) in zip(hp, hp[1:]):
             if p1 < LOW_HP:
                 m.low_hp_time += min(t2 - t1, 5.0)
+
+    # melee: each swing keeps you busy until the next one, at most one swing (like wand shots)
+    m.swing_speed, _, m.swings_lost = swing_stats(swings, casting, windows)
+    m.swings, m.hard_casts = len(swings), len(casting)
+    for i, t in enumerate(swings):
+        nxt = swings[i + 1] if i + 1 < len(swings) else t + m.swing_speed
+        busy.append((t, t + min(m.swing_speed, max(0.0, nxt - t))))
+    busy = union(busy)
+
+    # starved (rage/energy): your power below your cheapest ability's cost
+    starved: list[Interval] = []
+    if m.power_type in (RAGE, ENERGY):
+        cheapest = min((e.info.cost for e in rd.events if e.event == "SPELL_CAST_SUCCESS" and rd.mine(e)
+                        and e.info and e.info.guid == me and e.info.power_type == m.power_type and e.info.cost),
+                       default=0)
+        for i, (t, p) in enumerate(power):
+            if cheapest and p < cheapest:
+                nxt = power[i + 1][0] if i + 1 < len(power) else t + POWER_HOLD
+                starved.append((t, min(nxt, t + POWER_HOLD)))
+    m.busy_time = total(clip(busy, windows))
+    m.starved_time = total(clip(busy + starved, windows)) - m.busy_time
+    m.idle_gaps = gaps(busy + starved, windows, IDLE_GAP)
     return m

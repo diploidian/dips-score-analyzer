@@ -147,6 +147,10 @@ class Pickups(unittest.TestCase):
         tm = self.tank(ev(12, "SWING_DAMAGE", MOB1, ME, amount=100), ev(25, "SWING_DAMAGE", MOB1, TANK, amount=100))
         self.assertEqual((len(tm.judged), tm.missed), (1, 1))
 
+    def test_spell_on_someone_else_is_not_a_loss(self):
+        tm = self.tank(ev(12, "SPELL_DAMAGE", MOB1, ME, "Fire Nova", 100))
+        self.assertEqual(tm.losses, [])
+
     def test_mob_died_first_is_left_out(self):
         tm = self.tank(ev(12, "SWING_DAMAGE", MOB1, ME, amount=100), ev(14, "UNIT_DIED", "", MOB1))
         self.assertEqual((len(tm.losses), len(tm.judged), tm.missed), (1, 0, 0))
@@ -173,6 +177,77 @@ class Pickups(unittest.TestCase):
             self.assertEqual(score.WEIGHTS["tank"], score.DEFAULT_WEIGHTS["tank"])
         finally:
             score.reset_weights()
+
+
+def me_info(event, power_type, power, cost=0):
+    """event with your Advanced Combat Logging block on it"""
+    from dips_score.sources.combatlog import UnitInfo
+    event.info = UnitInfo(ME, 1000, 1000, power_type, power, 100, 0.0, 0.0, 0, 0.0, 60, cost)
+    return event
+
+
+class Activity(unittest.TestCase):
+    """melee swings, the energy GCD, waiting for rage, and casters left as they were"""
+    def measure(self, events, lines=()):
+        from dips_score.model.run import TLine
+        from dips_score.scoring.metrics import measure
+        rd = rundata(events, [Fight(0, 60)])
+        rd.lines = [TLine(t, code, [str(sid)], 0) for t, code, sid in lines]
+        return measure(rd)
+
+    def swings(self, skip=lambda t: False):
+        return [ev(t, "SWING_DAMAGE", ME, MOB1, amount=50) for t in range(0, 60, 2) if not skip(t)]
+
+    def test_melee_swings_are_busy(self):
+        from dips_score.scoring.score import score_dps
+        m = self.measure(self.swings())
+        self.assertAlmostEqual(m.uptime, 1.0)
+        self.assertEqual((m.swings, m.swings_lost, m.swing_speed), (30, 0, 2.0))
+        cats = {c.name: c for c in score_dps(m).categories}
+        self.assertTrue(cats["Movement"].info_only)    # melee: no cast to cut
+        self.assertIn("30 swings, 0 lost", cats["Activity"].summary)
+
+    def test_hole_in_swings(self):
+        m = self.measure(self.swings(lambda t: 20 < t < 30))   # 20 then 30: a 10 s hole
+        self.assertEqual(m.swings_lost, 4)
+        self.assertEqual(m.idle_gaps, [(22.0, 30.0)])
+
+    def test_energy_gcd(self):
+        info = [me_info(ev(5, "SPELL_ENERGIZE", ME, ME), 3, 50)]
+        self.assertAlmostEqual(self.measure(info, [(10, "CK", 9)]).busy_time, 1.0)
+        self.assertAlmostEqual(self.measure([], [(10, "CK", 9)]).busy_time, 1.5)
+
+    def test_waiting_for_rage(self):
+        events = [me_info(ev(5, "SPELL_CAST_SUCCESS", ME, MOB1, "Heroic Strike"), 1, 30, cost=10),
+                  me_info(ev(20, "SPELL_ENERGIZE", ME, ME), 1, 2),
+                  me_info(ev(24, "SPELL_ENERGIZE", ME, ME), 1, 5),
+                  me_info(ev(28, "SPELL_ENERGIZE", ME, ME), 1, 40)]
+        m = self.measure(events)
+        self.assertEqual(m.power_type, 1)
+        self.assertAlmostEqual(m.starved_time, 8.0)
+        self.assertAlmostEqual(m.uptime, 8 / 60)
+        self.assertEqual(m.idle_gaps, [(0.0, 20.0), (28.0, 60.0)])
+
+    def test_mana_caster_unchanged(self):
+        # an instant at 2 (1.5 s GCD) and a 2.5 s cast from 5: 4 s busy of 60, even out of mana
+        events = [me_info(ev(1, "SPELL_CAST_SUCCESS", ME, MOB1, "Smite"), 0, 0, cost=100)]
+        m = self.measure(events, [(2, "CK", 9), (5, "CB", 7), (7.5, "CK", 7)])
+        self.assertEqual((m.power_type, m.starved_time, m.swings), (0, 0.0, 0))
+        self.assertAlmostEqual(m.uptime, 4.0 / 60)
+
+    def test_pooling_refusals(self):
+        from collections import Counter
+        from dips_score.scoring.metrics import Metrics
+        from dips_score.scoring.score import score_dps
+
+        def casting(power_type):
+            m = Metrics(combat_time=60, casts=20, failed=5, fail_reasons=Counter({"Not enough energy": 5}),
+                        power_type=power_type)
+            return next(c for c in score_dps(m).categories if c.name == "Casting")
+        energy = casting(3)
+        self.assertEqual(energy.score, 100)
+        self.assertIn("Not enough energy x5", energy.summary)
+        self.assertLess(casting(0).score, 100)
 
 
 if __name__ == "__main__":

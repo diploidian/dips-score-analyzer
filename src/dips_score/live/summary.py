@@ -18,6 +18,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 
 from ..model.roster import clean_name
+from ..scoring.metrics import swing_stats
 from ..sources.combatlog import Event
 from . import readiness
 from .tracker import NOT_HOSTILE as NOT_FIGHTING
@@ -223,17 +224,8 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
     auto = None
     swing_lost = 0.0
     if len(swings) >= 2:
-        gaps = [b - a for a, b in zip(swings, swings[1:])]
-        speed = statistics.median(gaps) if gaps else 0
-        lost_while_casting = lost_other = 0
         bars = [(b, t) for t, _, _, b, _ in casts if b is not None]
-        for a, b in zip(swings, swings[1:]):
-            n_lost = int((b - a) / speed - 0.6) if speed else 0
-            if n_lost > 0:
-                if any(s <= b and e >= a for s, e in bars):
-                    lost_while_casting += n_lost
-                else:
-                    lost_other += n_lost
+        speed, lost_while_casting, lost_other = swing_stats(swings, bars)
         avg = statistics.mean(swing_dmg) if swing_dmg else 0
         swing_lost = lost_other * avg
         auto = {"swings": len(swings), "speed": speed, "lost": lost_while_casting + lost_other,

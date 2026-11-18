@@ -55,7 +55,7 @@ shown, but it doesn't count and gives no tips.
 
 | Category | Weight | Measures |
 |---|---|---|
-| Activity | 30 | Share of combat spent casting, channeling, on the GCD or wanding |
+| Activity | 30 | Share of combat spent casting, channeling, on the GCD, wanding or swinging in melee (time waiting for rage/energy doesn't count against you) |
 | Casting | 20 | Share of presses the game refused, with the reasons from the combat log |
 | Movement | 15 | Casts cut short by moving, per minute |
 | Survival | 20 | Deaths, and time under 35% health |
