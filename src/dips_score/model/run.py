@@ -79,6 +79,11 @@ class RunData:
     def has_combat_log(self) -> bool:
         return bool(self.events)
 
+    @property
+    def has_advanced(self) -> bool:
+        """the log has the Advanced Combat Logging block (health, power, position)"""
+        return any(e.info for e in self.events)
+
     def mine(self, e: Event) -> bool:
         return bool(self.player_guid) and e.src == self.player_guid
 

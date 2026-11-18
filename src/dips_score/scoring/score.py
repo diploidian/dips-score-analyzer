@@ -105,10 +105,11 @@ class Category:
     weight: int
     summary: str             # the numbers behind it
     tip: str | None = None   # what to do about it, if there's something
+    unavailable: str = ""    # why it can't be judged from this log (then it doesn't count)
 
     @property
     def info_only(self) -> bool:
-        return self.weight <= 0
+        return self.weight <= 0 or bool(self.unavailable)
 
 
 @dataclass
@@ -184,6 +185,8 @@ def _input(m: Metrics, w: int) -> Category:
 def _card(cats: list[Category], role: str, bonus: float = 0.0, bonus_note: str = "") -> Scorecard:
     weight = sum(c.weight for c in cats if not c.info_only)
     base = sum(c.score * c.weight for c in cats if not c.info_only) / weight if weight else 0.0
+    if not weight and any(c.unavailable for c in cats):
+        return Scorecard(0.0, "-", role, cats, note="nothing counted could be judged: turn on Advanced Combat Logging")
     total = min(100.0, base + bonus)
     return Scorecard(total, grade(total), role, cats, bonus=bonus, bonus_note=bonus_note)
 
@@ -242,13 +245,17 @@ def healer_categories(hm: HealerMetrics, you: bool = True) -> list[Category]:
     cats.append(Category("Efficiency", s, W["Efficiency"],
                          f"{hm.cast_heal:,} cast healing, {hm.overheal_share:.0%} overheal; {hm.passive_heal:,} passive; "
                          f"{mana_txt}, {hm.oom_refusals} refused for mana", tip))
+    if not hm.has_advanced:   # no health readings: dips and danger can't be seen, don't score them 100
+        need = "needs Advanced Combat Logging"
+        cats[0] = Category("Group health", 0.0, W["Group health"], need, unavailable=need)
+        cats[1] = Category("Response", 0.0, W["Response"], need, unavailable=need)
     return cats
 
 
 def hybrid_bonus(hm: HealerMetrics, cats: list[Category]) -> tuple[float, str]:
     """damage, as a share of an even split, scaled by how well the healing went (cats from healer_categories)"""
     W = WEIGHTS["healer"]
-    if W.get(BONUS, 0) <= 0 or hm.even_share <= 0 or hm.my_damage <= 0:
+    if W.get(BONUS, 0) <= 0 or hm.even_share <= 0 or hm.my_damage <= 0 or cats[0].unavailable or cats[1].unavailable:
         return 0.0, ""
     quality = (cats[0].score / 100) * (cats[1].score / 100)
     credit = hm.free_damage + 0.5 * (hm.my_damage - hm.free_damage)

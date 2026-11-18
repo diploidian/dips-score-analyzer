@@ -95,5 +95,40 @@ class Pulls(unittest.TestCase):
         self.assertEqual(loose, [])
 
 
+class AdvancedLogging(unittest.TestCase):
+    """a healer run with and without the Advanced Combat Logging block"""
+    def card(self, advanced):
+        from dips_score.scoring.healer import measure_healer
+        from dips_score.scoring.score import _card, healer_categories, hybrid_bonus
+        from dips_score.sources.combatlog import UnitInfo
+        hit = ev(10, "SWING_DAMAGE", MOB1, TANK, amount=500)
+        if advanced:
+            hit.info = UnitInfo(TANK, 400, 1000, 0, 0, 0, 0.0, 0.0, 0, 0.0, 60)   # tank dips to 40%
+        events = [hit, ev(10.5, "SPELL_CAST_START", ME, TANK, "Flash Heal"),
+                  ev(12, "SPELL_HEAL", ME, TANK, "Flash Heal", 300),
+                  ev(15, "SPELL_DAMAGE", ME, MOB1, "Smite", 400)]
+        rd = rundata(events, [Fight(0, 30)])
+        self.assertEqual(rd.has_advanced, advanced)
+        hm = measure_healer(rd)
+        cats = healer_categories(hm)
+        bonus, note = hybrid_bonus(hm, cats)
+        return {c.name: c for c in cats}, bonus, _card(cats, "healer", bonus, note)
+
+    def test_without_advanced(self):
+        cats, bonus, card = self.card(False)
+        self.assertTrue(cats["Group health"].unavailable and cats["Response"].unavailable)
+        self.assertTrue(cats["Response"].info_only)
+        self.assertEqual(bonus, 0)
+        self.assertFalse(cats["Efficiency"].unavailable)
+        self.assertEqual(card.total, cats["Efficiency"].score)   # only Efficiency counted
+
+    def test_with_advanced(self):
+        cats, bonus, card = self.card(True)
+        self.assertFalse(cats["Group health"].unavailable or cats["Response"].unavailable)
+        self.assertTrue(cats["Response"].summary.startswith("1 dips"))
+        self.assertEqual(cats["Response"].score, 100)
+        self.assertGreater(bonus, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -13,6 +13,7 @@ ns.DEFAULTS = {
     maxRuns = 15,       -- oldest runs are dropped at load past this
     maxLines = 80000,   -- per segment (one load of the UI); past this a segment stops recording
     announce = true,    -- a chat line when a run starts and ends
+    combatLog = true,   -- turn the game's combat log (and advanced logging) on when a run starts
     button = {          -- the record button
         shown = true,
         locked = false,

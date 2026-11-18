@@ -41,6 +41,32 @@ local function OpenSegment()
     Changed()
 end
 
+-- The analyzer needs WoWCombatLog.txt with the advanced block (health, power). Only ever turns on.
+local toldLog, toldAdvanced -- once per session each
+local function EnsureCombatLog()
+    local turnedOn = false
+    if LoggingCombat and not LoggingCombat() then
+        LoggingCombat(true)
+        turnedOn = true
+    end
+    local get = C_CVar and C_CVar.GetCVar or GetCVar
+    local set = C_CVar and C_CVar.SetCVar or SetCVar
+    if get("advancedCombatLogging") ~= "1" then
+        -- not confirmed this client lets an add-on set it: check that it stuck
+        local ok = pcall(set, "advancedCombatLogging", "1")
+        if ok and get("advancedCombatLogging") == "1" then
+            turnedOn = true
+        elseif not toldAdvanced then
+            toldAdvanced = true
+            ns.Print("turn on Advanced Combat Logging in the game's options (Network/System) - the analyzer needs it.")
+        end
+    end
+    if turnedOn and not toldLog then
+        toldLog = true
+        ns.Print("turned the combat log on for the analyzer.")
+    end
+end
+
 local function StartRun(zone, kind, difficulty, instanceID)
     local started = time()
     run = {
@@ -54,6 +80,7 @@ local function StartRun(zone, kind, difficulty, instanceID)
     log.runs[#log.runs + 1] = run
     log.active = run.id
     OpenSegment()
+    if ns.db.combatLog then EnsureCombatLog() end
     if ns.db.announce then ns.Print("recording " .. (zone or "?") .. ".") end
 end
 

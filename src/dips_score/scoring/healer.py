@@ -66,6 +66,7 @@ class HealerMetrics:
     free_damage: int = 0           # of that, done while everyone was above SAFE_HP (your spare time)
     group_damage: int = 0          # the whole group's damage to enemies
     group_size: int = 0
+    has_advanced: bool = True      # health readings exist (Advanced Combat Logging)
 
     @property
     def even_share(self) -> float:
@@ -189,7 +190,7 @@ def measure_healer(rd: RunData, windows: list[Interval] | None = None, base: Hea
     if windows is None:
         windows = [(f.start, f.end) for f in rd.fights]
     windows = union(windows)
-    hm = HealerMetrics(combat_time=total(windows))
+    hm = HealerMetrics(combat_time=total(windows), has_advanced=rd.has_advanced)
     b = base or healer_base(rd)
     if not b.who:
         return hm

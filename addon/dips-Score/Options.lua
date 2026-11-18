@@ -30,12 +30,14 @@ local OPTIONS = {
     {type = "section", label = "Recording"},
     {type = "description", text = "A run starts when you enter one of these and ends when you leave. "
         .. "The game only writes it to disk on /reload or logout - that's when the analyzer can read it. "
-        .. "Turn on the game's combat log too (/combatlog)."},
+        .. "The analyzer also needs the game's combat log (/combatlog) with Advanced Combat Logging; "
+        .. "the last toggle below turns them on when a run starts (or says how, if the game won't let it)."},
     {type = "toggle", key = "record.party", label = "Dungeons", onChange = ns.UpdateRecording},
     {type = "toggle", key = "record.raid", label = "Raids", onChange = ns.UpdateRecording},
     {type = "toggle", key = "record.scenario", label = "Scenarios and delves", onChange = ns.UpdateRecording},
     {type = "toggle", key = "record.world", label = "Everywhere else", onChange = ns.UpdateRecording},
     {type = "toggle", key = "announce", label = "Say in chat when a run starts and ends"},
+    {type = "toggle", key = "combatLog", label = "Turn on the combat log (with advanced logging) when a run starts"},
 
     {type = "header", label = "Record button"},
     {type = "description", text = "Click it to start or stop recording, right-click it for more, drag it "

@@ -25,7 +25,7 @@ def card_tooltip(a: Analysis, pl) -> str:
     rows = []
     for c in pl.card.categories:
         w = "info" if c.info_only else f"x{c.weight:g}"
-        rows.append(f"<tr><td>{c.name}</td><td align=right><b>{c.score:.0f}</b></td>"
+        rows.append(f"<tr><td>{c.name}</td><td align=right><b>{'-' if c.unavailable else f'{c.score:.0f}'}</b></td>"
                     f"<td style='color:#888'>&nbsp;{w}</td><td>&nbsp;{c.summary}</td></tr>")
     if pl.card.bonus:
         rows.append(f"<tr><td>Hybrid bonus</td><td align=right><b>+{pl.card.bonus:.1f}</b></td><td></td>"

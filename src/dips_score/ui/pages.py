@@ -143,15 +143,16 @@ class ScorePanel(QWidget):
         for row in self.rows + [(self.bonus_name, self.bonus_num, self.bonus_note)]:
             for w in row:
                 w.setVisible(False)
+        if card and card.note:
+            self.sub.setText(sub + " · " + card.note)
         if empty:
-            if card and card.note:
-                self.sub.setText(sub + " · " + card.note)
             self.grade.setText("")
             self.output.setText("")
             self.tips.setText("")
             return
         c = theme.grade_color(card.grade).name()
-        self.grade.setText(f'<span style="font-size:30pt;font-weight:700;color:{c}">{card.total:.0f}</span>'
+        total = "-" if card.grade == "-" else f"{card.total:.0f}"   # "-": nothing counted could be judged
+        self.grade.setText(f'<span style="font-size:30pt;font-weight:700;color:{c}">{total}</span>'
                            f'<span style="font-size:18pt;color:{c}">&nbsp;{card.grade}</span>'
                            f'<br><span style="color:{theme.DIM.name()}">as {card.role}</span>')
         for (name, bar, num, summary), cat in zip(self.rows, card.categories):
@@ -159,11 +160,11 @@ class ScorePanel(QWidget):
                 w.setVisible(True)
             name.setText(cat.name)
             name.setStyleSheet(f"color: {theme.DIM.name()};" if cat.info_only else "")
-            name.setToolTip("info only: weighted 0, doesn't count toward the total" if cat.info_only
+            name.setToolTip(cat.unavailable or "info only: weighted 0, doesn't count toward the total" if cat.info_only
                             else f"weight {cat.weight:g}")
             bar.set(cat.score, dim=cat.info_only)
-            num.setText(f"{cat.score:.0f}")
-            summary.setText(("info only · " if cat.info_only else "") + cat.summary)
+            num.setText("-" if cat.unavailable else f"{cat.score:.0f}")
+            summary.setText(cat.unavailable or ("info only · " if cat.info_only else "") + cat.summary)
         show_bonus = card.bonus > 0
         for w in (self.bonus_name, self.bonus_num, self.bonus_note):
             w.setVisible(show_bonus)
@@ -325,6 +326,8 @@ class ScoreTab(QWidget):
                 f"{fmt_time(a.metrics.combat_time)} in combat over {len(rd.fights)} fights")
         if self._is_me():
             sync = "; ".join(s.describe() for s in rd.sync if s.anchors) or "no clock anchors"
+            if rd.has_combat_log and not rd.has_advanced:
+                sync += " · advanced logging: off"
             self.card.show_card(rd.run.zone, f"{when} · sync: {sync}", a.card, a.metrics)
             self._show_radar()
             return

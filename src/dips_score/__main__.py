@@ -52,6 +52,8 @@ def cmd_report(p, n: int | None, role: str) -> int:
           f"{_fmt_time(m.combat_time)} in combat over {len(rd.fights)} fights")
     if not rd.has_combat_log:
         print("  (no combat log covers this run: damage, healing and health aren't known)")
+    elif not rd.has_advanced:
+        print("  (advanced logging was off: health and mana aren't known)")
     for i, s in enumerate(rd.sync, 1):
         print(f"  sync, segment {i}: {s.describe()}")
     if card.empty:
@@ -61,7 +63,7 @@ def cmd_report(p, n: int | None, role: str) -> int:
     for c in card.categories:
         bar = "#" * round(c.score / 10) + "." * (10 - round(c.score / 10))
         weight = "info" if c.info_only else f"x{c.weight:g}"
-        print(f"  {c.name:<12} {weight:>4} {bar} {c.score:3.0f}   {c.summary}")
+        print(f"  {c.name:<12} {weight:>4} {bar} {'-' if c.unavailable else f'{c.score:3.0f}':>3}   {c.summary}")
     if card.bonus:
         print(f"  {'Hybrid bonus':<12}      +{card.bonus:.1f}          {card.bonus_note}")
     if m.has_log:

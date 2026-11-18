@@ -166,6 +166,7 @@ class Metrics:
     overheal: int = 0
     kills: int = 0
     has_log: bool = False
+    has_advanced: bool = False
 
     @property
     def uptime(self) -> float:
@@ -221,7 +222,8 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
     if windows is None:
         windows = [(f.start, f.end) for f in rd.fights]
     windows = union(windows)
-    m = Metrics(combat_time=total(windows), fights=len(windows), has_log=rd.has_combat_log)
+    m = Metrics(combat_time=total(windows), fights=len(windows), has_log=rd.has_combat_log,
+                has_advanced=rd.has_advanced)
     lines = rd.lines
     # only the stretch of the log these windows cover (a fight is a small slice of a long run)
     events = rd.events_between(windows[0][0] - 1, windows[-1][1] + 1) if windows else []
