@@ -1,0 +1,16 @@
+## Interface: 16001
+## Title: dips-Score
+## Notes: Records what you pressed and when (keys, clicks, movement, casts) in dungeons, for the dips-score analyzer.
+## Author: Diploid
+## Version: 0.1.0
+## Dependencies: dips-Core
+## SavedVariables: dipsScoreDB
+## SavedVariablesPerCharacter: dipsScoreLog
+
+Config.lua
+Log.lua
+Clock.lua
+Runs.lua
+Intent.lua
+Button.lua
+Options.lua

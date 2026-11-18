@@ -2,7 +2,8 @@
 
 Scores a WoW dungeon run. It merges two data sources:
 
-- **dips-Score** (the addon, in `Interface/AddOns/dips-Score`): what you pressed and when. That
+- **dips-Score** (the addon: its source is in `addon/dips-Score` here; copy that folder into
+  `Interface/AddOns/`): what you pressed and when. That
   covers key vs click, key holds, movement, cast starts, finishes, refusals and interrupts, and
   combat start and end. It saves to `WTF/.../SavedVariables/dips-Score.lua` on `/reload` or logout.
 - **The combat log** (`/combatlog`, with Advanced Combat Logging on): what actually happened.
