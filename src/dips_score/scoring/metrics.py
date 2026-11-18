@@ -6,7 +6,8 @@ lines), so walking between pulls doesn't count against you.
 Busy time is casting, channeling, the GCD (1.0 s for energy users, else 1.5 s), wand shots and
 melee swings (each swing keeps you busy until the next one, at most one swing). For rage and
 energy users (Advanced Combat Logging), time you couldn't afford your cheapest ability is
-"starved": not busy, but not held against you either.
+"starved": not busy, but not held against you either. The other side is "capped": time your rage
+or energy sat at its maximum (more coming in was lost), counted from the same readings.
 """
 from __future__ import annotations
 
@@ -170,6 +171,7 @@ class Metrics:
     busy_time: float = 0.0
     idle_gaps: list[Interval] = field(default_factory=list)
     starved_time: float = 0.0  # not busy, and couldn't afford anything (rage/energy only)
+    capped_time: float = 0.0   # power at its maximum, so income was being wasted (rage/energy only)
     swings: int = 0            # your melee swings (hits and misses)
     swings_lost: int = 0       # swings lost while not casting
     swing_speed: float = 0.0
@@ -337,6 +339,7 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
     # the combat log: what it did
     hp: list[tuple[float, float]] = []
     power: list[tuple[float, int]] = []
+    full: list[bool] = []             # for each power reading: at its maximum
     swings: list[float] = []
     casting: list[Interval] = []      # your hard casts: cast start to cast success
     starts: dict[int, float] = {}
@@ -344,6 +347,7 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
         t = rd.rel(e.ts)
         if e.info and e.info.guid == me and e.info.power_type == m.power_type:
             power.append((t, e.info.power))   # readings just before a window still hold into it
+            full.append(e.info.max_power > 0 and e.info.power >= e.info.max_power)
         if not inside(t, windows):
             continue
         ev = e.event
@@ -383,6 +387,7 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
 
     # starved (rage/energy): your power below your cheapest ability's cost
     starved: list[Interval] = []
+    capped: list[Interval] = []
     if m.power_type in (RAGE, ENERGY):
         cheapest = min((e.info.cost for e in rd.events if e.event == "SPELL_CAST_SUCCESS" and rd.mine(e)
                         and e.info and e.info.guid == me and e.info.power_type == m.power_type and e.info.cost),
@@ -392,6 +397,10 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
             if cheapest and p < cheapest:
                 nxt = power[i + 1][0] if i + 1 < len(power) else t + hold
                 starved.append((t, min(nxt, t + hold)))
+            elif full[i]:   # (a reading under the cheapest cost isn't at max, so the two never overlap)
+                nxt = power[i + 1][0] if i + 1 < len(power) else t + hold
+                capped.append((t, min(nxt, t + hold)))
+    m.capped_time = total(clip(capped, windows))
     m.busy_time = total(clip(busy, windows))
     m.starved_time = total(clip(busy + starved, windows)) - m.busy_time
     m.idle_gaps = gaps(busy + starved, windows, IDLE_GAP)

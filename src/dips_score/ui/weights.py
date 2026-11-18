@@ -23,6 +23,8 @@ HELP = {
     "Pickups": "how fast a mob that turned to someone else is back on you",
     "Damage": "your damage against an even split of the group's (needs a group)",
     "Interrupts": "enemy casts you stopped, and debuffs you dispelled (only spells someone stopped count)",
+    "Cooldowns": "damage cooldowns that sat ready while you were free to use them (learned from your casts)",
+    "Resource": "time spent at full rage or energy, so power was wasted (needs Advanced Combat Logging)",
     BONUS: "most points added for the damage you also did, scaled by how well you healed",
 }
 

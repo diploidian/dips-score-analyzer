@@ -4,15 +4,20 @@ change them in the window, saved in weights.json):
 
     healer   Group health 35, Response 35, Efficiency 20, Casting 10, Movement 0, Input 0
              + a hybrid bonus of up to 10 for the damage you also did
-    dps      Damage 25, Activity 20, Interrupts 10, Casting 15, Movement 10, Survival 10, Input 10
+    dps      Damage 20, Activity 20, Cooldowns 10, Interrupts 10, Casting 10, Movement 10, Survival 10,
+             Input 5, Resource 5
     tank     Holding mobs 25, Pickups 25, Survival 20, Activity 10, Casting 10, Input 10, Movement 0,
-             Interrupts 0
+             Interrupts 0, Cooldowns 0, Resource 0
 
 A category weighted 0 is info only: still shown with its numbers, but it doesn't count toward the
 total and gives no tips. For a healer, mashing and casts cut by moving are info only by default,
 and Casting only counts refusals that mean something went wrong (out of range, wrong target, no
 mana), not ones from pressing early. For rage and energy users, "Not enough rage/energy" refusals
 don't count either (that's pooling), and for melee Movement is info only.
+
+Resource (rage and energy users, needs Advanced Combat Logging): the share of combat your power sat
+at its maximum, so more coming in was wasted. Cooldowns: damage cooldowns that sat ready while you
+were free to use them, as a share of your damage (cooldowns.py).
 
 Damage (dps): your damage (your pets' included) as a share of an even split of the group's, the same
 measure the group card uses. Solo there's nothing to compare with, so it isn't judged. Interrupts:
@@ -35,6 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .healer import DIP_HP, RESPONSE_CAP, SAFE_HP, HealerMetrics
+from .cooldowns import CooldownMetrics
 from .interrupts import InterruptMetrics
 from .metrics import Metrics
 from .tank import PICKUP_CAP, TankMetrics
@@ -76,6 +82,10 @@ TUNING = {
     # is short, so getting it matters more than speed); dispels the same, a little slower
     "kick_missed_zero": 0.6, "kick_resp_zero": 2.5, "kick_resp_full": 0.8,
     "dispel_resp_zero": 5.0, "dispel_resp_full": 1.5,
+    # resource (rage, energy): share of combat spent at full power
+    "capped_zero": 0.20, "capped_full": 0.02,
+    # cooldowns: damage lost to unused cooldowns, as a share of your damage plus that
+    "cd_lost_zero": 0.15, "cd_lost_full": 0.0,
 }
 POWER_WORD = {1: "rage", 3: "energy"}   # Metrics.power_type
 
@@ -83,10 +93,10 @@ BONUS = "Hybrid bonus"   # not a category: its "weight" is the most points it ca
 DEFAULT_WEIGHTS = {
     "healer": {"Group health": 35, "Response": 35, "Efficiency": 20, "Casting": 10, "Movement": 0, "Input": 0,
                BONUS: 10},
-    "dps": {"Damage": 25, "Activity": 20, "Interrupts": 10, "Casting": 15, "Movement": 10, "Survival": 10,
-            "Input": 10},
+    "dps": {"Damage": 20, "Activity": 20, "Cooldowns": 10, "Interrupts": 10, "Casting": 10, "Movement": 10,
+            "Survival": 10, "Input": 5, "Resource": 5},
     "tank": {"Holding mobs": 25, "Pickups": 25, "Survival": 20, "Activity": 10, "Casting": 10, "Input": 10,
-             "Movement": 0, "Interrupts": 0},
+             "Movement": 0, "Interrupts": 0, "Cooldowns": 0, "Resource": 0},
 }
 WEIGHTS = {role: dict(w) for role, w in DEFAULT_WEIGHTS.items()}   # in use (load_weights fills it)
 
@@ -246,6 +256,35 @@ def _activity(m: Metrics, w: int) -> Category:
         + (f"; {m.swings} swings, {m.swings_lost} lost while not casting" if m.swings else "")
         + (f"; waiting for {word} {m.starved_time:.0f}s" if word and m.starved_time >= 0.5 else ""),
         tip if s < 85 else None)
+
+
+def _resource(m: Metrics, w: int) -> Category | None:
+    """time at full rage or energy; None for anyone else (mana users, or no power readings)"""
+    word = POWER_WORD.get(m.power_type)
+    if not word or not m.has_advanced:
+        return None
+    share = m.capped_time / m.combat_time if m.combat_time else 0.0
+    s = ramp(share, TUNING["capped_zero"], TUNING["capped_full"])
+    return Category("Resource", s, w,
+                    f"at full {word} {m.capped_time:.0f}s ({share:.0%} of combat); waiting for {word} "
+                    f"{m.starved_time:.0f}s",
+                    f"You sat at full {word} for {m.capped_time:.0f}s, so {word} was wasted. Spend it "
+                    f"before you cap." if s < 85 else None)
+
+
+def _cooldowns(cm: CooldownMetrics, w: int) -> Category:
+    """damage cooldowns that sat ready with no excuse (live/readiness.py says what excuses)"""
+    if not cm.rows:
+        return Category("Cooldowns", 100.0, w, "no cooldowns to judge")
+    s = ramp(cm.lost_share, TUNING["cd_lost_zero"], TUNING["cd_lost_full"])
+    top = [r for r in cm.rows if r.lost > 0][:2]
+    summary = ("; ".join(f"{r.name} ready {r.free:.0f}s, ~{r.lost:,.0f} damage" for r in top)
+               or "every cooldown was used as it came up")
+    worst = top[0] if top else None
+    return Category("Cooldowns", s, w, summary,
+                    f"{worst.name} sat ready {worst.free:.0f}s while you were free to use it (about "
+                    f"{worst.missed:.1f} casts, ~{worst.lost:,.0f} damage). Cast it as soon as it comes up."
+                    if worst and s < 85 else None)
 
 
 def _survival(m: Metrics, w: int) -> Category:
@@ -408,7 +447,8 @@ def score_healer(m: Metrics, hm: HealerMetrics) -> Scorecard:
 
 
 # ----------------------------------------------------------------------------- dps
-def score_dps(m: Metrics, dmg: tuple[int, float] | None = None, im: InterruptMetrics | None = None) -> Scorecard:
+def score_dps(m: Metrics, dmg: tuple[int, float] | None = None, im: InterruptMetrics | None = None,
+              cm: CooldownMetrics | None = None) -> Scorecard:
     """dmg: your damage and its share of an even split (group.py damage_share; None when solo)"""
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "dps", note="no combat in this run, nothing to score")
@@ -418,8 +458,12 @@ def score_dps(m: Metrics, dmg: tuple[int, float] | None = None, im: InterruptMet
     if m.has_log:   # both come from the combat log; without one the card is as it always was
         need = "needs a group to compare with"
         cats.insert(1, _interrupts(im, W["Interrupts"]))
+        if cm is not None:
+            cats.insert(1, _cooldowns(cm, W["Cooldowns"]))
         cats.insert(0, damage_category(*dmg, m.combat_time, W["Damage"]) if dmg else
                     Category("Damage", 0.0, W["Damage"], need, unavailable=need))
+    if res := _resource(m, W["Resource"]):
+        cats.append(res)
     return _card(cats, "dps")
 
 
@@ -465,7 +509,8 @@ def tank_categories(tm: TankMetrics, weights: dict, you: bool = True, m: Metrics
     return cats
 
 
-def score_tank(m: Metrics, tm: TankMetrics, im: InterruptMetrics | None = None) -> Scorecard:
+def score_tank(m: Metrics, tm: TankMetrics, im: InterruptMetrics | None = None,
+               cm: CooldownMetrics | None = None) -> Scorecard:
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "tank", note="no combat in this run, nothing to score")
     if not m.has_log:
@@ -474,17 +519,21 @@ def score_tank(m: Metrics, tm: TankMetrics, im: InterruptMetrics | None = None) 
     cats = tank_categories(tm, W, True, m)
     cats += [_activity(m, W["Activity"]), _pooling_casting(m, W["Casting"]), _input(m, W["Input"]),
              _movement(m, 0 if _melee(m) else W["Movement"]), _interrupts(im, W["Interrupts"])]
+    if cm is not None:
+        cats.append(_cooldowns(cm, W["Cooldowns"]))
+    if res := _resource(m, W["Resource"]):
+        cats.append(res)
     return _card(cats, "tank")
 
 
 def score(m: Metrics, role: str = "healer", hm: HealerMetrics | None = None,
           tm: TankMetrics | None = None, dmg: tuple[int, float] | None = None,
-          im: InterruptMetrics | None = None) -> Scorecard:
+          im: InterruptMetrics | None = None, cm: CooldownMetrics | None = None) -> Scorecard:
     if role == "healer" and hm is not None:
         return score_healer(m, hm)
     if role == "tank" and tm is not None:
-        return score_tank(m, tm, im)
-    return score_dps(m, dmg, im)
+        return score_tank(m, tm, im, cm)
+    return score_dps(m, dmg, im, cm)
 
 
 def _fail_tip(m: Metrics, ignore: set[str] = frozenset()) -> str:

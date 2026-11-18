@@ -47,6 +47,8 @@ def _fight_detail(fr, role: str) -> str:
     if fr.interrupts and fr.interrupts.used and fr.interrupts.judged:
         j = fr.interrupts.judged
         out += f", interrupted {len(j) - fr.interrupts.missed}/{len(j)}"
+    if fr.cooldowns and fr.cooldowns.lost_share:
+        out += f", cooldowns lost {fr.cooldowns.lost_share:.0%}"
     return out
 
 

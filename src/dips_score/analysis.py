@@ -15,6 +15,8 @@ from .model.pulls import Enemy, Pull, build_pulls
 from .model.roster import Overrides, Player, build_roster
 from .model.run import Fight, RunData, build
 from .model.summary import Summary, summarize
+from .live.history import History
+from .scoring.cooldowns import CooldownMetrics, measure_cooldowns
 from .scoring.group import damage_share, group_data, rank_group
 from .scoring.radar import radars
 from .scoring.healer import HealerMetrics, healer_base, measure_healer
@@ -38,6 +40,7 @@ class FightResult:
     tank: TankMetrics | None = None   # only when scored as a tank
     damage: tuple[int, float] | None = None       # dps/tank: yours, and its share of an even split (None: solo)
     interrupts: InterruptMetrics | None = None    # dps/tank
+    cooldowns: CooldownMetrics | None = None      # dps/tank
 
 
 @dataclass
@@ -62,6 +65,7 @@ class Analysis:
     tank: TankMetrics | None = None               # only when scored as a tank
     damage: tuple[int, float] | None = None       # dps/tank: yours, and its share of an even split (None: solo)
     interrupts: InterruptMetrics | None = None    # dps/tank
+    cooldowns: CooldownMetrics | None = None      # dps/tank
 
     @property
     def me(self) -> Player | None:
@@ -103,9 +107,9 @@ def load_saved(paths: Paths, saved: Path | None = None, merge: bool = True) -> t
 
 def rescore(a: Analysis):
     """Score again with the weights in use now (after they were changed): the measuring stays."""
-    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts)
+    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts, a.cooldowns)
     for fr in a.fights:
-        fr.card = score(fr.metrics, a.role, fr.healer, fr.tank, fr.damage, fr.interrupts)
+        fr.card = score(fr.metrics, a.role, fr.healer, fr.tank, fr.damage, fr.interrupts, fr.cooldowns)
     if a.group is not None:
         a.ranking = rank_group(a)
 
@@ -147,6 +151,10 @@ def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
         a.damage, a.interrupts = extras([(f.start, f.end) for f in rd.fights])
         for fr in fights:
             fr.damage, fr.interrupts = extras([(fr.fight.start, fr.fight.end)])
+        # cooldown lengths the live view learned (cooldowns.json); History also reads the fights file
+        a.cooldowns, per_fight = measure_cooldowns(rd, History(paths).cooldowns)
+        for fr, cm in zip(fights, per_fight):
+            fr.cooldowns = cm
     rescore(a)   # with the extras (also ranks the group)
     a.radars = radars(a)
     return a

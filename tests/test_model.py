@@ -285,7 +285,7 @@ class DpsDamage(unittest.TestCase):
             score.load_weights(path)
         try:
             self.assertEqual(score.WEIGHTS["dps"]["Activity"], 30)
-            self.assertEqual((score.WEIGHTS["dps"]["Damage"], score.WEIGHTS["dps"]["Interrupts"]), (25, 10))
+            self.assertEqual((score.WEIGHTS["dps"]["Damage"], score.WEIGHTS["dps"]["Resource"]), (20, 5))
         finally:
             score.reset_weights()
 
@@ -346,6 +346,63 @@ class Interrupts(unittest.TestCase):
         cat = _interrupts(im, 10)    # no interrupt used: the dispel part alone
         self.assertFalse(cat.unavailable)
         self.assertIn("Curse", cat.tip)
+
+
+class Phase4(unittest.TestCase):
+    """capped rage, and cooldowns left ready"""
+    def card(self, power_type):
+        from dips_score.scoring.metrics import measure
+        from dips_score.scoring.score import score_dps
+        events = [me_info(ev(t, "SPELL_ENERGIZE", ME, ME), power_type, p) for t, p in ((0, 100), (5, 100), (10, 50))]
+        m = measure(rundata(events, [Fight(0, 60)]))
+        return m, {c.name: c for c in score_dps(m).categories}
+
+    def test_capped_rage(self):
+        m, cats = self.card(1)
+        self.assertAlmostEqual(m.capped_time, 10.0)
+        self.assertLess(cats["Resource"].score, 100)
+        self.assertIn("at full rage 10s", cats["Resource"].summary)
+
+    def test_mana_has_no_resource(self):
+        m, cats = self.card(0)
+        self.assertEqual(m.capped_time, 0.0)
+        self.assertNotIn("Resource", cats)
+
+    def measure(self, *casts, known):
+        from dips_score.scoring.cooldowns import measure_cooldowns
+        events = [sp(t, "SPELL_CAST_SUCCESS", ME, MOB1, "Mind Blast", 5) for t in casts]
+        hit = sp(0.1, "SPELL_DAMAGE", ME, MOB1, "Mind Blast", 5)
+        hit.amount = 300
+        bites = [ev(t, "SWING_DAMAGE", MOB1, ME, amount=10) for t in range(2, 91, 2)]   # keeps the fight on
+        events = sorted([*events, hit, *bites], key=lambda e: e.ts)
+        return measure_cooldowns(rundata(events, [Fight(0, 90)]), known)[0]
+
+    def test_cooldown_left_ready(self):
+        from dips_score.scoring.score import _cooldowns
+        cm = self.measure(0, known={5: 30.0})
+        row = cm.rows[0]
+        self.assertEqual(row.name, "Mind Blast")
+        self.assertTrue(1.8 < row.missed <= 2.0, row.missed)   # a 30 s cooldown cast once in 90 s: 2 casts missed
+        self.assertAlmostEqual(row.lost, row.missed * 300)
+        self.assertLess(_cooldowns(cm, 10).score, 100)
+
+    def test_no_cooldowns(self):
+        from dips_score.scoring.score import _cooldowns
+        cat = _cooldowns(self.measure(0, known={}), 10)   # cast once: no cooldown to learn
+        self.assertEqual((cat.score, cat.summary), (100.0, "no cooldowns to judge"))
+
+    def test_old_weights_file(self):
+        import json
+        import tempfile
+        from dips_score.scoring import score
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "weights.json"
+            path.write_text(json.dumps({"dps": {"Damage": 25, "Input": 10}}), encoding="utf-8")
+            score.load_weights(path)
+        try:
+            self.assertEqual((score.WEIGHTS["dps"]["Cooldowns"], score.WEIGHTS["dps"]["Resource"]), (10, 5))
+        finally:
+            score.reset_weights()
 
 
 if __name__ == "__main__":
