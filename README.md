@@ -1,6 +1,7 @@
 # dips-score
 
-Scores a WoW dungeon run. It merges two data sources:
+Scores a WoW dungeon run. New here? Read the [guide](docs/GUIDE.md) for setup, what it tracks and
+how the grade works. It merges two data sources:
 
 - **dips-Score** (the addon: its source is in `addon/dips-Score` here; copy that folder into
   `Interface/AddOns/`, it needs no other add-on; `/dscore` opens its settings, and `/dscore status`,
