@@ -288,6 +288,10 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     main = max(foes, key=lambda fo: dmg_by_foe.get(fo.guid, 0)) if foes else None
     target = f.boss or (clean_name(main.name) if main and main.player else (main.name if main else "?"))
     extra = len({fo.name for fo in foes}) - 1
+    # every enemy, most damaged first, as [name, how many]
+    foe_names = Counter()
+    for fo in sorted(foes, key=lambda fo: -dmg_by_foe.get(fo.guid, 0)):
+        foe_names[clean_name(fo.name) if fo.player else fo.name] += 1
     pvp = any(fo.player for fo in foes)
     # an instance id means a dungeon (some report difficulty 0, like the open world does)
     kind = "PvP" if pvp else ("Boss" if f.boss else ("Dungeon" if f.instance or f.difficulty else "World"))
@@ -524,6 +528,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         "start": start.isoformat(), "end": end.isoformat(), "duration": dur,
         "me": me, "me_name": clean_name(me_name) if me_name else "",
         "kind": kind, "zone": f.zone, "target": target, "more": max(0, extra), "result": result,
+        "foes": [[n, c] for n, c in foe_names.items()],
         "damage": damage, "dps": dps, "healing": heal, "overheal": overheal, "taken": total_taken,
         "lowest_hp": min((p for _, p in hp), default=None),
         "potential": potential, "efficiency": efficiency,

@@ -21,6 +21,14 @@ def _dur(s: float) -> str:
     return f"{int(s // 60)}:{int(s % 60):02d}"
 
 
+def _foes(f: dict) -> str:
+    """every enemy in the fight, most damaged first ("" for a lone enemy or an older fight)"""
+    foes = f.get("foes") or []
+    if sum(c for _, c in foes) < 2:
+        return ""
+    return ", ".join(n + (f" ×{c}" if c > 1 else "") for n, c in foes)
+
+
 def chip(kind: str) -> str:
     return (f"<span style='background:{KIND_COLOR.get(kind, '#444')}; color:white; font-size:8pt; font-weight:600'>"
             f"&nbsp;{kind}&nbsp;</span>")
@@ -77,6 +85,7 @@ class FightList(QListWidget):
                      + (" · <span style='color:#f05050'>died</span>" if f.get("result") == "you died" else "")
                      + "</span>")
         lbl.setTextFormat(Qt.TextFormat.RichText)
+        lbl.setToolTip(_foes(f))
         lbl.setContentsMargins(6, 4, 6, 4)
         lbl.setStyleSheet("background: transparent;")
         it.setSizeHint(lbl.sizeHint())
@@ -148,9 +157,12 @@ class FightDetail(QWidget):
         when = datetime.fromisoformat(f["start"])
         head = QLabel(f"{chip(f['kind'])}&nbsp; <span style='font-family:\"{theme.TITLE_FONT}\"; font-size:17pt; "
                       f"font-weight:700; color:{theme.TITLE.name()}'>{_esc(f['target'])}</span>"
-                      + (f" <span style='color:{theme.DIM.name()}'>+{f['more']} more</span>" if f.get("more") else ""))
+                      + (f" <span style='color:{theme.DIM.name()}'>+{f['more']} more</span>"
+                         if f.get("more") and not f.get("foes") else ""))
         head.setTextFormat(Qt.TextFormat.RichText)
         lay.addWidget(head)
+        if _foes(f):
+            lay.addWidget(dim_label("Enemies: " + _foes(f)))
         lay.addWidget(dim_label(f"{when:%a %d %b %H:%M:%S} · {f.get('zone') or '?'} · {f['result']}"))
         if f.get("verdict"):
             v = QLabel(f"<span style='font-size:13pt'>{_esc(f['verdict'])}</span>")

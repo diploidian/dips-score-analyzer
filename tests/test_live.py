@@ -58,6 +58,7 @@ class Live(unittest.TestCase):
         self.assertEqual(cds["Mind Blast"]["gaps"], [10.0])
         s = summarize(first, tr.me, tr.me_name, cds, [])
         self.assertEqual((s["target"], s["kind"], s["result"], s["damage"]), ("Wolf", "World", "killed", 620))
+        self.assertEqual(s["foes"][0][0], "Wolf")
         later = summarize(second, tr.me, tr.me_name, cds, [s])
         self.assertEqual(later["best_before"], s["dps"])
         self.assertTrue({"own", "rest"} <= set(s["pull"]) and "level" in s)
