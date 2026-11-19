@@ -147,5 +147,30 @@ class BuildCards(unittest.TestCase):
                          "Gear slots to fill"}, set())             # no harm flags, no gear: both cards skipped
 
 
+class GearWear(unittest.TestCase):
+    def test_load_pulls(self):
+        at = int(T0.timestamp())
+        c = load(SAVED.replace('["runs"] = {},', f'["runs"] = {{}}, ["pulls"] = {{"{at},85,0", "{at + 60},0,2", "junk"}},'))
+        self.assertEqual(c["pulls"], [(T0, 85, 0), (T0 + timedelta(seconds=60), 0, 2)])
+        self.assertEqual(load()["pulls"], [])
+
+    def cards(self, *pulls):
+        fs = [fight(i, me="Player-1-A") for i in range(5)]        # a fight every 2 minutes from T0
+        return titles(habits(fs, char(pulls=list(pulls))))
+
+    def test_cards(self):
+        at = lambda i, s=3: T0 + timedelta(minutes=2 * i, seconds=s)  # noqa: E731
+        h = habits([fight(i, me="Player-1-A") for i in range(5)], char(pulls=[(at(0), 50, 1), (at(1), 10, 0)]))
+        card = next(c for c in h["cards"] if c["title"] == "Pulling with broken gear")
+        self.assertEqual((card["kind"], card["detail"]), ("fix", "Broken gear in 1 of your last 2 fights"))
+        h = habits([fight(i, me="Player-1-A") for i in range(5)],
+                   char(pulls=[(at(0), 50, 0), (at(1), 12, 0), (at(2), 18, 0), (at(3, 30), 5, 0)]))   # the last: too far
+        card = next(c for c in h["cards"] if c["title"] == "Gear nearly broken")
+        self.assertEqual((card["kind"], card["detail"]),
+                         ("build", "Lowest durability under 20% in 2 of your last 3 fights (worst 12%)"))
+        self.assertFalse({"Pulling with broken gear", "Gear nearly broken"} & set(self.cards()))
+        self.assertFalse({"Pulling with broken gear", "Gear nearly broken"} & set(self.cards((at(0), 90, 0))))
+
+
 if __name__ == "__main__":
     unittest.main()

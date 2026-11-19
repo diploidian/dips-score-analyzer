@@ -13,6 +13,7 @@ from dips_score.live.summary import cooldown, learn_cooldowns, summarize  # noqa
 from dips_score.config import Paths  # noqa: E402
 from dips_score.live.history import History  # noqa: E402
 from dips_score.live.tracker import Tracker  # noqa: E402
+from dips_score.sources.combatlog import UnitInfo  # noqa: E402
 
 ME = 'Player-1-A,"Nikana-Diploidian-PvP-US",0x511,0x80000000'
 MOB = 'Creature-0-1-1-1-100-1,"Wolf",0xa48,0x80000000'
@@ -293,6 +294,22 @@ class Cooldowns(unittest.TestCase):
             h2 = History(Paths(Path(d)))
             self.assertEqual(list(h2.book("Player-1-A")), ["Judgement"])
             self.assertEqual(h2.book("Player-1-B"), {})
+
+
+class Defensives(unittest.TestCase):
+    def test_ready_and_unused_when_low(self):
+        tr, f = one_fight([dmg(0, ME, MOB, 8092, "Mind Blast", 300), cast(15, 498, "Divine Protection"), *bites(30)])
+        low = next(e for e in f.events if e.event == "SWING_DAMAGE" and (e.ts - f.start).total_seconds() == 20)
+        low.info = UnitInfo("Player-1-A", 100, 1000, 0, 100, 100, 0.0, 0.0, 0, 0.0, 33)       # 10% health at 20 s
+        f.cast_before["Lay on Hands"] = f.start - timedelta(seconds=60)
+        book = {"Divine Shield": entry(300.0, avg=0),                   # never cast: ready
+                "Divine Protection": entry(300.0, avg=0),               # cast 5 s before: used
+                "Lay on Hands": {**entry(1.0, avg=0), "gaps": []},      # cooldown unknown (300 s), cast 80 s ago
+                "Smite": entry(1.0)}                                    # not a defensive
+        s = summarize(f, tr.me, tr.me_name, book, [])                   # Evasion: not in the book
+        self.assertEqual(s["danger"]["unused"], ["Divine Shield"])
+        self.assertIn("Dropped to 10% health with Divine Shield ready", s["improve"])
+        self.assertFalse([x for x in s["improve"] if x.startswith("Dropped to 10% health (")])
 
 
 class Verdict(unittest.TestCase):

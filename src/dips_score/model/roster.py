@@ -3,7 +3,8 @@
 Class and role come from, best first:
     1. what you picked in the window (saved in roster.json, by player GUID)
     2. the addon's P lines (exact: the game's own class and the group finder's role)
-    3. a guess from the combat log: class from the spells they cast; role from what they did
+    3. for you only, your talents (the add-on's character snapshot): the role of your fullest tree
+    4. a guess from the combat log: class from the spells they cast; role from what they did
        (healing, or a tank's abilities and the most damage taken)
 """
 from __future__ import annotations
@@ -13,6 +14,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..scoring.classes import talent_role
 from ..sources.combatlog import Event
 
 CLASSES = ["WARRIOR", "PALADIN", "HUNTER", "ROGUE", "PRIEST", "SHAMAN", "MAGE", "WARLOCK", "DRUID"]
@@ -76,7 +78,7 @@ class Player:
     name: str
     cls: str | None = None
     role: str | None = None
-    cls_from: str = "?"      # "you", "addon", "spells"
+    cls_from: str = "?"      # "you", "addon", "spells" (role_from can also be "talents")
     role_from: str = "?"
     is_me: bool = False
     race: str | None = None  # the game's token, e.g. "NightElf"; None for logs from before races were recorded
@@ -129,9 +131,10 @@ def _is_group(flags: int) -> bool:
     return flags & 0x7 in (0x1, 0x2, 0x4)   # affiliation: mine, party, raid
 
 
-def build_roster(events: list[Event], addon_lines, me: str | None, overrides: Overrides | None = None) -> dict[str, Player]:
+def build_roster(events: list[Event], addon_lines, me: str | None, overrides: Overrides | None = None,
+                 char: dict | None = None) -> dict[str, Player]:
     """guid -> Player for everyone in the group. addon_lines: the run's P lines (TLine-like, fields
-    guid, name, class, role, race)."""
+    guid, name, class, role, race). char: your character snapshot (savedvars.load_char), or None."""
     players: dict[str, Player] = {}
     for e in events:
         for g, n, fl in ((e.src, e.src_name, e.src_flags), (e.dst, e.dst_name, e.dst_flags)):
@@ -153,7 +156,14 @@ def build_roster(events: list[Event], addon_lines, me: str | None, overrides: Ov
         if role in GROUP_ROLE:
             p.role, p.role_from = GROUP_ROLE[role], "addon"
 
-    # 3. guesses from the combat log
+    # 3. your talents
+    you = players.get(me or "")
+    if you and you.role is None and char and char.get("guid") == me:
+        role = talent_role(char.get("class") or you.cls, char.get("talents") or [])
+        if role:
+            you.role, you.role_from = role, "talents"
+
+    # 4. guesses from the combat log
     casts: dict[str, Counter] = {g: Counter() for g in players}
     dmg, taken, cast_heal = Counter(), Counter(), Counter()
     cast_ids: dict[str, set[int]] = {g: set() for g in players}

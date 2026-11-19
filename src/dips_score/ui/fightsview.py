@@ -198,7 +198,8 @@ class FightDetail(QWidget):
             bl = QVBoxLayout(box)
             hits = "".join(f"<li>{_esc(h['who'])}: {_esc(h['spell'])} for {_n(h['amount'])}</li>" for h in d["hits"])
             t = QLabel(f"<b style='color:#ff7070; font-size:12pt'>DANGER AT {_dur(d['t'])}</b><br><br>"
-                       f"Lowest health {d['hp']:.0%}<ul style='margin-left:-20px'>{hits}</ul>")
+                       f"Lowest health {d['hp']:.0%}<ul style='margin-left:-20px'>{hits}</ul>"
+                       + (f"Ready and unused: {_esc(', '.join(d['unused']))}" if d.get("unused") else ""))
             t.setTextFormat(Qt.TextFormat.RichText)
             bl.addWidget(t)
             lay.addWidget(box)

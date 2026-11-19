@@ -374,7 +374,8 @@ def _sum_window(series, windows) -> int:
 
 
 # ============================================================================ Group
-SOURCE = {"you": "your pick", "addon": "from the add-on", "spells": "guessed from spells", "?": "unknown"}
+SOURCE = {"you": "your pick", "addon": "from the add-on", "spells": "guessed from spells", "talents": "from your talents",
+          "?": "unknown"}
 
 
 class GroupTab(QWidget):

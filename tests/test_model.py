@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from dips_score.analysis import merge_visits  # noqa: E402
 from dips_score.model.deaths import find_deaths  # noqa: E402
 from dips_score.model.pulls import build_pulls  # noqa: E402
-from dips_score.model.roster import Player, build_roster, clean_name  # noqa: E402
+from dips_score.model.roster import Overrides, Player, build_roster, clean_name  # noqa: E402
 from dips_score.model.run import Fight, RunData  # noqa: E402
 from dips_score.sources.combatlog import Event  # noqa: E402
 from dips_score.sources.savedvars import Line, Run, Segment  # noqa: E402
@@ -40,6 +40,37 @@ class Names(unittest.TestCase):
         self.assertEqual(clean_name("Priime-Tiime-PvP-US"), "Priime Tiime")
         self.assertEqual(clean_name("Bob-Stormrage"), "Bob")
         self.assertEqual(clean_name("Solo"), "Solo")
+
+
+class TalentRole(unittest.TestCase):
+    events = [ev(1, "SPELL_DAMAGE", ME, MOB1, "Smite", 100), ev(1, "SPELL_DAMAGE", TANK, MOB1, "Smite", 100)]
+    holy = {"guid": ME, "class": "PALADIN", "talents": [("Holy", 31), ("Protection", 5), ("Retribution", 0)]}
+
+    def role(self, char, p_role=None, pick=None, guid=ME):
+        lines = [Line(0, "P", [ME, "Nikana", "PALADIN", p_role, ""])] if p_role else []
+        picks = Overrides(None)
+        if pick:
+            picks.set(ME, role=pick)
+        p = build_roster(self.events, lines, ME, picks, char)[guid]
+        return p.role, p.role_from
+
+    def test_order(self):
+        self.assertEqual(self.role(self.holy), ("HEALER", "talents"))                   # talents beat the guess
+        self.assertEqual(self.role(None), ("DPS", "spells"))
+        self.assertEqual(self.role(self.holy, "NONE"), ("HEALER", "talents"))
+        self.assertEqual(self.role(self.holy, "TANK"), ("TANK", "addon"))               # the P line beats talents
+        self.assertEqual(self.role(self.holy, "TANK", "DPS"), ("DPS", "you"))           # your pick beats the P line
+
+    def test_falls_through(self):
+        tie = {**self.holy, "talents": [("Holy", 10), ("Retribution", 10)]}
+        feral = {"guid": ME, "class": "DRUID", "talents": [("Balance", 0), ("Feral Combat", 30)]}
+        self.assertEqual(self.role(tie), ("DPS", "spells"))
+        self.assertEqual(self.role(feral), ("DPS", "spells"))
+        self.assertEqual(self.role({**self.holy, "talents": []}), ("DPS", "spells"))
+
+    def test_only_yours(self):
+        self.assertEqual(self.role(self.holy, guid=TANK), ("DPS", "spells"))
+        self.assertEqual(self.role({**self.holy, "guid": TANK}), ("DPS", "spells"))      # someone else's snapshot
 
 
 class Visits(unittest.TestCase):
@@ -506,6 +537,26 @@ class Upkeep(unittest.TestCase):
                 path.write_text("{not json", encoding="utf-8")
                 classes.load_upkeep(path)
                 self.assertEqual(classes.UPKEEP["ROGUE"], classes.DEFAULT_UPKEEP["ROGUE"])
+            finally:
+                classes.load_upkeep(None)
+
+    def test_classes_json_defensives(self):
+        import json
+        import tempfile
+        from dips_score.scoring import classes
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "classes.json"
+            path.write_text(json.dumps({"defensives": {"ROGUE": ["Evasion"]}, "MAGE": [["Living Bomb", "target"]]}),
+                            encoding="utf-8")
+            classes.load_upkeep(path)
+            try:
+                self.assertEqual(classes.DEFENSIVES["ROGUE"], ["Evasion"])
+                self.assertEqual(classes.DEFENSIVES["MAGE"], classes.DEFAULT_DEFENSIVES["MAGE"])
+                self.assertEqual(classes.UPKEEP["MAGE"], [("Living Bomb", "target")])
+                path.write_text(json.dumps({"ROGUE": [["Garrote", "target"]]}), encoding="utf-8")   # the old shape
+                classes.load_upkeep(path)
+                self.assertEqual((classes.UPKEEP["ROGUE"], classes.DEFENSIVES["ROGUE"]),
+                                 ([("Garrote", "target")], classes.DEFAULT_DEFENSIVES["ROGUE"]))
             finally:
                 classes.load_upkeep(None)
 

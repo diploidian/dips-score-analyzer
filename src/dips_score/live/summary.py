@@ -18,6 +18,9 @@ reason not to (see readiness.py):
                            have a filler: a damage spell you cast back to back (twice within SPAM seconds,
                            or a confirmed cooldown under MIN_COOLDOWN). Without one there was nothing to
                            press, and a ready cooldown is already counted by its own row.
+Danger is your lowest health under 35%, with the hits that put you there and the defensives (classes.py, any
+class: only names in your spell book count) that sat ready and unused: off cooldown at that moment (your death,
+if you died) and not cast in the DEFENSIVE_WINDOW seconds before it.
 The verdict is one sentence about the fight: how you died, else (healing) what went well, else "no damage
 done", else the biggest finding when it cost VERDICT_SHARE of your damage (or anything, below CLEAN of what
 was possible), else how close you came to the most you could have done.
@@ -37,6 +40,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 from ..model.roster import clean_name
+from ..scoring.classes import DEFENSIVES
 from ..scoring.metrics import swing_stats
 from ..sources.combatlog import Event
 from . import readiness
@@ -56,6 +60,8 @@ RECENT = timedelta(days=7)             # a cooldown not cast for longer than thi
 HELD = 60.0                            # cooldowns this long are saved for bosses
 VERDICT_SHARE = 0.03
 CLEAN = 0.90                           # efficiency from which a fight is called clean
+DEFENSIVE_WINDOW = 10.0                # a defensive cast this long before your lowest moment was used
+DEFENSIVE_CD = 300.0                   # a defensive's cooldown when the spell book doesn't know it
 MASHING = {"Not yet recovered", "Another action is in progress", "Interrupted", "Spell not ready yet",
            "Item is not ready yet", "Can't do that while moving", "Your target is dead", "No target"}
 
@@ -122,6 +128,23 @@ def procs(f: FightData, me: str) -> set[int]:
         elif e.event == "SPELL_CAST_SUCCESS" and e.src == me and e.spell_name in on \
                 and on[e.spell_name] != e.spell_id and not (e.info and e.info.cost > 0):
             out.add(id(e))
+    return out
+
+
+def unused_defensives(at: float, casts: list[tuple], book: dict[str, dict], f: FightData) -> list[str]:
+    """defensives in your spell book that were off cooldown at `at` (seconds into the fight) and not cast in
+    the DEFENSIVE_WINDOW seconds before it"""
+    out = []
+    for name in dict.fromkeys(n for names in DEFENSIVES.values() for n in names):
+        if name not in book:
+            continue
+        times = [t for t, _, n, _, _ in casts if n == name and t <= at]
+        if times and times[-1] >= at - DEFENSIVE_WINDOW:
+            continue
+        before = f.cast_before.get(name)
+        last = times[-1] if times else (_rel(before, f.start) if before else None)
+        if last is None or last + (cooldown(book[name]) or DEFENSIVE_CD) <= at:
+            out.append(name)
     return out
 
 
@@ -268,7 +291,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     pvp = any(fo.player for fo in foes)
     # an instance id means a dungeon (some report difficulty 0, like the open world does)
     kind = "PvP" if pvp else ("Boss" if f.boss else ("Dungeon" if f.instance or f.difficulty else "World"))
-    i_died = any(e.event == "UNIT_DIED" and e.dst == me for e in f.events)
+    died_at = next((_rel(e.ts, start) for e in f.events if e.event == "UNIT_DIED" and e.dst == me), None)
+    i_died = died_at is not None
     killed = bool(foes) and all(fo.died is not None for fo in foes)
     result = "you died" if i_died else ("killed" if killed else "they got away")
 
@@ -395,7 +419,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         if low < 0.35:
             hits = sorted((h for h in taken if t_low - 3 <= h[0] <= t_low), key=lambda h: -h[1])[:5]
             if hits:
-                danger = {"t": t_low, "hp": low, "hits": [{"who": w, "spell": s, "amount": a} for _, a, s, w in hits]}
+                danger = {"t": t_low, "hp": low, "hits": [{"who": w, "spell": s, "amount": a} for _, a, s, w in hits],
+                          "unused": unused_defensives(died_at if i_died else t_low, casts, book, f)}
 
     failed = [{"spell": s, "reason": r, "count": n} for (s, r), n in fails.most_common()]
     # mostly healing: damage you "could have done" isn't the point, so it isn't counted against you
@@ -468,7 +493,9 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     for row_ in failed:
         if row_["reason"] not in MASHING and not row_["reason"].startswith("Can't do that while"):
             improve.append((0.1, f"{row_['spell']}: {row_['reason']} ×{row_['count']}"))
-    if danger:
+    if danger and danger["unused"]:
+        improve.append((0.21, f"Dropped to {danger['hp']:.0%} health with {' and '.join(danger['unused'][:2])} ready"))
+    elif danger:
         top = danger["hits"][0] if danger["hits"] else None
         improve.append((0.2, f"Dropped to {danger['hp']:.0%} health" +
                         (f" ({top['who']}: {top['spell']} for {_fmt(top['amount'])})" if top else "")))

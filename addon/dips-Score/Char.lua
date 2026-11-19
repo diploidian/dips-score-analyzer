@@ -9,11 +9,14 @@
 --   spells  = {"spellID,cooldownMs,harm,name", ...}   cooldownMs "" = unknown, 0 = none; harm 1/0/""
 --   gear    = {"slot,itemID,itemLevel", ...}          inventory slots 1-19 that hold something
 --   talents = {"tab,tabName,points", ...}
+--
+-- Beside it, dipsScoreLog.pulls = {"time,lowestPercent,brokenCount", ...}: gear durability at each pull.
 local ADDON, ns = ...
 local IsSecret, Field = ns.IsSecret, ns.Field
 
 local LAST_SLOT = 19
 local SETTLE = 3 -- seconds after entering the world: spell and item data may not be loaded on the first frame
+local MAX_PULLS = 60 -- gear wear records kept
 
 local found = {walk = "none", cooldowns = false, harm = false} -- what the last snapshot could read
 
@@ -169,6 +172,35 @@ local function Talents()
     return out
 end
 
+-- The lowest durability percent over equipped items that have durability, and how many are broken (0 left);
+-- nil when the call is missing or nothing has durability.
+function ns.GearWear()
+    if type(GetInventoryItemDurability) ~= "function" then return nil end
+    local lowest, broken
+    for slot = 1, LAST_SLOT do
+        local ok, cur, max = pcall(GetInventoryItemDurability, slot)
+        if ok and type(cur) == "number" and type(max) == "number" and max > 0
+            and not IsSecret(cur) and not IsSecret(max) then
+            local pct = math.floor(cur / max * 100)
+            lowest = math.min(lowest or 100, pct)
+            broken = (broken or 0) + (cur == 0 and 1 or 0)
+        end
+    end
+    if not lowest then return nil end
+    return lowest, broken
+end
+
+-- At each pull: "time(),lowestPercent,brokenCount" in dipsScoreLog.pulls (beside char, which Snapshot
+-- replaces; ClearLog only empties runs), the last MAX_PULLS kept.
+local function RecordPull()
+    local log = ns.Log()
+    local lowest, broken = ns.GearWear()
+    if not (log and lowest) then return end
+    log.pulls = log.pulls or {}
+    log.pulls[#log.pulls + 1] = time() .. "," .. lowest .. "," .. broken
+    while #log.pulls > MAX_PULLS do table.remove(log.pulls, 1) end
+end
+
 -- Builds the snapshot and stores it in the saved log (ClearLog leaves it alone).
 -- Returns what was stored and what this call actually read (they differ when a list was kept).
 function ns.Snapshot()
@@ -212,6 +244,9 @@ function ns.PrintSnapshot()
         found.harm and "available" or "missing"))
     ns.Print(string.format("%d gear slots filled. Talents: %s.", #c.gear,
         #tabs > 0 and table.concat(tabs, ", ") or "none read"))
+    local lowest, broken = ns.GearWear()
+    ns.Print(lowest and string.format("Durability: lowest %d%%, %d broken.", lowest, broken)
+        or "Durability: could not be read.")
 end
 
 ----------------------------------------------------------------------
@@ -220,8 +255,11 @@ end
 local E = CreateFrame("Frame")
 E:RegisterEvent("PLAYER_ENTERING_WORLD")
 E:RegisterEvent("PLAYER_LOGOUT") -- also fires on /reload, right before the save
+E:RegisterEvent("PLAYER_REGEN_DISABLED")
 E:SetScript("OnEvent", function(_, event)
-    if event == "PLAYER_ENTERING_WORLD" and C_Timer and C_Timer.After then
+    if event == "PLAYER_REGEN_DISABLED" then
+        pcall(RecordPull)
+    elseif event == "PLAYER_ENTERING_WORLD" and C_Timer and C_Timer.After then
         C_Timer.After(SETTLE, function() pcall(ns.Snapshot) end)
     else
         pcall(ns.Snapshot)

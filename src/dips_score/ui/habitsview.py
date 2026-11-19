@@ -1,7 +1,8 @@
 """The Habits page: what you keep doing right or wrong across many fights, and the pace of this session."""
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QPointF, QRectF, Qt
+from PyQt6.QtGui import QFont, QPainter, QPen, QPolygonF
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from . import theme
@@ -12,8 +13,48 @@ from .pages import dim_label
 EDGE = {"keep": "#50dc78", "fix": "#f0a040", "build": "#5aa0f0"}
 
 
+TREND_MIN = 5            # points needed to draw the trend chart
+
+
 def _fmt(v, spec: str = ".0f", unit: str = "") -> str:
     return "-" if v is None else f"{v:{spec}}{unit}"
+
+
+class TrendChart(QWidget):
+    """efficiency per fight, oldest left, with a mark where your level or gear level changed (drawn like
+    pages.ScoreChart)"""
+
+    def __init__(self, points: list[dict]):
+        super().__init__()
+        self.points = points
+        self.setFixedHeight(140)
+
+    def paintEvent(self, ev):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        r = QRectF(40, 16, self.width() - 50, self.height() - 26)
+        p.setFont(QFont(theme.FONT, 8))
+        for v in (0, 50, 100):
+            y = r.bottom() - v / 100 * r.height()
+            p.setPen(theme.GRID)
+            p.drawLine(int(r.left()), int(y), int(r.right()), int(y))
+            p.setPen(theme.DIM)
+            p.drawText(QRectF(0, y - 8, 34, 16), Qt.AlignmentFlag.AlignRight, f"{v}%")
+        n = len(self.points)
+        x = lambda i: r.left() + (i + 0.5) * r.width() / n  # noqa: E731
+        for i in range(1, n):
+            a, b = self.points[i - 1], self.points[i]
+            if a["gear"] is not None and b["gear"] is not None and a["gear"] != b["gear"]:
+                p.setPen(QPen(theme.MOVE, 1, Qt.PenStyle.DashLine))
+                p.drawLine(QPointF(x(i - 0.5), r.top()), QPointF(x(i - 0.5), r.bottom()))
+            if a["level"] is not None and b["level"] is not None and a["level"] != b["level"]:
+                p.setPen(QPen(theme.DIM, 1))
+                p.drawLine(QPointF(x(i - 0.5), r.top()), QPointF(x(i - 0.5), r.bottom()))
+                p.drawText(QRectF(x(i - 0.5) - 20, 0, 40, 14), Qt.AlignmentFlag.AlignCenter, str(b["level"]))
+        p.setPen(QPen(theme.HP, 2))                # not ACCENT: gold in the WoW theme, like the gear marks
+        pts = [QPointF(x(i), r.bottom() - min(1.0, pt["efficiency"]) * r.height())
+               for i, pt in enumerate(self.points) if pt["efficiency"] is not None]
+        p.drawPolyline(QPolygonF(pts))
 
 
 class HabitsPage(QWidget):
@@ -59,6 +100,11 @@ class HabitsPage(QWidget):
                 row.addWidget(StatBox(v, label))
             row.addStretch(1)
             lay.addLayout(row)
+        trend = h.get("trend") or []
+        if len(trend) >= TREND_MIN:
+            lay.addWidget(TrendChart(trend))
+            lay.addWidget(dim_label("Efficiency in each fight, oldest left. Gray lines: you went up a level (the new "
+                                    "level on top). Yellow dashes: your gear level changed."))
         for c in h["cards"]:
             card = QFrame()
             card.setStyleSheet(f"QFrame {{ background: {theme.panel()}; border: 1px solid {theme.EDGE.name()}; "

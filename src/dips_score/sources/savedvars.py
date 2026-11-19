@@ -156,8 +156,19 @@ def _spells(lines: list) -> dict[str, dict]:
     return out
 
 
+def _pulls(lines: list) -> list[tuple[datetime, int, int]]:
+    """"time(),lowestPercent,brokenCount" at each pull -> (local time, lowest durability %, broken items)"""
+    out = []
+    for s in lines:
+        parts = [_int(x) for x in str(s).split(",")]
+        if len(parts) == 3 and None not in parts:
+            out.append((datetime.fromtimestamp(parts[0]), parts[1], parts[2]))
+    return out
+
+
 def load_char(path: str | Path) -> dict | None:
-    """the character snapshot (Char.lua) in one saved file, or None; parts that are missing or odd come out empty"""
+    """the character snapshot (Char.lua) in one saved file, or None; parts that are missing or odd come out empty.
+    "pulls" is the gear wear at each pull, kept beside the snapshot (dipsScoreLog.pulls)."""
     log = luadata.load(path).get("dipsScoreLog")
     c = log.get("char") if isinstance(log, dict) else None
     if not isinstance(c, dict) or not c.get("guid"):
@@ -176,4 +187,5 @@ def load_char(path: str | Path) -> dict | None:
     return {"guid": str(c["guid"]), "name": c.get("name"), "class": c.get("class"), "race": c.get("race"),
             "level": _int(c.get("level")), "taken": _int(c.get("taken")),
             "spells": _spells(_as_list(c.get("spells"))), "gear": gear, "talents": talents,
+            "pulls": _pulls(_as_list(log.get("pulls"))),
             "spec": max(points, key=lambda t: t[1])[0] or None if points else None}

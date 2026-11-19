@@ -27,7 +27,7 @@ from .scoring.score import Scorecard, score
 from .scoring.upkeep import UpkeepMetrics, measure_upkeep, upkeep_base
 from .scoring.tank import TankMetrics, measure_tank, tank_base
 from .sources import combatlog
-from .sources.savedvars import Run, load_runs
+from .sources.savedvars import Run, load_char, load_runs
 
 DEFAULT_ROLE = "healer"
 MERGE_GAP = 15 * 60
@@ -126,10 +126,22 @@ def role_of(p: Player | None) -> str:
     return {"HEALER": "healer", "TANK": "tank"}.get(p.role, "dps")
 
 
+def your_char(paths: Paths, me: str | None) -> dict | None:
+    """the add-on's character snapshot for `me`, from whichever saved file holds it"""
+    for path in paths.saved_files() if me else []:
+        try:
+            char = load_char(path)
+        except (OSError, ValueError):       # a half-written file
+            continue
+        if char and char["guid"] == me:
+            return char
+    return None
+
+
 def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
     rd = build(run, combatlog.find_logs(paths.logs))
     roster = build_roster(rd.events, [ln for ln in rd.lines if ln.code == "P"], rd.player_guid,
-                          Overrides(paths.roster_file))
+                          Overrides(paths.roster_file), your_char(paths, rd.player_guid))
     role = role or role_of(roster.get(rd.player_guid or ""))
     deaths, wipes = find_deaths(rd, roster)
     base = healer_base(rd, [(d.t, d.name) for d in deaths])

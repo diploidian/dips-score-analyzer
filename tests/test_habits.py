@@ -61,7 +61,42 @@ class Habits(unittest.TestCase):
 
     def test_empty(self):
         h = habits([])
-        self.assertEqual((h["cards"], h["session"]), ([], None))
+        self.assertEqual((h["cards"], h["session"], h["trend"]), ([], None, []))
+
+    def test_skill_against_gear(self):
+        old = [fight(i, eff=0.80, dps=100.0, gear=28, level=32) for i in range(20)]
+        new = [fight(20 + i, eff=0.84, dps=120.0, gear=31, level=33) for i in range(20)]
+        card = next(c for c in habits(old + new)["cards"] if c["title"] == "DPS up 20%")
+        self.assertEqual(card["kind"], "keep")
+        self.assertEqual(card["detail"], "About 5% from playing better (efficiency 80% to 84%), the rest (+14%) from "
+                                         "gear, level and what you fought (gear 28 to 31, level 32 to 33).")
+        same_gear = [fight(20 + i, eff=0.70, dps=90.0, gear=28) for i in range(20)]
+        card = next(c for c in habits(old + same_gear)["cards"] if c["title"] == "DPS down 10%")
+        self.assertEqual(card["kind"], "fix")
+        self.assertTrue(card["detail"].endswith("from gear, level and what you fought."), card["detail"])
+        small = [fight(20 + i, eff=0.80, dps=104.0) for i in range(20)]
+        self.assertFalse([t for t in titles(habits(old + small)) if t.startswith("DPS ")])
+
+    def test_trend_points(self):
+        fs = [fight(i, eff=0.5 + i / 100, level=32 + (i >= 3), gear=30 if i else None) for i in range(5)]
+        fs.append(fight(5, healing_role=True))
+        self.assertEqual(habits(fs)["trend"], [{"efficiency": 0.5 + i / 100, "level": 32 + (i >= 3),
+                                                "gear": 30 if i else None} for i in range(5)])
+
+    def test_no_damage_fights_left_out_of_damage_play(self):
+        fs = [fight(i, eff=0.9, damage=500) for i in range(10)] + [fight(10 + i, eff=0.0, damage=0) for i in range(5)]
+        h = habits(fs)
+        self.assertEqual(len(h["trend"]), 10)
+        self.assertEqual(titles(h)["Efficiency is steady"], "keep")
+        self.assertEqual(h["fights"], 15)                         # still counted for habits around the fight
+
+    def test_defensive_card(self):
+        low = lambda *names: {"t": 5, "hp": 0.1, "hits": [], "unused": list(names)}  # noqa: E731
+        fs = [fight(0, danger=low("Divine Protection")), fight(1, danger=low("Lay on Hands", "Divine Protection")),
+              fight(2, danger=low()), fight(3)]
+        card = next(c for c in habits(fs)["cards"] if c["title"] == "Use a defensive when low")
+        self.assertEqual((card["kind"], card["detail"]), ("build", "2 close calls with Divine Protection ready"))
+        self.assertNotIn("Use a defensive when low", titles(habits([fight(0, danger=low())])))
 
 
 if __name__ == "__main__":

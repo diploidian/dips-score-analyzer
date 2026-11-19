@@ -27,6 +27,8 @@ local function EndFight()
     local parts = {Count(f.presses, "press", "presses") .. " (" .. Count(f.clicks, "click", "clicks") .. ")"}
     if f.refused > 0 then parts[#parts + 1] = f.refused .. " refused" end
     if f.interrupted > 0 then parts[#parts + 1] = f.interrupted .. " interrupted" end
+    local broken = ns.GearWear and select(2, ns.GearWear())
+    if broken and broken > 0 then parts[#parts + 1] = Count(broken, "item", "items") .. " broken" end
     ns.Print(secs .. " s - " .. table.concat(parts, ", "))
 end
 
