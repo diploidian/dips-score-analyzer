@@ -225,7 +225,8 @@ class Window(QMainWindow):
             top.setExpanded(True)
         self.tree.blockSignals(False)
         if not self.runs:
-            self.status.setText(f"No runs yet. Looking in {self.paths.accounts}")
+            self.status.setText(f"No runs yet. Looking in {self.paths.accounts}" if self.paths.found() else
+                                f"Game folder not found: {self.paths.wow}. Pick it in Settings (⚙).")
             return
         who = self.paths.character_of(self.saved) if self.saved else "?"
         self.status.setText(f"{who} · {len(self.runs)} visits · updates when the game saves")
@@ -448,7 +449,14 @@ def apply_look(paths: Paths, settings: dict):
 
 def run_app(paths: Paths) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
-    apply_look(paths, app_settings.load(paths))
+    settings = app_settings.load(paths)
+    if not paths.found():       # first start, or the game moved: ask rather than show an empty window
+        found = app_settings.pick_wow(None, paths.wow)
+        if found:
+            paths.wow = found
+            settings["wow_folder"] = str(found)
+            app_settings.save(paths, settings)
+    apply_look(paths, settings)     # after the pick: the dips-Core texture is in the game folder
     load_weights(paths.weights_file)
     load_upkeep(paths.classes_file)
     w = Window(paths)

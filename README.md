@@ -1,7 +1,7 @@
 # dips-score
 
 Scores a WoW dungeon run. New here? Read the [guide](docs/GUIDE.md) for setup, what it tracks and
-how the grade works. It merges two data sources:
+how the grade works, or [First run](docs/FIRST-RUN.md) once it's installed. It merges two data sources:
 
 - **dips-Score** (the addon: its source is in `addon/dips-Score` here; copy that folder into
   `Interface/AddOns/`, it needs no other add-on; `/dscore` opens its settings, and `/dscore status`,
@@ -25,8 +25,8 @@ python "D:\projects\dips-score-analyzer\dips-score.pyw" report 5    # run 5 from
 ```
 
 The window reloads by itself when the game saves (after `/reload` or logout). New runs open
-automatically. `--wow <folder>` (or the `DIPS_WOW` environment variable) points it at a
-different WoW install.
+automatically. Pick the game folder (and, if it's elsewhere, the combat log folder) in Settings;
+`--wow <folder>` overrides that, and `DIPS_WOW` is used when nothing is picked.
 
 Needs Python 3.13 and PyQt6.
 

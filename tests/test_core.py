@@ -162,5 +162,26 @@ class Weights(unittest.TestCase):
         self.assertEqual(_card(cats, "healer", bonus=50).total, 100)   # bonus can't go past 100
 
 
+class GameFolder(unittest.TestCase):
+    def test_picked_folder_saved_and_used(self):
+        import json
+        import os
+        import tempfile
+        from unittest import mock
+        from dips_score import config
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            os.environ.pop("DIPS_WOW", None)
+            game = Path(tmp) / "World of Warcraft" / "_forever_"
+            (game / "WTF").mkdir(parents=True)
+            self.assertEqual(config.game_folder(game.parent), game)     # picking the parent finds _forever_
+            self.assertIsNone(config.game_folder(tmp))
+            self.assertEqual(config.paths().wow, config.DEFAULT_WOW)    # nothing saved yet
+            (Path(tmp) / "dips-score").mkdir()
+            (Path(tmp) / "dips-score" / "settings.json").write_text(json.dumps({"wow_folder": str(game)}))
+            self.assertEqual(config.paths().wow, game)
+            self.assertTrue(config.paths().found())
+            self.assertEqual(config.paths("elsewhere").wow, Path("elsewhere"))   # --wow still wins
+
+
 if __name__ == "__main__":
     unittest.main()

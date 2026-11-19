@@ -31,6 +31,9 @@ class Paths:
         files = self.accounts.glob("*/*/*/SavedVariables/dips-Score.lua")
         return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)
 
+    def found(self) -> bool:
+        return (self.wow / "WTF").is_dir()
+
     @property
     def data_dir(self) -> Path:
         """the analyzer's own files (your class and role picks)"""
@@ -51,6 +54,14 @@ class Paths:
     def character_of(self, saved: Path) -> str:
         # .../Account/<account>/<realm>/<character>/SavedVariables/dips-Score.lua
         return saved.parent.parent.name
+
+
+def game_folder(picked: str | Path) -> Path | None:
+    """the _forever_ folder from what someone picked: it, or the _forever_ inside it"""
+    for f in (Path(picked), Path(picked) / "_forever_"):
+        if (f / "WTF").is_dir():
+            return f
+    return None
 
 
 def _picked() -> dict:

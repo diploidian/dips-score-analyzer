@@ -8,9 +8,9 @@ from PyQt6.QtCore import QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout,
-                             QLabel, QLineEdit, QPushButton, QRadioButton, QSlider, QVBoxLayout)
+                             QLabel, QLineEdit, QMessageBox, QPushButton, QRadioButton, QSlider, QVBoxLayout)
 
-from ..config import Paths
+from ..config import Paths, game_folder
 from . import assets, texture, theme
 from .pages import dim_label
 
@@ -51,6 +51,21 @@ def texture_choice(paths: Paths, settings: dict) -> tuple[bool, float, bool]:
 def save(paths: Paths, settings: dict):
     paths.data_dir.mkdir(parents=True, exist_ok=True)
     (paths.data_dir / "settings.json").write_text(json.dumps(settings, indent=1), encoding="utf-8")
+
+
+def pick_wow(parent, start: Path) -> Path | None:
+    """ask for the game folder until it's one with WTF in it, or they cancel"""
+    while True:
+        picked = QFileDialog.getExistingDirectory(parent, "Where is World of Warcraft (the _forever_ folder)?",
+                                                  str(start if start.exists() else Path.home()))
+        if not picked:
+            return None
+        found = game_folder(picked)
+        if found:
+            return found
+        QMessageBox.warning(parent, "Not the game folder",
+                            f"{picked} has no WTF folder in it. Pick the _forever_ folder inside your "
+                            "World of Warcraft folder.")
 
 
 class SettingsDialog(QDialog):
@@ -229,9 +244,9 @@ class SettingsDialog(QDialog):
         super().hideEvent(e)
 
     def _pick_wow(self):
-        d = QFileDialog.getExistingDirectory(self, "The _forever_ folder (with WTF and Logs in it)", str(self.paths.wow))
-        if d:
-            self._set_folders(wow=d)
+        found = pick_wow(self, self.paths.wow)      # only a folder with WTF in it (or its parent)
+        if found:
+            self._set_folders(wow=str(found))
 
     def _pick_logs(self):
         d = QFileDialog.getExistingDirectory(self, "The folder with WoWCombatLog*.txt in it", str(self.paths.logs))
