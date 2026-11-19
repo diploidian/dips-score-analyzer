@@ -30,7 +30,9 @@ from .pages import DungeonPage, GroupTab, PullsTab, ScoreTab, SpellsTab, dim_lab
 from .summary import SummaryTab
 from .timeline import Timeline
 from .settings import SettingsDialog
+from ..live.habits import habits
 from .fightsview import FightDetail, FightList
+from .habitsview import HabitsPage
 from .live_ui import LiveController
 from .weights import WeightsDialog
 
@@ -60,12 +62,14 @@ class Window(QMainWindow):
         modes = QHBoxLayout()
         self.mode_dungeons = QPushButton("Dungeons")
         self.mode_fights = QPushButton("Fights")
-        for b in (self.mode_dungeons, self.mode_fights):
+        self.mode_habits = QPushButton("Habits")
+        for b in (self.mode_dungeons, self.mode_fights, self.mode_habits):
             b.setCheckable(True)
             modes.addWidget(b)
         self.mode_dungeons.setChecked(True)
         self.mode_dungeons.clicked.connect(lambda: self._mode("dungeons"))
         self.mode_fights.clicked.connect(lambda: self._mode("fights"))
+        self.mode_habits.clicked.connect(lambda: self._mode("habits"))
         ll.addLayout(modes)
         self.fight_list = FightList()
         self.left_stack = QStackedWidget()
@@ -131,7 +135,10 @@ class Window(QMainWindow):
         self.stack.addWidget(run_page)
         self.fight_detail = FightDetail()
         self.stack.addWidget(self.fight_detail)          # 2
+        self.habits_page = HabitsPage()
+        self.stack.addWidget(self.habits_page)           # 3
         self.fight_list.picked.connect(self.fight_detail.show_fight)
+        self.fight_list.itemClicked.connect(lambda _i: self._mode("fights") if self.mode_habits.isChecked() else None)
         rw = QWidget()
         rl = QVBoxLayout(rw)
         rl.setContentsMargins(8, 8, 8, 8)
@@ -154,6 +161,7 @@ class Window(QMainWindow):
         # live: every fight summed up as it ends (overlay + the Fights page)
         self.live = live or LiveController(paths, self.settings)
         self.live.fight.connect(self.fight_list.add_fight)
+        self.live.fight.connect(lambda _f: self._show_habits() if self.stack.currentIndex() == 3 else None)
         self.fight_list.set_fights(self.live.history.fights)
 
     # ------------------------------------------------------------------ loading
@@ -278,11 +286,13 @@ class Window(QMainWindow):
         self._refresh_labels()
 
     def _mode(self, which: str):
-        fights = which == "fights"
-        self.mode_fights.setChecked(fights)
-        self.mode_dungeons.setChecked(not fights)
-        self.left_stack.setCurrentIndex(1 if fights else 0)
-        if fights:
+        self.mode_dungeons.setChecked(which == "dungeons")
+        self.mode_fights.setChecked(which == "fights")
+        self.mode_habits.setChecked(which == "habits")
+        self.left_stack.setCurrentIndex(0 if which == "dungeons" else 1)
+        if which == "habits":
+            self._show_habits()
+        elif which == "fights":
             self.stack.setCurrentIndex(2)
             if self.fight_list.currentRow() < 0 and self.fight_list.count():
                 self.fight_list.setCurrentRow(0)
@@ -290,6 +300,10 @@ class Window(QMainWindow):
                 self.fight_detail.show_fight(None)
         else:
             self._picked(self.tree.currentItem())
+
+    def _show_habits(self):
+        self.habits_page.show_habits(habits(self.live.history.fights))
+        self.stack.setCurrentIndex(3)
 
     def _open_settings(self):
         if self.settings_dialog is None:
@@ -318,14 +332,16 @@ class Window(QMainWindow):
     def _imported(self):
         self.live.history.load()
         self.fight_list.set_fights(self.live.history.fights)
-        self._mode("fights")
+        self._mode("habits" if self.mode_habits.isChecked() else "fights")
 
     def _redraw(self):
         """re-show what's open, so widgets that set their own colors pick up the theme"""
         tab = self.tabs.currentIndex()
         view = (self.timeline.v0, self.timeline.v1)
         self.fight_list.set_fights(self.live.history.fights)
-        if self.stack.currentIndex() == 2:
+        if self.stack.currentIndex() == 3:
+            self._show_habits()
+        elif self.stack.currentIndex() == 2:
             self.fight_detail.show_fight(self.fight_list.fights[self.fight_list.currentRow()]
                                          if self.fight_list.currentRow() >= 0 else None)
         elif self.stack.currentIndex() == 1 and self.current:

@@ -53,7 +53,21 @@ class Live(unittest.TestCase):
         self.assertEqual((s["target"], s["kind"], s["result"], s["damage"]), ("Wolf", "World", "killed", 620))
         later = summarize(second, tr.me, tr.me_name, cds, [s])
         self.assertEqual(later["best_before"], s["dps"])
+        self.assertTrue({"own", "rest"} <= set(s["pull"]) and "level" in s)
 
+
+    def test_rest_counts_first_aid_not_the_bandage_debuff(self):
+        log = [
+            line(0, f"SPELL_AURA_APPLIED,{ME},{ME},746,\"First Aid\",0x1,BUFF"),
+            line(1, f"SPELL_AURA_APPLIED,{ME},{ME},11196,\"Recently Bandaged\",0x1,DEBUFF"),
+            line(6, f"SPELL_AURA_REMOVED,{ME},{ME},746,\"First Aid\",0x1,BUFF"),
+            dmg(8, ME, MOB, 8092, "Mind Blast", 300),
+            line(9, f"UNIT_DIED,{NONE},{MOB},0"),
+            line(20, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF"),
+        ]
+        tr = Tracker()
+        f = tr.feed_lines(log)[0]
+        self.assertAlmostEqual(f.rest, 6.0, places=1)
 
     def test_one_combat_stays_one_fight(self):
         bite = lambda t, mob: line(t, f"SWING_DAMAGE,{mob},{ME},20,20,-1,1,0,0,0,nil,nil,nil")  # noqa: E731

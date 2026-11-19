@@ -21,6 +21,7 @@ power, the zone, when the last fight ended, and when you last cast each spell (f
 """
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -34,6 +35,7 @@ CHAIN = 4.0
 RESUME = 60.0
 NOT_HOSTILE = {"SPELL_AURA_REMOVED", "SPELL_AURA_REMOVED_DOSE", "UNIT_DIED", "PARTY_KILL", "UNIT_DESTROYED",
                "SPELL_SUMMON", "SPELL_CREATE", "SPELL_AURA_REFRESH", "SPELL_CAST_FAILED"}
+RESTING = re.compile(r"Drink|Food|First Aid|Refreshment", re.I)
 KEEP_AFTER = 3000      # events kept after a fight closes, in case it's opened again
 
 
@@ -71,6 +73,8 @@ class FightData:
     instance: int = 0                          # 0 in the open world
     buffs_at_pull: list[str] = field(default_factory=list)
     since_last: float | None = None            # seconds since the previous fight ended
+    own_buffs_at_pull: list[str] = field(default_factory=list)   # the ones you cast on yourself
+    rest: float = 0.0                          # seconds eating or drinking since the previous fight
     start_hp: float | None = None
     start_power: float | None = None
     boss: str | None = None
@@ -95,6 +99,8 @@ class Tracker:
         self.allies: set[str] = set()      # players seen in your group: never foes (a mind-controlled
                                             # party member shows up as a hostile player)
         self.last_cast: dict[int, datetime] = {}
+        self._rest = 0.0                   # seconds resting since the last fight opened
+        self._resting: dict[str, datetime] = {}   # eating/drinking auras running now
         self._wall_hostile = 0.0
 
     # ------------------------------------------------------------------ feeding
@@ -218,16 +224,26 @@ class Tracker:
         if e.dst == me:
             if e.event in ("SPELL_AURA_APPLIED", "SPELL_AURA_REFRESH") and e.spell_name:
                 self.buffs.setdefault(e.spell_name, (e.src, e.ts))
+                if e.event == "SPELL_AURA_APPLIED" and RESTING.search(e.spell_name):
+                    self._resting.setdefault(e.spell_name, e.ts)
             elif e.event == "SPELL_AURA_REMOVED":
                 self.buffs.pop(e.spell_name, None)
+                since = self._resting.pop(e.spell_name, None)
+                if since:
+                    self._rest += (e.ts - since).total_seconds()
             elif e.event == "UNIT_DIED":
                 self.buffs.clear()
+                self._resting.clear()
 
     def _open(self, ts: datetime):
         self.closed, self.after = None, []
+        rest = self._rest + sum((ts - t).total_seconds() for t in self._resting.values())
+        self._rest = 0.0
+        self._resting = {n: ts for n in self._resting}
         self.fight = FightData(
             ts, zone=self.zone, difficulty=self.difficulty, instance=self.instance,
-            buffs_at_pull=sorted(self.buffs),
+            buffs_at_pull=sorted(self.buffs), rest=rest,
+            own_buffs_at_pull=sorted(n for n, (who, _) in self.buffs.items() if who == self.me),
             since_last=(ts - self.last_end).total_seconds() if self.last_end else None,
             start_hp=self.hp, start_power=self.power, cast_before=dict(self.last_cast))
 

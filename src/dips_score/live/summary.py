@@ -65,6 +65,7 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
     own_auras: set[str] = set()                                  # the ones you put on yourself
     pos: list[tuple[float, float, float]] = []                   # your position (Advanced Combat Logging)
     power_abs: list[tuple[float, float]] = []
+    power_type = level = None                                    # from the advanced log block
     foe_hp: dict[str, list[tuple[float, float]]] = defaultdict(list)
     cc: list[tuple[float, float]] = []
     costs: dict[int, list[int]] = defaultdict(list)
@@ -85,6 +86,7 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
         ev = e.event
         if e.info and e.info.guid == me:
             hp.append((t, e.info.hp_pct))
+            power_type, level = e.info.power_type, e.info.level
             pos.append((t, e.info.x, e.info.y))
             if e.info.max_power:
                 power.append((t, e.info.power / e.info.max_power))
@@ -382,8 +384,9 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
         "group": group,
         "buffs": buffs, "failed": failed,
         "resource": {"start": f.start_power, "end": power[-1][1] if power else None,
-                     "start_hp": f.start_hp},
-        "pull": {"since_last": f.since_last, "buffs": f.buffs_at_pull},
+                     "start_hp": f.start_hp, "type": power_type},
+        "level": level,
+        "pull": {"since_last": f.since_last, "buffs": f.buffs_at_pull, "own": f.own_buffs_at_pull, "rest": f.rest},
         "interrupts": interrupts, "dispels": dispels,
     }
 
