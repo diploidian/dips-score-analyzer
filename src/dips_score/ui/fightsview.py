@@ -70,8 +70,10 @@ class FightList(QListWidget):
         it = QListWidgetItem()
         lbl = QLabel(f"{chip(f['kind'])}&nbsp; <b>{_esc(f['target'])}</b>"
                      + (f" <span style='color:{theme.DIM.name()}'>+{f['more']}</span>" if f.get("more") else "")
-                     + f"<br><span style='color:{theme.DIM.name()}'>{f['dps']:.0f} DPS · "
-                     f"{f.get('efficiency', 1):.0%} · {_dur(f['duration'])}"
+                     + f"<br><span style='color:{theme.DIM.name()}'>"
+                     + ("no damage" if not f["damage"] and not f.get("healing_role")
+                        else f"{f['dps']:.0f} DPS · {f.get('efficiency', 1):.0%}")
+                     + f" · {_dur(f['duration'])}"
                      + (" · <span style='color:#f05050'>died</span>" if f.get("result") == "you died" else "")
                      + "</span>")
         lbl.setTextFormat(Qt.TextFormat.RichText)
@@ -166,6 +168,8 @@ class FightDetail(QWidget):
         if f.get("healing_role"):
             lbl = QLabel(f"<span style='font-size:13pt'>Mostly healing this fight</span> "
                          f"<span style='color:{theme.DIM.name()}'>(damage you didn't do isn't counted)</span>")
+        elif not f["damage"]:
+            lbl = QLabel("<span style='font-size:13pt'>No damage done this fight</span>")
         elif left >= 1:
             lbl = QLabel(f"<span style='font-size:13pt'>Damage left on the table: about {_n(left)}</span> "
                          f"<span style='color:{theme.DIM.name()}'>estimate - only time you were free to act</span>")

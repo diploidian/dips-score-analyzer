@@ -423,10 +423,14 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                           "unused": unused_defensives(died_at if i_died else t_low, casts, book, f)}
 
     failed = [{"spell": s, "reason": r, "count": n} for (s, r), n in fails.most_common()]
-    # mostly healing: damage you "could have done" isn't the point, so it isn't counted against you
+    # mostly healing, or no damage at all (a stray hit you never joined in): damage you "could have done"
+    # isn't the point, so it isn't counted against you
     healing_role = heal > damage
-    if healing_role:
+    unjudged = healing_role or damage == 0
+    if unjudged:
         cd_lost = swing_lost = idle_lost = 0.0
+    if damage == 0:
+        cd_rows = []                   # a healing fight keeps its rows to look at; with no damage they're noise
     potential = damage + cd_lost + swing_lost + idle_lost
     efficiency = damage / potential if potential else 1.0
     dps = damage / max(dur, 1.5)
@@ -484,10 +488,10 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                                        f"≈ {_fmt(r['lost'])} damage"))
     if group and group["deaths"] and healing_role:
         improve.append((1e9, f"{', '.join(group['deaths'])} died"))
-    if auto and auto["lost_other"] and not healing_role:
+    if auto and auto["lost_other"] and not unjudged:
         improve.append((swing_lost, f"{auto['lost_other']} swing{'s' if auto['lost_other'] != 1 else ''} lost while "
                                     f"not attacking ≈ {_fmt(swing_lost)} damage"))
-    if has_filler and idle_res >= IDLE_GAP and not healing_role:
+    if has_filler and idle_res >= IDLE_GAP and not unjudged:
         improve.append((idle_lost, f"{idle_res:.1f} s idle with a target, standing, with resource to spare "
                                    f"≈ {_fmt(idle_lost)} damage"))
     for row_ in failed:

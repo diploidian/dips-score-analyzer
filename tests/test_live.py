@@ -335,6 +335,16 @@ class Verdict(unittest.TestCase):
         tr, f = one_fight(bites(10))
         self.assertEqual(summarize(f, tr.me, tr.me_name, {}, [])["verdict"], "No damage done this fight.")
 
+    def test_no_damage_judges_nothing(self):
+        tr, f = one_fight(bites(10))
+        book = {"Judgement": {"gaps": [8.0] * 3, "spam": False, "last": (f.start - timedelta(minutes=1)).isoformat(),
+                              "avg": 150, "cast": False, "cost": 0, "game_cd": None}}
+        learn_cooldowns(f, tr.me, book)
+        s = summarize(f, tr.me, tr.me_name, book, [])
+        self.assertEqual((s["cooldowns"], s["efficiency"], s["potential"]), ([], 1.0, 0))
+        self.assertFalse(any("sat ready" in x or "≈" in x for x in s["improve"]))
+        self.assertEqual(s["verdict"], "No damage done this fight.")
+
     def test_clean(self):
         busy = [x for t in (0, 2, 4) for x in (cast(t, 585, "Smite"), dmg(t + 0.1, ME, MOB, 585, "Smite", 100))]
         tr, f = one_fight([*busy, line(4.5, f"UNIT_DIED,{NONE},{MOB},0")])
