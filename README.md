@@ -4,7 +4,7 @@ Scores a WoW dungeon run. It merges two data sources:
 
 - **dips-Score** (the addon: its source is in `addon/dips-Score` here; copy that folder into
   `Interface/AddOns/`, it needs no other add-on; `/dscore` opens its settings, and `/dscore status`,
-  `start`, `stop`, `mark`, `watch`, `button` and `clear` do the rest): what you pressed and when. That
+  `start`, `stop`, `mark`, `watch`, `button`, `clear` and `char` do the rest): what you pressed and when. That
   covers key vs click, key holds, movement, cast starts, finishes, refusals and interrupts, and
   combat start and end. It saves to `WTF/.../SavedVariables/dips-Score.lua` on `/reload` or logout.
 - **The combat log** (`/combatlog`, with Advanced Combat Logging on): what actually happened.
@@ -98,10 +98,102 @@ Upkeep's list of effects per class can be replaced: a `classes.json` next to `we
 like `{"ROGUE": [["Slice and Dice", "self"]]}`, where each entry is a spell name and `"self"` (a buff on
 you) or `"target"` (a debuff or DoT on an enemy), and a class listed there replaces its built-in list.
 
+Defensives work the same way, under a `"defensives"` key: `{"defensives": {"ROGUE": ["Evasion"]}}` lists
+the spells that count as a defensive for that class (see Fights after the kill).
+
 The combat log only reports someone's health when they're hit, healed, or swing in melee. So a
 ranged DPS who isn't taking damage has gaps in their health line.
 
 The thresholds are a first guess. They're all in `TUNING` in `src/dips_score/scoring/score.py`.
+
+## Fights after the kill
+
+The window and the overlay show a card for each fight about 2 seconds after the last enemy dies. If
+an enemy is still alive, the fight closes after 10 seconds without new log lines. A fight that
+picks up again reopens with the same id. The window also shows `log delay`: how late the game wrote
+the last line to its log file, which the app cannot shorten.
+
+Each card starts with one sentence: how you died, else (when you healed) what went well, else "no
+damage done", else the biggest finding when it cost 3% of your damage, else how close you came to
+the most you could have done. Everything is about you and your pets.
+
+Every damage cooldown in your spell book that you cast in the last 7 days gets a row, whether or not
+you pressed it in the fight:
+
+- Possible is the number of casts that would have fit if you cast it each time it came up.
+- Missed is the possible casts you did not make.
+- A miss is counted only when the spell sat ready for 2 seconds or more with no excuse. Excused
+  time is time you were moving (for cast-time spells), out of mana, stunned, healing someone who was
+  low, or the target was nearly dead.
+- Only unexcused time costs damage. Cooldowns of 60 seconds or more count on bosses only.
+- Procs are not casts: a Seal of Command hit that the log writes as your cast is left out. A cast owns
+  damage logged under a longer name that starts with it and has no casts of its own.
+
+Idle time is a gap of 2.5 seconds or more with nothing cast while you were not moving or stunned and had
+the resource. Half of it counts as lost damage, and only if you have a filler: a damage spell you cast
+twice within 2 seconds of each other, or a confirmed cooldown under 4 seconds. Without a filler
+there was nothing to press.
+
+The danger block (your health under 35%) names the defensives that sat ready and unused: off cooldown
+at your lowest moment and not cast in the 10 seconds before it. Only spells in your spell book are
+judged. A defensive the book has no cooldown for is assumed to have 300 seconds.
+
+The spell book is kept per character and by spell name, since every rank has its own id. A
+cooldown is learned from the 10 shortest gaps of 2 seconds or more between two casts: the shortest
+gap that two others agree with (within 5%) is the cooldown, so one quick cast after a reset cannot set
+it. A spell you ever cast twice within 2 seconds has no cooldown. When the character snapshot has the
+game's own cooldown, the shorter of the two is used. "Best previous on this target" only counts
+earlier fights within one level of this one.
+
+The add-on also prints a line in chat after each fight of 3 seconds or more: presses (and how many were
+clicks), refused casts, interrupted casts, and broken items. It counts whether or not a run is
+recording. The `Print a line in chat after each fight` setting turns it off (on by default).
+
+## Habits
+
+The Habits page looks at the last 40 fights of the newest character in the saved fights. Fights where
+you healed, or did no damage, are left out of the damage cards. The header names the character
+(level, race, class, spec, gear level) from the snapshot when there is one. The session numbers
+cover the latest stretch of fights with gaps under 30 minutes: fights, kills, kills per hour, average gap
+between fights, average rest, and average health and mana at the pull.
+
+The trend chart draws efficiency per fight, oldest on the left, once there are 5 fights. A gray line
+marks a level-up (with the new level on top) and yellow dashes mark a change in gear level.
+
+Cards are green (keep doing it), orange (fix) or blue (build). The ones it can show:
+
+- Efficiency over the last 20 fights against the 20 before, when both halves have 5 fights: dropping or
+  improving at 3 points or more, otherwise steady (75% or more) or stuck low.
+- DPS up or down 5% or more between the two halves, split into the part from your play (the change
+  in efficiency) and the rest, which moved with gear, level and what you fought.
+- Cooldowns with damage lost, and swings lost per minute for melee.
+- The most common failed-cast reason, and pull buffs you often start without.
+- Deaths, and mana at the pull when it averages under 70%.
+- A defensive that was ready when you were low.
+- Harmful spells you know and have not cast in these fights (up to 3 are named), and empty gear slots.
+- Gear at the pull: broken, or under 20% durability.
+
+## Character snapshot
+
+The add-on saves what the game knows about your character: level, race, class, your spells with their
+base cooldowns and whether they hit enemies, the item level of each filled gear slot, the points in
+each talent tree, and gear durability at each pull (the last 60). It takes the snapshot 3 seconds
+after you enter the world and again at logout or `/reload`, so it reaches the app when the game saves.
+A list that comes back empty at logout does not replace a good earlier one.
+
+The app uses it for the game's cooldowns in your spell book, spec and gear level on each fight, your own
+role (the talent tree with the most points, when the group finder gave none), and the Habits header and
+cards above.
+
+The snapshot depends on game API calls that could not be confirmed outside the game. `/dscore char`
+takes a snapshot and prints what this client returned: spell count, how many have a cooldown, gear
+slots, talent points and durability.
+
+## Data the app keeps
+
+In `%APPDATA%\dips-score`: `weights.json` and `classes.json` (yours), `fights.jsonl` (the last 5000
+fights) and `spells.json` (a spell book per character). `spells.json` replaced `cooldowns.json`, which
+is no longer read; the `replay` command learns the spell books again from your old combat logs.
 
 ## Layout
 
@@ -118,11 +210,18 @@ src/dips_score/
   scoring/interrupts.py  interrupts and dispels
   scoring/cooldowns.py   cooldowns that sat ready
   scoring/upkeep.py      buffs and DoTs kept up
-  scoring/classes.py     the upkeep table, per class
+  scoring/classes.py     upkeep, defensives and talent roles, per class
   scoring/positioning.py where you stood
+  live/tracker.py        tells fights apart in the combat log as it is written
+  live/summary.py        one fight summed up, and the spell book
+  live/history.py        fights.jsonl and spells.json; follows the log
+  live/habits.py         the Habits page numbers and cards
   analysis.py            load + analyze (shared by CLI and window)
-  ui/                    the PyQt6 window and timeline
+  ui/                    the PyQt6 window and timeline (fightsview.py, habitsview.py)
+addon/dips-Score/Char.lua  the character snapshot and gear wear
 tests/test_core.py       python -m unittest discover -s tests
 tests/test_model.py      (same command)
 tests/test_live.py       (same command)
+tests/test_habits.py     (same command)
+tests/test_char.py       (same command)
 ```
