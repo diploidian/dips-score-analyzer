@@ -7,7 +7,8 @@ A fight starts with the first hostile event between your group (you, your pets, 
     every enemy engaged has died and QUIET_DEAD seconds pass without fighting, or
     QUIET_ALIVE seconds pass without fighting while an enemy is still alive (it ran, reset, or you did);
 or, counting in real time (the game writes the log in batches, so its clock can stall), when nothing new
-has come in for WALL_QUIET seconds.
+has come in for WALL_DEAD seconds and every enemy engaged has died, or for WALL_QUIET seconds if one is
+still alive.
 
 A closed fight is opened again - the same combat, carried on - when
     a new enemy joins within CHAIN seconds of it ending (the next one was already on its way), or
@@ -31,6 +32,7 @@ from ..sources.combatlog import Event, is_enemy, parse_line
 QUIET_DEAD = 2.0
 QUIET_ALIVE = 15.0
 WALL_QUIET = 10.0
+WALL_DEAD = 2.0
 CHAIN = 4.0
 RESUME = 60.0
 NOT_HOSTILE = {"SPELL_AURA_REMOVED", "SPELL_AURA_REMOVED_DOSE", "UNIT_DIED", "PARTY_KILL", "UNIT_DESTROYED",
@@ -181,7 +183,9 @@ class Tracker:
         all_dead = all(fo.died is not None for fo in f.foes.values()) if f.foes else False
         if (all_dead and quiet >= QUIET_DEAD) or quiet >= QUIET_ALIVE:
             return True
-        return wall_now is not None and wall_now - self._wall_hostile >= WALL_QUIET
+        if wall_now is None:
+            return False
+        return wall_now - self._wall_hostile >= (WALL_DEAD if all_dead else WALL_QUIET)
 
     def _carry_on(self, e: Event, side) -> bool:
         """open the last fight again if this is the same combat carrying on"""

@@ -78,6 +78,10 @@ class Window(QMainWindow):
         ll.addWidget(self.left_stack, 1)
         self.status = dim_label()
         ll.addWidget(self.status)
+        self.lag = dim_label()
+        self.lag.setToolTip("How long the game takes to write a fight to its log file. The app cannot shorten it.")
+        self.lag.hide()
+        ll.addWidget(self.lag)
         weights_btn = QPushButton("Scoring weights...")
         weights_btn.clicked.connect(self._open_weights)
         ll.addWidget(weights_btn)
@@ -162,7 +166,14 @@ class Window(QMainWindow):
         self.live = live or LiveController(paths, self.settings)
         self.live.fight.connect(self.fight_list.add_fight)
         self.live.fight.connect(lambda _f: self._show_habits() if self.stack.currentIndex() == 3 else None)
+        self.live.fight.connect(self._show_lag)
         self.fight_list.set_fights(self.live.history.fights)
+
+    def _show_lag(self, *_):
+        lag = self.live.live.lag
+        self.lag.setVisible(lag is not None)
+        if lag is not None:
+            self.lag.setText(f"log delay {lag:.1f} s")
 
     # ------------------------------------------------------------------ loading
     def _changed(self, *_):

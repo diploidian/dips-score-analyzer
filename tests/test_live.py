@@ -2,6 +2,7 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -89,6 +90,38 @@ class Live(unittest.TestCase):
         f = next(iter(fights))
         self.assertEqual(len(f.foes), 3)
         self.assertAlmostEqual((f.end - f.start).total_seconds(), 19, places=0)
+
+    def _wall(self, log, *seconds):
+        """feed the log at real time 100, then tick() at each later real time; returns what tick() gave"""
+        tr = Tracker()
+        with patch("dips_score.live.tracker.time.monotonic") as mono:
+            mono.return_value = 100.0
+            tr.feed_lines(log)
+            out = []
+            for t in seconds:
+                mono.return_value = 100.0 + t
+                out.append(tr.tick())
+        return tr, out
+
+    def test_a_kill_closes_after_two_seconds_of_real_time(self):
+        log = [dmg(0, ME, MOB, 8092, "Mind Blast", 300), line(1, f"UNIT_DIED,{NONE},{MOB},0")]
+        tr, (early, late) = self._wall(log, 1.5, 2.5)
+        self.assertIsNone(early)
+        self.assertTrue(late.closed_by_wall)
+
+    def test_more_fighting_after_a_wall_close_reopens_it(self):
+        log = [dmg(0, ME, MOB, 8092, "Mind Blast", 300), line(1, f"UNIT_DIED,{NONE},{MOB},0")]
+        tr, (f,) = self._wall(log, 2.5)
+        again = tr.feed_lines([dmg(3, ME, MOB2, 8092, "Mind Blast", 300), line(4, f"UNIT_DIED,{NONE},{MOB2},0"),
+                               line(30, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")])
+        self.assertEqual((again[0].start, again[0].reopened), (f.start, 1))
+
+    def test_a_live_enemy_waits_ten_seconds(self):
+        log = [dmg(0, ME, MOB, 8092, "Mind Blast", 300)]
+        tr, (a, b, c) = self._wall(log, 2.5, 9.5, 10.5)
+        self.assertIsNone(a)
+        self.assertIsNone(b)
+        self.assertIsNotNone(c)
 
 
 if __name__ == "__main__":

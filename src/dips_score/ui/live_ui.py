@@ -14,7 +14,7 @@ from . import settings as app_settings
 from . import theme
 from .overlay import Overlay
 
-POLL_MS = 500
+POLL_MS = 250
 
 
 class LiveController(QObject):

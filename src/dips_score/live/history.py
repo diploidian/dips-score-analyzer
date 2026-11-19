@@ -7,6 +7,7 @@ the overlay and the Fights page). `replay()` does the same for log files already
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 from ..config import Paths
@@ -74,9 +75,13 @@ class Live:
         self.tail = LogTail(paths.logs, from_start=from_start)
         self.tracker = Tracker()
         self.history = history or History(paths)
+        self.lag: float | None = None      # seconds between the game's last log line and now
 
     def poll(self) -> list[dict]:
-        done = self.tracker.feed_lines(self.tail.poll())
+        lines = self.tail.poll()
+        done = self.tracker.feed_lines(lines)
+        if lines and self.tracker.log_now:
+            self.lag = (datetime.now() - self.tracker.log_now).total_seconds()
         late = self.tracker.tick()
         if late:
             done.append(late)
