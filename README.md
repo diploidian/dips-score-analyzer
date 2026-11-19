@@ -114,8 +114,8 @@ picks up again reopens with the same id. The window also shows `log delay`: how 
 the last line to its log file, which the app cannot shorten.
 
 Each card starts with one sentence: how you died, else (when you healed) what went well, else "no
-damage done", else the biggest finding when it cost 3% of your damage, else how close you came to
-the most you could have done. Everything is about you and your pets.
+damage done", else the biggest finding when it cost 3% of your damage (or cost anything, in a fight under 90% of
+the damage that was possible), else how close you came to the most you could have done. Everything is about you and your pets.
 
 Every damage cooldown in your spell book that you cast in the last 7 days gets a row, whether or not
 you pressed it in the fight:
@@ -126,6 +126,7 @@ you pressed it in the fight:
   time is time you were moving (for cast-time spells), out of mana, stunned, healing someone who was
   low, or the target was nearly dead.
 - Only unexcused time costs damage. Cooldowns of 60 seconds or more count on bosses only.
+- A fight with no damage from you gets no cooldown rows and no lost damage, and a fight where you mostly healed keeps its rows but loses no damage.
 - Procs are not casts: a Seal of Command hit that the log writes as your cast is left out. A cast owns
   damage logged under a longer name that starts with it and has no casts of its own.
 
