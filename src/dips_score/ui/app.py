@@ -198,6 +198,8 @@ class Window(QMainWindow):
             self.status.setText(f"Couldn't read the saved file yet ({e}); retrying.")
             self.debounce.start()
             return
+        if hasattr(self, "live"):      # the first reload runs before the controller exists; it loads them itself
+            self.live.load_chars()
         self._watch()
         self.by_id = {r.id: r for r in self.runs}
         self.tree.blockSignals(True)
@@ -315,7 +317,9 @@ class Window(QMainWindow):
             self._picked(self.tree.currentItem())
 
     def _show_habits(self):
-        self.habits_page.show_habits(habits(self.live.history.fights))
+        h = self.live.history
+        me = h.fights[-1]["me"] if h.fights else ""
+        self.habits_page.show_habits(habits(h.fights, h.chars.get(me), h.book(me) if me else None))
         self.stack.setCurrentIndex(3)
 
     def _open_settings(self):

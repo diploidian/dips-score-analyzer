@@ -8,12 +8,17 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime
 
-from .summary import MASHING
+from .summary import MASHING, gear_level
 
 WINDOW = 40                  # fights looked at; the trend compares the last 20 with the 20 before
 TREND_MIN = 5                # fights needed in each half of the trend
 SESSION_GAP = 30 * 60        # seconds between fights that still count as one sitting
 ORDER = {"fix": 0, "build": 1, "keep": 2}
+UNUSED_SHOWN = 3             # spells named in the "you know ... but never cast" card
+# gear slots worth filling, in the order they are named
+SLOTS = [(1, "head"), (2, "neck"), (3, "shoulder"), (5, "chest"), (6, "waist"), (7, "legs"), (8, "feet"),
+         (9, "wrist"), (10, "hands"), (11, "ring 1"), (12, "ring 2"), (13, "trinket 1"), (14, "trinket 2"),
+         (15, "back"), (16, "main hand")]
 
 
 def _mean(xs) -> float | None:
@@ -119,12 +124,34 @@ def _habit_cards(win: list[dict]) -> list[tuple]:
     return out
 
 
-def habits(fights: list[dict]) -> dict:
+def _build_cards(win: list[dict], char: dict, book: dict) -> list[tuple]:
+    """what the character snapshot shows: harmful spells never cast in the window, empty gear slots"""
+    out = []
+    first = _t(win[0]["start"])
+    spells = char.get("spells") or {}
+    if any(sp["harm"] is not None for sp in spells.values()):         # without the flag nothing can be judged
+        idle = [n for n, sp in spells.items() if sp["harm"] and not (
+            (last := (book.get(n) or {}).get("last")) and _t(last) >= first)]
+        if idle:
+            out.append(("build", "Spells you never use", f"You know {', '.join(idle[:UNUSED_SHOWN])} and have not "
+                        f"cast {'it' if len(idle) == 1 else 'them'} in your last {len(win)} fights"))
+    gear = char.get("gear") or {}
+    if gear:                                    # an empty list means the client gave nothing, not a naked character
+        empty = [label for slot, label in SLOTS if slot not in gear]
+        if empty:
+            out.append(("build", "Gear slots to fill", "Empty gear slots: " + ", ".join(empty)))
+    return out
+
+
+def habits(fights: list[dict], char: dict | None = None, book: dict | None = None) -> dict:
     if not fights:
-        return {"name": "", "level": None, "fights": 0, "session": None, "cards": []}
+        return {"name": "", "level": None, "fights": 0, "session": None, "cards": [], "char": None}
     me = fights[-1]["me"]
     mine = [f for f in fights if f["me"] == me]
     win = mine[-WINDOW:]
-    cards = sorted(_damage_cards(win) + _habit_cards(win), key=lambda c: ORDER[c[0]])
+    cards = _damage_cards(win) + _habit_cards(win) + (_build_cards(win, char, book or {}) if char else [])
+    cards.sort(key=lambda c: ORDER[c[0]])
     return {"name": fights[-1].get("me_name", ""), "level": fights[-1].get("level"), "fights": len(win),
-            "session": _session(mine), "cards": [{"kind": k, "title": t, "detail": d} for k, t, d in cards]}
+            "session": _session(mine), "char": char and {
+                "class": char.get("class"), "race": char.get("race"), "level": char.get("level"),
+                "spec": char.get("spec"), "gear": gear_level(char)}, "cards": [{"kind": k, "title": t, "detail": d} for k, t, d in cards]}

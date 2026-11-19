@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from ..config import Paths
 from ..live.history import History, Live
+from ..sources.savedvars import load_char
 from . import settings as app_settings
 from . import theme
 from .overlay import Overlay
@@ -26,9 +27,20 @@ class LiveController(QObject):
         self.history = History(paths)
         self.live = Live(paths, self.history)
         self.overlay = Overlay()
+        self.load_chars()
         self.timer = QTimer(self, interval=POLL_MS)
         self.timer.timeout.connect(self._poll)
         self.timer.start()
+
+    def load_chars(self):
+        """the character snapshots in every saved file (the game rewrites them on /reload and logout)"""
+        for path in self.paths.saved_files():
+            try:
+                char = load_char(path)
+            except (OSError, ValueError):       # a half-written file: the next reload tries again
+                continue
+            if char:
+                self.history.set_char(char)
 
     def _poll(self):
         try:

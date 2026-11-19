@@ -56,9 +56,9 @@ local OPTIONS = {
     {type = "button", label = "Clear saved runs", func = function() ns.ClearRuns() end},
 
     {type = "section", label = "Commands"},
-    {type = "description", text = "/dscore status | start | stop | mark [note] | watch | button | clear\n"
+    {type = "description", text = "/dscore status | start | stop | mark [note] | watch | button | clear | char\n"
         .. "watch prints each press with whether it was a key or a click - use it to check this client "
-        .. "tells them apart."},
+        .. "tells them apart. char saves a snapshot of your spells, gear and talents and says what this client returned."},
 }
 
 -- "record.party" -> db.record, "party"
@@ -155,7 +155,7 @@ function ns.OpenSettings()
         InterfaceOptionsFrame_OpenToCategory(panel)
     else
         ns.Print("no settings window on this client - use /dscore status | start | stop | mark [note] | "
-            .. "watch | button | clear.")
+            .. "watch | button | clear | char.")
     end
 end
 
@@ -197,6 +197,8 @@ SlashCmdList.DIPSSCORE = function(msg)
         ns.SetButtonShown(not db.button.shown)
     elseif cmd == "clear" then
         ns.ClearRuns()
+    elseif cmd == "char" then
+        ns.PrintSnapshot()
     else
         ns.OpenSettings()
     end

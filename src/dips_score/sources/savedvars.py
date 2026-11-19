@@ -130,3 +130,50 @@ def parse_runs(data: dict) -> list[Run]:
 
 def load_runs(path: str | Path) -> list[Run]:
     return parse_runs(luadata.load(path))
+
+
+def _int(v) -> int | None:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _spells(lines: list) -> dict[str, dict]:
+    """"spellID,cooldownMs,harm,name" -> name: {cd seconds | None, harm}; ranks of a spell share a name"""
+    out: dict[str, dict] = {}
+    for s in lines:
+        parts = str(s).split(",", 3)
+        if len(parts) < 4 or not parts[3]:
+            continue
+        ms, harm = _int(parts[1]), {"1": True, "0": False}.get(parts[2])
+        cd = None if ms is None else ms / 1000
+        old = out.setdefault(parts[3], {"cd": cd, "harm": harm})
+        if cd is not None and (old["cd"] is None or cd > old["cd"]):
+            old["cd"] = cd
+        if harm is not None:
+            old["harm"] = bool(old["harm"]) or harm
+    return out
+
+
+def load_char(path: str | Path) -> dict | None:
+    """the character snapshot (Char.lua) in one saved file, or None; parts that are missing or odd come out empty"""
+    log = luadata.load(path).get("dipsScoreLog")
+    c = log.get("char") if isinstance(log, dict) else None
+    if not isinstance(c, dict) or not c.get("guid"):
+        return None
+    gear = {}
+    for s in _as_list(c.get("gear")):
+        slot, _, rest = str(s).partition(",")
+        if _int(slot) is not None:
+            gear[_int(slot)] = _int(rest.partition(",")[2])
+    talents = []
+    for s in _as_list(c.get("talents")):
+        parts = str(s).split(",")
+        if len(parts) >= 3 and _int(parts[-1]) is not None:
+            talents.append((",".join(parts[1:-1]), _int(parts[-1])))
+    points = [t for t in talents if t[1] > 0]
+    return {"guid": str(c["guid"]), "name": c.get("name"), "class": c.get("class"), "race": c.get("race"),
+            "level": _int(c.get("level")), "taken": _int(c.get("taken")),
+            "spells": _spells(_as_list(c.get("spells"))), "gear": gear, "talents": talents,
+            "spec": max(points, key=lambda t: t[1])[0] or None if points else None}

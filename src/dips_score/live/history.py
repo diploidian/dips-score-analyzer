@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..config import Paths
-from .summary import learn_cooldowns, summarize
+from .summary import gear_level, learn_cooldowns, new_entry, summarize
 from .tail import LogTail
 from .tracker import Tracker
 
@@ -26,6 +26,7 @@ class History:
         self.spells_file = paths.data_dir / "spells.json"
         self.fights: list[dict] = []
         self.books: dict[str, dict[str, dict]] = {}
+        self.chars: dict[str, dict] = {}       # character snapshots from the add-on, by guid (not saved here)
         self.load()
 
     def load(self):
@@ -45,6 +46,19 @@ class History:
     def book(self, me: str) -> dict[str, dict]:
         """your spell book (spell name -> what's been learned about it)"""
         return self.books.setdefault(me, {})
+
+    def set_char(self, char: dict):
+        """take a character snapshot; its spells' base cooldowns go into that character's spell book"""
+        self.chars[char["guid"]] = char
+        book = self.book(char["guid"])
+        for name, sp in char["spells"].items():
+            book.setdefault(name, new_entry())["game_cd"] = sp["cd"]
+
+    def tag(self, s: dict, me: str):
+        """put the character's spec and gear level on a fight summary, when there is a snapshot"""
+        char = self.chars.get(me)
+        if char:
+            s["spec"], s["gear"] = char.get("spec"), gear_level(char)
 
     def ids(self) -> set[str]:
         return {f.get("id") for f in self.fights}
@@ -102,6 +116,7 @@ class Live:
         earlier = [h for h in self.history.fights if h.get("id") != _fight_id(f)]
         s = summarize(f, me, self.tracker.me_name, self.history.book(me), earlier)
         if s:
+            self.history.tag(s, me)
             s["updated"] = self.history.add(s)       # a carried-on combat: its card is updated
             return s
         return None
@@ -131,6 +146,7 @@ def _keep(h: History, tr: Tracker, f) -> int:
     known = _fight_id(f) in h.ids()
     s = summarize(f, tr.me, tr.me_name, h.book(tr.me), [x for x in h.fights if x.get("id") != _fight_id(f)])
     if s:
+        h.tag(s, tr.me)
         h.add(s)
         return 0 if known else 1
     return 0

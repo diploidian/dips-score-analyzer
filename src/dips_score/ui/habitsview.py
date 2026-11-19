@@ -36,7 +36,13 @@ class HabitsPage(QWidget):
             lay.addWidget(dim_label("Fights appear here once you have some."))
             lay.addStretch(1)
             return
-        who = h["name"] + (f", level {h['level']}" if h.get("level") else "")
+        c = h.get("char")
+        if c:    # "Mapomimi, level 33 Undead Priest, Shadow, gear 31"
+            kind = " ".join(x.title() for x in (c.get("race"), c.get("class")) if x)
+            who = ", ".join([h["name"], " ".join(x for x in (f"level {c['level']}" if c.get("level") else "", kind) if x)]
+                            + [x for x in (c.get("spec"), f"gear {c['gear']}" if c.get("gear") else "") if x])
+        else:
+            who = h["name"] + (f", level {h['level']}" if h.get("level") else "")
         head = QLabel(f"<span style='font-family:\"{theme.TITLE_FONT}\"; font-size:17pt; font-weight:700; "
                       f"color:{theme.TITLE.name()}'>{_esc(who)}</span> "
                       f"<span style='color:{theme.DIM.name()}'>last {h['fights']} fights</span>")

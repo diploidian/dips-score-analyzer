@@ -68,6 +68,20 @@ def _fmt(n: float) -> str:
     return f"{n:,.0f}"
 
 
+def new_entry() -> dict:
+    """a spell book entry with nothing learned yet (code reads every key directly)"""
+    return {"gaps": [], "spam": False, "last": None, "avg": 0, "cast": False, "cost": 0, "game_cd": None}
+
+
+NO_GEAR_LEVEL = (4, 19)        # shirt and tabard say nothing about how strong you are
+
+
+def gear_level(char: dict | None) -> int | None:
+    """the mean item level over the slots that have one"""
+    levels = [v for k, v in ((char or {}).get("gear") or {}).items() if v is not None and k not in NO_GEAR_LEVEL]
+    return round(sum(levels) / len(levels)) if levels else None
+
+
 def cooldown(entry: dict) -> float | None:
     """a spell book entry's cooldown in seconds: the shortest gap two others agree with; None if it has none"""
     if entry.get("spam") or entry.get("game_cd") == 0:      # game_cd 0: the game says it has none
@@ -117,7 +131,8 @@ def spoken(text: str) -> str:
 
 
 def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], history: list[dict]) -> dict | None:
-    """the summary dict, or None for a fight that isn't worth one (a critter, a stray hit)"""
+    """the summary dict, or None for a fight that isn't worth one (a critter, a stray hit); "best before" only
+    counts earlier fights within a level of this one"""
     start, end = f.start, f.end or f.start
     dur = max(0.1, _rel(end, start))
     pets = {e.dst for e in f.events if e.event == "SPELL_SUMMON" and e.src == me}
@@ -408,7 +423,9 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         }
 
     # ---- compared with you before
-    same = [h for h in history if h.get("target") == target and h.get("kind") == kind and h.get("dps")]
+    # a fight with no level on either side still compares (old history has none)
+    same = [h for h in history if h.get("target") == target and h.get("kind") == kind and h.get("dps")
+            and (level is None or h.get("level") is None or abs(h["level"] - level) <= 1)]
     best = max((h["dps"] for h in same), default=None)
 
     good, improve = [], []
@@ -522,8 +539,7 @@ def learn_cooldowns(f: FightData, me: str, book: dict[str, dict]) -> bool:
         elif e.event == "SPELL_CAST_SUCCESS" and e.spell_id and e.spell_id not in AUTO and id(e) not in proc:
             casts[name] += 1
             cast.add(name)
-            entry = book.setdefault(name, {"gaps": [], "spam": False, "last": None, "avg": 0, "cast": False,
-                                           "cost": 0, "game_cd": None})
+            entry = book.setdefault(name, new_entry())
             start = began.pop(name, None)
             last = datetime.fromisoformat(entry["last"]) if entry["last"] else None
             if last and e.ts <= last:
