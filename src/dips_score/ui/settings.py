@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from PyQt6.QtCore import QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
-                             QPushButton, QRadioButton, QSlider, QVBoxLayout)
+from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout,
+                             QLabel, QLineEdit, QPushButton, QRadioButton, QSlider, QVBoxLayout)
 
 from ..config import Paths
 from . import assets, texture, theme
@@ -16,9 +17,13 @@ from .pages import dim_label
 DEFAULTS = {"theme": "wow",
             "overlay": True,          # the card after each fight
             "overlay_seconds": 12,
+            "overlay_keep": False,    # stay up, updated after each fight, instead of fading out
             "overlay_side": "right",
+            "overlay_spot": None,     # [x, y] where it was dragged (fractions of the WoW window); None: overlay_side
             "texture": None,          # None: follow dips-Core's own setting; True/False: your pick here
-            "texture_alpha": None}
+            "texture_alpha": None,
+            "wow_folder": None,       # None: --wow, DIPS_WOW or the default (config.paths reads these two)
+            "logs_folder": None}      # None: <wow folder>\Logs
 
 
 def load(paths: Paths) -> dict:
@@ -55,6 +60,9 @@ class SettingsDialog(QDialog):
     imported = pyqtSignal()
     assets_rescanned = pyqtSignal()
     open_weights = pyqtSignal()
+    folders_changed = pyqtSignal()
+    overlay_changed = pyqtSignal()
+    move_overlay = pyqtSignal(bool)
 
     def __init__(self, paths: Paths, current: str, parent=None, settings: dict | None = None):
         super().__init__(parent)
@@ -63,6 +71,26 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Settings")
         self.setMinimumWidth(560)
         lay = QVBoxLayout(self)
+
+        box = QGroupBox("Game folders")
+        fl = QGridLayout(box)
+        self.wow_edit, self.logs_edit = QLineEdit(readOnly=True), QLineEdit(readOnly=True)
+        for i, (label, edit, pick) in enumerate((("World of Warcraft", self.wow_edit, self._pick_wow),
+                                                 ("Combat logs", self.logs_edit, self._pick_logs))):
+            fl.addWidget(QLabel(label), i, 0)
+            fl.addWidget(edit, i, 1)
+            b = QPushButton("Browse...")
+            b.clicked.connect(pick)
+            fl.addWidget(b, i, 2)
+        reset = QPushButton("Use the game's")
+        reset.setToolTip("Look for combat logs in the game folder's Logs folder")
+        reset.clicked.connect(lambda: self._set_folders(logs=None))
+        fl.addWidget(reset, 1, 3)
+        self.folder_note = dim_label()
+        fl.addWidget(self.folder_note, 2, 0, 1, 4)
+        fl.setColumnStretch(1, 1)
+        lay.addWidget(box)
+        self._show_folders()
 
         box = QGroupBox("Look")
         bl = QVBoxLayout(box)
@@ -109,8 +137,11 @@ class SettingsDialog(QDialog):
         ol = QVBoxLayout(box)
         self.ov_on = QCheckBox("Show a summary over the game when a fight ends")
         self.ov_on.setChecked(bool(self.settings.get("overlay", True)))
-        self.ov_on.toggled.connect(lambda on: self._set("overlay", on))
+        self.ov_on.toggled.connect(lambda on: (self._set("overlay", on), self.overlay_changed.emit()))
         ol.addWidget(self.ov_on)
+        self.ov_keep = QCheckBox("Keep it up and update it after each fight")
+        self.ov_keep.setChecked(bool(self.settings.get("overlay_keep", False)))
+        ol.addWidget(self.ov_keep)
         row = QHBoxLayout()
         row.addWidget(QLabel("Stays for"))
         self.ov_secs = QSlider(Qt.Orientation.Horizontal)
@@ -121,13 +152,22 @@ class SettingsDialog(QDialog):
         self.ov_secs.valueChanged.connect(lambda v: (secs_lbl.setText(f"{v} s"), self._set("overlay_seconds", v)))
         row.addWidget(self.ov_secs, 1)
         row.addWidget(secs_lbl)
+        self.ov_secs.setEnabled(not self.ov_keep.isChecked())
+        self.ov_keep.toggled.connect(lambda on: (self._set("overlay_keep", on), self.ov_secs.setEnabled(not on),
+                                                 self.overlay_changed.emit()))
         side = QButtonGroup(self)
         for key, label in (("left", "Left"), ("right", "Right")):
             rb = QRadioButton(label)
             rb.setChecked(self.settings.get("overlay_side", "right") == key)
-            rb.toggled.connect(lambda on, k=key: on and self._set("overlay_side", k))
+            rb.clicked.connect(lambda _=False, k=key: self._side(k))   # clicked: works on the already-picked side too
             side.addButton(rb)
             row.addWidget(rb)
+        self.side_buttons = side
+        self.move_btn = QPushButton("Move it", checkable=True)
+        self.move_btn.setToolTip("Drag the card where you want it, then press Done")
+        self.move_btn.toggled.connect(lambda on: (self.move_btn.setText("Done" if on else "Move it"),
+                                                  self.move_overlay.emit(on)))
+        row.addWidget(self.move_btn)
         test = QPushButton("Show it")
         test.setToolTip("Show the last fight on the overlay now")
         test.clicked.connect(self.test_overlay.emit)
@@ -177,6 +217,51 @@ class SettingsDialog(QDialog):
     def _set(self, key: str, value):
         self.settings[key] = value
         save(self.paths, self.settings)
+
+    def _side(self, key: str):
+        """Left/Right puts the card back on that edge, forgetting where it was dragged"""
+        self.settings["overlay_spot"] = None
+        self._set("overlay_side", key)
+        self.overlay_changed.emit()
+
+    def hideEvent(self, e):
+        self.move_btn.setChecked(False)      # closing Settings locks the card again
+        super().hideEvent(e)
+
+    def _pick_wow(self):
+        d = QFileDialog.getExistingDirectory(self, "The _forever_ folder (with WTF and Logs in it)", str(self.paths.wow))
+        if d:
+            self._set_folders(wow=d)
+
+    def _pick_logs(self):
+        d = QFileDialog.getExistingDirectory(self, "The folder with WoWCombatLog*.txt in it", str(self.paths.logs))
+        if d:
+            self._set_folders(logs=d)
+
+    _KEEP = object()
+
+    def _set_folders(self, wow=_KEEP, logs=_KEEP):
+        """save the pick and change the shared Paths in place, so the open window follows it"""
+        if wow is not self._KEEP:
+            self.settings["wow_folder"] = wow
+            self.paths.wow = Path(wow)
+        if logs is not self._KEEP:
+            self.settings["logs_folder"] = logs
+            self.paths.logs_dir = Path(logs) if logs else None
+        save(self.paths, self.settings)
+        self._show_folders()
+        self.folders_changed.emit()
+
+    def _show_folders(self):
+        for edit, path in ((self.wow_edit, self.paths.wow), (self.logs_edit, self.paths.logs)):
+            edit.setText(str(path))
+            edit.setToolTip(str(path))
+            edit.setCursorPosition(0)
+        logs = len(list(self.paths.logs.glob("WoWCombatLog*.txt"))) if self.paths.logs.is_dir() else 0
+        saved = len(self.paths.saved_files()) if self.paths.accounts.is_dir() else 0
+        bad = [] if (self.paths.wow / "WTF").is_dir() else ["no WTF folder in the game folder"]
+        self.folder_note.setText("  ·  ".join(bad + [f"{logs} combat log{'s' if logs != 1 else ''}",
+                                                    f"{saved} dips-Score saved file{'s' if saved != 1 else ''}"]))
 
     def _import(self):
         from ..live.history import replay

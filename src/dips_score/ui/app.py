@@ -31,6 +31,7 @@ from .summary import SummaryTab
 from .timeline import Timeline
 from .settings import SettingsDialog
 from ..live.habits import habits
+from ..live.tail import LogTail
 from .fightsview import FightDetail, FightList
 from .habitsview import HabitsPage
 from .live_ui import LiveController
@@ -98,7 +99,8 @@ class Window(QMainWindow):
         ll.addLayout(row)
         self.weights: WeightsDialog | None = None
         self.settings_dialog: SettingsDialog | None = None
-        self.settings = app_settings.load(paths)
+        # opened from the tray: share the controller's settings, so changes here reach the overlay
+        self.settings = live.settings if live else app_settings.load(paths)
         self.rescore_timer = QTimer(singleShot=True, interval=120)   # sliders move fast: score once they pause
         self.rescore_timer.timeout.connect(self._rescore)
 
@@ -331,9 +333,17 @@ class Window(QMainWindow):
             d.open_weights.connect(self._open_weights)
             d.test_overlay.connect(self.live.show_last)
             d.imported.connect(self._imported)
+            d.folders_changed.connect(self._folders_changed)
+            d.overlay_changed.connect(self.live.refresh)
+            d.move_overlay.connect(self.live.move_mode)
             self.settings_dialog = d
         self.settings_dialog.show()
         self.settings_dialog.raise_()
+
+    def _folders_changed(self):
+        # a fresh tail skips what's already in the new folder's log, like at start-up
+        self.live.live.tail = LogTail(self.paths.logs)
+        self.reload()
 
     def _set_theme(self, name: str):
         """switch the look and redraw everything open"""

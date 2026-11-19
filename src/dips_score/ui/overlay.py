@@ -9,7 +9,7 @@ from __future__ import annotations
 import ctypes
 import sys
 
-from PyQt6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QRect, QRectF, Qt, QTimer
+from PyQt6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QRect, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QGuiApplication, QPainter, QPainterPath, QPen, QPixmap
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
@@ -106,6 +106,8 @@ def card_html(s: dict) -> str:
 
 
 class Overlay(QWidget):
+    moved = pyqtSignal(float, float)     # the card's new center, as fractions of the WoW window
+
     def __init__(self):
         super().__init__(None, Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint |
                          Qt.WindowType.Tool | Qt.WindowType.WindowTransparentForInput |
@@ -115,6 +117,10 @@ class Overlay(QWidget):
         self.setFixedWidth(WIDTH)
         self.side = "right"
         self.seconds = 12
+        self.keep = False          # stay up until the next fight replaces it
+        self.spot: tuple[float, float] | None = None   # dragged there (center, fractions of the WoW window)
+        self.moving = False
+        self._grab: QPoint | None = None
         lay = QVBoxLayout(self)
         lay.setContentsMargins(18, 14, 18, 14)
         self.text = QLabel()
@@ -155,17 +161,63 @@ class Overlay(QWidget):
         self.fade.setStartValue(self.windowOpacity())
         self.fade.setEndValue(1.0)
         self.fade.start()
-        self.hide_timer.start(int(self.seconds * 1000))
+        if self.keep or self.moving:
+            self.hide_timer.stop()
+        else:
+            self.hide_timer.start(int(self.seconds * 1000))
 
-    def _place(self) -> QPoint:
-        """the right (or left) edge of the WoW window, centered at half its height"""
+    @staticmethod
+    def _area() -> QRect:
         area = wow_window()
         if area is None:
             scr = QGuiApplication.primaryScreen()
             area = scr.availableGeometry() if scr else QRect(0, 0, 1920, 1080)
+        return area
+
+    def _place(self) -> QPoint:
+        """where it was dragged to, else the right (or left) edge of the WoW window at half its height"""
+        area = self._area()
+        if self.spot:
+            x = area.left() + round(self.spot[0] * area.width()) - self.width() // 2
+            y = area.top() + round(self.spot[1] * area.height()) - self.height() // 2
+            # kept inside the window, whatever size it is now
+            return QPoint(max(area.left(), min(x, area.right() - self.width())),
+                          max(area.top(), min(y, area.bottom() - self.height())))
         x = area.right() - self.width() - 40 if self.side == "right" else area.left() + 40
         y = area.top() + area.height() // 2 - self.height() // 2
         return QPoint(x, y)
+
+    def set_moving(self, on: bool):
+        """let the mouse drag the card (it's click-through otherwise)"""
+        self.moving = on
+        shown = self.isVisible()
+        self.setWindowFlag(Qt.WindowType.WindowTransparentForInput, not on)   # re-creates the window, hidden
+        self.setCursor(Qt.CursorShape.SizeAllCursor if on else Qt.CursorShape.ArrowCursor)
+        if shown:
+            self.show()
+        self.update()
+
+    def mousePressEvent(self, e):
+        if self.moving and e.button() == Qt.MouseButton.LeftButton:
+            self._grab = e.globalPosition().toPoint() - self.pos()
+
+    def mouseMoveEvent(self, e):
+        if self._grab is not None:
+            self.move(e.globalPosition().toPoint() - self._grab)
+
+    def mouseReleaseEvent(self, e):
+        if self._grab is None:
+            return
+        self._grab = None
+        area = self._area()
+
+        def spot_now():
+            c = self.geometry().center()
+            return ((c.x() - area.left()) / max(area.width(), 1), (c.y() - area.top()) / max(area.height(), 1))
+        self.spot = spot_now()
+        self.move(self._place())         # dropped half off the window: pulled back inside, and saved there
+        self.spot = spot_now()
+        self.moved.emit(*self.spot)
 
     def _fade_out(self):
         self.fade.stop()
@@ -196,3 +248,6 @@ class Overlay(QWidget):
         edge.setAlpha(200)
         p.setPen(QPen(edge, 1.5))
         p.drawPath(path)
+        if self.moving:     # a dashed edge says "drag me"
+            p.setPen(QPen(theme.ACCENT, 2, Qt.PenStyle.DashLine))
+            p.drawPath(path)

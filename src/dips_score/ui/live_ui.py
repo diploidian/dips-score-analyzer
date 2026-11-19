@@ -27,10 +27,12 @@ class LiveController(QObject):
         self.history = History(paths)
         self.live = Live(paths, self.history)
         self.overlay = Overlay()
+        self.overlay.moved.connect(self._moved)
         self.load_chars()
         self.timer = QTimer(self, interval=POLL_MS)
         self.timer.timeout.connect(self._poll)
         self.timer.start()
+        self.refresh()       # kept up: the last fight is there from the start
 
     def load_chars(self):
         """the character snapshots in every saved file (the game rewrites them on /reload and logout)"""
@@ -54,14 +56,43 @@ class LiveController(QObject):
             if self.settings.get("overlay", True):
                 self.show(s)
 
-    def show(self, s: dict):
+    def _sync(self):
+        """the overlay's settings, from settings.json's"""
         self.overlay.seconds = float(self.settings.get("overlay_seconds", 12))
         self.overlay.side = self.settings.get("overlay_side", "right")
+        self.overlay.keep = bool(self.settings.get("overlay_keep", False))
+        spot = self.settings.get("overlay_spot")
+        self.overlay.spot = tuple(spot) if spot else None
+
+    def show(self, s: dict):
+        self._sync()
         self.overlay.show_fight(s)
 
     def show_last(self):
         if self.history.fights:
             self.show(self.history.fights[-1])
+
+    def move_mode(self, on: bool):
+        """unlock the card to be dragged (with the last fight on it, or a stand-in), or lock it again"""
+        self.overlay.set_moving(on)
+        if on:
+            self.show(self.history.fights[-1] if self.history.fights else
+                      {"target": "Drag me where you want me", "kind": "World", "duration": 0, "result": "",
+                       "dps": 0, "damage": 0, "taken": 0})
+        elif not self.overlay.keep:
+            self.overlay.hide_timer.start(int(self.overlay.seconds * 1000))
+
+    def _moved(self, x: float, y: float):
+        self.settings["overlay_spot"] = [round(x, 4), round(y, 4)]
+        app_settings.save(self.paths, self.settings)
+
+    def refresh(self):
+        """apply changed overlay settings: hide the card, or put the last fight up (kept, or timed again)"""
+        self._sync()
+        if not self.settings.get("overlay", True):
+            self.overlay.hide()
+        elif self.settings.get("overlay_keep") or self.overlay.isVisible():
+            self.show_last()
 
 
 def tray_icon() -> QIcon:
@@ -114,6 +145,7 @@ def run_tray(paths: Paths) -> int:
     def set_overlay(on):
         settings["overlay"] = on
         app_settings.save(paths, settings)
+        ctl.refresh()
     toggle.toggled.connect(set_overlay)
     menu.addAction(toggle)
     menu.addSeparator()
