@@ -157,12 +157,12 @@ def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
         a.damage, a.interrupts = extras([(f.start, f.end) for f in rd.fights])
         for fr in fights:
             fr.damage, fr.interrupts = extras([(fr.fight.start, fr.fight.end)])
-        # cooldown lengths the live view learned (cooldowns.json); History also reads the fights file
+        # your spell book the live view learned (spells.json); History also reads the fights file
         ub = upkeep_base(rd, roster[me].cls if me in roster else None)
         a.upkeep = measure_upkeep(rd, base=ub)
         for fr in fights:
             fr.upkeep = measure_upkeep(rd, [(fr.fight.start, fr.fight.end)], ub)
-        a.cooldowns, per_fight = measure_cooldowns(rd, History(paths).cooldowns)
+        a.cooldowns, per_fight = measure_cooldowns(rd, History(paths).book(me))
         for fr, cm in zip(fights, per_fight):
             fr.cooldowns = cm
     if rd.has_combat_log:   # every role

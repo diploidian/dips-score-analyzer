@@ -18,7 +18,7 @@ It's then handed out again when it ends, with the same start, so its card and sa
 instead of a second one being made.
 
 Between fights the tracker keeps what it needs for the next one: the buffs on you, your latest health and
-power, the zone, when the last fight ended, and when you last cast each spell (for cooldowns).
+power, the zone, when the last fight ended, and when you last cast each spell, by name (for cooldowns).
 """
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ class FightData:
     start_hp: float | None = None
     start_power: float | None = None
     boss: str | None = None
-    cast_before: dict[int, datetime] = field(default_factory=dict)   # your last cast of each spell before it
+    cast_before: dict[str, datetime] = field(default_factory=dict)   # your last cast of each spell (by name) before it
     reopened: int = 0                          # times it was opened again (a carried-on combat)
     closed_by_wall: bool = False
 
@@ -100,7 +100,7 @@ class Tracker:
         self.log_now: datetime | None = None
         self.allies: set[str] = set()      # players seen in your group: never foes (a mind-controlled
                                             # party member shows up as a hostile player)
-        self.last_cast: dict[int, datetime] = {}
+        self.last_cast: dict[str, datetime] = {}
         self._rest = 0.0                   # seconds resting since the last fight opened
         self._resting: dict[str, datetime] = {}   # eating/drinking auras running now
         self._wall_hostile = 0.0
@@ -145,8 +145,9 @@ class Tracker:
                 self.after.append(e)
             if e.event == "UNIT_DIED" and e.dst in self.closed.foes and self.closed.foes[e.dst].died is None:
                 self.closed.foes[e.dst].died = e.ts
-        if e.event == "SPELL_CAST_SUCCESS" and self.me and e.src == self.me and e.spell_id:
-            self.last_cast[e.spell_id] = e.ts
+        if e.event == "SPELL_CAST_SUCCESS" and self.me and e.src == self.me and e.spell_name:
+            # procs land here too; harmless, since a spell whose only damage is its procs never gets a row
+            self.last_cast[e.spell_name] = e.ts
         return finished
 
     def tick(self) -> FightData | None:

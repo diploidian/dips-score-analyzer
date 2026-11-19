@@ -4,11 +4,13 @@ This is the after-fight view's measurement (live/summary.py) run on a saved run:
 events go through the same Tracker that follows the log live, each fight it finds is summed up with the
 same `summarize`, and its cooldown rows are used here. Which ready time is excused (moving, no mana,
 target nearly dead, ...) is decided in live/readiness.py. How long each spell's cooldown is comes from
-the table the live view learns from your casts (cooldowns.json); spells cast twice in this run add to it.
-Lost damage is the free seconds divided by the cooldown (the casts missed) times the spell's average hit.
+your character's spell book, which the live view learns from your casts (spells.json); this run's casts
+add to a copy of it. Lost damage is the free seconds divided by the cooldown (the casts missed) times the
+spell's average hit. A cooldown of a minute or more held outside a boss fight isn't counted.
 """
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 
 from ..live.summary import learn_cooldowns, summarize
@@ -40,6 +42,8 @@ def _sum(parts: list[dict]) -> CooldownMetrics:
     rows: dict[str, CooldownRow] = {}
     for s in parts:
         for r in s["cooldowns"]:
+            if r.get("held"):
+                continue
             x = rows.setdefault(r["name"], CooldownRow(r["name"], 0.0, 0.0, 0.0))
             x.free += r["free"]
             x.missed += r["free"] / r["cd"]
@@ -48,15 +52,15 @@ def _sum(parts: list[dict]) -> CooldownMetrics:
     return CooldownMetrics(sum(r.lost for r in out), sum(s["damage"] for s in parts), out)
 
 
-def measure_cooldowns(rd: RunData, known: dict[int, float]) -> tuple[CooldownMetrics, list[CooldownMetrics]]:
-    """(the whole run, each fight in rd.fights). known: the learned cooldown table (left as it was)."""
+def measure_cooldowns(rd: RunData, book: dict[str, dict]) -> tuple[CooldownMetrics, list[CooldownMetrics]]:
+    """(the whole run, each fight in rd.fights). book: your spell book (left as it was)."""
     me = rd.player_guid
     tr = Tracker()
     tr.me = me
     found = [f for e in rd.events if (f := tr.feed(e))]
     if last := tr.flush():
         found.append(last)
-    cds = dict(known)
+    cds = copy.deepcopy(book)
     for f in found:
         learn_cooldowns(f, me, cds)
     per: list[list[dict]] = [[] for _ in rd.fights]

@@ -5,17 +5,36 @@ Everything is about you (and your pets). Damage you could have done is only coun
 reason not to (see readiness.py):
     cooldowns sat ready    time a damage cooldown was ready while you were free to use it - not moving
                            (cast-time spells), not out of mana, not stunned, the target not nearly dead,
-                           not healing someone who was low
+                           not healing someone who was low. Every damage cooldown in your spell book that
+                           you cast in the last RECENT days gets a row, pressed in this fight or not, with
+                           the casts that would have fit (possible) and the ones you didn't make (missed).
+                           One of HELD seconds or more only counts against you on a boss. A spell's value
+                           is its damage per cast, counting damage under a longer name that starts with it
+                           and has no casts of its own ("Judgement" owns "Judgement of Command"). A miss
+                           is counted only when the spell sat ready 2 s or more with no excuse.
     melee swings lost      gaps in your auto-attacks longer than 1.6 swings, while you weren't casting
     idle time              gaps of 2.5 s+ with nothing cast, while you weren't moving or stunned and had
-                           the resource to cast (half counted: not every gap is a mistake)
+                           the resource to cast (half counted: not every gap is a mistake). Only if you
+                           have a filler: a damage spell you cast back to back (twice within SPAM seconds,
+                           or a confirmed cooldown under MIN_COOLDOWN). Without one there was nothing to
+                           press, and a ready cooldown is already counted by its own row.
+The verdict is one sentence about the fight: how you died, else (healing) what went well, else "no damage
+done", else the biggest finding when it cost VERDICT_SHARE of your damage (or anything, below CLEAN of what
+was possible), else how close you came to the most you could have done.
+
+Your spell book (one per character, kept by history.py) is learned from your casts, by spell name since
+every rank of a spell has its own id: the 10 shortest gaps of SPAM seconds or more between two casts. A
+spell's cooldown is the shortest of those that two others agree with (within AGREE above it), so one quick
+cast after a cooldown reset can't set it; a spell ever cast twice within SPAM seconds has none. Procs (a
+Seal of Command hit, which the log writes as your cast) are not casts, here or in the fight's numbers.
+
 The result is a plain dict, so it can be saved as JSON and shown later.
 """
 from __future__ import annotations
 
 import statistics
 from collections import Counter, defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ..model.roster import clean_name
 from ..scoring.metrics import swing_stats
@@ -28,6 +47,15 @@ GCD = 1.5
 AUTO = {5019, 75}                      # wand Shoot, Auto Shot
 IDLE_GAP = 2.5
 MIN_COOLDOWN = 4.0                     # shorter "cooldowns" are just how often you cast it
+SPAM = 2.0                             # two casts closer than this: the spell has no cooldown
+GAPS = 10                              # shortest gaps kept per spell
+# gaps within this much above the shortest agree with it: a real cooldown is a hard floor many casts sit
+# on (within about 2%), while a habit like re-sealing after each Judgement is spread out
+AGREE = 0.05
+RECENT = timedelta(days=7)             # a cooldown not cast for longer than this is dropped from the rows
+HELD = 60.0                            # cooldowns this long are saved for bosses
+VERDICT_SHARE = 0.03
+CLEAN = 0.90                           # efficiency from which a fight is called clean
 MASHING = {"Not yet recovered", "Another action is in progress", "Interrupted", "Spell not ready yet",
            "Item is not ready yet", "Can't do that while moving", "Your target is dead", "No target"}
 
@@ -40,7 +68,55 @@ def _fmt(n: float) -> str:
     return f"{n:,.0f}"
 
 
-def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], history: list[dict]) -> dict | None:
+def cooldown(entry: dict) -> float | None:
+    """a spell book entry's cooldown in seconds: the shortest gap two others agree with; None if it has none"""
+    if entry.get("spam") or entry.get("game_cd") == 0:      # game_cd 0: the game says it has none
+        return None
+    g = sorted(entry.get("gaps") or [])
+    cd = next((x for i, x in enumerate(g) if sum(y <= x * (1 + AGREE) for y in g[i + 1:]) >= 2), None)
+    game = entry.get("game_cd")
+    if game and game > 0:
+        return min(cd, game) if cd else game
+    return cd
+
+
+def owned(name: str, damage: dict[str, float], cast: set[str]) -> float:
+    """the damage that belongs to a cast of `name`: its own, plus longer names starting with it that are never
+    cast themselves ("Judgement" owns "Judgement of Command")"""
+    return damage.get(name, 0) + sum(v for n, v in damage.items() if n.startswith(name + " ") and n not in cast
+                                     and not n.endswith(" (pet)"))
+
+
+def filler(entry: dict) -> bool:
+    """a damage spell you cast back to back, so there's always something to press"""
+    cd = cooldown(entry)
+    return entry.get("avg", 0) > 0 and (bool(entry.get("spam")) or (cd is not None and cd < MIN_COOLDOWN))
+
+
+def procs(f: FightData, me: str) -> set[int]:
+    """id() of each of your casts in the fight that is really a proc (the log writes a Seal of Command hit as
+    your cast): it cost nothing, and an aura of that name is on you under another spell id (a real seal cast
+    logs its own aura, same id, just before it; Seal of Command 20375, its proc 20424)"""
+    # without Advanced Combat Logging every cost reads 0, so only the aura and the id tell them apart
+    on: dict[str, int | None] = {n: None for n in f.buffs_at_pull}     # id unknown for those
+    out = set()
+    for e in f.events:
+        if e.dst == me and e.spell_name and e.event in ("SPELL_AURA_APPLIED", "SPELL_AURA_REFRESH"):
+            on[e.spell_name] = e.spell_id
+        elif e.dst == me and e.event == "SPELL_AURA_REMOVED":
+            on.pop(e.spell_name, None)
+        elif e.event == "SPELL_CAST_SUCCESS" and e.src == me and e.spell_name in on \
+                and on[e.spell_name] != e.spell_id and not (e.info and e.info.cost > 0):
+            out.add(id(e))
+    return out
+
+
+def spoken(text: str) -> str:
+    """a finding as a sentence a voice can read"""
+    return text.replace(" ≈ ", ", about ") + "."
+
+
+def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], history: list[dict]) -> dict | None:
     """the summary dict, or None for a fight that isn't worth one (a critter, a stray hit)"""
     start, end = f.start, f.end or f.start
     dur = max(0.1, _rel(end, start))
@@ -68,7 +144,7 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
     power_type = level = None                                    # from the advanced log block
     foe_hp: dict[str, list[tuple[float, float]]] = defaultdict(list)
     cc: list[tuple[float, float]] = []
-    costs: dict[int, list[int]] = defaultdict(list)
+    costs: dict[str, list[int]] = defaultdict(list)
     # the group: other players with you, their pets, what they did
     party: dict[str, str] = {}
     owner: dict[str, str] = {}
@@ -77,6 +153,9 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
     party_deaths: list[tuple[float, str]] = []
     hurt: list[tuple[float, float]] = []
     fighting: list[float] = []                                   # moments of fighting between the group and foes
+    proc = procs(f, me)
+    proc_ids = {e.spell_id for e in f.events if id(e) in proc}
+    valued: Counter = Counter()                                  # your damage that values your casts (no procs)
 
     def row(name: str) -> dict:
         return spells.setdefault(name, {"casts": 0, "hits": 0, "crits": 0, "miss": 0, "damage": 0})
@@ -120,6 +199,8 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
                 r = row(name)
                 r["damage"] += e.amount
                 r["hits"] += 1
+                if e.src == me and e.spell_id not in proc_ids:
+                    valued[name] += e.amount
                 r["crits"] += e.crit
                 dmg_by_foe[e.dst] += e.amount
                 if ev.startswith("SWING") and e.src == me:
@@ -134,12 +215,12 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
                 overheal += e.overheal
             elif ev == "SPELL_CAST_START" and e.src == me:
                 starts[e.spell_id] = t
-            elif ev == "SPELL_CAST_SUCCESS" and e.src == me:
+            elif ev == "SPELL_CAST_SUCCESS" and e.src == me and id(e) not in proc:
                 row(name)["casts"] += 1
                 began = starts.pop(e.spell_id, None)
                 cost = e.info.cost if e.info and e.info.guid == me else 0
                 if cost and e.spell_id:
-                    costs[e.spell_id].append(cost)
+                    costs[name].append(cost)
                 casts.append((t, e.spell_id or 0, name, began if began is not None and t - began < 10 else None, cost))
             elif ev == "SPELL_CAST_FAILED" and e.src == me:
                 fails[(e.spell_name, e.reason or "unknown")] += 1
@@ -197,29 +278,37 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
 
     # ---- cooldowns: when each damage cooldown sat ready while you were free to use it
     cd_rows, cd_lost = [], 0.0
-    by_spell: dict[int, list[tuple[float, float]]] = defaultdict(list)
-    names: dict[int, str] = {}
-    cast_time: dict[int, bool] = {}
+    by_spell: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    cast_time: dict[str, bool] = {}
     for t, sid, name, began, _ in casts:
         if sid and sid not in AUTO:
-            by_spell[sid].append((began if began is not None else t, t))
-            names[sid] = name
-            cast_time[sid] = cast_time.get(sid, False) or began is not None
-    for sid, uses in by_spell.items():
-        cd = cooldowns.get(sid)
-        per_cast = spells.get(names[sid], {}).get("damage", 0) / len(uses)
-        if not cd or cd < MIN_COOLDOWN or per_cast <= 0:
-            continue                      # no cooldown, or not a damage spell (an unused shield costs nothing)
-        before = f.cast_before.get(sid)
+            by_spell[name].append((began if began is not None else t, t))
+            cast_time[name] = cast_time.get(name, False) or began is not None
+    own_dmg = dict(valued)
+    cast_names = {n for n, r in spells.items() if r["casts"]}
+    for name, entry in book.items():
+        cd, uses = cooldown(entry), by_spell.get(name, [])
+        before = f.cast_before.get(name)
+        if not cd or cd < MIN_COOLDOWN or not (uses or (before and start - before <= RECENT)):
+            continue
+        per_cast = (owned(name, own_dmg, cast_names) / len(uses) if uses else 0) or entry.get("avg", 0)
+        if per_cast <= 0:
+            continue                      # not a damage spell (an unused shield costs nothing)
         ready0 = max(0.0, _rel(before, start) + cd) if before else 0.0
         windows = readiness.ready_windows(uses, cd, ready0, dur)
-        cost = statistics.median(costs[sid]) if costs.get(sid) else 0
-        free, why = readiness.judge(windows, ctx, cast_time.get(sid, False), cost)
-        lost = free / cd * per_cast
+        cost = statistics.median(costs[name]) if costs.get(name) else entry.get("cost", 0)
+        free, why = readiness.judge(windows, ctx, cast_time.get(name, entry.get("cast", False)), cost)
+        limit = dur - GCD
+        possible = int((limit - ready0) // cd) + 1 if ready0 <= limit else 0
+        held = cd >= HELD and kind != "Boss"
+        lost = 0.0 if held else free / cd * per_cast
         cd_lost += lost
-        cd_rows.append({"name": names[sid], "cd": cd, "used": len(uses), "ready": sum(b - a for a, b in windows),
+        missed = max(0, possible - len(uses))
+        cd_rows.append({"name": name, "cd": cd, "used": len(uses), "ready": sum(b - a for a, b in windows),
                         "free": free, "excused": {k: round(v, 1) for k, v in why.most_common() if v >= 0.05},
-                        "lost": lost})
+                        "lost": lost, "possible": possible, "missed": missed,
+                        "counted": 0 if free < 2.0 else min(missed, max(1, round(free / cd))),
+                        **({"held": True} if held else {})})
     cd_rows.sort(key=lambda r: -r["lost"])
 
     # ---- auto attacks
@@ -261,7 +350,8 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
         idle_moving += min(b - a, excused)
         idle_res += max(0.0, b - a - excused)
     spell_dps = (damage - sum(swing_dmg)) / dur if dur else 0
-    idle_lost = 0.5 * idle_res * spell_dps
+    has_filler = any(filler(e) for e in book.values())
+    idle_lost = 0.5 * idle_res * spell_dps if has_filler else 0.0
 
     # ---- buffs on you: uptime over the fight
     buffs = []
@@ -298,6 +388,7 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
     if healing_role:
         cd_lost = swing_lost = idle_lost = 0.0
     potential = damage + cd_lost + swing_lost + idle_lost
+    efficiency = damage / potential if potential else 1.0
     dps = damage / max(dur, 1.5)
 
     # ---- the group: who was with you, and your share
@@ -326,11 +417,12 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
         good.append(f"Healed {_fmt(heal)}" + (f" with only {oh:.0%} overhealing" if oh < 0.2 else ""))
     if best is not None and dps > best:
         good.append(f"Beat your best on {target}: {dps:.0f} DPS ({dps - best:+.0f})")
-    if cd_rows and not healing_role and all(r["free"] < 2.0 for r in cd_rows):
+    judged = [r for r in cd_rows if not r.get("held")]
+    if judged and not healing_role and all(r["free"] < 2.0 for r in judged):
         good.append("Used your cooldowns as they came up")
     if group and not healing_role and group["damage_rank"] == 1 and group["size"] > 1:
         good.append(f"Top damage in the group ({group['damage_share']:.0%})")
-    if not gaps_idle and dur >= 6:
+    if has_filler and not gaps_idle and dur >= 6:
         good.append("No idle gaps")
     if interrupts:
         good.append(f"{interrupts} interrupt{'s' if interrupts != 1 else ''}")
@@ -344,7 +436,7 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
     if not failed and casts:
         good.append("No failed casts")
 
-    for r in ([] if healing_role else cd_rows):
+    for r in ([] if healing_role else judged):
         if r["free"] >= 2.0 and r["lost"] >= 1:
             improve.append((r["lost"], f"{r['name']} sat ready {r['free']:.1f} s while you were free "
                                        f"≈ {_fmt(r['lost'])} damage"))
@@ -353,7 +445,7 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
     if auto and auto["lost_other"] and not healing_role:
         improve.append((swing_lost, f"{auto['lost_other']} swing{'s' if auto['lost_other'] != 1 else ''} lost while "
                                     f"not attacking ≈ {_fmt(swing_lost)} damage"))
-    if idle_res >= IDLE_GAP and not healing_role:
+    if has_filler and idle_res >= IDLE_GAP and not healing_role:
         improve.append((idle_lost, f"{idle_res:.1f} s idle with a target, standing, with resource to spare "
                                    f"≈ {_fmt(idle_lost)} damage"))
     for row_ in failed:
@@ -367,6 +459,18 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
         improve.append((0.05, f"Ended on {power[-1][1]:.0%} power"))
     improve.sort(key=lambda v: -v[0])
 
+    if i_died:
+        last = taken[-1] if taken else None
+        verdict = f"Killed by {last[3]}: {last[2]} for {_fmt(last[1])}." if last else "You died."
+    elif healing_role and good:
+        verdict = good[0] + "."
+    elif not healing_role and damage == 0:
+        verdict = "No damage done this fight."
+    elif improve and (improve[0][0] >= VERDICT_SHARE * damage or (efficiency < CLEAN and improve[0][0] > 0)):
+        verdict = spoken(improve[0][1])
+    else:
+        verdict = ("Clean fight: " if efficiency >= CLEAN else "") + f"{efficiency:.0%} of the damage that was possible."
+
     return {
         "id": f"{start:%Y%m%d%H%M%S%f}",           # the start: a combat that carries on keeps it
         "start": start.isoformat(), "end": end.isoformat(), "duration": dur,
@@ -374,13 +478,14 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
         "kind": kind, "zone": f.zone, "target": target, "more": max(0, extra), "result": result,
         "damage": damage, "dps": dps, "healing": heal, "overheal": overheal, "taken": total_taken,
         "lowest_hp": min((p for _, p in hp), default=None),
-        "potential": potential, "efficiency": damage / potential if potential else 1.0,
-        "healing_role": healing_role,
+        "potential": potential, "efficiency": efficiency,
+        "healing_role": healing_role, "verdict": verdict,
         "best_before": best,
         "good": good[:4], "improve": [text for _, text in improve][:5],
         "danger": danger, "abilities": abilities, "cooldowns": cd_rows, "auto": auto,
         "idle": {"total": idle_res + idle_out + idle_moving, "with_resource": idle_res,
-                 "out_of_resource": idle_out, "moving": idle_moving, "lost": idle_lost},
+                 "out_of_resource": idle_out, "moving": idle_moving, "lost": idle_lost,
+                 "filler": has_filler},
         "group": group,
         "buffs": buffs, "failed": failed,
         "resource": {"start": f.start_power, "end": power[-1][1] if power else None,
@@ -391,16 +496,50 @@ def summarize(f: FightData, me: str, me_name: str, cooldowns: dict[int, float], 
     }
 
 
-def learn_cooldowns(f: FightData, me: str, cooldowns: dict[int, float]) -> bool:
-    """update the shortest gap seen between two casts of each of your spells; True if anything changed"""
-    last: dict[int, datetime] = {}
-    changed = False
+def learn_cooldowns(f: FightData, me: str, book: dict[str, dict]) -> bool:
+    """add the fight's casts to your spell book (casts already learned are skipped); True if anything changed"""
+    # this runs before summarize, and learning moves a spell's last cast into the fight: so first keep the
+    # book's last casts from before it (the tracker's own list is empty after a restart)
+    for name, entry in book.items():
+        if entry["last"] and name not in f.cast_before and datetime.fromisoformat(entry["last"]) < f.start:
+            f.cast_before[name] = datetime.fromisoformat(entry["last"])
+    dmg: Counter = Counter()
+    casts: Counter = Counter()
+    began: dict[str, datetime] = {}
+    new: set[str] = set()
+    cast: set[str] = set()
+    proc = procs(f, me)
+    proc_ids = {e.spell_id for e in f.events if id(e) in proc}      # their damage is not a cast's value
     for e in f.events:
-        if e.event == "SPELL_CAST_SUCCESS" and e.src == me and e.spell_id and e.spell_id not in AUTO:
-            if e.spell_id in last:
-                gap = (e.ts - last[e.spell_id]).total_seconds()
-                if gap > 0.5 and gap < cooldowns.get(e.spell_id, 1e9):
-                    cooldowns[e.spell_id] = round(gap, 2)
-                    changed = True
-            last[e.spell_id] = e.ts
-    return changed
+        name = e.spell_name
+        if e.src != me or not name:
+            continue
+        if e.event.endswith("_DAMAGE") and not e.event.endswith("_LANDED") and is_foe(e.dst, e.dst_flags):
+            if e.spell_id not in proc_ids:
+                dmg[name] += e.amount
+        elif e.event == "SPELL_CAST_START":
+            began[name] = e.ts
+        elif e.event == "SPELL_CAST_SUCCESS" and e.spell_id and e.spell_id not in AUTO and id(e) not in proc:
+            casts[name] += 1
+            cast.add(name)
+            entry = book.setdefault(name, {"gaps": [], "spam": False, "last": None, "avg": 0, "cast": False,
+                                           "cost": 0, "game_cd": None})
+            start = began.pop(name, None)
+            last = datetime.fromisoformat(entry["last"]) if entry["last"] else None
+            if last and e.ts <= last:
+                continue
+            if last:
+                gap = (e.ts - last).total_seconds()
+                if gap < SPAM:
+                    entry["spam"] = True
+                else:
+                    entry["gaps"] = sorted(entry["gaps"] + [round(gap, 2)])[:GAPS]
+            entry["last"] = e.ts.isoformat()
+            entry["cast"] = entry["cast"] or (start is not None and (e.ts - start).total_seconds() < 10)
+            if e.info and e.info.guid == me:
+                entry["cost"] = e.info.cost
+            new.add(name)
+    for name in new:
+        if v := owned(name, dmg, cast):
+            book[name]["avg"] = v / casts[name]
+    return bool(new)

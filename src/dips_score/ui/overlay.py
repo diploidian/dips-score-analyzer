@@ -13,6 +13,7 @@ from PyQt6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QRect, QRectF
 from PyQt6.QtGui import QColor, QGuiApplication, QPainter, QPainterPath, QPen, QPixmap
 from PyQt6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
+from ..live.summary import spoken
 from . import theme
 
 KIND_COLOR = {"World": "#2a6a80", "Dungeon": "#5a4a8a", "Boss": "#8a3a9a", "PvP": "#a02a2a"}
@@ -69,6 +70,12 @@ def card_html(s: dict) -> str:
              f"{_esc(s['target'])}</span>{more}"
              f"<br><span style='color:{theme.DIM.name()}'>{dur} · </span><span style='color:{res_color}'>{result}</span>"
              + (f"<span style='color:{theme.DIM.name()}'> · updated</span>" if s.get("updated") else "")]
+    if s.get("verdict"):
+        lines.append(f"<span style='font-size:11pt'>{_esc(s['verdict'])}</span>")
+    missed = [c for c in s.get("cooldowns") or [] if not c.get("held") and c.get("counted", 0) > 0]
+    if missed:
+        lines.append(f"<span style='color:#f0a040'>Missed:</span> " + ", ".join(
+            f"{_esc(c['name'])} ×{c['counted']}" for c in sorted(missed, key=lambda c: -c["lost"])))
     stats = [f"<b>{s['dps']:.0f}</b> DPS", f"{n(s['damage'])} dmg"]
     if s.get("healing"):
         stats.append(f"{n(s['healing'])} healed")
@@ -93,7 +100,7 @@ def card_html(s: dict) -> str:
                      f"<span style='color:{c}'>({diff:+.0f})</span>")
     for g in s.get("good", [])[:2]:
         lines.append(f"<span style='color:#50dc78'>✔</span> {_esc(g)}")
-    for g in s.get("improve", [])[:3]:
+    for g in [g for g in s.get("improve", []) if spoken(g) != s.get("verdict")][:3]:
         lines.append(f"<span style='color:#f0a040'>▲</span> {_esc(g)}")
     return "<br>".join(lines)
 

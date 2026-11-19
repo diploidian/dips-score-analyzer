@@ -1,12 +1,17 @@
 """The live fight tracker and summaries, on a small made-up log."""
+import copy
 import sys
+import tempfile
 import unittest
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dips_score.live.summary import learn_cooldowns, summarize  # noqa: E402
+from dips_score.live.summary import cooldown, learn_cooldowns, summarize  # noqa: E402
+from dips_score.config import Paths  # noqa: E402
+from dips_score.live.history import History  # noqa: E402
 from dips_score.live.tracker import Tracker  # noqa: E402
 
 ME = 'Player-1-A,"Nikana-Diploidian-PvP-US",0x511,0x80000000'
@@ -49,7 +54,7 @@ class Live(unittest.TestCase):
         self.assertAlmostEqual(second.since_last, 31.9, places=1)
         cds = {}
         learn_cooldowns(first, tr.me, cds)
-        self.assertAlmostEqual(cds[8092], 10.0, places=1)
+        self.assertEqual(cds["Mind Blast"]["gaps"], [10.0])
         s = summarize(first, tr.me, tr.me_name, cds, [])
         self.assertEqual((s["target"], s["kind"], s["result"], s["damage"]), ("Wolf", "World", "killed", 620))
         later = summarize(second, tr.me, tr.me_name, cds, [s])
@@ -122,6 +127,202 @@ class Live(unittest.TestCase):
         self.assertIsNone(a)
         self.assertIsNone(b)
         self.assertIsNotNone(c)
+
+
+def cast(sec, spell_id, name, src=ME, dst=MOB):
+    return line(sec, f"SPELL_CAST_SUCCESS,{src},{dst},{spell_id},\"{name}\",0x2")
+
+
+def bites(until=30, every=2):
+    return [line(t, f"SWING_DAMAGE,{MOB},{ME},20,20,-1,1,0,0,0,nil,nil,nil") for t in range(every, until + 1, every)]
+
+
+def entry(cd, avg=500, **kw):
+    return {"gaps": [cd] * 3, "spam": False, "last": None, "avg": avg, "cast": False, "cost": 0, "game_cd": None, **kw}
+
+
+def one_fight(log):
+    tr = Tracker()
+    fights = tr.feed_lines(log + [line(59, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")])
+    return tr, fights[-1]
+
+
+class Cooldowns(unittest.TestCase):
+    def fight(self, book, *extra, sooner=timedelta(minutes=5)):
+        """a 30 s fight with Mind Blast cast once; every book entry was last cast `sooner` before it"""
+        tr, f = one_fight([cast(0, 8092, "Mind Blast"), dmg(0.1, ME, MOB, 8092, "Mind Blast", 300), *extra, *bites()])
+        for e in book.values():
+            e["last"] = (f.start - sooner).isoformat()
+        learn_cooldowns(f, tr.me, book)
+        return summarize(f, tr.me, tr.me_name, book, [])
+
+    def test_a_cooldown_never_cast_is_missed(self):
+        s = self.fight({"Judgement": entry(10.0)})
+        row = next(r for r in s["cooldowns"] if r["name"] == "Judgement")
+        self.assertEqual(row["used"], 0)
+        self.assertGreaterEqual(row["missed"], 1)
+        self.assertGreater(row["lost"], 0)
+
+    def test_excused_misses_are_not_counted(self):
+        s = self.fight({"Judgement": entry(10.0)})
+        row = s["cooldowns"][0]
+        self.assertEqual(row["counted"], min(row["missed"], max(1, round(row["free"] / 10))))
+        # cast on time: ready under 2 s each time, so nothing counted
+        tr, f = one_fight([*[cast(t, 20271, "Judgement") for t in (0, 10, 20, 30)],
+                           dmg(0.1, ME, MOB, 20271, "Judgement", 200), *bites(30)])
+        book = {}
+        learn_cooldowns(f, tr.me, book)
+        row = summarize(f, tr.me, tr.me_name, book, [])["cooldowns"][0]
+        self.assertEqual(row["counted"], 0)
+
+    def test_damage_under_a_longer_name_belongs_to_the_cast(self):
+        tr, f = one_fight([*[cast(t, 20271, "Judgement") for t in (0, 10, 20, 30)],
+                           *[dmg(t + 0.1, ME, MOB, 20187, "Judgement of Command", 200) for t in (0, 10, 20, 30)],
+                           *bites(34)])
+        book = {}
+        learn_cooldowns(f, tr.me, book)
+        self.assertEqual(book["Judgement"]["avg"], 200)
+        s = summarize(f, tr.me, tr.me_name, book, [])
+        self.assertEqual([r["name"] for r in s["cooldowns"]], ["Judgement"])
+        self.assertIn("Judgement of Command", [a["name"] for a in s["abilities"]])
+
+    def test_idle_counts_only_with_a_filler(self):
+        log = [cast(0, 8092, "Mind Blast"), dmg(0.1, ME, MOB, 8092, "Mind Blast", 300), *bites(30)]
+        tr, f = one_fight(log)
+        none = summarize(f, tr.me, tr.me_name, {}, [])
+        self.assertEqual((none["idle"]["filler"], none["idle"]["lost"]), (False, 0))
+        self.assertFalse(any("idle" in x for x in none["improve"]))
+        smite = {"Smite": {**entry(1.0, avg=100), "gaps": [], "spam": True}}
+        unsure = {"Exorcism": {**entry(1.0, avg=100), "gaps": [19.7, 24.4], "cost": 85}}   # cooldown not confirmed
+        nuke = {"Shadow Bolt": entry(2.6, avg=100, cast=True)}                            # confirmed under 4 s
+        self.assertFalse(summarize(f, tr.me, tr.me_name, unsure, [])["idle"]["filler"])
+        self.assertTrue(summarize(f, tr.me, tr.me_name, nuke, [])["idle"]["filler"])
+        some = summarize(f, tr.me, tr.me_name, smite, [])
+        self.assertTrue(some["idle"]["filler"])
+        self.assertGreater(some["idle"]["lost"], 0)
+
+    def test_a_proc_is_not_a_cast(self):
+        seal = lambda t, sid: cast(t, sid, "Seal of Command", dst=ME)  # noqa: E731
+        tr, f = one_fight([
+            dmg(0, ME, MOB, 8092, "Mind Blast", 300),
+            line(0.2, f"SPELL_AURA_APPLIED,{ME},{ME},20375,\"Seal of Command\",0x2,BUFF"), seal(0.21, 20375),
+            *[x for t in (1, 1.5, 5) for x in (seal(t, 20424), dmg(t + 0.01, ME, MOB, 20424, "Seal of Command", 50))],
+            *bites(10)])
+        book = {}
+        learn_cooldowns(f, tr.me, book)
+        self.assertEqual((book["Seal of Command"]["gaps"], book["Seal of Command"]["spam"]), ([], False))
+        s = summarize(f, tr.me, tr.me_name, book, [])
+        row = next(a for a in s["abilities"] if a["name"] == "Seal of Command")
+        self.assertEqual((row["casts"], row["damage"]), (1, 150))     # the real cast only; the procs' damage counts
+
+
+    def test_proc_damage_is_not_the_casts_value(self):
+        seal = lambda t, sid: cast(t, sid, "Seal of Command", dst=ME)  # noqa: E731
+        tr, f = one_fight([
+            dmg(0, ME, MOB, 8092, "Mind Blast", 300),
+            line(0.2, f"SPELL_AURA_APPLIED,{ME},{ME},20375,\"Seal of Command\",0x2,BUFF"), seal(0.21, 20375),
+            *[x for t in (1, 5) for x in (seal(t, 20424), dmg(t + 0.01, ME, MOB, 20424, "Seal of Command", 50))],
+            *bites(10)])
+        book = {}
+        learn_cooldowns(f, tr.me, book)
+        self.assertEqual(book["Seal of Command"]["avg"], 0)
+        book["Seal of Command"]["gaps"] = [5.0] * 3          # even with a confirmed "cooldown": no row
+        s = summarize(f, tr.me, tr.me_name, book, [])
+        self.assertNotIn("Seal of Command", [r["name"] for r in s["cooldowns"]])
+        self.assertFalse(s["idle"]["filler"])
+
+    def test_dropped_long_ago_is_not_shown(self):
+        s = self.fight({"Judgement": entry(10.0)}, sooner=timedelta(days=8))
+        self.assertEqual(s["cooldowns"], [])
+
+    def test_one_short_gap_does_not_set_it(self):
+        self.assertEqual(cooldown({"gaps": [3.0, 10.0, 10.2, 10.4]}), 10.0)
+        self.assertIsNone(cooldown({"gaps": [3.0, 10.0]}))
+        self.assertIsNone(cooldown({"gaps": [10.0] * 3, "spam": True}))
+        self.assertEqual(cooldown({"gaps": [10.0] * 3, "game_cd": 8.0}), 8.0)
+        self.assertEqual(cooldown({"gaps": [], "game_cd": 8.0}), 8.0)
+
+    def test_a_spread_out_habit_is_no_cooldown(self):
+        self.assertIsNone(cooldown({"gaps": [2.94, 3.54, 4.38, 4.93, 5.15, 5.54]}))   # re-sealing after Judgement
+
+    def test_game_says_no_cooldown(self):
+        self.assertIsNone(cooldown({"gaps": [10.0] * 3, "game_cd": 0}))
+        self.assertEqual(cooldown({"gaps": [10.0] * 3, "game_cd": None}), 10.0)
+
+    def test_cast_twice_quickly_is_no_cooldown(self):
+        tr, f = one_fight([cast(0, 585, "Smite"), cast(1.5, 585, "Smite"), *[cast(t, 585, "Smite") for t in (12, 24, 36)],
+                           dmg(0.1, ME, MOB, 585, "Smite", 100), *bites(40)])
+        book = {}
+        learn_cooldowns(f, tr.me, book)
+        self.assertTrue(book["Smite"]["spam"])
+        self.assertIsNone(cooldown(book["Smite"]))
+
+    def test_learning_twice_changes_nothing(self):
+        tr, f = one_fight([*[cast(t, 8092, "Mind Blast") for t in (0, 10, 20, 30)],
+                           dmg(0.1, ME, MOB, 8092, "Mind Blast", 300), *bites(34)])
+        book = {}
+        self.assertTrue(learn_cooldowns(f, tr.me, book))
+        once = copy.deepcopy(book)
+        self.assertFalse(learn_cooldowns(f, tr.me, book))
+        self.assertEqual(book, once)
+        self.assertEqual(cooldown(book["Mind Blast"]), 10.0)
+
+    def test_two_ranks_are_one_spell(self):
+        tr, f = one_fight([cast(0, 20271, "Judgement"), cast(10, 20184, "Judgement"), cast(20, 20271, "Judgement"),
+                           cast(30, 20184, "Judgement"), dmg(0.1, ME, MOB, 20271, "Judgement", 200), *bites(34)])
+        book = {}
+        learn_cooldowns(f, tr.me, book)
+        self.assertEqual(list(book), ["Judgement"])
+        s = summarize(f, tr.me, tr.me_name, book, [])
+        self.assertEqual([(r["name"], r["used"]) for r in s["cooldowns"]], [("Judgement", 4)])
+
+    def test_long_cooldown_held_off_a_boss(self):
+        world = self.fight({"Hammer": entry(90.0)})
+        self.assertEqual(world["kind"], "World")
+        self.assertEqual((world["cooldowns"][0].get("held"), world["cooldowns"][0]["lost"]), (True, 0))
+        boss = self.fight({"Hammer": entry(90.0)}, line(0.5, 'ENCOUNTER_START,1084,"Onyxia",9,40'))
+        self.assertEqual(boss["kind"], "Boss")
+        self.assertFalse(boss["cooldowns"][0].get("held"))
+        self.assertGreater(boss["cooldowns"][0]["lost"], 0)
+
+    def test_two_characters_two_books(self):
+        with tempfile.TemporaryDirectory() as d, patch.dict("os.environ", {"APPDATA": d}):
+            h = History(Paths(Path(d)))
+            h.book("Player-1-A")["Judgement"] = entry(10.0)
+            h.save_books()
+            h2 = History(Paths(Path(d)))
+            self.assertEqual(list(h2.book("Player-1-A")), ["Judgement"])
+            self.assertEqual(h2.book("Player-1-B"), {})
+
+
+class Verdict(unittest.TestCase):
+    def test_died(self):
+        tr, f = one_fight([dmg(0, ME, MOB, 8092, "Mind Blast", 300), *bites(10),
+                           line(10.5, f"UNIT_DIED,{NONE},{ME},0")])
+        s = summarize(f, tr.me, tr.me_name, {}, [])
+        self.assertEqual(s["verdict"], "Killed by Wolf: Melee for 20.")
+
+    def test_healing(self):
+        tr, f = one_fight([dmg(0, ME, MOB, 8092, "Mind Blast", 30), *bites(10),
+                           line(5, f"SPELL_HEAL,{ME},{ME},2050,\"Lesser Heal\",0x2,500,500,0,0,nil")])
+        s = summarize(f, tr.me, tr.me_name, {}, [])
+        self.assertEqual(s["verdict"], "Healed 500 with only 0% overhealing.")
+
+    def test_biggest_cost(self):
+        s = Cooldowns().fight({"Judgement": entry(10.0)})
+        self.assertTrue(s["verdict"].startswith("Judgement sat ready"), s["verdict"])
+        self.assertIn(", about ", s["verdict"])
+        self.assertNotIn("≈", s["verdict"])
+
+    def test_no_damage(self):
+        tr, f = one_fight(bites(10))
+        self.assertEqual(summarize(f, tr.me, tr.me_name, {}, [])["verdict"], "No damage done this fight.")
+
+    def test_clean(self):
+        busy = [x for t in (0, 2, 4) for x in (cast(t, 585, "Smite"), dmg(t + 0.1, ME, MOB, 585, "Smite", 100))]
+        tr, f = one_fight([*busy, line(4.5, f"UNIT_DIED,{NONE},{MOB},0")])
+        s = summarize(f, tr.me, tr.me_name, {}, [])
+        self.assertEqual(s["verdict"], f"Clean fight: {s['efficiency']:.0%} of the damage that was possible.")
 
 
 if __name__ == "__main__":

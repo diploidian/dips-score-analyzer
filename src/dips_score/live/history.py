@@ -1,5 +1,7 @@
 """Every fight summed up, kept on disk: %APPDATA%/dips-score/fights.jsonl (one fight per line, newest
-last), and the cooldowns learned from your casts (cooldowns.json).
+last), and a spell book per character learned from your casts (spells.json: character -> spell name ->
+the shortest gaps between two casts, damage per cast, cast time, cost; see summary.py). The old shared
+cooldowns.json is no longer read: `replay` learns the books again from the logs.
 
 `Live` puts it together: follow the log, tell fights apart, sum each one up, save it, and hand it on (to
 the overlay and the Fights page). `replay()` does the same for log files already on disk.
@@ -21,9 +23,9 @@ KEEP = 5000      # fights kept in the file
 class History:
     def __init__(self, paths: Paths):
         self.file = paths.data_dir / "fights.jsonl"
-        self.cd_file = paths.data_dir / "cooldowns.json"
+        self.spells_file = paths.data_dir / "spells.json"
         self.fights: list[dict] = []
-        self.cooldowns: dict[int, float] = {}
+        self.books: dict[str, dict[str, dict]] = {}
         self.load()
 
     def load(self):
@@ -34,11 +36,15 @@ class History:
                     self.fights.append(json.loads(line))
                 except ValueError:
                     continue
-        if self.cd_file.exists():
+        if self.spells_file.exists():
             try:
-                self.cooldowns = {int(k): float(v) for k, v in json.loads(self.cd_file.read_text()).items()}
+                self.books = json.loads(self.spells_file.read_text(encoding="utf-8"))
             except (ValueError, OSError):
-                self.cooldowns = {}
+                self.books = {}
+
+    def book(self, me: str) -> dict[str, dict]:
+        """your spell book (spell name -> what's been learned about it)"""
+        return self.books.setdefault(me, {})
 
     def ids(self) -> set[str]:
         return {f.get("id") for f in self.fights}
@@ -63,9 +69,9 @@ class History:
     def _rewrite(self):
         self.file.write_text("".join(json.dumps(f) + "\n" for f in self.fights), encoding="utf-8")
 
-    def save_cooldowns(self):
-        self.cd_file.parent.mkdir(parents=True, exist_ok=True)
-        self.cd_file.write_text(json.dumps({str(k): v for k, v in self.cooldowns.items()}, indent=0))
+    def save_books(self):
+        self.spells_file.parent.mkdir(parents=True, exist_ok=True)
+        self.spells_file.write_text(json.dumps(self.books, indent=0), encoding="utf-8")
 
 
 class Live:
@@ -91,10 +97,10 @@ class Live:
         me = self.tracker.me
         if not me:
             return None
-        if learn_cooldowns(f, me, self.history.cooldowns):
-            self.history.save_cooldowns()
+        if learn_cooldowns(f, me, self.history.book(me)):
+            self.history.save_books()
         earlier = [h for h in self.history.fights if h.get("id") != _fight_id(f)]
-        s = summarize(f, me, self.tracker.me_name, self.history.cooldowns, earlier)
+        s = summarize(f, me, self.tracker.me_name, self.history.book(me), earlier)
         if s:
             s["updated"] = self.history.add(s)       # a carried-on combat: its card is updated
             return s
@@ -114,16 +120,16 @@ def replay(paths: Paths, files: list[Path]) -> int:
         last = tr.flush()
         if last:
             n += _keep(h, tr, last)
+    h.save_books()
     return n
 
 
 def _keep(h: History, tr: Tracker, f) -> int:
     if not tr.me:
         return 0
-    if learn_cooldowns(f, tr.me, h.cooldowns):
-        h.save_cooldowns()
+    learn_cooldowns(f, tr.me, h.book(tr.me))     # saved once, at the end of the replay
     known = _fight_id(f) in h.ids()
-    s = summarize(f, tr.me, tr.me_name, h.cooldowns, [x for x in h.fights if x.get("id") != _fight_id(f)])
+    s = summarize(f, tr.me, tr.me_name, h.book(tr.me), [x for x in h.fights if x.get("id") != _fight_id(f)])
     if s:
         h.add(s)
         return 0 if known else 1

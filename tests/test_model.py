@@ -422,7 +422,8 @@ class Phase4(unittest.TestCase):
 
     def test_cooldown_left_ready(self):
         from dips_score.scoring.score import _cooldowns
-        cm = self.measure(0, known={5: 30.0})
+        cm = self.measure(0, known={"Mind Blast": {"gaps": [30.0] * 3, "spam": False, "last": None, "avg": 0,
+                                                   "cast": False, "cost": 0, "game_cd": None}})
         row = cm.rows[0]
         self.assertEqual(row.name, "Mind Blast")
         self.assertTrue(1.8 < row.missed <= 2.0, row.missed)   # a 30 s cooldown cast once in 90 s: 2 casts missed

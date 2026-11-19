@@ -53,6 +53,12 @@ class Habits(unittest.TestCase):
         h = habits(fs)
         self.assertEqual((h["name"], h["fights"], h["session"]["fights"]), ("A", 2, 2))
 
+    def test_missed_casts_in_the_cooldown_card(self):
+        row = {"name": "Judgement", "cd": 10, "lost": 200, "missed": 3, "counted": 2}    # one miss excused
+        fs = [fight(i, cooldowns=[row]) for i in range(2)] + [fight(2, cooldowns=[{"name": "Judgement", "cd": 10, "lost": 100}])]
+        card = next(c for c in habits(fs)["cards"] if c["title"] == "Judgement left unused")
+        self.assertEqual(card["detail"], "About 500 damage lost, 4 casts missed in 3 fights")
+
     def test_empty(self):
         h = habits([])
         self.assertEqual((h["cards"], h["session"]), ([], None))

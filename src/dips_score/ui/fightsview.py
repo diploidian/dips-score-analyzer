@@ -150,6 +150,10 @@ class FightDetail(QWidget):
         head.setTextFormat(Qt.TextFormat.RichText)
         lay.addWidget(head)
         lay.addWidget(dim_label(f"{when:%a %d %b %H:%M:%S} · {f.get('zone') or '?'} · {f['result']}"))
+        if f.get("verdict"):
+            v = QLabel(f"<span style='font-size:13pt'>{_esc(f['verdict'])}</span>")
+            v.setTextFormat(Qt.TextFormat.RichText)
+            lay.addWidget(v)
         boxes = QGridLayout()
         boxes.setSpacing(10)
         stats = [(_dur(f["duration"]), "Duration"), (_n(f["damage"]), "Damage"), (f"{f['dps']:.0f}", "DPS"),
@@ -213,16 +217,22 @@ class FightDetail(QWidget):
             self._section(lay, "Cooldowns")
             rows = []
             for c in f["cooldowns"]:
+                lost = "held" if c.get("held") else _n(c["lost"])
+                missed = c.get("missed", "-")
+                if "counted" in c and c["missed"] > c["counted"]:
+                    missed = f"{c['missed']} ({c['missed'] - c['counted']} excused)"
                 if "free" in c:
                     why = ", ".join(f"{k} {v:.1f}s" for k, v in c.get("excused", {}).items()) or "-"
-                    rows.append([c["name"], f"{c['cd']:.1f} s", c["used"], f"{c['ready']:.1f} s", why,
-                                 f"{c['free']:.1f} s", _n(c["lost"])])
+                    rows.append([c["name"], f"{c['cd']:.1f} s", c["used"], c.get("possible", "-"),
+                                 missed, why, f"{c['free']:.1f} s", lost])
                 else:      # saved before ready time was measured
-                    rows.append([c["name"], f"{c['cd']:.1f} s", c["used"], "-", "-", "-", _n(c["lost"])])
-            self._table(lay, ["Spell", "CD", "Used", "Ready", "Excused", "Free", "Lost"], rows)
-            lay.addWidget(dim_label("Ready: how long it was off cooldown and not cast. Excused: the part with a good "
-                                    "reason. Free: the rest, when you could have cast it - only that counts. Cooldowns "
-                                    "are learned from your casts and get more exact the more you play."))
+                    rows.append([c["name"], f"{c['cd']:.1f} s", c["used"], "-", "-", "-", "-", lost])
+            self._table(lay, ["Spell", "CD", "Used", "Possible", "Missed", "Excused", "Free", "Lost"], rows)
+            lay.addWidget(dim_label("Possible: the casts that would have fit if you cast it each time it came up. "
+                                    "Missed: the ones you didn't make (those that sat ready under 2 s with no excuse are marked excused). Excused: ready time with a good reason. Free: "
+                                    "the rest, when you could have cast it - only that counts as lost damage. "
+                                    "Cooldowns of a minute or more only count on bosses (held: saved for one). "
+                                    "Cooldowns are learned from your casts and get more exact the more you play."))
         if f.get("auto"):
             a = f["auto"]
             self._section(lay, "Auto attacks")
@@ -240,8 +250,9 @@ class FightDetail(QWidget):
         self._section(lay, "Idle time")
         lay.addWidget(QLabel(f"{idle.get('total', 0):.1f} s idle (gaps of 2.5 s or more with nothing cast): "
                              f"{idle.get('with_resource', 0):.1f} s free, {idle.get('moving', 0):.1f} s moving, "
-                             f"stunned or with nothing to hit, {idle.get('out_of_resource', 0):.1f} s out of resource. Only the free part "
-                             f"counts."))
+                             f"stunned or with nothing to hit, {idle.get('out_of_resource', 0):.1f} s out of resource. "
+                             + ("You have no filler spell to press between cooldowns, so idle time isn't counted."
+                                if idle.get("filler") is False else "Only the free part counts.")))
         res = f.get("resource") or {}
         self._section(lay, "Resource")
         parts = []

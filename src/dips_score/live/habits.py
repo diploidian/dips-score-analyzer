@@ -61,15 +61,17 @@ def _damage_cards(win: list[dict]) -> list[tuple]:
                 out.append(("keep", "Efficiency is improving", msg))
         if not out:
             out.append(("keep", "Efficiency is steady", msg) if a >= 75 else ("fix", "Efficiency is stuck low", msg))
-    lost, seen, rows = Counter(), Counter(), False
+    lost, seen, missed, rows = Counter(), Counter(), Counter(), False
     for f in dmg:
         for c in f.get("cooldowns") or []:
             rows = True
             lost[c["name"]] += c["lost"]
             seen[c["name"]] += c["lost"] > 0
+            missed[c["name"]] += 0 if c.get("held") else c.get("counted", 0)    # older saves have no "counted"
     if lost and lost.most_common(1)[0][1] >= 1:
         name, total = lost.most_common(1)[0]
-        out.append(("fix", f"{name} left unused", f"About {total:,.0f} damage lost in {seen[name]} fights"))
+        casts = f", {missed[name]} casts missed" if missed[name] else ""
+        out.append(("fix", f"{name} left unused", f"About {total:,.0f} damage lost{casts} in {seen[name]} fights"))
     elif rows:
         out.append(("keep", "Cooldowns used on time", f"No damage lost to idle cooldowns in {len(dmg)} fights"))
     auto = [f["auto"] for f in dmg if f.get("auto")]
