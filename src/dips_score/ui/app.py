@@ -187,7 +187,12 @@ class Window(QMainWindow):
                 self.watcher.removePaths(paths)
         if self.saved and self.saved.exists():
             self.watcher.addPath(str(self.saved))
-            self.watcher.addPath(str(self.saved.parent))
+        # every character's folder, so a first save (or another character's) is noticed too
+        # shortcut: a character or realm created after the app opened isn't watched until the next reload
+        dirs = [str(d) for d in self.paths.accounts.glob("*/*/*") if d.is_dir()]
+        dirs += [str(d) for d in self.paths.accounts.glob("*/*/*/SavedVariables")]
+        if dirs:
+            self.watcher.addPaths(dirs)
         # not the combat log: it grows all through combat, and runs only change when the game saves
 
     def reload(self):
