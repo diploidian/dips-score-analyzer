@@ -89,8 +89,10 @@ Some categories need health, power or position readings, which the combat log on
 Combat Logging. Without them, Group health, Response (healer) and Positioning show "needs Advanced
 Combat Logging" and take no weight, so the total is worked out from what's left (`unavailable` in
 `score.py`). Resource is left off the card when there are no power readings, and Survival still scores
-its deaths. The add-on turns the combat log and advanced logging on when a run starts, if its
-`combatLog` option is on (it is by default; `/dscore` opens the settings). It only ever turns them on.
+its deaths. The add-on turns the combat log and advanced logging on at login (once per load, so a
+`/combatlog` you type yourself stays) and when a run starts, if its `combatLog` option is on (it is by
+default; `/dscore` opens the settings). It only ever turns them on, so you never need to type
+`/combatlog`. The log file grows about 5 MB an hour of play; old files in the game's Logs folder can be deleted.
 
 Upkeep's list of effects per class can be replaced: a `classes.json` next to `weights.json` with a shape
 like `{"ROGUE": [["Slice and Dice", "self"]]}`, where each entry is a spell name and `"self"` (a buff on

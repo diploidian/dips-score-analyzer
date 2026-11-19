@@ -14,27 +14,51 @@ local GetTime = GetTime
 
 local watching = false -- /dscore watch: print each press to chat
 
+-- The fight in progress (REGEN_DISABLED to REGEN_ENABLED), counted whether or not a run records.
+local fight
+
+local function Count(n, one, many) return n .. " " .. (n == 1 and one or many) end
+
+local function EndFight()
+    local f = fight
+    fight = nil
+    local secs = f and math.floor(GetTime() - f.start + 0.5)
+    if not secs or secs < 3 or not (ns.db and ns.db.fightLine) then return end
+    local parts = {Count(f.presses, "press", "presses") .. " (" .. Count(f.clicks, "click", "clicks") .. ")"}
+    if f.refused > 0 then parts[#parts + 1] = f.refused .. " refused" end
+    if f.interrupted > 0 then parts[#parts + 1] = f.interrupted .. " interrupted" end
+    ns.Print(secs .. " s - " .. table.concat(parts, ", "))
+end
+
 ----------------------------------------------------------------------
 -- Action presses
 ----------------------------------------------------------------------
 local pressIndex, pressFrame, pressBase, pressSrc -- the last press: line index, GetTime(), text, source
 
 local function MarkSource(src)
-    if not pressIndex or pressFrame ~= GetTime() then return end
+    if pressFrame ~= GetTime() then return end
     if pressSrc == "K" then return end -- a key binding already claimed it
+    if fight then
+        if src == "C" and pressSrc ~= "C" then fight.clicks = fight.clicks + 1 end
+        if src == "K" and pressSrc == "C" then fight.clicks = fight.clicks - 1 end -- the key took it back
+    end
     pressSrc = src
-    ns.Rewrite(pressIndex, pressBase .. src)
-    if watching then ns.Print("  ^ " .. (src == "K" and "key" or "click")) end
+    if pressIndex then -- nil when not recording
+        ns.Rewrite(pressIndex, pressBase .. src)
+        if watching then ns.Print("  ^ " .. (src == "K" and "key" or "click")) end
+    end
 end
 
 local function OnUseAction(slot)
+    if fight then fight.presses = fight.presses + 1 end
+    pressFrame, pressSrc, pressIndex = GetTime(), "?", nil
     if not ns.IsRecording() then return end
     local kind, id = GetActionInfo(slot)
     local index = Write("A", slot, kind, id, "?")
     if not index then return end
     -- the line minus its last field, to rewrite with the source
     local line = ns.Segment().lines[index]
-    pressIndex, pressFrame, pressBase, pressSrc = index, GetTime(), line:sub(1, -2), "?"
+    pressIndex, pressBase = index, line:sub(1, -2)
     if watching then
         ns.Print(string.format("press: slot %s, %s %s", Field(slot), Field(kind), Field(id)))
     end
@@ -43,21 +67,18 @@ end
 -- Key bindings on the game's bars: ACTIONBUTTON1 -> ActionButtonDown(1),
 -- MULTIACTIONBAR1BUTTON1 -> MultiActionButtonDown(bar, 1), and the matching Up on release.
 local function OnKeyDown(bar, button)
-    if not ns.IsRecording() then return end
-    Write("KD", bar, button)
+    if ns.IsRecording() then Write("KD", bar, button) end
     MarkSource("K")
 end
 
 local function OnKeyUp(bar, button)
-    if not ns.IsRecording() then return end
-    Write("KU", bar, button)
+    if ns.IsRecording() then Write("KU", bar, button) end
     MarkSource("K") -- presses that fire on key up
 end
 
 -- A click on one of the game's action buttons. "Keybind" is what newer clients pass when a key
 -- binding clicks the button; a real mouse button only counts while the pointer is over it.
 local function OnButtonClick(self, button)
-    if not ns.IsRecording() then return end
     if button == "Keybind" then
         MarkSource("K")
     elseif (button == "LeftButton" or button == "RightButton") and self:IsMouseOver() then
@@ -162,6 +183,16 @@ end
 
 E:SetScript("OnEvent", function(_, event, ...)
     if event == "PLAYER_LOGIN" then return HookPresses() end
+    -- the fight line counts whether or not a run records
+    if event == "PLAYER_REGEN_DISABLED" then
+        fight = {start = GetTime(), presses = 0, clicks = 0, refused = 0, interrupted = 0}
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        EndFight()
+    elseif fight and event == "UNIT_SPELLCAST_FAILED" then
+        fight.refused = fight.refused + 1
+    elseif fight and event == "UNIT_SPELLCAST_INTERRUPTED" then
+        fight.interrupted = fight.interrupted + 1
+    end
     if not ns.IsRecording() then return end
     local code = CAST_CODES[event]
     if code then

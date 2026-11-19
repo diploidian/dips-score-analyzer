@@ -45,10 +45,6 @@ end
 local toldLog, toldAdvanced -- once per session each
 local function EnsureCombatLog()
     local turnedOn = false
-    if LoggingCombat and not LoggingCombat() then
-        LoggingCombat(true)
-        turnedOn = true
-    end
     local get = C_CVar and C_CVar.GetCVar or GetCVar
     local set = C_CVar and C_CVar.SetCVar or SetCVar
     if get("advancedCombatLogging") ~= "1" then
@@ -60,6 +56,11 @@ local function EnsureCombatLog()
             toldAdvanced = true
             ns.Print("turn on Advanced Combat Logging in the game's options (Network/System) - the analyzer needs it.")
         end
+    end
+    -- after the CVar, so the first lines written already carry health and power
+    if LoggingCombat and not LoggingCombat() then
+        LoggingCombat(true)
+        turnedOn = true
     end
     if turnedOn and not toldLog then
         toldLog = true
@@ -170,6 +171,7 @@ end
 ----------------------------------------------------------------------
 -- Events
 ----------------------------------------------------------------------
+local loginDone -- the log is turned on once per load, so /combatlog off by hand sticks
 local E = CreateFrame("Frame")
 E:RegisterEvent("PLAYER_ENTERING_WORLD")
 E:RegisterEvent("ZONE_CHANGED_NEW_AREA")
@@ -179,6 +181,10 @@ E:SetScript("OnEvent", function(_, event)
         -- the save happens right after this: note when we were last here, for resuming
         if run then run.lastSeen = time() end
         return
+    end
+    if event == "PLAYER_ENTERING_WORLD" and not loginDone and ns.db then
+        loginDone = true
+        if ns.db.combatLog then pcall(EnsureCombatLog) end
     end
     ns.UpdateRecording()
 end)
