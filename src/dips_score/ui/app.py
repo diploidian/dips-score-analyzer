@@ -309,6 +309,8 @@ class Window(QMainWindow):
                 self.fight_list.setCurrentRow(0)
             elif not self.fight_list.count():
                 self.fight_detail.show_fight(None)
+        elif self.tree.currentItem() is None:
+            self.stack.setCurrentIndex(0)      # no runs yet: _picked would return early and leave the old page
         else:
             self._picked(self.tree.currentItem())
 
