@@ -99,8 +99,12 @@ This takes about ten minutes the first time.
    after the run. The record button's right-click menu has "Save now (reload)".
 8. Double-click `dips-score.pyw`. It finds your newest run and opens it.
 
+Installed and want the short version, with fixes for common problems? See [First run](FIRST-RUN.md).
+
 The app looks for the game in `D:\Program Files (x86)\World of Warcraft\_forever_`. If yours is
-elsewhere, start it with `--wow "<your folder>"` or set the `DIPS_WOW` environment variable.
+elsewhere, it asks for the folder the first time and remembers it. You can change it later in
+Settings (the cog), under Game folder. From a terminal, `--wow "<your folder>"` or the `DIPS_WOW`
+environment variable still override it.
 
 ### Add-on commands
 

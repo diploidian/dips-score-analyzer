@@ -2,18 +2,20 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from PyQt6.QtCore import QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QGridLayout, QGroupBox, QHBoxLayout, QLabel,
-                             QPushButton, QRadioButton, QSlider, QVBoxLayout)
+from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout,
+                             QLabel, QMessageBox, QPushButton, QRadioButton, QSlider, QVBoxLayout)
 
-from ..config import Paths
+from ..config import Paths, game_folder
 from . import assets, texture, theme
 from .pages import dim_label
 
 DEFAULTS = {"theme": "wow",
+            "wow": None,              # the game folder you picked; None: the default install
             "overlay": True,          # the card after each fight
             "overlay_seconds": 12,
             "overlay_side": "right",
@@ -48,6 +50,21 @@ def save(paths: Paths, settings: dict):
     (paths.data_dir / "settings.json").write_text(json.dumps(settings, indent=1), encoding="utf-8")
 
 
+def pick_wow(parent, start: Path) -> Path | None:
+    """ask for the game folder until it's one with WTF in it, or they cancel"""
+    while True:
+        picked = QFileDialog.getExistingDirectory(parent, "Where is World of Warcraft (the _forever_ folder)?",
+                                                  str(start if start.exists() else Path.home()))
+        if not picked:
+            return None
+        found = game_folder(picked)
+        if found:
+            return found
+        QMessageBox.warning(parent, "Not the game folder",
+                            f"{picked} has no WTF folder in it. Pick the _forever_ folder inside your "
+                            "World of Warcraft folder.")
+
+
 class SettingsDialog(QDialog):
     theme_changed = pyqtSignal(str)
     texture_changed = pyqtSignal()
@@ -63,6 +80,15 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("Settings")
         self.setMinimumWidth(560)
         lay = QVBoxLayout(self)
+
+        box = QGroupBox("Game folder")
+        gl = QHBoxLayout(box)
+        self.wow_note = dim_label(str(self.paths.wow) + ("" if self.paths.found() else "  (not found)"))
+        gl.addWidget(self.wow_note, 1)
+        change = QPushButton("Change...")
+        change.clicked.connect(self._pick_wow)
+        gl.addWidget(change)
+        lay.addWidget(box)
 
         box = QGroupBox("Look")
         bl = QVBoxLayout(box)
@@ -177,6 +203,12 @@ class SettingsDialog(QDialog):
     def _set(self, key: str, value):
         self.settings[key] = value
         save(self.paths, self.settings)
+
+    def _pick_wow(self):
+        found = pick_wow(self, self.paths.wow)
+        if found:
+            self._set("wow", str(found))
+            self.wow_note.setText(f"{found}  (close and reopen the app to use it)")
 
     def _import(self):
         from ..live.history import replay
