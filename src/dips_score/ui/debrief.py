@@ -369,7 +369,8 @@ class Breakdown(_Part):
         super().resizeEvent(ev)
 
     def _place(self):
-        self.toggle.move(self.width() - self.toggle.width(), 13)
+        # right of the tab; alone (nothing judged), it is the section's header
+        self.toggle.move(self.width() - self.toggle.width() if self.view.measures else 0, 13)
 
     def _open(self, open_: bool):
         self.open = open_
@@ -378,9 +379,13 @@ class Breakdown(_Part):
 
     def draw(self, p, w, open_: bool | None = None):
         v = self.view
+        open_ = self.open if open_ is None else open_
         if p:
             rule(p, 0, 0, w, tok("ln"))
         y = 1 + 12
+        if not v.measures:       # nothing judged: only the drawer, so every category and why is still there
+            y += 25
+            return (self._drawer(p, w, y + 8) if open_ else y) + 12
         label_tab(p, 0, y, f"Where {self.whose} {round(sum(lost.points for lost in v.lost))} points went")
         y += 25 + 8
         most = max((lost.points for lost in v.lost), default=0) or 1
@@ -416,7 +421,7 @@ class Breakdown(_Part):
             text_at(p, sf, tok("mu"), ew + 6, base, f"· {v.earned} of 100")
             text_at(p, ef, tok("tx"), w - adv(ef, str(v.earned)), base, str(v.earned))
         y += 22 + 3
-        if self.open if open_ is None else open_:
+        if open_:
             y = self._drawer(p, w, y + 12)
         return y + 12
 
@@ -479,8 +484,9 @@ class DebriefPage(QWidget):
         self.head.addStretch(1)
         self.hero_row = QHBoxLayout()
         self.hero_row.setContentsMargins(0, 14, 0, 16)
-        self.hero_row.addWidget(self.hero, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+        self.hero_row.addWidget(self.hero, 0, Qt.AlignmentFlag.AlignTop)
         self.hero_row.addWidget(self.plate, 1, Qt.AlignmentFlag.AlignTop)
+        self.hero_row.addStretch(0)   # the plate hidden: the hero keeps its width (and wraps at it) on the left
         left = QVBoxLayout()
         left.setContentsMargins(0, 0, 28, 0)
         left.setSpacing(0)
@@ -512,8 +518,8 @@ class DebriefPage(QWidget):
         for part in (self.hero, self.plate, self.measures, self.breakdown):
             part.set_view(view, self.narrow)
         self.plate.setVisible(view.grade != "-")          # nothing judged (or no run): nothing to fix either
-        for part in (self.measures, self.breakdown):     # an empty card: nothing to measure
-            part.setVisible(bool(view.measures))
+        self.measures.setVisible(bool(view.measures))    # an empty or unjudgeable card: nothing to measure
+        self.breakdown.setVisible(bool(view.categories))  # but its categories stay listed
         self._wrap_next()
         self.update()
 
@@ -527,8 +533,8 @@ class DebriefPage(QWidget):
         otherwise they stay one line each"""
         m = self.layout().contentsMargins()
         lw = self.measures.width()
-        rest = (self.measures.heightForWidth(lw) + math.ceil(self.breakdown.draw(None, lw, open_=False))
-                if self.measures.isVisibleTo(self) else 0)
+        rest = ((self.measures.heightForWidth(lw) if self.measures.isVisibleTo(self) else 0)
+                + (math.ceil(self.breakdown.draw(None, lw, open_=False)) if self.breakdown.isVisibleTo(self) else 0))
         plate = math.ceil(self.plate.draw(None, self.plate.width(), wrap=True)) if self.plate.isVisibleTo(self) else 0
         need = m.top() + HEAD_H + 14 + max(self.hero.heightForWidth(self.hero.width()), plate) + 16 + rest + m.bottom()
         wrap = need <= (self.parentWidget() or self).height()

@@ -132,10 +132,14 @@ class ViewTests(unittest.TestCase):
                          ["Holding mobs", "Survival", "Pickups", "Abilities on time"])
 
     def test_view_unjudgeable_card(self):
-        card = _card([Category("Damage", 0, 20, "x", unavailable="no data")], "dps")
+        card = _card([Category("Damage", 0, 20, "x", unavailable="no data"),
+                      Category("Interrupts", 0, 10, "y", unavailable="no interrupt data")], "dps")
         v = build_view(card, [], None, 0)
         self.assertEqual((v.total, v.grade, v.fix, v.measures, v.lost, v.review),
                          ("–", "-", None, [], [], []))
+        # nothing judged, but every category (and why) stays reachable in the drawer
+        self.assertEqual([c.name for c in v.categories], ["Damage", "Interrupts"])
+        self.assertEqual(build_view(Scorecard(0, "-", note="no combat"), [], None, 0).categories, [])
 
     def test_fix_skips_high_scoring_tip(self):
         card = _card([Category("Damage", 60, 20, "d", "damage tip"), Category("Casting", 90, 80, "c", "casting tip")], "dps")
