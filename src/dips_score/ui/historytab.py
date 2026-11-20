@@ -10,11 +10,11 @@ from datetime import date
 from itertools import groupby
 
 from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QPainter, QPen, QPolygonF
+from PyQt6.QtGui import QFontMetricsF, QPainter, QPen, QPolygonF
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout
 
 from ..debrief import display_name, fmt_time
-from ..dungeon_view import TOO_SHORT, HistoryView, plate_text, trend_note
+from ..dungeon_view import UNJUDGED, HistoryView, plate_text, trend_note
 from . import theme
 from .kit import HEAD_H, Part, Plate, Sheet, adv, box, draw_label_tab, elide, font, halo_text, line, rule, text_at
 from .theme import tok
@@ -38,11 +38,18 @@ def dot(p: QPainter, c: QPointF, r: float, fill, edge, width: float):
 
 class ScoreLine(Part):
     """Score over visits: each scored visit's score, oldest left, joined over the grade bands (S to D, and F under them
-    when a score is there); the best and the last called out; a visit not scored sits on the floor, muted"""
+    when a score is there); the best and the last called out; a visit too short to compare as a hollow muted dot at its
+    card's score, off the line (R10); a visit with no score at all on the floor, muted"""
 
     def __init__(self):
         super().__init__()
         self.view = HistoryView()
+        # as last painted: the best's dot, where its words went ("over", "under", "stacked"; None: left out) and their
+        # box, and the boxes of the last's words
+        self.best_dot: QPointF | None = None
+        self.best_at: str | None = None
+        self.best_rect: QRectF | None = None
+        self.last_rects: list[QRectF] = []
 
     def set_view(self, v: HistoryView):
         self.view = v
@@ -63,7 +70,8 @@ class ScoreLine(Part):
     def _chart(self, p, ox, oy, sx):
         v = self.view
         vs, n = v.visits[::-1], len(v.visits)        # oldest first
-        low = min((x.score for x in vs if x.score is not None), default=45.0)
+        low = min((x.score if x.card_score is None else x.card_score for x in vs
+                   if x.score is not None or x.card_score is not None), default=45.0)
         floor = min(45, 5 * math.floor(low / 5))
         bands = BANDS + ((("F", floor, 45),) if floor < 45 else ())
 
@@ -90,13 +98,16 @@ class ScoreLine(Part):
                 dot(p, q, 6, tok("tx"), tok("bg"), 2)
             else:
                 dot(p, q, 4.5, tok("bg"), tok("tx"), 2)
+        for i, x in enumerate(vs):
+            if x.card_score is not None:
+                dot(p, QPointF(X(i), Y(x.card_score)), 4.5, tok("bg"), tok("mu"), 1.5)
         small = font(11)
-        for unscored, run in groupby(range(n), key=lambda i: vs[i].score is None):
+        for unscored, run in groupby(range(n), key=lambda i: vs[i].score is None and vs[i].card_score is None):
             if unscored:
                 run = list(run)
                 for i in run:
                     dot(p, QPointF(X(i), Y(floor)), 4, tok("bg"), tok("mu"), 1.5)
-                s = "too short" if all(vs[i].note == TOO_SHORT for i in run) else "not scored"
+                s = "too short" if all(vs[i].note == UNJUDGED for i in run) else "not scored"
                 text_at(p, small, tok("mu"), (X(run[0]) + X(run[-1]) - adv(small, s)) / 2, Y(floor) - 18, s)
         self._dates(p, vs, X, Y(floor) + 18)
         self._callouts(p, pts, vs, ox, oy, ox + 600 * sx)
@@ -127,36 +138,53 @@ class ScoreLine(Part):
                 put(1, (X(i) + X(i + days[x.when.date()] - 1)) / 2, day(x.when), small, tok("tx2"))
 
     def _callouts(self, p, pts, vs, left, top, right):
-        """"Best 82 A · 11 Nov" over the best dot; the last score big in its grade's ink with "Last 75 B · today" and
-        the trend, over and under its dot as the mock-up has them, or all on the side with room; each with a halo, so
-        it reads over the line.
-        shortcut: the best's words can touch the last's when they're neighbours at the same height; move them if seen"""
+        """the last score big in its grade's ink with "Last 75 B · today" and the trend, over and under its dot as the
+        mock-up has them, or all on the side with room; then "Best 82 A · 11 Nov" over the best dot, under it, or
+        stacked over the last's words: the first that keeps 4px off them and the last's dot, inside the chart (none:
+        left out, the best's dot still filled). Each has a halo, so it reads over the line."""
         v, tx = self.view, tok("tx")
+        self.best_dot, self.best_at, self.best_rect, self.last_rects = None, None, None, []
+
+        def put(f, ink, x, base, s, draw=True) -> QRectF:
+            fm = QFontMetricsF(f)
+            if draw:
+                halo_text(p, f, ink, x, base, s)
+            return QRectF(x, base - fm.ascent(), adv(f, s), fm.ascent() + fm.descent())
+
+        x, keep_off = v.last, []
+        if x is not None:
+            q = pts[vs.index(x)]
+            when = "today" if x.when.date() == date.today() else day(x.when)
+            lines = [(font(13, 600), tx, f"Last {x.score:.0f} {x.grade} · {when}")]
+            if (t := trend_note(v)) is not None:
+                lines.append((font(12), tok("tx2"), t))
+            y = q.y() - top
+            if 60 <= y and y + 16 + 18 * len(lines) <= 250:      # the mock-up's: the number over the dot, words under
+                nb, tb = q.y() - 20, q.y() + 34
+            elif y < 60:            # near the top: all under the dot
+                nb, tb = q.y() + 50, q.y() + 70
+            else:                   # near the floor: all over it
+                tb = q.y() - 16 - 18 * (len(lines) - 1)
+                nb = tb - 20
+            r, big, s = q.x() + 10, font(44, 700, num=True), f"{x.score:.0f}"
+            self.last_rects = [put(big, theme.grade_color(x.grade), r - adv(big, s), nb, s)]
+            for k, (f, ink, s) in enumerate(lines):
+                self.last_rects.append(put(f, ink, r - adv(f, s), tb + 18 * k, s))
+            keep_off = self.last_rects + [QRectF(q.x() - 11, q.y() - 11, 22, 22)]
         if v.best is not None and v.best is not v.last:
             q, f = pts[vs.index(v.best)], font(13, 600)
             s = f"Best {v.best.score:.0f} {v.best.grade} · {day(v.best.when)}"
-            w, base = adv(f, s), q.y() - 14 if q.y() - 27 >= top else q.y() + 26     # over the dot, or under it
-            halo_text(p, f, tx, min(max(left, q.x() - w / 2), right - w), base, s)
-        x = v.last
-        if x is None:
-            return
-        q = pts[vs.index(x)]
-        when = "today" if x.when.date() == date.today() else day(x.when)
-        lines = [(font(13, 600), tx, f"Last {x.score:.0f} {x.grade} · {when}")]
-        if (t := trend_note(v)) is not None:
-            lines.append((font(12), tok("tx2"), t))
-        y = q.y() - top
-        if 60 <= y and y + 16 + 18 * len(lines) <= 250:       # the mock-up's: the number over the dot, words under
-            nb, tb = q.y() - 20, q.y() + 34
-        elif y < 60:            # near the top: all under the dot
-            nb, tb = q.y() + 50, q.y() + 70
-        else:                   # near the floor: all over it
-            tb = q.y() - 16 - 18 * (len(lines) - 1)
-            nb = tb - 20
-        r, big, s = q.x() + 10, font(44, 700, num=True), f"{x.score:.0f}"
-        halo_text(p, big, theme.grade_color(x.grade), r - adv(big, s), nb, s)
-        for k, (f, ink, s) in enumerate(lines):
-            halo_text(p, f, ink, r - adv(f, s), tb + 18 * k, s)
+            w, bx = adv(f, s), min(max(left, q.x() - adv(f, s) / 2), right - adv(f, s))
+            self.best_dot = q
+            spots = [("over", bx, q.y() - 14), ("under", bx, q.y() + 26)]
+            if self.last_rects:         # right-aligned with the last's words, over them
+                spots.append(("stacked", self.last_rects[0].right() - w,
+                              min(o.top() for o in self.last_rects) - 4 - QFontMetricsF(f).descent()))
+            for at, sx_, base in spots:
+                rect = put(f, tx, sx_, base, s, draw=False)
+                if rect.top() >= top and not any(rect.adjusted(-4, -4, 4, 4).intersects(o) for o in keep_off):
+                    self.best_at, self.best_rect = at, put(f, tx, sx_, base, s)
+                    break
 
 
 class Measures(Part):
@@ -271,9 +299,14 @@ class VisitTable(Part):
             return [(s, body, ink)]
         when = plain(f"{v.when.day} {v.when:%b %H:%M}") + ([(f" · {v.pieces} pieces", font(13), tok("mu"))]
                                                           if v.pieces > 1 else [])
-        score = plain(v.note) if v.score is None else \
-            [(f"{v.score:.0f} ", font(18, 600, num=True), ink), (v.grade, font(18, 700, num=True),
-                                                                 theme.grade_color(v.grade))]
+        if v.score is not None:
+            score = [(f"{v.score:.0f} ", font(18, 600, num=True), ink),
+                     (v.grade, font(18, 700, num=True), theme.grade_color(v.grade))]
+        elif v.card_score is not None:      # too short to compare (R10): its card's score, muted
+            score = [(f"{v.card_score:.0f} ", font(18, 600, num=True), ink), (v.grade, font(18, 700, num=True), ink),
+                     (f" · {v.note}", body, ink)]
+        else:
+            score = plain(v.note)
         return [when, plain("—" if v.length is None else fmt_time(v.length)),
                 plain(fmt_time(v.combat) if v.combat else "—"), score, plain(v.bosses),
                 plain("—" if v.deaths is None else str(v.deaths)), plain("—" if v.wipes is None else str(v.wipes))]

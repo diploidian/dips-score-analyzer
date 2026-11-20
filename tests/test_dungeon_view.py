@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dips_score.dungeon_view import (TOO_SHORT, Visit, build_history, history_meta, plate_text,  # noqa: E402
+from dips_score.dungeon_view import (TOO_SHORT, UNJUDGED, Visit, build_history, history_meta, plate_text,  # noqa: E402
                                      trend_note, visits)
 from dips_score.scoring.score import Category, Scorecard  # noqa: E402
 
@@ -62,16 +62,19 @@ def blackfathom():
             (run("broken", datetime(2026, 11, 17, 20, 0)), None)]
 
 
-def visit(day: int, score: float | None, lost: dict, cats: dict | None = None) -> Visit:
-    grade = "-" if score is None else "S" if score >= 90 else "A" if score >= 80 else "B" if score >= 70 else "C"
+def visit(day: int, score: float | None, lost: dict, cats: dict | None = None, short: float | None = None) -> Visit:
+    """short: too short to compare, with that card score"""
+    s = score if short is None else short
+    grade = "-" if s is None else "S" if s >= 90 else "A" if s >= 80 else "B" if s >= 70 else "C"
+    note = "" if score is not None else UNJUDGED if short is None else TOO_SHORT
     return Visit(datetime(2026, 11, day, 21, 0), f"r{day}", 3600.0, 1800.0, score, grade, "6 of 6", 0, 0,
-                 cats or {}, lost, "" if score is not None else TOO_SHORT, role="dps")
+                 cats or {}, lost, note, role="dps", card_score=short)
 
 
 def history():
-    """the mock-up's history, newest first: six scored visits and a short one"""
+    """the mock-up's history, newest first: six scored visits and one too short to compare (64 C on its card)"""
     return [visit(18, 75.0, {"Cooldowns": 10.3, "Survival": 6.3, "Upkeep": 2.8}, {"Cooldowns": 23.0, "Damage": 97.0}),
-            visit(17, None, {}),
+            visit(17, None, {}, short=64.0),
             visit(14, 69.0, {"Cooldowns": 8.1, "Damage": 12.0, "Survival": 2.0}, {"Cooldowns": 30.0, "Damage": 80.0}),
             visit(11, 82.0, {"Cooldowns": 6.2, "Damage": 9.0, "Survival": 0.5}, {"Cooldowns": 41.0, "Damage": 88.0}),
             visit(8, 71.0, {"Cooldowns": 7.0, "Damage": 11.0, "Survival": 1.0}, {"Cooldowns": 33.0}),
@@ -121,13 +124,14 @@ class HistoryTests(unittest.TestCase):
                                                 "Upkeep"})      # counted only: no Interrupts, Movement, Positioning
         self.assertEqual(list(full.lost)[:2], ["Cooldowns", "Survival"])
         self.assertAlmostEqual(full.lost["Cooldowns"], 10.257, places=3)
-        # no combat, and a 2.2 s fight the card scores 58 D: both too short to judge
-        for v in (empty, short):
-            self.assertEqual((v.score, v.grade, v.note, v.bosses, v.categories, v.lost), (None, "-", TOO_SHORT, "—",
-                                                                                         {}, {}))
-        self.assertEqual((short.combat, short.deaths), (2.209, 0))
-        self.assertEqual((broken.score, broken.length, broken.deaths, broken.note),
-                         (None, None, None, "couldn't be analysed"))
+        # R10: a 2.2 s fight the card scores 58 D shows that score, but isn't compared; no combat: no score at all
+        self.assertEqual((short.score, short.card_score, short.grade, short.note, short.bosses, short.categories,
+                          short.lost, short.combat, short.deaths),
+                         (None, 57.939, "D", "too short to compare", "—", {}, {}, 2.209, 0))
+        self.assertEqual((empty.score, empty.card_score, empty.grade, empty.note, empty.bosses, empty.categories),
+                         (None, None, "-", "too short to judge", "—", {}))
+        self.assertEqual((broken.score, broken.card_score, broken.length, broken.deaths, broken.note),
+                         (None, None, None, None, "couldn't be analysed"))
         h = build_history(vs)
         self.assertIs(h.best, full)
         self.assertIs(h.last, full)
@@ -137,7 +141,7 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(h.series["Cooldowns"], [23.07])
         self.assertEqual(list(h.series)[:3], ["Damage", "Activity", "Cooldowns"])     # the card's order
         self.assertEqual(plate_text(h), ("One scored visit so far — come back to compare",
-                                         "Visits with under 60 s in combat are too short to judge."))
+                                         "Visits with under 60 s in combat are too short to compare."))
         self.assertEqual(history_meta(h), "4 visits · 1 scored · best 75 B · last 75 B · as DPS")
         # a single visit
         h = build_history(visits(blackfathom()[2:3]))
@@ -147,7 +151,7 @@ class HistoryTests(unittest.TestCase):
         h = build_history(visits(blackfathom()[:2]))
         self.assertEqual((h.best, h.last, h.trend, h.recurring, h.series), (None, None, None, None, {}))
         self.assertEqual(plate_text(h), ("No scored visit yet — come back after a full run",
-                                         "Visits with under 60 s in combat are too short to judge."))
+                                         "Visits with under 60 s in combat are too short to compare."))
         self.assertEqual(history_meta(h), "2 visits · none scored")
 
 
@@ -184,9 +188,34 @@ class HistoryTabTests(unittest.TestCase):
         top, bottom, _ = t.hits[3]
         QTest.mouseDClick(t, Qt.MouseButton.LeftButton, pos=QPoint(40, round((top + bottom) / 2)))
         self.assertEqual(opened, ["1795069645-Bao", "broken"])
+        from dips_score.ui.historytab import VisitTable
+        from dips_score.ui.theme import tok
+        cells = [VisitTable._cells(v)[3] for v in tab.view.visits]      # the Score column
+        self.assertEqual(["".join(s for s, _, _ in c) for c in cells],
+                         ["75 B", "too short to judge", "58 D · too short to compare", "couldn't be analysed"])
+        self.assertEqual({ink.name() for _, _, ink in cells[2]}, {tok("mu").name()})     # muted, the letter too
         for i in (1, 2):
             page.setCurrentIndex(i)
             self.assertFalse(page.grab().isNull())
+
+    def test_best_words_keep_off_the_last(self):
+        """the best's words go over its dot, under it, or stacked over the last's words; with no room, nowhere"""
+        from dips_score.ui.historytab import ScoreLine
+        chart = ScoreLine()
+        chart.resize(760, chart.heightForWidth(760))
+        chart.show()
+
+        def at(scores: tuple) -> str | None:        # newest first
+            chart.set_view(build_history([visit(26 - 2 * k, s, {}) for k, s in enumerate(scores)]))
+            self.assertFalse(chart.grab().isNull())
+            self.assertEqual(len(chart.last_rects), 3)     # the number, "Last …" and the trend
+            r = chart.best_rect
+            self.assertFalse(r is not None and any(r.adjusted(-4, -4, 4, 4).intersects(o) for o in chart.last_rects))
+            return chart.best_at
+        self.assertEqual(at((80.0, 82.0, 70.0)), "over")                # room over the best dot (the mock-up's)
+        self.assertEqual(at((80.0, 99.0, 70.0)), "under")               # none over it, at the top
+        self.assertEqual(at((80.0, 80.0) + (70.0,) * 10), "stacked")    # neighbours, level: over the last's words
+        self.assertIsNone(at((97.0, 99.0) + (40.0,) * 10))              # no room anywhere: the best's dot alone
 
     def test_recurring_plate_opens_the_last_visit(self):
         from dips_score.ui.historytab import HistoryTab

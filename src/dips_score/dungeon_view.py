@@ -7,8 +7,9 @@ from datetime import datetime
 from .debrief import display_name
 
 MINUS = "−"
-JUDGED_FROM = 60.0          # seconds in combat: a visit with less is too short to judge, whatever its card says
-TOO_SHORT = "too short to judge"
+JUDGED_FROM = 60.0          # seconds in combat: a visit with less isn't compared (trend, best, recurring fix, line)
+TOO_SHORT = "too short to compare"      # under JUDGED_FROM with a card score: the score shows, muted, not counted
+UNJUDGED = "too short to judge"         # under JUDGED_FROM with no card score at all
 TREND_OF = 5                # the trend: the last score against the mean of up to this many before it
 
 
@@ -18,8 +19,8 @@ class Visit:
     run_id: str
     length: float | None        # seconds (None: the visit couldn't be analysed)
     combat: float | None        # seconds in combat
-    score: float | None         # None: not scored; note says why
-    grade: str
+    score: float | None         # None: not compared; note says why
+    grade: str                  # the card's ("-": no card score at all)
     bosses: str                 # "6 of 6"; "—" without bosses
     deaths: int | None          # yours
     wipes: int | None
@@ -28,6 +29,7 @@ class Visit:
     note: str = ""              # why it isn't scored
     pieces: int = 1             # saved runs joined into this visit
     role: str = ""              # what the card scored you as
+    card_score: float | None = None     # too short to compare: its card's score, shown but not counted
 
 
 @dataclass
@@ -50,13 +52,15 @@ def visits(pairs) -> list[Visit]:
                              note="couldn't be analysed", pieces=pieces))
             continue
         c, s, combat = a.card, a.summary, a.metrics.combat_time
-        scored = not c.empty and c.grade != "-" and combat >= JUDGED_FROM
+        judged = not c.empty and c.grade != "-"
+        scored = judged and combat >= JUDGED_FROM
+        note = "" if scored else TOO_SHORT if judged else UNJUDGED if combat < JUDGED_FROM else "couldn't be judged"
         out.append(Visit(run.start_time, run.id, a.data.duration, combat, c.total if scored else None,
-                         c.grade if scored else "-", f"{s.bosses_killed} of {s.bosses}" if s and s.bosses else "—",
+                         c.grade if judged else "-", f"{s.bosses_killed} of {s.bosses}" if s and s.bosses else "—",
                          sum(d.guid == a.data.player_guid for d in a.deaths), len(a.wipes),
                          {k.name: k.score for k in c.categories if not k.info_only} if scored else {},
                          {k.name: p for k, p in c.points_lost()} if scored else {},
-                         "" if scored else TOO_SHORT if combat < JUDGED_FROM else "couldn't be judged", pieces, c.role))
+                         note, pieces, c.role, c.total if judged and not scored else None))
     return sorted(out, key=lambda v: v.when, reverse=True)
 
 
@@ -110,7 +114,7 @@ def plate_text(h: HistoryView) -> tuple[str, str | None]:
     n = sum(v.score is not None for v in h.visits)
     if n >= 2:
         return "No measure cost you points on any visit", None
-    why = f"Visits with under {JUDGED_FROM:.0f} s in combat are too short to judge." \
+    why = f"Visits with under {JUDGED_FROM:.0f} s in combat are too short to compare." \
         if any(v.note == TOO_SHORT for v in h.visits) else None
     if n == 1:
         return f"One {'' if len(h.visits) == 1 else 'scored '}visit so far — come back to compare", why
