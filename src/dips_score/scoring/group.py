@@ -104,9 +104,15 @@ def _sum(series: list[tuple[float, int]], windows: list[Interval]) -> int:
     return total
 
 
+def fight_damage(g: GroupData, roster, windows: list[Interval]) -> dict[str, int]:
+    """each player's damage (their pets' included) inside the windows"""
+    w = union(windows)
+    return {x: _sum(g.damage.get(x, []), w) for x in roster}
+
+
 def damage_share(g: GroupData, roster, guid: str, windows: list[Interval]) -> tuple[int, float]:
     """a player's damage (their pets' included), and it against an even split of the group's"""
-    dmg = {x: _sum(g.damage[x], union(windows)) for x in roster}
+    dmg = fight_damage(g, roster, windows)
     even = sum(dmg.values()) / len(dmg) if dmg else 0
     return dmg[guid], (dmg[guid] / even if even else 0)
 

@@ -1,14 +1,13 @@
-"""The run's tabs (Debrief, Group) and the dungeon page; Pulls is pulls.py, Spells is spells.py."""
+"""The Debrief tab and the dungeon page; Pulls is pulls.py, Spells is spells.py, Group is group.py."""
 from __future__ import annotations
 
 from PyQt6.QtCore import QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QPainter
-from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
-                             QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHeaderView, QLabel, QScrollArea, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout, QWidget)
 
 from ..analysis import Analysis
-from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, worst_fight  # fmt_time: summary.py
-from ..model.roster import CLASSES, ROLES
+from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, worst_fight
 from ..scoring.group import ordinal, player_card
 from ..scoring.score import Scorecard
 from ..sources.savedvars import Run
@@ -202,77 +201,6 @@ class ScoreTab(QWidget):
         deaths = len(fight_of(self.deaths, a.data.fights).get(i, []))
         self._show(self.cards[i], fr.damage[1] if me and fr.damage else None, deaths, f"{f.label}{kill}",
                    f"{who}{a.data.run.zone} · at {fmt_time(f.start)} · {f.duration:.0f}s", i)
-
-
-# ============================================================================ Group
-SOURCE = {"you": "your pick", "addon": "from the add-on", "spells": "guessed from spells", "talents": "from your talents",
-          "?": "unknown"}
-
-
-class GroupTab(QWidget):
-    """who was in the group: class and role for each, changeable"""
-    changed = pyqtSignal(str, str, str)      # guid, class, role
-    forget = pyqtSignal()
-
-    def __init__(self):
-        super().__init__()
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 6, 0, 0)
-        head = QHBoxLayout()
-        head.addWidget(dim_label("Class and role for everyone in the group. They're filled in from the add-on (new runs) "
-                                 "or guessed from what each player cast; pick another to correct it. Your picks are "
-                                 "remembered for that player, and your own role decides how you're scored."), 1)
-        btn = QPushButton("Forget my picks")
-        btn.clicked.connect(self.forget.emit)
-        head.addWidget(btn)
-        lay.addLayout(head)
-        self.t = table(["", "Player", "Class", "Role", "From", "Damage", "Healing", "Taken", "Deaths", "Interrupts",
-                        "Dispels"], stretch=1)
-        self.t.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        lay.addWidget(self.t)
-
-    def set_analysis(self, a: Analysis | None):
-        self.t.setRowCount(0)
-        if not a or not a.summary:
-            return
-        players = sorted(a.roster.values(), key=lambda p: ({"TANK": 0, "HEALER": 1}.get(p.role or "", 2), p.name))
-        for p in players:
-            st = a.summary.stats[p.guid]
-            r = self.t.rowCount()
-            self.t.insertRow(r)
-            c = text_color(p)
-            ic = assets.icon(assets.class_icon_name(p.cls) or "")
-            dot = item("" if ic else "●", c)
-            if ic:
-                dot.setIcon(ic)
-            race = "".join(" " + ch if ch.isupper() and i else ch for i, ch in enumerate(p.race or ""))  # NightElf -> Night Elf
-            dot.setToolTip(" ".join(x for x in (race, (p.cls or "?").title()) if x))
-            self.t.setItem(r, 0, dot)
-            name = item(p.name + ("  (you)" if p.is_me else ""), c)
-            f = QFont()
-            f.setBold(True)
-            name.setFont(f)
-            self.t.setItem(r, 1, name)
-            cls = QComboBox()
-            for k in CLASSES:
-                cls.addItem(k.title(), k)
-            cls.setCurrentIndex(max(0, cls.findData(p.cls)))
-            role = QComboBox()
-            for k in ROLES:
-                role.addItem(k.title() if k != "DPS" else "DPS", k)
-            role.setCurrentIndex(max(0, role.findData(p.role)))
-            cls.currentIndexChanged.connect(lambda _, g=p.guid, cb=cls, rb=role: self.changed.emit(g, cb.currentData(), rb.currentData()))
-            role.currentIndexChanged.connect(lambda _, g=p.guid, cb=cls, rb=role: self.changed.emit(g, cb.currentData(), rb.currentData()))
-            self.t.setCellWidget(r, 2, cls)
-            self.t.setCellWidget(r, 3, role)
-            if p.cls_from == p.role_from:
-                src = SOURCE.get(p.cls_from, "?")
-            else:
-                src = f"class {SOURCE.get(p.cls_from, '?')}, role {SOURCE.get(p.role_from, '?')}"
-            self.t.setItem(r, 4, item(src, theme.DIM))
-            for col, v in enumerate([fmt_num(st.damage), fmt_num(st.healing), fmt_num(st.taken), st.deaths,
-                                     st.interrupts, st.dispels], 5):
-                self.t.setItem(r, col, item(v, theme.DEATH if col == 8 and v else None, align_right=True))
 
 
 # ============================================================================ Dungeon page

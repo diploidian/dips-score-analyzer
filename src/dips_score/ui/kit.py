@@ -313,14 +313,15 @@ class Hero(Part):
 
 
 class Plate(Part):
-    """the one solid plate, the thing to act on: its label tab straddling the top edge, a title, the price and
-    its caption, an optional button (clicked), then ruled rows of (text, cost) for what comes next"""
+    """the one solid plate, the thing to act on: its label tab straddling the top edge, a title, an optional
+    paragraph, the price and its caption, an optional button (clicked), then ruled rows of (text, cost) for what
+    comes next"""
     clicked = pyqtSignal()
 
     def __init__(self, label: str):
         super().__init__()
         self.label = label
-        self.title, self.price, self.caption, self.rows = "", None, None, []
+        self.title, self.price, self.caption, self.rows, self.body = "", None, None, [], None
         self.button = QPushButton(self)
         self.button.setObjectName("showme")
         self.button.hide()
@@ -330,10 +331,10 @@ class Plate(Part):
         self.button_y = self.next_y = 0.0
 
     def set(self, title: str, price: str | None, caption: str | None, button: str | None,
-            rows: list[tuple[str, str]]):
+            rows: list[tuple[str, str]], body: str | None = None):
         """caption: muted words after the price, " · " between parts that wrap apart; button: its text, None for
-        none"""
-        self.title, self.price, self.caption, self.rows = title, price, caption, rows
+        none; body: a muted paragraph under the title, wrapped"""
+        self.title, self.price, self.caption, self.rows, self.body = title, price, caption, rows, body
         self.has_button = button is not None
         if button is not None:
             self.button.setText(button)
@@ -371,6 +372,8 @@ class Plate(Part):
         y = 12 + 22
         tpx = 21 if n else 23
         y += wrapped(p, font(tpx, 600, num=True), tok("plate-tx"), x, y, cw, tpx * 1.15, self.title) + 8
+        if self.body:
+            y += wrapped(p, font(14), tok("plate-mu"), x, y, cw, 14 * 1.45, self.body) + 4
         price = [(self.price, font(32, 700, num=True), tok("plate-ac"))] if self.price else []
         price += [(s, font(13), tok("plate-mu")) for s in (self.caption or "").split(" · ") if s]
         if price:

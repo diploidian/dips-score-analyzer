@@ -1,7 +1,7 @@
 """Radar chart values: what each player brought to the group, on six axes everyone shares (so players
 of different roles can be laid over each other).
 
-    Damage      damage to enemies
+    Damage      damage to enemies, inside the fights (as the group's cards are scored)
     Healing     healing that landed
     Tanking     damage taken, and mobs that went for them first (half each)
     Utility     interrupts and dispels
@@ -14,6 +14,8 @@ of that. So the shape shows where someone's contribution went, and how it compar
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
+from .group import fight_damage
 
 AXES = ["Damage", "Healing", "Tanking", "Utility", "Kills", "Survival"]
 
@@ -38,11 +40,15 @@ def radars(a) -> dict[str, Radar]:
         firsts[who] = firsts.get(who, 0) + 1
     n_firsts = sum(firsts.values())
 
+    # damage inside the fights, as the cards are scored (group.player_card), so a card's line and its map agree
+    damage = (fight_damage(a.group, stats, [(f.start, f.end) for f in a.data.fights]) if a.group else
+              {g: st.damage for g, st in stats.items()})
+
     def top(f) -> float:
         return max((f(st) for st in stats.values()), default=0) or 1
 
     best = {
-        "damage": top(lambda st: st.damage), "healing": top(lambda st: st.healing),
+        "damage": max(damage.values(), default=0) or 1, "healing": top(lambda st: st.healing),
         "taken": top(lambda st: st.taken), "utility": top(lambda st: st.interrupts + st.dispels),
         "kills": top(lambda st: st.killing_blows), "firsts": max(firsts.values(), default=0) or 1,
     }
@@ -53,14 +59,14 @@ def radars(a) -> dict[str, Radar]:
         util = st.interrupts + st.dispels
         surv = max(0.0, 100 - 40 * st.deaths)
         out[g] = Radar(g, [
-            100 * st.damage / best["damage"],
+            100 * damage[g] / best["damage"],
             100 * st.healing / best["healing"],
             tank,
             100 * util / best["utility"],
             100 * st.killing_blows / best["kills"],
             surv,
         ], [
-            f"{_fmt(st.damage)} damage",
+            f"{_fmt(damage[g])} damage",
             f"{_fmt(st.healing)} healing",
             f"{_fmt(st.taken)} taken, {held} of {n_firsts} mobs went for them first",
             f"{st.interrupts} interrupts, {st.dispels} dispels",

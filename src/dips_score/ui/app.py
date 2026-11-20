@@ -27,10 +27,10 @@ from ..scoring.score import load_weights
 from ..sources.savedvars import Run
 from . import settings as app_settings
 from . import texture, theme
-from .pages import DungeonPage, GroupTab, ScoreTab, dim_label
+from .group import GroupTab
+from .pages import DungeonPage, ScoreTab, dim_label
 from .pulls import PullsTab
 from .spells import SpellsTab
-from .summary import SummaryTab
 from .timeline import Timeline
 from .settings import SettingsDialog
 from .tokens import THEMES
@@ -139,7 +139,7 @@ class Window(QMainWindow):
         self.dungeon.open_run.connect(self._open_run_id)
         self.score, self.group, self.pulls = ScoreTab(), GroupTab(), PullsTab()
         self.score.page.settings = self.settings
-        self.spells, self.summary = SpellsTab(), SummaryTab()
+        self.spells = SpellsTab()
         self.timeline = Timeline()
         scroll = QScrollArea()
         scroll.setWidget(self.timeline)
@@ -151,15 +151,9 @@ class Window(QMainWindow):
         tll.addWidget(dim_label("Wheel to zoom, drag to pan, double-click for the whole run, hover for details "
                                 "(shift+wheel scrolls down to everyone's rows)"))
         tll.addWidget(scroll, 1)
-        # shortcut: the old standings with the roster table under them, until the new Group page's "Edit roles" drawer
-        group_page = QWidget()
-        gl = QVBoxLayout(group_page)
-        gl.setContentsMargins(0, 0, 0, 0)
-        gl.addWidget(self.summary, 1)
-        gl.addWidget(self.group)
         self.tabs = QTabWidget()
         for w, name in ((self.score, "Debrief"), (self.timeline_tab, "Timeline"), (self.pulls, "Pulls"),
-                        (self.spells, "Spells"), (group_page, "Group")):
+                        (self.spells, "Spells"), (self.group, "Group")):
             self.tabs.addTab(w, name)
         # only the "Show ..." buttons switch to the Timeline tab; a pick readies the timeline and stays where it is
         self.score.page.zoom.connect(self.show_on_timeline)   # Show me
@@ -167,6 +161,7 @@ class Window(QMainWindow):
         self.pulls.zoom.connect(self._set_timeline)           # a pull picked
         self.pulls.show_me.connect(self.show_on_timeline)     # Show this pull
         self.spells.show_me.connect(self.show_on_timeline)    # Show on the timeline (the ability to fix)
+        self.group.show_me.connect(self.show_on_timeline)     # Show your death
         # a spell picked lights up on the timeline; a refill only clears it
         self.spells.highlight.connect(lambda guid, spell: self._set_timeline(None, None, guid, spell) if guid
                                       else self.timeline.highlight(None, None))
@@ -341,7 +336,7 @@ class Window(QMainWindow):
             self.stack.setCurrentIndex(1)
             return
         a = self.current
-        for tab in (self.score, self.group, self.pulls, self.spells, self.summary):
+        for tab in (self.score, self.group, self.pulls, self.spells):
             tab.set_analysis(a)
         self.timeline.set_analysis(a)
         self.stack.setCurrentIndex(1)

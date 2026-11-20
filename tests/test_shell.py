@@ -55,6 +55,10 @@ class ShellTests(unittest.TestCase):
             self.assertIs(tabs.currentWidget(), w.timeline_tab)
             self.assertEqual((w.timeline.v0, w.timeline.v1), (382.5, 478.1))
             self.assertEqual((w.timeline.hl_guid, w.timeline.hl_spell), ("guid-1", "Consecration"))
+            tabs.setCurrentWidget(w.group)
+            w.group.show_me.emit(1184.9, 1209.9)          # Show your death: the Timeline tab
+            self.assertIs(tabs.currentWidget(), w.timeline_tab)
+            self.assertEqual((w.timeline.v0, w.timeline.v1), (1184.9, 1209.9))
             w.live.timer.stop()
 
 
