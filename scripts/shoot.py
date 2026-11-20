@@ -36,7 +36,9 @@ ap.add_argument("--click", choices=["show-me", "show-pull", "all-pulls", "show-s
                      "Group plate's \"Show your death\"; edit-roles / all-numbers: open that Group drawer; "
                      "show-fight: the Fights plate's \"Show on the timeline\"; abilities: open the Fights page's "
                      "Abilities drawer; group: show-me, then open the timeline's Group row")
-ap.add_argument("--overlay", action="store_true", help="save the after-fight card (a real fight from the history) instead of the window")
+ap.add_argument("--overlay", nargs="?", const="history", choices=["history", "gap", "clean", "died", "minimal"],
+                help="save the after-fight card instead of the window: a real fight from the history (the default), "
+                     "or one of the mock-up's states from tests/test_overlay_view.py's fights")
 ap.add_argument("--size", default="1500x950")
 ap.add_argument("--out", required=True)
 args = ap.parse_args()
@@ -71,7 +73,7 @@ from dips_score.ui import app as ui  # noqa: E402
 
 qapp = QApplication([])
 paths = config.paths()
-if args.replay or args.overlay:
+if args.replay or args.overlay == "history":
     from dips_score.live.history import replay
     from dips_score.sources import combatlog
     replay(paths, combatlog.find_logs(paths.logs))
@@ -151,8 +153,13 @@ def grab():
     if args.overlay:
         from PyQt6.QtGui import QPainter, QPixmap
         from dips_score.ui.overlay import Overlay
-        fights = w.live.history.fights
-        s = next((f for f in reversed(fights) if f.get("result") == "you died"), fights[-1])
+        if args.overlay == "history":
+            fights = w.live.history.fights
+            s = next((f for f in reversed(fights) if f.get("result") == "you died"), fights[-1])
+        else:
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tests"))
+            import test_overlay_view
+            s = getattr(test_overlay_view, args.overlay.upper())
         ov = Overlay()
         ov.show_fight(s)
         ov.setWindowOpacity(1)
