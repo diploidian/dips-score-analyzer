@@ -2,8 +2,9 @@
 
     PYTHONPATH=<folder with PyQt6> python scripts/shoot.py --run 6 --tab Group --look classical,night --out x.png
 
---run is the number `python dips-score.pyw runs` prints. --saved picks a dips-Score.lua (default: the game's).
-Settings and history live in a temp APPDATA, so yours are never touched.
+--run is the number `python dips-score.pyw runs` prints (with --tab Fights: the run loaded behind it, whose timeline
+its Show on the timeline goes to). --saved picks a dips-Score.lua (default: the game's).
+Settings and history live in a temp APPDATA, so yours are never touched (--fight-json copies fights into it).
 """
 import argparse
 import json
@@ -15,18 +16,22 @@ from pathlib import Path
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--saved")
-ap.add_argument("--run", type=int, default=1)
+ap.add_argument("--run", type=int)
 ap.add_argument("--tab", default="Debrief")
 ap.add_argument("--look", default="timeless,day", help="<theme>,<mode>")
 ap.add_argument("--click-look", help="<theme>,<mode>: click the rail's Look buttons after the window is up")
 ap.add_argument("--replay", action="store_true", help="sum up the game's old combat logs into the temp history (Fights page)")
+ap.add_argument("--fight-json", help="a fights.jsonl (one fight per line, as the app keeps them; a copy of yours, say) "
+                                     "to seed the temp history with (Fights page)")
 ap.add_argument("--hover", action="store_true", help="after the run opens, show the timeline and put the mouse over it")
 ap.add_argument("--click", choices=["show-me", "show-pull", "all-pulls", "show-spell", "all-spells", "show-death",
-                                    "edit-roles", "all-numbers"],
+                                    "edit-roles", "all-numbers", "show-fight", "abilities"],
                 help="show-me: press the Debrief's \"Show me on the timeline\"; show-pull: the Pulls plate's "
                      "\"Show this pull\"; all-pulls: open the Pulls drawer and pick the pull to fix; show-spell: the "
                      "Spells plate's \"Show on the timeline\"; all-spells: open both Spells drawers; show-death: the "
-                     "Group plate's \"Show your death\"; edit-roles / all-numbers: open that Group drawer")
+                     "Group plate's \"Show your death\"; edit-roles / all-numbers: open that Group drawer; "
+                     "show-fight: the Fights plate's \"Show on the timeline\"; abilities: open the Fights page's "
+                     "Abilities drawer")
 ap.add_argument("--overlay", action="store_true", help="save the after-fight card (a real fight from the history) instead of the window")
 ap.add_argument("--size", default="1500x950")
 ap.add_argument("--out", required=True)
@@ -46,6 +51,8 @@ wow = config.paths().wow     # --wow is not offered: DIPS_WOW or the default
 # wow_folder pre-seeded so the first-run folder picker never opens a modal dialog offscreen
 (Path(tmp) / "dips-score" / "settings.json").write_text(
     json.dumps({"theme": theme_name, "mode": mode, "wow_folder": str(wow), "motion": False}), encoding="utf-8")
+if args.fight_json:
+    shutil.copyfile(args.fight_json, Path(tmp) / "dips-score" / "fights.jsonl")
 
 if args.saved:
     _load = analysis.load_saved
@@ -77,9 +84,11 @@ if want not in PAGES and want not in TABS:
     sys.exit(f"unknown --tab {args.tab!r}; valid: " + ", ".join(w.tabs.tabText(i) for i in range(w.tabs.count()))
              + ", " + ", ".join(k.title() for k in PAGES))
 if want in PAGES:
+    if want == "fights" and args.run:
+        w._open_run_id(w.runs[args.run - 1].id)
     PAGES[want].click()
 else:
-    w._open_run_id(w.runs[args.run - 1].id)
+    w._open_run_id(w.runs[(args.run or 1) - 1].id)
     w.tabs.setCurrentIndex(TABS[want])
 if args.click_look:
     for key in args.click_look.split(","):
@@ -107,6 +116,11 @@ elif args.click == "edit-roles":
     w.group.roles_drawer.flip()
 elif args.click == "all-numbers":
     w.group.numbers_drawer.flip()
+elif args.click == "show-fight":
+    w.fight_detail.plate.button.click()
+    print("timeline:", w.tabs.currentWidget() is w.timeline_tab, (round(w.timeline.v0, 1), round(w.timeline.v1, 1)))
+elif args.click == "abilities":
+    w.fight_detail.drawer.flip()
 
 
 if args.hover:

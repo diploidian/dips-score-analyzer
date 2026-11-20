@@ -1,24 +1,46 @@
-"""The Fights page: every fight summed up after it ended (open world and dungeons), newest first, and one
-fight in detail."""
+"""The Fights page: every fight summed up after it ended (open world and dungeons), newest first in the rail, and one
+fight on its page, painted from a FightView (see dips_score/fight_view.py): how much of the damage you could have done
+you did, the biggest gap on the plate, the key figures, where the rest went, what went well and the group; and the
+fight's whole detail (abilities, cooldowns, buffs, failed casts, idle time, resource, the pull) in the Abilities drawer.
+
+Sizes follow docs/design/mockups/fight.html (CSS px). The shared parts come from kit.py.
+"""
 from __future__ import annotations
 
-from datetime import datetime
-
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QScrollArea,
+from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QFontMetricsF, QPainter, QPen, QPolygonF
+from PyQt6.QtWidgets import (QAbstractItemView, QApplication, QFrame, QHBoxLayout, QLabel, QListWidget,
+                             QListWidgetItem, QScrollArea, QStyle, QStyledItemDelegate, QStyleOptionViewItem,
                              QVBoxLayout, QWidget)
 
+from ..debrief import fmt_time
+from ..fight_view import build_fight, list_row
 from . import theme
-from .overlay import KIND_COLOR, _esc
+from .debrief import NARROW
+from .kit import (HEAD_H, BarRow, BarRows, Drawer, Hero, KeyFigures, Part, Plate, Sheet, adv, baseline,
+                  draw_label_tab, draw_tag, elide, flow, font, line, rule, text_at)
 from .pages import dim_label, item, table
+from .pulls import SectionHead
+from .spells import Fold, Side
+from .theme import tok
+
+HERO_W = (330, 290)      # the hero's column (narrow)
+SIDE_W = (420, 380)      # the right-hand column (narrow), after its 28px gutter
+NAME_W = (260, 240)      # Where the damage went: the names' column, then the values' (narrow)
+VALUE_W = (84, 80)
+PRICE_PX = (46, 40)      # the plate's price
+GROUP_COLS = ((140, 54), (128, 50))     # Group: the names' widest, and the damage and healing columns (narrow)
+ROW = Qt.ItemDataRole.UserRole + 1
+LEFT = "Left on the table · estimate — only time you were free to act"
+NO_FIGHTS = ("No fights yet. Turn on the combat log in game (/combatlog) and fight something: each fight shows up here "
+             "(and on the overlay) a few seconds after it ends.")
+COUNTED = ("Cooldowns that sat ready while you were free (not moving for cast-time spells, not out of mana, not "
+           "stunned, the target not nearly dead, nobody low while you heal), melee swings lost while not casting, and "
+           "idle time while standing with resource to spare (half counted).")
 
 
 def _n(v) -> str:
     return f"{v:,.0f}"
-
-
-def _dur(s: float) -> str:
-    return f"{int(s // 60)}:{int(s % 60):02d}"
 
 
 def _foes(f: dict) -> str:
@@ -29,17 +51,49 @@ def _foes(f: dict) -> str:
     return ", ".join(n + (f" ×{c}" if c > 1 else "") for n, c in foes)
 
 
-def chip(kind: str) -> str:
-    return (f"<span style='background:{KIND_COLOR.get(kind, '#444')}; color:white; font-size:8pt; font-weight:600'>"
-            f"&nbsp;{kind}&nbsp;</span>")
+def _words(text: str, f, bf, ink, bink) -> list:
+    """text as flow() items, word by word: the words with a figure in them in bf and bink"""
+    return [(s, bf, bink) if any(ch.isdigit() for ch in s) else (s, f, ink) for s in text.split()]
+
+
+# ---------------------------------------------------------------------------- the rail's list
+class FightRows(QStyledItemDelegate):
+    """a fight's row: its name, then its muted line (DPS · efficiency · length, "died"), its kind tag on the right;
+    on the picked row (track behind it) the inks darken where they'd read under 4.5:1"""
+
+    def paint(self, p, opt, idx):
+        o = QStyleOptionViewItem(opt)
+        self.initStyleOption(o, idx)
+        o.text = ""
+        (o.widget.style() if o.widget else QApplication.style()).drawControl(
+            QStyle.ControlElement.CE_ItemViewItem, o, p, o.widget)
+        name, runs, kind = idx.data(ROW)
+        r = QRectF(opt.rect).adjusted(10, 5, -10, -6)
+        picked = bool(opt.state & QStyle.StateFlag.State_Selected)
+
+        def ink(key: str):
+            return theme.readable(tok(key), tok("track")) if picked else tok(key)
+        p.save()
+        nf = font(13, 600 if picked else 400)
+        line(p, nf, tok("tx"), r.x(), r.y(), 17, elide(nf, name, r.width()))
+        x = r.x()
+        for s, key in runs:
+            x += line(p, font(12, 400 if key == "mu" else 600), ink(key), x, r.y() + 17, 16, s)
+        draw_tag(p, r.right() - draw_tag(None, 0, 0, kind), r.y() + 17 + 8, kind, ink("mu"))
+        p.restore()
+
+    def sizeHint(self, opt, idx):
+        return QSize(super().sizeHint(opt, idx).width(), 5 + 17 + 16 + 6)
 
 
 class FightList(QListWidget):
+    """the rail's fights, newest first; picking one shows it (picked)"""
     picked = pyqtSignal(dict)
 
     def __init__(self):
         super().__init__()
         self.fights: list[dict] = []
+        self.setItemDelegate(FightRows(self))
         self.currentRowChanged.connect(self._row)
 
     def set_fights(self, fights: list[dict]):
@@ -59,8 +113,6 @@ class FightList(QListWidget):
         for i, old in enumerate(self.fights):
             if old.get("id") == f.get("id"):
                 self.fights[i] = f
-                it = self.item(i)
-                self.removeItemWidget(it)
                 self.takeItem(i)
                 self._add(f, i)
                 self.setCurrentRow(i)
@@ -76,217 +128,350 @@ class FightList(QListWidget):
 
     def _add(self, f: dict, row: int | None = None):
         it = QListWidgetItem()
-        lbl = QLabel(f"{chip(f['kind'])}&nbsp; <b>{_esc(f['target'])}</b>"
-                     + (f" <span style='color:{theme.DIM.name()}'>+{f['more']}</span>" if f.get("more") else "")
-                     + f"<br><span style='color:{theme.DIM.name()}'>"
-                     + ("no damage" if not f["damage"] and not f.get("healing_role")
-                        else f"{f['dps']:.0f} DPS · {f.get('efficiency', 1):.0%}")
-                     + f" · {_dur(f['duration'])}"
-                     + (f" · <span style='color:{theme.DEATH.name()}'>died</span>" if f.get("result") == "you died" else "")
-                     + "</span>")
-        lbl.setTextFormat(Qt.TextFormat.RichText)
-        lbl.setToolTip(_foes(f))
-        lbl.setContentsMargins(6, 4, 6, 4)
-        lbl.setStyleSheet(f"background: transparent; color: {theme.TEXT.name()};")
-        it.setSizeHint(lbl.sizeHint())
+        row_data = list_row(f)
+        it.setText(row_data[0])          # read out and searched by; painted by FightRows
+        it.setData(ROW, row_data)
+        it.setToolTip(_foes(f))
         if row is None:
             self.addItem(it)
         else:
             self.insertItem(row, it)
-        self.setItemWidget(it, lbl)
 
     def _row(self, row: int):
         if 0 <= row < len(self.fights):
             self.picked.emit(self.fights[row])
 
 
-class StatBox(QFrame):
-    def __init__(self, value: str, label: str):
-        super().__init__()
-        self.setStyleSheet(f"StatBox {{ background: {theme.panel()}; border: 1px solid {theme.EDGE.name()}; "
-                           f"border-radius: 6px; }} QLabel {{ background: transparent; border: 0; }}")
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(14, 8, 14, 8)
-        v = QLabel(value)
-        v.setStyleSheet(f"font-size: 22pt; font-weight: 700; color: {theme.TITLE.name()};")
-        lay.addWidget(v)
-        lay.addWidget(dim_label(label))
-        self.setMinimumWidth(130)
+# ---------------------------------------------------------------------------- the page's parts
+class FightHero(Hero):
+    """the hero, then the fight's kind tag and "1:52 long · they got away" under the verdict"""
 
-
-class FightDetail(QWidget):
     def __init__(self):
         super().__init__()
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        self.scroll = QScrollArea()
-        self.scroll.setWidgetResizable(True)
-        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
-        outer.addWidget(self.scroll)
-        self.body: QWidget | None = None
+        self.kind, self.status = "", ""
+
+    def draw(self, p, w):
+        y = super().draw(p, w) + 12
+        x = draw_tag(p, 0, y + 9, self.kind) + 10 if self.kind else 0
+        f = font(14)
+        line(p, f, tok("tx2"), x, y, 18, elide(f, self.status, max(0.0, w - x)))
+        return y + 18
+
+
+class Losses(BarRows):
+    """Where the damage went: the kit's bar rows under the key figures' rule, the bars as long as the column lets
+    them"""
+    top_rule = False
+    value_w = VALUE_W[0]
+
+    def draw(self, p, w):
+        self.bar_w = max(0.0, w - self.name_w - self.value_w - 18)
+        return super().draw(p, w)
+
+
+def _check(p, x, y):
+    """the drawn check in a 16px box at x, y"""
+    p.save()
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(QPen(tok("m-dmg"), 2.2, cap=Qt.PenCapStyle.RoundCap, join=Qt.PenJoinStyle.RoundJoin))
+    p.drawPolyline(QPolygonF([QPointF(x + 2.5, y + 8.5), QPointF(x + 6.5, y + 12.5), QPointF(x + 13.5, y + 3.5)]))
+    p.restore()
+
+
+class WentWell(Part):
+    """Went well: a check before each, its figures bold; then what else to improve, under "Also", in tx2"""
+
+    def __init__(self):
+        super().__init__()
+        self.good: list[str] = []
+        self.also: list[str] = []
+
+    def set(self, good: list[str], also: list[str]):
+        self.good, self.also = good, also
+        self.changed()
+
+    def draw(self, p, w):
+        y = 14
+        draw_label_tab(p, 0, y, "Went well")
+        y += 25 + 8
+        f, bf, ef = font(15), font(19, 700, num=True), font(11, 600, num=True, spacing=0.14)
+        lines = [(True, s) for s in self.good] + [(False, s) for s in self.also]
+        for k, (good, s) in enumerate(lines):
+            if k:
+                if p:
+                    rule(p, 0, y, w, tok("ln"))
+                y += 1
+            x = 26 if good else 44
+            items = _words(s, f, bf, tok("tx"), tok("tx")) if good else [(word, f, tok("tx2")) for word in s.split()]
+            h = flow(p, items, x, y + 7, w - x, adv(f, " "), 2)
+            if p and good:
+                _check(p, 0, y + 7 + (min(h, 23) - 16) / 2)
+            elif p and k == len(self.good):     # the first of the rest
+                text_at(p, ef, tok("mu"), 0, y + 7 + QFontMetricsF(f).ascent(), "ALSO")     # on flow's baseline
+            y += 7 + h + 7
+        y += 14
+        if p:
+            rule(p, 0, y, w, tok("ln"))
+        return y + 1
+
+
+class GroupShare(Part):
+    """Group: your shares in a sentence, then everyone, most damage first, with a bar for their damage (yours in m-dmg)
+    and their healing muted beside it"""
+
+    def __init__(self):
+        super().__init__()
+        self.rows: list[tuple[str, int, int, bool]] = []
+        self.line = ""
+
+    def set(self, rows: list[tuple[str, int, int, bool]], line_: str):
+        self.rows, self.line = rows, line_
+        self.changed()
+
+    def draw(self, p, w):
+        y = 14
+        draw_label_tab(p, 0, y, "Group")
+        y += 25 + 8
+        f = font(15)
+        y += flow(p, _words(self.line, f, font(15, 600), tok("tx2"), tok("tx")), 0, y, w, adv(f, " "), 6) + 8
+        name_max, col = GROUP_COLS[int(self.narrow)]
+        hf, rf, df = font(11, 600, num=True, spacing=0.12), font(14, 600, num=True), font(17, 700, num=True)
+        hhf = font(17, 600, num=True)
+        if p:
+            for s, right in (("DAMAGE", w - col), ("HEALING", w)):
+                text_at(p, hf, tok("mu"), right - adv(hf, s), baseline(hf, y, 11), s)
+        y += 11 + 4
+        nf, mf = font(14), font(14, 600)
+        bx = 20 + name_max
+        bar_w = max(0.0, w - 2 * col - bx - 12)
+        most = max((dmg for _, dmg, _, _ in self.rows), default=0) or 1
+        for k, (name, dmg, heal, you) in enumerate(self.rows):
+            if p:
+                rule(p, 0, y, w, tok("ln"))
+                top = y + 1 + 6
+                line(p, rf, tok("mu"), 0, top, 20, str(k + 1))
+                line(p, mf if you else nf, tok("tx"), 20, top, 20, elide(mf if you else nf, name, name_max - 8))
+                if dmg:
+                    p.fillRect(QRectF(bx, top + 6, bar_w * dmg / most, 8), tok("m-dmg" if you else "mu"))
+                d = _n(dmg)
+                line(p, df, tok("tx" if dmg else "mu"), w - col - adv(df, d), top, 20, d)
+                h = _n(heal)
+                line(p, hhf, tok("mu"), w - adv(hhf, h), top, 20, h)
+            y += 1 + 6 + 20 + 6
+        return y + 14
+
+
+# ---------------------------------------------------------------------------- the drawer
+def _table(headers: list[str], rows: list[list], right_from: int = 1, stretch: int = 0):
+    """a drawer table, as tall as its rows: the page scrolls, not the table; the stretch column takes what width is
+    left, its text cut short there and whole on hover"""
+    t = table(headers, stretch=stretch)
+    t.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+    t.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    t.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    for r in rows:
+        i = t.rowCount()
+        t.insertRow(i)
+        for c, v in enumerate(r):
+            it = item(v, align_right=c >= right_from)
+            if c == stretch:
+                it.setToolTip(str(v))
+            t.setItem(i, c, it)
+    t.resizeRowsToContents()
+    t.setFixedHeight(t.horizontalHeader().sizeHint().height() + t.verticalHeader().length() + 2 * t.frameWidth())
+    return t
+
+
+def _text(s: str) -> QLabel:
+    lbl = QLabel(s)
+    lbl.setWordWrap(True)
+    return lbl
+
+
+def _details(f: dict) -> list[tuple[str, list[QWidget]]]:
+    """the drawer's sections, (title, widgets): everything the fight's old page listed"""
+    out = []
+    if f.get("abilities"):
+        out.append(("Abilities", [_table(["Ability", "Casts", "Hits", "Crits", "Miss", "Damage", "Avg", "Share"],
+                                         [[a["name"], a["casts"], a["hits"], a["crits"], a["miss"], _n(a["damage"]),
+                                           _n(a["avg"]), f"{a['share']:.0%}"] for a in f["abilities"]])]))
+    if f.get("cooldowns"):
+        rows = []
+        for c in f["cooldowns"]:
+            lost = "held" if c.get("held") else _n(c["lost"])
+            missed = c.get("missed", "-")
+            if "counted" in c and c["missed"] > c["counted"]:
+                missed = f"{c['missed']} ({c['missed'] - c['counted']} excused)"
+            if "free" in c:
+                why = ", ".join(f"{k} {v:.1f}s" for k, v in c.get("excused", {}).items()) or "-"
+                rows.append([c["name"], f"{c['cd']:.1f} s", c["used"], c.get("possible", "-"), missed, why,
+                             f"{c['free']:.1f} s", lost])
+            else:      # saved before ready time was measured
+                rows.append([c["name"], f"{c['cd']:.1f} s", c["used"], "-", "-", "-", "-", lost])
+        out.append(("Cooldowns", [
+            _table(["Spell", "CD", "Used", "Possible", "Missed", "Excused", "Free", "Lost"], rows, stretch=5),
+            dim_label("Possible: the casts that would have fit if you cast it each time it came up. Missed: the ones "
+                      "you didn't make (those that sat ready under 2 s with no excuse are marked excused). Excused: "
+                      "ready time with a good reason. Free: the rest, when you could have cast it - only that counts "
+                      "as lost damage. Cooldowns of a minute or more only count on bosses (held: saved for one). "
+                      "Cooldowns are learned from your casts and get more exact the more you play.")]))
+    if f.get("auto"):
+        a = f["auto"]
+        out.append(("Auto attacks", [_text(f"{a['swings']} swings every {a['speed']:.1f} s; {a['lost']} lost "
+                                           f"({a['lost_casting']} while casting, {a['lost_other']} other), about "
+                                           f"{_n(a['damage_lost'])} damage.")]))
+    if f.get("buffs"):
+        out.append(("Your buffs", [_table(["Name", "Uptime"],
+                                          [[b["name"], f"{b['uptime']:.0%}"] for b in f["buffs"]])]))
+    if f.get("failed"):
+        out.append(("Failed casts", [_table(["Spell", "Reason", "Count"],
+                                            [[x["spell"], x["reason"], x["count"]] for x in f["failed"]], 2)]))
+    idle = f.get("idle") or {}
+    out.append(("Idle time", [_text(
+        f"{idle.get('total', 0):.1f} s idle (gaps of 2.5 s or more with nothing cast): "
+        f"{idle.get('with_resource', 0):.1f} s free, {idle.get('moving', 0):.1f} s moving, stunned or with nothing to "
+        f"hit, {idle.get('out_of_resource', 0):.1f} s out of resource. "
+        + ("You have no filler spell to press between cooldowns, so idle time isn't counted."
+           if idle.get("filler") is False else "Only the free part counts."))]))
+    res = f.get("resource") or {}
+    parts = ([f"Started {res['start']:.0%}"] if res.get("start") is not None else []) + \
+        ([f"ended {res['end']:.0%}"] if res.get("end") is not None else []) + \
+        ([f"started at {res['start_hp']:.0%} health"] if res.get("start_hp") is not None else [])
+    out.append(("Resource", [_text(", ".join(parts) + "." if parts else
+                                   "Not known (needs Advanced Combat Logging).")]))
+    pull = f.get("pull") or {}
+    since = pull.get("since_last")
+    txt = f"{since:.0f} s since the last fight" if since is not None else "First fight since the log started"
+    if pull.get("buffs"):
+        txt += ". Buffs at pull: " + ", ".join(pull["buffs"][:8])
+    out.append(("Pull", [_text(txt + ".")]))
+    if _foes(f):
+        out.append(("Enemies", [_text(_foes(f))]))
+    if f.get("danger"):
+        d = f["danger"]
+        lines = [f"Lowest health {d['hp']:.0%}, at {fmt_time(d['t'])}."]
+        lines += [f"{h['who']}: {h['spell']} for {_n(h['amount'])}" for h in d["hits"]]
+        lines += [f"Ready and unused: {', '.join(d['unused'])}"] if d.get("unused") else []
+        out.append(("Danger", [_text("\n".join(lines))]))
+    if f.get("best_before"):
+        out.append(("Your best on this target", [_text(f"{f['best_before']:.0f} DPS before "
+                                                       f"({f['dps'] - f['best_before']:+.0f} now)")]))
+    return out
+
+
+# ---------------------------------------------------------------------------- the page
+class FightDetail(QScrollArea):
+    """the Fights page: one fight, scrolling when the window is small or the drawer is open"""
+    show_me = pyqtSignal(float, float)    # "Show on the timeline": the loaded run's Timeline tab, zoomed to the fight
+
+    def __init__(self):
+        super().__init__()
+        self.span: tuple[float, float] | None = None
+        self.narrow = None
+        self.page = Sheet()
+        self.hero, self.plate = FightHero(), Plate("Biggest gap")
+        self.plate.clicked.connect(lambda: self.span and self.show_me.emit(*self.span))
+        self.figures, self.where = KeyFigures(), Losses("Where the damage went")
+        self.where.setToolTip(COUNTED)
+        self.details = QWidget()
+        self.details_lay = QVBoxLayout(self.details)
+        self.details_lay.setContentsMargins(0, 0, 0, 12)
+        self.details_lay.setSpacing(0)
+        self.drawer = Drawer("Abilities", self.details)
+        self.fold = Fold(self.drawer, last=True)
+        self.well, self.share = WentWell(), GroupShare()
+        self.empty = dim_label(NO_FIGHTS)
+        self.empty.setContentsMargins(0, 14, 0, 0)
+
+        self.hero_row = QHBoxLayout()
+        self.hero_row.setContentsMargins(0, 14, 0, 18)
+        self.hero_row.addWidget(self.hero, 0, Qt.AlignmentFlag.AlignTop)
+        self.hero_row.addWidget(self.plate, 1, Qt.AlignmentFlag.AlignTop)
+        self.hero_row.addStretch(0)      # the plate hidden: the hero keeps its column on the left
+        left = QVBoxLayout()
+        left.setContentsMargins(0, 0, 28, 0)
+        left.setSpacing(0)
+        left.addWidget(self.empty)
+        left.addLayout(self.hero_row)
+        for wd in (self.figures, self.where, self.fold):
+            left.addWidget(wd)
+        left.addStretch(1)
+        self.side = Side()
+        sl = QVBoxLayout(self.side)
+        sl.setContentsMargins(28, 4, 0, 0)
+        sl.setSpacing(0)
+        sl.addWidget(self.well)
+        sl.addWidget(self.share)
+        sl.addStretch(1)
+        cols = QHBoxLayout()
+        cols.setSpacing(0)
+        cols.addLayout(left, 1)
+        cols.addWidget(self.side)
+        lay = QVBoxLayout(self.page)
+        lay.setContentsMargins(16, 4, 16, 16)
+        lay.setSpacing(0)
+        lay.addSpacing(HEAD_H)
+        lay.addLayout(cols, 1)
+        self.setWidget(self.page)
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self._fit()
         self.show_fight(None)
 
-    def _section(self, lay, title: str):
-        lbl = QLabel(title.upper())
-        lbl.setStyleSheet(f"color: {theme.ACCENT.name()}; font-weight: 700; letter-spacing: 1px; margin-top: 10px;")
-        lay.addWidget(lbl)
-
-    def _table(self, lay, headers: list[str], rows: list[list], right_from: int = 1):
-        t = table(headers, stretch=0)
-        t.setSelectionMode(t.SelectionMode.NoSelection)
-        for r in rows:
-            i = t.rowCount()
-            t.insertRow(i)
-            for c, v in enumerate(r):
-                t.setItem(i, c, item(v, align_right=c >= right_from))
-        t.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        t.setFixedHeight(t.horizontalHeader().height() + 4 + sum(t.rowHeight(i) for i in range(t.rowCount())))
-        lay.addWidget(t)
-
-    def show_fight(self, f: dict | None):
-        body = QWidget()
-        lay = QVBoxLayout(body)
-        lay.setContentsMargins(12, 10, 16, 16)
-        self.scroll.setWidget(body)
-        self.body = body
-        if not f:
-            lay.addWidget(dim_label("No fights yet. Turn on the combat log in game (/combatlog) and fight something: "
-                                    "each fight shows up here (and on the overlay) a few seconds after it ends."))
-            lay.addStretch(1)
+    def show_fight(self, f: dict | None, span: tuple[float, float] | None = None):
+        """f: a live fight (None: none yet); span: where it is on the loaded run's timeline, for the plate's Show on
+        the timeline (None: it isn't in that run, so no button)"""
+        self.span = span
+        while (it := self.details_lay.takeAt(0)) is not None:
+            if it.widget():
+                it.widget().setParent(None)
+        self.empty.setVisible(f is None)
+        for wd in (self.hero, self.plate, self.figures, self.where, self.fold, self.side):
+            wd.setVisible(f is not None)
+        if f is None:
+            self.page.title, self.page.sub = "Fights", ""
+            self.page.update()
             return
-        when = datetime.fromisoformat(f["start"])
-        head = QLabel(f"{chip(f['kind'])}&nbsp; <span style='font-family:\"{theme.TITLE_FONT}\"; font-size:17pt; "
-                      f"font-weight:700; color:{theme.TITLE.name()}'>{_esc(f['target'])}</span>"
-                      + (f" <span style='color:{theme.DIM.name()}'>+{f['more']} more</span>"
-                         if f.get("more") and not f.get("foes") else ""))
-        head.setTextFormat(Qt.TextFormat.RichText)
-        lay.addWidget(head)
-        if _foes(f):
-            lay.addWidget(dim_label("Enemies: " + _foes(f)))
-        lay.addWidget(dim_label(f"{when:%a %d %b %H:%M:%S} · {f.get('zone') or '?'} · {f['result']}"))
-        if f.get("verdict"):
-            v = QLabel(f"<span style='font-size:13pt'>{_esc(f['verdict'])}</span>")
-            v.setTextFormat(Qt.TextFormat.RichText)
-            lay.addWidget(v)
-        boxes = QGridLayout()
-        boxes.setSpacing(10)
-        stats = [(_dur(f["duration"]), "Duration"), (_n(f["damage"]), "Damage"), (f"{f['dps']:.0f}", "DPS"),
-                 (_n(f["taken"]), "Taken"), (_n(f["healing"]), "Healing")]
-        for i, (v, label) in enumerate(stats):
-            boxes.addWidget(StatBox(v, label), 0, i)
-        boxes.setColumnStretch(len(stats), 1)
-        lay.addLayout(boxes)
-        left = (f.get("potential") or f["damage"]) - f["damage"]
-        if f.get("healing_role"):
-            lbl = QLabel(f"<span style='font-size:13pt'>Mostly healing this fight</span> "
-                         f"<span style='color:{theme.DIM.name()}'>(damage you didn't do isn't counted)</span>")
-        elif not f["damage"]:
-            lbl = QLabel("<span style='font-size:13pt'>No damage done this fight</span>")
-        elif left >= 1:
-            lbl = QLabel(f"<span style='font-size:13pt'>Damage left on the table: about {_n(left)}</span> "
-                         f"<span style='color:{theme.DIM.name()}'>estimate - only time you were free to act</span>")
-        else:
-            lbl = QLabel("<span style='font-size:13pt'>Nothing left on the table</span>")
-        lbl.setTextFormat(Qt.TextFormat.RichText)
-        lbl.setToolTip("Cooldowns that sat ready while you were free (not moving for cast-time spells, not out of "
-                       "mana, not stunned, the target not nearly dead, nobody low while you heal), melee swings "
-                       "lost while not casting, and idle time while standing with resource to spare (half counted).")
-        lay.addWidget(lbl)
-        g = f.get("group")
-        if g and g.get("size", 1) > 1:
-            self._section(lay, "Group")
-            rows = [[m["name"], _n(m["damage"]), _n(m["healing"])] for m in g["members"]]
-            rows.insert(0, ["You", _n(f["damage"]), _n(f["healing"])])
-            self._table(lay, ["Player", "Damage", "Healing"], sorted(rows, key=lambda r: -float(r[1].replace(",", ""))))
-            line = (f"You did {g['damage_share']:.0%} of the damage ({g['damage_rank']} of {g['size']}) and "
-                    f"{g['heal_share']:.0%} of the healing.")
-            if g.get("deaths"):
-                line += " Died: " + ", ".join(g["deaths"]) + "."
-            lay.addWidget(QLabel(line))
-        if f.get("best_before"):
-            diff = f["dps"] - f["best_before"]
-            lay.addWidget(QLabel(f"Best previous on this target: {f['best_before']:.0f} DPS ({diff:+.0f} now)"))
-        if f.get("danger"):
-            d = f["danger"]
-            box = QFrame()
-            box.setStyleSheet("QFrame { background: rgba(70, 12, 12, 200); border: 2px solid #c03030; "
-                              "border-radius: 6px; } QLabel { background: transparent; border: 0; }")
-            bl = QVBoxLayout(box)
-            hits = "".join(f"<li>{_esc(h['who'])}: {_esc(h['spell'])} for {_n(h['amount'])}</li>" for h in d["hits"])
-            t = QLabel(f"<b style='color:#ff7070; font-size:12pt'>DANGER AT {_dur(d['t'])}</b><br><br>"
-                       f"Lowest health {d['hp']:.0%}<ul style='margin-left:-20px'>{hits}</ul>"
-                       + (f"Ready and unused: {_esc(', '.join(d['unused']))}" if d.get("unused") else ""))
-            t.setTextFormat(Qt.TextFormat.RichText)
-            bl.addWidget(t)
-            lay.addWidget(box)
-        if f.get("good") or f.get("improve"):
-            self._section(lay, "Top findings")
-            for g in f.get("good", []):
-                lay.addWidget(QLabel(f"<span style='color:#50dc78'>✔</span> {_esc(g)}"))
-            for g in f.get("improve", []):
-                lay.addWidget(QLabel(f"<span style='color:#f0a040'>▲</span> {_esc(g)}"))
-        if f.get("abilities"):
-            self._section(lay, "Abilities")
-            self._table(lay, ["Ability", "Casts", "Hits", "Crits", "Miss", "Damage", "Avg", "Share"],
-                        [[a["name"], a["casts"], a["hits"], a["crits"], a["miss"], _n(a["damage"]),
-                          _n(a["avg"]), f"{a['share']:.0%}"] for a in f["abilities"]])
-        if f.get("cooldowns"):
-            self._section(lay, "Cooldowns")
-            rows = []
-            for c in f["cooldowns"]:
-                lost = "held" if c.get("held") else _n(c["lost"])
-                missed = c.get("missed", "-")
-                if "counted" in c and c["missed"] > c["counted"]:
-                    missed = f"{c['missed']} ({c['missed'] - c['counted']} excused)"
-                if "free" in c:
-                    why = ", ".join(f"{k} {v:.1f}s" for k, v in c.get("excused", {}).items()) or "-"
-                    rows.append([c["name"], f"{c['cd']:.1f} s", c["used"], c.get("possible", "-"),
-                                 missed, why, f"{c['free']:.1f} s", lost])
-                else:      # saved before ready time was measured
-                    rows.append([c["name"], f"{c['cd']:.1f} s", c["used"], "-", "-", "-", "-", lost])
-            self._table(lay, ["Spell", "CD", "Used", "Possible", "Missed", "Excused", "Free", "Lost"], rows)
-            lay.addWidget(dim_label("Possible: the casts that would have fit if you cast it each time it came up. "
-                                    "Missed: the ones you didn't make (those that sat ready under 2 s with no excuse are marked excused). Excused: ready time with a good reason. Free: "
-                                    "the rest, when you could have cast it - only that counts as lost damage. "
-                                    "Cooldowns of a minute or more only count on bosses (held: saved for one). "
-                                    "Cooldowns are learned from your casts and get more exact the more you play."))
-        if f.get("auto"):
-            a = f["auto"]
-            self._section(lay, "Auto attacks")
-            lay.addWidget(QLabel(f"{a['swings']} swings every {a['speed']:.1f} s; {a['lost']} lost "
-                                 f"({a['lost_casting']} while casting, {a['lost_other']} other), about "
-                                 f"{_n(a['damage_lost'])} damage."))
-        if f.get("buffs"):
-            self._section(lay, "Your buffs")
-            self._table(lay, ["Name", "Uptime"], [[b["name"], f"{b['uptime']:.0%}"] for b in f["buffs"]])
-        if f.get("failed"):
-            self._section(lay, "Failed casts")
-            self._table(lay, ["Spell", "Reason", "Count"], [[x["spell"], x["reason"], x["count"]] for x in f["failed"]],
-                        right_from=2)
-        idle = f.get("idle") or {}
-        self._section(lay, "Idle time")
-        lay.addWidget(QLabel(f"{idle.get('total', 0):.1f} s idle (gaps of 2.5 s or more with nothing cast): "
-                             f"{idle.get('with_resource', 0):.1f} s free, {idle.get('moving', 0):.1f} s moving, "
-                             f"stunned or with nothing to hit, {idle.get('out_of_resource', 0):.1f} s out of resource. "
-                             + ("You have no filler spell to press between cooldowns, so idle time isn't counted."
-                                if idle.get("filler") is False else "Only the free part counts.")))
-        res = f.get("resource") or {}
-        self._section(lay, "Resource")
-        parts = []
-        if res.get("start") is not None:
-            parts.append(f"Started {res['start']:.0%}")
-        if res.get("end") is not None:
-            parts.append(f"ended {res['end']:.0%}")
-        if res.get("start_hp") is not None:
-            parts.append(f"started at {res['start_hp']:.0%} health")
-        lay.addWidget(QLabel(", ".join(parts) + "." if parts else "Not known (needs Advanced Combat Logging)."))
-        pull = f.get("pull") or {}
-        self._section(lay, "Pull")
-        since = pull.get("since_last")
-        txt = f"{since:.0f} s since the last fight" if since is not None else "First fight since the log started"
-        if pull.get("buffs"):
-            txt += ". Buffs at pull: " + ", ".join(pull["buffs"][:8])
-        lay.addWidget(QLabel(txt + "."))
-        lay.addStretch(1)
-        for lbl in body.findChildren(QLabel):
-            lbl.setWordWrap(True)
+        v = build_fight(f)
+        self.page.title, self.page.sub = v.name, " · ".join(s for s in (v.when, v.zone) if s)
+        self.hero.bar = None if v.efficiency is None else (v.efficiency, "m-cd")
+        self.hero.kind, self.hero.status = v.kind, f"{v.duration} long · {v.result}"
+        self.hero.set(v.big, v.unit, v.caption, None, v.verdict)
+        title, price = v.gap or ("", None)
+        self.plate.set(title, price, "damage" if v.gap else None, "Show on the timeline" if span else None, [])
+        self.plate.setVisible(v.gap is not None)
+        self.figures.set(v.figures)
+        most = max((dmg for *_, dmg in v.rows), default=0) or 1
+        self.where.set([BarRow(label, f"≈{_n(dmg)}", dmg / most, "m-cd" if label.endswith(" sat ready") else "m-act",
+                               detail or None) for label, detail, dmg in v.rows],
+                       None if v.left_on_table is None else (LEFT, f"≈{_n(v.left_on_table)}"))
+        self.where.setVisible(bool(v.rows))
+        self.drawer.set_count(len(v.abilities))
+        for title_, widgets in _details(f):
+            self.details_lay.addWidget(SectionHead(title_))
+            for wd in widgets:
+                self.details_lay.addWidget(wd)
+        self.well.set(v.went_well, v.also)
+        self.well.setVisible(bool(v.went_well or v.also))
+        self.share.set(v.group or [], v.group_line or "")
+        self.share.setVisible(v.group is not None)
+        self.page.update()
+
+    def resizeEvent(self, ev):
+        self._fit()
+        super().resizeEvent(ev)
+
+    def _fit(self):
+        """the mock-up's narrow hero, plate price, rows and columns below a 1420px window"""
+        narrow = self.window().width() < NARROW
+        if narrow == self.narrow:
+            return
+        self.narrow, k = narrow, int(narrow)
+        self.hero.setFixedWidth(HERO_W[k])
+        self.hero_row.setSpacing(22 if narrow else 28)
+        self.side.setFixedWidth(SIDE_W[k] + 28)
+        self.plate.price_px = PRICE_PX[k]
+        self.where.name_w, self.where.value_w = NAME_W[k], VALUE_W[k]
+        for part in (self.hero, self.plate, self.where, self.share):
+            part.narrow = narrow
+            part.changed()

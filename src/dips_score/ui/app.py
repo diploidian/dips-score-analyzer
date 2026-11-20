@@ -21,6 +21,7 @@ from .. import analysis
 from ..analysis import Analysis
 from ..config import Paths
 from ..debrief import DebriefView
+from ..fight_view import run_window
 from ..model.roster import Overrides
 from ..scoring.classes import load_upkeep
 from ..scoring.score import load_weights
@@ -175,7 +176,8 @@ class Window(QMainWindow):
         self.stack.addWidget(self.fight_detail)          # 2
         self.habits_page = HabitsPage()
         self.stack.addWidget(self.habits_page)           # 3
-        self.fight_list.picked.connect(self.fight_detail.show_fight)
+        self.fight_list.picked.connect(self._show_fight)
+        self.fight_detail.show_me.connect(self._fight_on_timeline)     # Show on the timeline (R7: the loaded run)
         self.fight_list.itemClicked.connect(lambda _i: self._mode("fights") if self.mode_habits.isChecked() else None)
         rw = QWidget()
         rl = QVBoxLayout(rw)
@@ -370,12 +372,29 @@ class Window(QMainWindow):
             self.stack.setCurrentIndex(2)
             if self.fight_list.currentRow() < 0 and self.fight_list.count():
                 self.fight_list.setCurrentRow(0)
-            elif not self.fight_list.count():
-                self.fight_detail.show_fight(None)
+            else:      # shown again, against the run loaded now
+                self._show_fight(self._fight())
         elif self.tree.currentItem() is None:
             self.stack.setCurrentIndex(0)      # no runs yet: _picked would return early and leave the old page
         else:
             self._picked(self.tree.currentItem())
+
+    def _fight(self) -> dict | None:
+        """the fight picked in the list"""
+        row = self.fight_list.currentRow()
+        return self.fight_list.fights[row] if row >= 0 else None
+
+    def _show_fight(self, f: dict | None):
+        """a live fight on its page, with Show on the timeline only when it falls inside the loaded run (R7)"""
+        d = self.current.data if self.current else None
+        self.fight_detail.show_fight(f, run_window(f, d.start, d.duration) if f and d else None)
+
+    def _fight_on_timeline(self, start: float, end: float):
+        """a live fight's Show on the timeline: the loaded run's Timeline tab (the fight is inside it), zoomed to it"""
+        self._open_run_id(self.current.data.run.id)      # in Fights mode the tree only takes the pick
+        self._mode("dungeons")                           # which shows the run's tabs again
+        self.stack.setCurrentIndex(1)
+        self.show_on_timeline(start, end)
 
     def _show_habits(self):
         h = self.live.history
@@ -439,8 +458,7 @@ class Window(QMainWindow):
         if self.stack.currentIndex() == 3:
             self._show_habits()
         elif self.stack.currentIndex() == 2:
-            self.fight_detail.show_fight(self.fight_list.fights[self.fight_list.currentRow()]
-                                         if self.fight_list.currentRow() >= 0 else None)
+            self._show_fight(self._fight())
         elif self.stack.currentIndex() == 1 and self.current:
             self._show_run(self.current.data.run)
             self.tabs.setCurrentIndex(tab)

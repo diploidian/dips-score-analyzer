@@ -6,7 +6,9 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -60,6 +62,38 @@ class ShellTests(unittest.TestCase):
             self.assertIs(tabs.currentWidget(), w.timeline_tab)
             self.assertEqual((w.timeline.v0, w.timeline.v1), (1184.9, 1209.9))
             w.live.timer.stop()
+
+    def test_live_fight_shows_on_the_loaded_run(self):
+        """R7: a live fight's Show on the timeline is there only when the fight falls inside the loaded run, and
+        goes to that run's Timeline tab, zoomed to the fight"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        fight = {"start": "2026-11-18T23:38:49.824000", "duration": 112.458, "damage": 2583, "dps": 23.0,
+                 "taken": 433, "healing": 53, "result": "they got away", "kind": "PvP", "target": "Blackfathom Oracle",
+                 "auto": {"swings": 13, "speed": 3.4, "lost": 12, "lost_casting": 0, "lost_other": 12,
+                          "damage_lost": 1537.8}}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            w.fight_list.set_fights([fight])
+            w._mode("fights")                           # no run loaded: no button
+            self.assertEqual(w.stack.currentIndex(), 2)
+            self.assertFalse(w.fight_detail.plate.has_button)
+            w.current = SimpleNamespace(data=SimpleNamespace(run=SimpleNamespace(id="r7"),
+                                                             start=datetime(2026, 11, 18, 23, 37), duration=600.0))
+            w._mode("fights")                           # coming back re-shows the fight against the loaded run
+            self.assertTrue(w.fight_detail.plate.has_button)
+            w.fight_detail.plate.button.click()
+            self.assertTrue(w.mode_dungeons.isChecked())
+            self.assertEqual(w.stack.currentIndex(), 1)
+            self.assertIs(w.tabs.currentWidget(), w.timeline_tab)
+            self.assertEqual((round(w.timeline.v0, 3), round(w.timeline.v1, 3)), (106.824, 225.282))
+            w.current.data.duration = 200.0             # the run ended mid-fight: no button
+            w._mode("fights")
+            self.assertFalse(w.fight_detail.plate.has_button)
 
 
 if __name__ == "__main__":

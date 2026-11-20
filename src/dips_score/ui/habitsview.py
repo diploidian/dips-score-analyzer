@@ -6,7 +6,6 @@ from PyQt6.QtGui import QFont, QPainter, QPen, QPolygonF
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from . import theme
-from .fightsview import StatBox
 from .overlay import _esc
 from .pages import dim_label
 
@@ -14,6 +13,21 @@ EDGE = {"keep": "#50dc78", "fix": "#f0a040", "build": "#5aa0f0"}
 
 
 TREND_MIN = 5            # points needed to draw the trend chart
+
+
+class StatBox(QFrame):
+    """moved here from the old Fights page, its last user until this page is redesigned"""
+    def __init__(self, value: str, label: str):
+        super().__init__()
+        self.setStyleSheet(f"StatBox {{ background: {theme.panel()}; border: 1px solid {theme.EDGE.name()}; "
+                           f"border-radius: 6px; }} QLabel {{ background: transparent; border: 0; }}")
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(14, 8, 14, 8)
+        v = QLabel(value)
+        v.setStyleSheet(f"font-size: 22pt; font-weight: 700; color: {theme.TITLE.name()};")
+        lay.addWidget(v)
+        lay.addWidget(dim_label(label))
+        self.setMinimumWidth(130)
 
 
 def _fmt(v, spec: str = ".0f", unit: str = "") -> str:

@@ -2,6 +2,7 @@
 Needs PyQt6, so it is skipped on a Python without it:
 PYTHONPATH=<folder with PyQt6> python -m unittest discover -s tests"""
 import importlib.util
+import math
 import os
 import sys
 import unittest
@@ -56,6 +57,9 @@ class KitTests(unittest.TestCase):
         plate.button.click()
         self.assertEqual(got, [1])
         self.paints(plate)
+        h = plate.heightForWidth(400)
+        plate.price_px = 46                  # the fight page's bigger price
+        self.assertGreater(plate.heightForWidth(400), h)
 
     def test_hero_caption_and_chip_take_room(self):
         from dips_score.ui.kit import Hero
@@ -66,6 +70,11 @@ class KitTests(unittest.TestCase):
         self.assertGreater(hero.heightForWidth(280), bare)
         self.paints(hero)
         hero.set("95", "S", None, "+6 vs last visit", "Every boss 90 or better.")
+        self.paints(hero)
+        hero.set("49", "%", "of the damage that was possible", None, "12 swings lost.")
+        bare = hero.heightForWidth(330)
+        hero.bar = (0.49, "m-cd")            # the bullet bar and its CLEAN tick, under the caption
+        self.assertEqual(hero.heightForWidth(330), bare + 4 + 38)
         self.paints(hero)
 
     def test_bar_rows_key_figures_and_tag_paint(self):
@@ -89,6 +98,12 @@ class KitTests(unittest.TestCase):
         t = tag("PvP")
         self.assertEqual((t.text(), t.sizeHint().height()), ("PvP", 18))
         self.paints(t)
+        from dips_score.ui.kit import draw_tag
+        self.assertEqual(math.ceil(draw_tag(None, 0, 9, "PvP")), t.sizeHint().width())   # painted, as tag() is
+        h = rows.heightForWidth(500)
+        rows.top_rule = False                # under a part that ends on a rule: same height, no rule of its own
+        self.assertEqual(rows.heightForWidth(500), h)
+        self.paints(rows)
 
 
 if __name__ == "__main__":

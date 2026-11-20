@@ -271,6 +271,7 @@ class Hero(Part):
         super().__init__()
         self.big, self.suffix, self.caption, self.chip, self.verdict = "–", None, None, None, ""
         self.unit = (64, 54, 700, 6, 2)     # a unit's px (narrow px), weight, and dx, dy from the number's top right
+        self.bar: tuple[float, str] | None = None     # a bullet bar under the caption: its share (0..1) and ink
 
     def set(self, big: str, suffix: str | None, caption: str | None, chip: str | None, verdict: str):
         """suffix: a grade letter (boxed) or a unit ("%", "K", "pulls"); chip: a change, "−…" in gD, else gS"""
@@ -302,6 +303,8 @@ class Hero(Part):
         y = top + lh + 16
         if self.caption:
             y += wrapped(p, font(14), tok("mu"), 0, y, w, 14 * 1.4, self.caption) + 8
+        if self.bar is not None:
+            y = self._bar(p, w, y + 4)
         if self.chip:
             cf, ch = font(14, 600, num=True), 14 * 1.2 + 6
             if p:
@@ -310,6 +313,18 @@ class Hero(Part):
                 line(p, cf, ink, 9, y + 3, 14 * 1.2, self.chip)
             y += ch + 8
         return y + wrapped(p, font(15), tok("tx2"), 0, y, w, 21, self.verdict)
+
+    def _bar(self, p, w, y) -> float:
+        """the bullet bar from y: 10px on track, filled to its share, the 2px tx tick at 90% overhanging 4px with
+        CLEAN under it; returns where the verdict starts"""
+        if p:
+            share, ink = self.bar
+            p.fillRect(QRectF(0, y, w, 10), tok("track"))
+            p.fillRect(QRectF(0, y, w * min(1.0, share) * bar_fraction(self.p, 0), 10), tok(ink))
+            p.fillRect(QRectF(round(w * 0.9), y - 4, 2, 18), tok("tx"))
+            f = font(11, 600, num=True, spacing=0.12)
+            line(p, f, tok("mu"), w * 0.9 - adv(f, "CLEAN") / 2, y + 10 + 6, 12, "CLEAN")
+        return y + 10 + 6 + 12 + 10
 
 
 class Plate(Part):
@@ -328,6 +343,7 @@ class Plate(Part):
         self.button.clicked.connect(self.clicked)
         self.has_button = False
         self.wrap = True           # the rows wrap; the page sets False when that wouldn't fit its height
+        self.price_px = 32         # the price's size (the fight page's is 46)
         self.button_y = self.next_y = 0.0
 
     def set(self, title: str, price: str | None, caption: str | None, button: str | None,
@@ -374,7 +390,7 @@ class Plate(Part):
         y += wrapped(p, font(tpx, 600, num=True), tok("plate-tx"), x, y, cw, tpx * 1.15, self.title) + 8
         if self.body:
             y += wrapped(p, font(14), tok("plate-mu"), x, y, cw, 14 * 1.45, self.body) + 4
-        price = [(self.price, font(32, 700, num=True), tok("plate-ac"))] if self.price else []
+        price = [(self.price, font(self.price_px, 700, num=True), tok("plate-ac"))] if self.price else []
         price += [(s, font(13), tok("plate-mu")) for s in (self.caption or "").split(" · ") if s]
         if price:
             y += flow(p, price, x, y, cw, 12 if n else 18, 2)
@@ -416,6 +432,7 @@ class BarRows(Part):
     """a section of ranked rows: a rule, its label tab, then a ruled row each (name, a bar sized by impact in
     the row's ink, the value on the right), and an optional total under a heavy rule"""
     name_w, bar_w = 120, 220     # where the bars start, and the longest one
+    top_rule = True              # the rule above the tab (off under a part that ends on one)
 
     def __init__(self, title: str = ""):
         super().__init__()
@@ -429,7 +446,7 @@ class BarRows(Part):
         self.changed()
 
     def draw(self, p, w):
-        if p:
+        if p and self.top_rule:
             rule(p, 0, 0, w, tok("ln"))
         y = 1 + 12
         draw_label_tab(p, 0, y, self.title)
@@ -584,3 +601,13 @@ class _Tag(QLabel):
 def tag(text: str) -> QLabel:
     """a kind tag (Boss, Dungeon, PvP, Trash): tracked capitals in mu, in a 1px ln frame"""
     return _Tag(text)
+
+
+def draw_tag(p, x: float, mid: float, text: str, ink: QColor | None = None) -> float:
+    """a kind tag painted as tag() draws it, centred on mid (ink: its text's, default mu); returns its width"""
+    f, s = font(11, 600, num=True, spacing=0.14), text.upper()
+    w = adv(f, s) + 14
+    if p:
+        box(p, QRectF(x, mid - 9, w, 18), tok("ln"))
+        line(p, f, ink or tok("mu"), x + 7, mid - 5, 11, s)
+    return w
