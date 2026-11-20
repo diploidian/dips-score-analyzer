@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from dips_score.debrief import FightCell  # noqa: E402
 from dips_score.timeline_view import (fight_verdict, fight_window, idle_moments, idle_view, option_text,  # noqa: E402
-                                      scope_for, step)
+                                      scope_for, step, with_fight)
 
 HAVE_QT = importlib.util.find_spec("PyQt6") is not None
 
@@ -28,6 +28,10 @@ CELLS = [FightCell(5, "4:47", "Trash", 83, "A", False, False, 287.878, 336.728),
          FightCell(7, "8:46", "Trash", 78, "B", False, False, 526.291, 586.197)]
 SPANS = [(c.start, c.end) for c in CELLS]
 FIGHT_625 = SPANS[1]
+# the same three fights' own gaps, as each fight's card (fr.metrics.idle_gaps) counts them: 4:47's starts later than
+# the whole run's (its swing speed is measured over the fight alone)
+OWN = [[(323.238, 328.871)], [(410.799, 421.359), (422.859, 428.129)],
+       [(527.77, 530.515), (532.015, 535.38), (576.19, 584.189)]]
 
 
 class TimelineViewTests(unittest.TestCase):
@@ -70,6 +74,13 @@ class TimelineViewTests(unittest.TestCase):
         self.assertEqual(scope_for(SPANS, DURATION, (380.0, 520.0)), (380.0, 520.0))  # well past the fight: custom
         self.assertEqual(scope_for([], 0.0, (385.0, 480.0)), (385.0, 480.0))         # no run
 
+    def test_with_fight(self):
+        merged = with_fight(IDLE, SPANS[0], OWN[0])         # 4:47's own gap in place of the run's
+        self.assertIn((323.238, 328.871), merged)
+        self.assertNotIn((322.419, 328.871), merged)
+        self.assertEqual(len(merged), len(IDLE))
+        self.assertEqual(with_fight([], SPANS[0], []), [])
+
     def test_fight_window_and_step(self):
         self.assertEqual(fight_window(100.0, 110.0), (97.0, 113.0))                 # at least 3 s
         a, b = fight_window(*FIGHT_625)
@@ -100,7 +111,7 @@ class TimelineTabTests(unittest.TestCase):
         from dips_score.ui.timelinetab import TimelineTab
         tab = TimelineTab()
         tab.resize(1300, 900)
-        tab.timeline.set_data(Data(role="dps", duration=DURATION, idle=IDLE))
+        tab.timeline.set_data(Data(role="dps", duration=DURATION, idle=IDLE, fight_idle=OWN))
         tab.show_run("Blackfathom Deeps", "Wed 18 Nov 22:27 · 69:45 long", CELLS, DURATION, "32:57", "75 B")
         return tab
 
@@ -124,7 +135,7 @@ class TimelineTabTests(unittest.TestCase):
         self.assertEqual(([r.name for r in tab.list.rows], tab.list.title),
                          (["6:50", "7:02"], "Idle moments, longest first"))
         tab.plate.button.click()                         # Next idle moment: zooms in the tab, the fight stays picked
-        self.assertEqual((round(t.v0, 3), round(t.v1, 3)), (407.798, 424.359))     # the longest, 3 s either side
+        self.assertEqual((round(t.v0, 3), round(t.v1, 3)), (407.799, 424.359))     # the longest, 3 s either side
         tab.plate.button.click()
         self.assertEqual((round(t.v0, 3), round(t.v1, 3)), (419.859, 431.129))
         self.assertEqual(tab.pick.currentIndex(), 2)
@@ -143,6 +154,26 @@ class TimelineTabTests(unittest.TestCase):
         self.assertEqual((tab.pick.currentIndex(), tab.scope), (0, None))
         self.assertLess(t.v0, 0)
         self.assertFalse(tab.grab().isNull())
+
+    def test_a_fight_speaks_with_its_own_card(self):
+        """a fight picked: its own card's gaps (as its Debrief scores them) for the figures, list and washes; the
+        whole run and custom views keep the run's"""
+        tab = self.tab()
+        t = tab.timeline
+        self.assertEqual(t.idle, IDLE)
+        tab.pick.setCurrentIndex(1)                      # 4:47: its card says "longest 5.6s"
+        self.assertEqual((tab.plate.title, tab.hero.big), ("Longest idle: 5.6 s at 5:23", "6"))
+        self.assertEqual([r.value_text for r in tab.list.rows], ["5.6 s"])
+        self.assertIn((323.238, 328.871), t.idle)
+        self.assertNotIn((322.419, 328.871), t.idle)
+        tab.follow(300.0, 340.0)                         # a custom view over the same gap: the run's
+        self.assertEqual(tab.plate.title, "Longest idle: 6.5 s at 5:22")
+        self.assertEqual(t.idle, IDLE)
+        tab.pick.setCurrentIndex(2)                      # 6:25: the same either way
+        self.assertEqual((tab.plate.title, tab.hero.big), ("Longest idle: 10.6 s at 6:50", "16"))
+        tab.whole.click()
+        self.assertEqual((t.idle, tab.hero.verdict),
+                         (IDLE, "Idle 25 times for 2.5 s or more — longest 10.9 s at 29:17."))
 
     def test_a_redraw_keeps_the_fight(self):
         tab = self.tab()

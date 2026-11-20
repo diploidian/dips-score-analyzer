@@ -57,6 +57,13 @@ def idle_view(idle: list[tuple[float, float]], window: tuple[float, float]) -> I
                     [(fmt_time(s), f"{e - s:.1f} s", (e - s) / (e0 - s0)) for s, e in m])
 
 
+def with_fight(idle: list[tuple[float, float]], span: tuple[float, float],
+               own: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    """the run's idle gaps with the ones that start inside span (a fight) swapped for own, that fight's card's gaps"""
+    s, e = span
+    return [g for g in idle if not s <= g[0] <= e] + own
+
+
 def _pad(start: float, end: float) -> float:
     return max(3.0, (end - start) * 0.08)
 

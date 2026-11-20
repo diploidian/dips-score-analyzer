@@ -12,6 +12,17 @@ from dips_score.config import Paths  # noqa: E402
 from dips_score.ui import settings_store, tokens  # noqa: E402
 
 
+def contrast(a: str, b: str) -> float:
+    """WCAG contrast of two #rrggbb colours"""
+    def lum(h):
+        def ch(v):
+            return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+        r, g, b = (int(h[i:i + 2], 16) / 255 for i in (1, 3, 5))
+        return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b)
+    hi, lo = sorted((lum(a), lum(b)), reverse=True)
+    return (hi + 0.05) / (lo + 0.05)
+
+
 class TokensTest(unittest.TestCase):
     def test_tokens_match_css(self):
         css = (ROOT / "docs/design/mockups/assets/theme.css").read_text(encoding="utf-8")
@@ -22,6 +33,12 @@ class TokensTest(unittest.TestCase):
             self.assertEqual(len(parsed), 36)
             got = {k: v.lower() for k, v in tokens.TOKENS[(theme, mode)].items()}
             self.assertEqual(got, parsed, (theme, mode))
+
+    def test_text_reads_on_panel(self):
+        """tx on panel (the timeline's crosshair readout, and much of the kit) reaches 4.5:1 in all four looks"""
+        self.assertEqual(len(tokens.TOKENS), 4)
+        for look, t in tokens.TOKENS.items():
+            self.assertGreaterEqual(contrast(t["tx"], t["panel"]), 4.5, look)
 
     def test_normalize(self):
         self.assertEqual(tokens.normalize("wow", None), ("timeless", "auto"))

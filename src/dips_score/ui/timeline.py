@@ -93,6 +93,7 @@ class Data:
     pulls: list[Pull] = field(default_factory=list)
     busy: list[tuple[float, float]] = field(default_factory=list)
     idle: list[tuple[float, float]] = field(default_factory=list)
+    fight_idle: list[list[tuple[float, float]]] = field(default_factory=list)   # each fight's own card's gaps
     casts: list[Cast] = field(default_factory=list)
     fails: list[tuple[float, int | None]] = field(default_factory=list)
     presses: list[tuple[float, str, bool, str]] = field(default_factory=list)
@@ -119,6 +120,7 @@ def build_data(a: Analysis) -> Data:
     D.busy, _ = busy_intervals(rd.lines)
     D.idle = a.metrics.idle_gaps     # the Activity score's own gaps (swinging, or waiting on rage or energy, isn't
                                      # idle), so the lane, the Timeline tab and the scorecard agree
+    D.fight_idle = [fr.metrics.idle_gaps for fr in a.fights]     # a fight's Debrief card counts these
     D.moving = moving_intervals(rd.lines, rd.segment_spans)
     for e in rd.events:
         if e.spell_id and e.spell_name:
@@ -280,6 +282,7 @@ class Timeline(QWidget):
         self.hl_spell: str | None = None
         self._drag: tuple[float, float, float] | None = None
         self.hover_x: float | None = None     # the crosshair
+        self.idle: list[tuple[float, float]] = []      # what Activity washes: D.idle, or with a fight's own (the tab)
         self.group = Drawer("Group", parent=self)     # the other players' lanes, folded under one row
         self.group.toggled.connect(lambda _open: self._layout())
         self.setMouseTracking(True)
@@ -291,6 +294,7 @@ class Timeline(QWidget):
 
     def set_data(self, D: Data | None):
         self.D = D
+        self.idle = D.idle if D else []
         self.hl_guid = self.hl_spell = None
         self._layout()
         self.show_all()
@@ -494,7 +498,7 @@ class Timeline(QWidget):
                 return f"{head}\nno heal from you within {RESPONSE_CAP:.0f}s"
 
     def _tip_activity(self, lane, t, tol):
-        for a, b in self.D.idle:
+        for a, b in self.idle:
             if a <= t <= b:
                 return f"Idle {b - a:.1f}s\n{_fmt(a)} - {_fmt(b)}"
 
@@ -649,12 +653,12 @@ class Timeline(QWidget):
 
     def _draw_activity(self, p, ln, r):
         """busy across the middle; each idle gap washed in the highlighter (16%), underlined, its seconds on top"""
-        for a, b in self.D.idle:
+        for a, b in self.idle:
             self._span(p, r, a, b, _alpha("hl", 41))
         for a, b in self.D.busy:
             self._span(p, r, a, b, theme.BUSY, inset=16)
         f, hl, ink = font(12, 700, num=True), tok("hl"), tok("tx")
-        for a, b in self.D.idle:
+        for a, b in self.idle:
             if b < self.v0 or a > self.v1:
                 continue
             x0, x1 = self.x(a), self.x(b)
@@ -745,5 +749,6 @@ class Timeline(QWidget):
             x += 15 + text_at(p, font(13), tok("tx"), x + 15, base, pl.name)
             x += 26 + text_at(p, font(12), tok("mu"), x + 4, base, (pl.role or "").lower())
 
+    # _hover calls _tip_<key> for the lane under the pointer; the group row has no detail of its own
     def _tip_group(self, lane, t, tol):
         return None

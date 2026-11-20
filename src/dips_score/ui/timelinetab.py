@@ -12,7 +12,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QPushButton, QScrollArea, QVBoxLayout
 
 from ..debrief import fight_cells, fmt_time
-from ..timeline_view import fight_window, idle_view, option_text, scope_for, step
+from ..timeline_view import fight_window, idle_view, option_text, scope_for, step, with_fight
 from .debrief import NARROW
 from .kit import HEAD_H, BarRow, BarRows, Hero, KeyFigures, Plate, Sheet
 from .pages import dim_label, run_meta
@@ -154,9 +154,11 @@ class TimelineTab(QScrollArea):
             self.moments = []
             self.hero.set("–", None, None, None, "")
             return
+        idle = D.idle
         if isinstance(scope, int):
             c = self.cells[scope]
             window, label = (c.start, c.end), "In this fight"
+            idle = D.fight_idle[scope]          # its own card's gaps, so the tab and the fight's Debrief agree
             figures = [(f"{c.end - c.start:.0f} s", "fight length"),
                        ("–" if c.score is None else f"{c.score} {c.grade}", "fight score")]
         elif scope is None:
@@ -165,7 +167,9 @@ class TimelineTab(QScrollArea):
         else:
             window, label = scope, "In this view"
             figures = [(f"{scope[1] - scope[0]:.0f} s", "in view")]
-        v = idle_view(D.idle, window)
+        v = idle_view(idle, window)
+        self.timeline.idle = with_fight(D.idle, window, idle) if isinstance(scope, int) else D.idle
+        self.timeline.update()
         self.moments, self.shown = v.moments, 0
         self.hero.set(v.big, "s idle", None, None, v.verdict)
         self.figures.set([(num, cap, "") for num, cap in figures + [(str(len(v.moments)), v.gaps)]])
