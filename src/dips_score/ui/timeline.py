@@ -43,6 +43,11 @@ HEALTH_ROW = 54
 ROLE_ORDER = {"TANK": 0, "HEALER": 1, "DPS": 2}
 
 
+def text_color(p: Player | None) -> QColor:
+    """the class colour, darkened if needed so a name reads on the panel (day themes)"""
+    return theme.readable(player_color(p))
+
+
 def player_color(p: Player | None) -> QColor:
     if not p:
         return QColor(190, 190, 200)
@@ -384,7 +389,7 @@ class Timeline(QWidget):
         rows = []
         for p in D.players:
             g = p.guid
-            color = player_color(p).name()
+            color = text_color(p).name()
             hp_now, change = _health_at(D.hp.get(g, []), t)
             hp = "" if hp_now is None else f"{hp_now:.0%}"
             if change is not None and abs(change) >= 0.05:
@@ -410,7 +415,7 @@ class Timeline(QWidget):
                 for who, c, delay in _reactions(D, p, t0):
                     own = who.guid == g
                     what = f"{c.spell}" + ("" if own else f" on {p.name.split(' ')[0]}")
-                    rows.append(f"<tr><td></td><td colspan=3>&nbsp;&rarr; <span style='color:{player_color(who).name()}'>"
+                    rows.append(f"<tr><td></td><td colspan=3>&nbsp;&rarr; <span style='color:{text_color(who).name()}'>"
                                 f"{'their next cast' if own else who.name}</span>: {_esc(what)} "
                                 f"<span style='color:#9696a0'>{delay:.1f}s after</span></td></tr>")
         if rows:
@@ -502,7 +507,7 @@ class Timeline(QWidget):
             p.fillRect(r, theme.LANE if ln.key != "health" else QColor(24, 24, 30))
             if ln.key == "health":
                 continue
-            p.setPen(ln.color if ln.key == "spells" else theme.DIM)
+            p.setPen(theme.readable(ln.color, theme.BG) if ln.key == "spells" else theme.DIM)
             if ln.key == "spells":
                 f = QFont(theme.FONT, 9)
                 f.setBold(True)

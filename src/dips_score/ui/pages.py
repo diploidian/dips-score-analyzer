@@ -17,7 +17,7 @@ from ..sources.savedvars import Run
 from . import assets, theme
 from ..scoring.radar import average
 from .radar import RadarChart
-from .timeline import player_color, pull_text, spell_color
+from .timeline import player_color, text_color, pull_text, spell_color
 
 MARKER_COLORS = {"Skull": "#f0f0f0", "Cross": "#ff4040", "Square": "#40a0ff", "Moon": "#c0d0ff",
                  "Triangle": "#40ff60", "Diamond": "#c040ff", "Circle": "#ff9020", "Star": "#ffe040"}
@@ -259,7 +259,7 @@ class ScoreTab(QWidget):
                 self.who.addItem(p.name + (" (you)" if p.is_me else "") + place, p.guid)
                 if (ic := assets.icon(assets.class_icon_name(p.cls) or "")) is not None:
                     self.who.setItemIcon(self.who.count() - 1, ic)
-                self.who.setItemData(self.who.count() - 1, player_color(p), Qt.ItemDataRole.ForegroundRole)
+                self.who.setItemData(self.who.count() - 1, text_color(p), Qt.ItemDataRole.ForegroundRole)
             idx = self.who.findData(keep) if keep else -1
             self.who.setCurrentIndex(idx if idx >= 0 else 0)   # you, by default
         self.who.blockSignals(False)
@@ -409,7 +409,7 @@ class GroupTab(QWidget):
             st = a.summary.stats[p.guid]
             r = self.t.rowCount()
             self.t.insertRow(r)
-            c = player_color(p)
+            c = text_color(p)
             ic = assets.icon(assets.class_icon_name(p.cls) or "")
             dot = item("" if ic else "●", c)
             if ic:
@@ -498,7 +498,7 @@ class PullsTab(QWidget):
                         puller.name if puller else "?", f"{pl.fight.end - pl.start:.0f}s",
                         ", ".join(d.name.split(" ")[0] for d in died) or "-"]
                 for col, v in enumerate(vals):
-                    color = player_color(puller) if col == 5 and puller else theme.BOSS.lighter(250) if col == 2 and pl.fight.boss \
+                    color = text_color(puller) if col == 5 and puller else theme.BOSS.lighter(250) if col == 2 and pl.fight.boss \
                         else theme.FAIL if col == 4 and v > 1 else theme.DEATH if col == 7 and v != "-" else None
                     self.list.setItem(r, col, item(v, color, align_right=col in (3, 4), data=pl.index if col == 0 else None))
         self.list.blockSignals(False)
@@ -536,7 +536,7 @@ class PullsTab(QWidget):
                         child.setIcon(1, mi)
                 for col, g in ((2, en.first_target), (5, en.killer)):
                     if g in a.roster:
-                        child.setForeground(col, player_color(a.roster[g]))
+                        child.setForeground(col, text_color(a.roster[g]))
                 top.addChild(child)
             self.tree.addTopLevelItem(top)
             top.setFirstColumnSpanned(True)
@@ -587,7 +587,7 @@ class SpellsTab(QWidget):
                 self.who.addItem(p.name + (" (you)" if p.is_me else ""), p.guid)
                 if (ic := assets.icon(assets.class_icon_name(p.cls) or "")) is not None:
                     self.who.setItemIcon(self.who.count() - 1, ic)
-                self.who.setItemData(self.who.count() - 1, player_color(p), Qt.ItemDataRole.ForegroundRole)
+                self.who.setItemData(self.who.count() - 1, text_color(p), Qt.ItemDataRole.ForegroundRole)
         self.who.blockSignals(False)
         self._fill()
 

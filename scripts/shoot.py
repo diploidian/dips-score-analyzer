@@ -8,6 +8,7 @@ Settings and history live in a temp APPDATA, so yours are never touched.
 import argparse
 import json
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -55,10 +56,17 @@ w = ui.Window(paths)
 width, height = (int(v) for v in args.size.lower().split("x"))
 w.resize(width, height)
 w.show()
-w._open_run_id(w.runs[args.run - 1].id)
-for i in range(w.tabs.count()):
-    if w.tabs.tabText(i).lower() == args.tab.lower():
-        w.tabs.setCurrentIndex(i)
+PAGES = {"dungeons": w.mode_dungeons, "fights": w.mode_fights, "habits": w.mode_habits}
+TABS = {w.tabs.tabText(i).lower(): i for i in range(w.tabs.count())}
+want = args.tab.lower()
+if want not in PAGES and want not in TABS:
+    sys.exit(f"unknown --tab {args.tab!r}; valid: " + ", ".join(w.tabs.tabText(i) for i in range(w.tabs.count()))
+             + ", " + ", ".join(k.title() for k in PAGES))
+if want in PAGES:
+    PAGES[want].click()
+else:
+    w._open_run_id(w.runs[args.run - 1].id)
+    w.tabs.setCurrentIndex(TABS[want])
 
 
 def grab():
@@ -69,4 +77,5 @@ def grab():
 
 QTimer.singleShot(400, grab)
 qapp.exec()
+shutil.rmtree(tmp, ignore_errors=True)
 print("saved", args.out)

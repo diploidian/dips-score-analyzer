@@ -1,13 +1,12 @@
+import os
 import re
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
-
-import os  # noqa: E402
-import tempfile  # noqa: E402
 
 from dips_score.config import Paths  # noqa: E402
 from dips_score.ui import settings_store, tokens  # noqa: E402

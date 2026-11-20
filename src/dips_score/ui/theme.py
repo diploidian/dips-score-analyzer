@@ -4,6 +4,7 @@ The colours come from tokens.py. `apply()` picks a token set and fills the modul
 that paints reads them when it paints, so applying a theme switches the whole look at once (the window then
 re-shows what's open so widgets with their own styles pick it up).
 """
+import sys
 from pathlib import Path
 
 from PyQt6.QtGui import QColor, QFontDatabase
@@ -28,9 +29,6 @@ ACCENT = BG = PANEL = LANE = GRID = TEXT = DIM = EDGE = SELECT = TITLE = QColor(
 COMBAT = BOSS = BUSY = IDLE = CAST = CAST_OK = CAST_BAD = FAIL = KEY = CLICK = QColor()
 SPAM = MOVE = HP = HP_LOW = HIT = DEATH = QColor()
 
-THEMES = tokens.THEMES
-
-
 def _alpha(c: QColor, a: int) -> QColor:
     c = QColor(c)
     c.setAlpha(a)
@@ -52,6 +50,30 @@ def apply(name: str, mode: str = "auto", os_dark: bool = False) -> None:
              HIT=_alpha(T["gD"], 160), DEATH=tok("gD"))
 
 
+def _lum(c: QColor) -> float:
+    def ch(v):
+        v /= 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    return 0.2126 * ch(c.red()) + 0.7152 * ch(c.green()) + 0.0722 * ch(c.blue())
+
+
+def _contrast(a: QColor, b: QColor) -> float:
+    x, y = sorted((_lum(a), _lum(b)), reverse=True)
+    return (x + 0.05) / (y + 0.05)
+
+
+def readable(c: QColor, on: QColor | None = None) -> QColor:
+    """c darkened (same hue) until it reads at 4.5:1 on `on` (default: panel); unchanged when it already does.
+    shortcut: only darkens, so a light-on-dark colour that fails on a night theme is left alone."""
+    on = on or T["panel"]
+    h, s, l, a = c.getHslF()
+    out = QColor(c)
+    while _contrast(out, on) < 4.5 and l > 0 and _lum(on) > 0.3:
+        l = max(0.0, l - 0.02)
+        out.setHslF(max(h, 0.0), s, l, a)
+    return out
+
+
 def tok(key: str) -> QColor:
     return QColor(T[key])
 
@@ -62,7 +84,8 @@ def load_fonts() -> None:
     if _fonts_loaded:
         return
     for f in sorted(FONTS_DIR.glob("*.ttf")):
-        QFontDatabase.addApplicationFont(str(f))
+        if QFontDatabase.addApplicationFont(str(f)) < 0:
+            print(f"dips score: couldn't load font {f.name}", file=sys.stderr)
     _fonts_loaded = True
 
 
@@ -99,11 +122,11 @@ def stylesheet() -> str:
 QWidget {{ background: transparent; color: {tx}; font-family: "{FONT}"; font-size: 10pt; }}
 QMainWindow, QDialog {{ background-color: {T["bg"].name()}; {tex} }}
 QComboBox QAbstractItemView, QComboBoxPrivateContainer, QMenu {{ background: {T["panel"].name()};
-    border: 1px solid {ln}; selection-background-color: {hl}; selection-color: {T["bg"].name()}; }}
+    border: 1px solid {ln}; selection-background-color: {T["track"].name()}; selection-color: {tx}; }}
 QListWidget, QTableWidget, QTreeWidget {{ background: {pnl}; border: 1px solid {ln}; outline: 0; }}
 QTableWidget {{ gridline-color: {ln}; }}
 QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selected {{
-    background: {hl}; color: {T["bg"].name()}; }}
+    background: {T["track"].name()}; color: {tx}; }}
 QTreeWidget::item {{ padding: 4px 2px; }}
 QHeaderView::section {{ background: {pnl}; color: {mu}; border: 0; border-bottom: 1px solid {ln};
     padding: 4px 6px; }}

@@ -244,7 +244,7 @@ class Overlay(QWidget):
             p.setClipPath(path)
             p.drawTiledPixmap(r.toRect(), self._tex)
             p.restore()
-        edge = QColor(theme.ACCENT if theme.NAME == "wow" else theme.EDGE)
+        edge = QColor(theme.EDGE)
         edge.setAlpha(200)
         p.setPen(QPen(edge, 1.5))
         p.drawPath(path)
