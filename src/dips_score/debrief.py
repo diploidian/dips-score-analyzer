@@ -79,9 +79,9 @@ def _review(fights: list[FightCell]) -> list[int]:
 
 
 def build_view(card: Scorecard, fights: list[FightCell], damage_share: float | None, deaths: int) -> DebriefView:
-    if card.empty or card.grade == "-":  # nothing scored, or nothing judgeable: its categories still listed
-        return DebriefView(note=card.note, categories=card.categories, bonus=round(card.bonus, 1),
-                           bonus_note=card.bonus_note)
+    if card.empty or card.grade == "-":  # nothing scored, or nothing judgeable: its categories and fights still shown
+        return DebriefView(note=card.note, fights=fights, review=_review(fights), categories=card.categories,
+                           bonus=round(card.bonus, 1), bonus_note=card.bonus_note)
     counted = [c for c in card.categories if not c.info_only]
     top = sorted(counted, key=lambda c: -c.weight)[:4]  # stable: ties keep card order
     measures = [Measure(display_name(c.name), c.score, ink_for(c.name),

@@ -1,5 +1,6 @@
 """The Debrief tab's page, painted from a DebriefView (see dips_score/debrief.py): the score and verdict, the one
-fix on the plate, the main measures and where the points went; the fights column on the right.
+fix on the plate, the main measures and where the points went; on the right, the run's fights as a grid with the ones to
+review circled in highlighter.
 
 Sizes follow docs/design/mockups/debrief.html (CSS px). Each part paints itself, and the same pass measures its
 height for a width, so text wraps the way it is drawn.
@@ -7,10 +8,11 @@ height for a width, so text wraps the way it is drawn.
 import math
 
 from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPen, QPolygonF, QTextLayout
-from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QSizePolicy, QSpacerItem, QToolTip, QVBoxLayout, QWidget
+from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen, QPolygonF, QTextLayout
+from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QToolTip,
+                             QVBoxLayout, QWidget)
 
-from ..debrief import DebriefView, display_name
+from ..debrief import DebriefView, FightCell, display_name
 from . import theme
 from .theme import tok
 
@@ -18,6 +20,7 @@ MINUS = "−"
 NARROW = 1420        # the mock-up's breakpoint (window width): a smaller hero below it
 HEAD_H = 71          # title, meta line and the gold rule under them
 FIGHTS_W = 460       # the right-hand column
+EDGE = 16            # the page's right margin, lent to the fights column for edge circles and the grid's scroll bar
 LEFT_MIN = 480       # the left column never gets narrower (the page scrolls sideways instead)
 PREVIEW = ("Rotation", "Pacing")   # measures still being worked out
 
@@ -175,8 +178,9 @@ class Hero(_Part):
         px = 126 if self.narrow else 150
         f = font(px, 700, num=True, spacing=-0.02)
         top, lh = 8, px * 0.8
-        x = text_at(p, f, tok("tx"), 0, baseline(f, top, lh), v.total)
-        if v.grade != "-":   # "-": nothing judgeable, so no grade to box
+        # "-": nothing judgeable, so no grade to box; the "–" placeholder is muted so it reads as a dash, not a block
+        x = text_at(p, f, tok("tx") if v.grade != "-" else tok("mu"), 0, baseline(f, top, lh), v.total)
+        if v.grade != "-":
             gpx, pv, ph = (46, 4, 10) if self.narrow else (56, 5, 12)
             g = font(gpx, 700, num=True)
             r = QRectF(x + 10, top + 6, adv(g, v.grade) + 2 * ph + 4, gpx + 2 * pv + 4)
@@ -448,21 +452,226 @@ class Breakdown(_Part):
         return y
 
 
-class FightsColumn(QWidget):
-    """the right-hand column: its header; Task 7 adds the FightGrid to self.layout(), under it"""
+COLS, CELL_W, CELL_H = 8, 54, 75
+NOTE_H = 34          # the band above the grid for the hand-written note
+PAD = 6              # either side of the grid: room for the circles on its edge columns
+GRID_VIEW = 608      # past 8 rows the grid scrolls, in a view this tall
+RX, RY = 31, 26      # a circle's radii
+
+
+def halo_text(p: QPainter, f: QFont, color: QColor, x: float, base: float, s: str) -> float:
+    """s on the baseline with a 3px panel halo, so it reads through the highlighter; returns its width"""
+    path = QPainterPath()
+    path.addText(x, base, f, s)
+    p.strokePath(path, QPen(tok("panel"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
+                            Qt.PenJoinStyle.RoundJoin))
+    p.fillPath(path, color)
+    return adv(f, s)
+
+
+class FightGrid(QWidget):
+    """the run's fights, 8 to a row: number, time, score and grade, a square on bosses. The fights to review are
+    circled in highlighter, joined by a route, with a hand-written note pointing at the first. Click a fight (or
+    Tab to the grid, move with the arrows and press Space or Enter) to pick it."""
+    picked = pyqtSignal(int)
 
     def __init__(self):
         super().__init__()
-        self.setFixedWidth(FIGHTS_W)
+        self.cells: list[FightCell] = []
+        self.review: list[int] = []
+        self.focus = 0                  # the cell the keyboard is on
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def set_cells(self, cells: list[FightCell], review: list[int]) -> None:
+        self.cells, self.review = cells, review
+        self.focus = min(self.focus, max(0, len(cells) - 1))
+        self.setFixedSize(2 * PAD + COLS * CELL_W, NOTE_H + math.ceil(len(cells) / COLS) * CELL_H)
+        self.update()
+
+    def cell_rect(self, k: int) -> QRectF:
+        return QRectF(PAD + k % COLS * CELL_W, NOTE_H + k // COLS * CELL_H, CELL_W, CELL_H)
+
+    def circle_at(self, k: int) -> QPointF:
+        """the middle of cell k's score digits"""
+        r, f = self.cell_rect(k), font(21, 700, num=True)
+        return QPointF(r.center().x(), baseline(f, r.y() + 31, 24) - QFontMetricsF(f).capHeight() / 2)
+
+    def cell_at(self, pos: QPointF) -> int | None:
+        x, y = pos.x() - PAD, pos.y() - NOTE_H
+        k = int(y // CELL_H) * COLS + int(x // CELL_W)
+        return k if 0 <= x < COLS * CELL_W and y >= 0 and k < len(self.cells) else None
+
+    def mousePressEvent(self, ev):
+        k = self.cell_at(ev.position())
+        if k is not None:
+            self.focus = k
+            self.update()
+            self.picked.emit(self.cells[k].index)
+
+    def keyPressEvent(self, ev):
+        step = {Qt.Key.Key_Left: -1, Qt.Key.Key_Right: 1, Qt.Key.Key_Up: -COLS, Qt.Key.Key_Down: COLS}.get(ev.key())
+        if step and 0 <= self.focus + step < len(self.cells):
+            self.focus += step
+            self.update()
+            scroll = self.parentWidget() and self.parentWidget().parentWidget()    # the viewport's scroll area
+            if isinstance(scroll, QScrollArea):
+                c = self.cell_rect(self.focus).center()
+                scroll.ensureVisible(round(c.x()), round(c.y()), 0, CELL_H // 2 + 2)
+        elif ev.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter) and self.cells:
+            self.picked.emit(self.cells[self.focus].index)
+        else:
+            super().keyPressEvent(ev)
+
+    def focusInEvent(self, ev):
+        self.update()
+        super().focusInEvent(ev)
+
+    def focusOutEvent(self, ev):
+        self.update()
+        super().focusOutEvent(ev)
+
+    def paintEvent(self, _ev):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        grid = QRectF(PAD, NOTE_H, COLS * CELL_W, self.height() - NOTE_H)
+        # 1. grounds and hairlines (right and bottom of each cell), in the gold frame
+        p.fillRect(grid, tok("panel"))
+        for k in range(len(self.cells)):
+            r = self.cell_rect(k)
+            p.fillRect(QRectF(r.right() - 1, r.y(), 1, CELL_H), tok("ln"))
+            p.fillRect(QRectF(r.x(), r.bottom() - 1, CELL_W, 1), tok("ln"))
+        box(p, grid, tok("gold"))
+        # 2. the highlighter: circles, the route between them, a cross where you died; under the text
+        hl = tok("hl")
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        ks = [k for k, c in enumerate(self.cells) if c.index in self.review]
+        cs = [self.circle_at(k) for k in ks]
+        p.setOpacity(0.8)
+        p.setPen(QPen(hl, 5, cap=Qt.PenCapStyle.RoundCap))
+        for j, c in enumerate(cs):
+            p.save()
+            p.translate(c)
+            p.rotate(-5 if j % 2 == 0 else 4)
+            p.drawEllipse(QPointF(0, 0), RX, RY)
+            p.restore()
+        p.setOpacity(0.6)
+        p.setPen(QPen(hl, 1.6, cap=Qt.PenCapStyle.RoundCap))
+        for j, (a, b) in enumerate(zip(cs, cs[1:])):
+            d = b - a
+            t = 1 / math.hypot(d.x() / RX, d.y() / RY)     # the share of a→b inside each circle
+            if t > 0.45:            # neighbours: the circles touch, no room for a route
+                continue
+            s, e = a + d * t, b - d * t
+            route = QPainterPath(s)
+            route.quadTo((s + e) / 2 + QPointF(-d.y(), d.x()) * (0.18 if j % 2 else -0.18), e)   # bowed, alternately
+            p.drawPath(route)
+        p.setOpacity(1)
+        p.setPen(QPen(hl, 2.4, cap=Qt.PenCapStyle.RoundCap))
+        for k, c in zip(ks, cs):
+            if self.cells[k].died:
+                x, y = c.x() - 24, c.y() + 14
+                p.drawLine(QPointF(x, y), QPointF(x + 8, y + 8))
+                p.drawLine(QPointF(x + 8, y), QPointF(x, y + 8))
+        self._note(p, cs[0] if cs else None)
+        # 3. the cells' text, each run haloed in panel
+        nf, sf, gf = font(11, 500, num=True), font(21, 700, num=True), font(14, 700, num=True)
+        for k, c in enumerate(self.cells):
+            r = self.cell_rect(k)
+            x, y = r.x() + 5, r.y() + 4
+            halo_text(p, nf, tok("mu"), x, baseline(nf, y, 12), str(c.index + 1))
+            halo_text(p, nf, tok("mu"), x, baseline(nf, y + 12, 13), c.at)
+            base = baseline(sf, y + 27, 24)
+            if c.score is None:     # nothing judged in this fight
+                halo_text(p, sf, tok("mu"), x, base, "–")
+            else:
+                ink = theme.grade_color(c.grade)
+                w = halo_text(p, sf, ink, x, base, str(c.score))
+                halo_text(p, gf, ink, x + w + 2, base, c.grade)
+            if c.boss:
+                p.fillRect(QRectF(r.right() - 11, r.y() + 5, 6, 6), tok("tx"))
+        if self.hasFocus() and self.cells:
+            box(p, self.cell_rect(self.focus), tok("hl"), width=2)
+
+    def _note(self, p: QPainter, first: QPointF | None):
+        """"review these 4" in Caveat above the grid, with an arrow to the first circle"""
+        if self.review:
+            s = f"review these {len(self.review)}"
+        elif self.cells and all(c.score is not None for c in self.cells):
+            s = "every fight 90+"
+        else:
+            return
+        f = QFont(theme.HAND_FONT)
+        f.setPixelSize(27)
+        f.setWeight(QFont.Weight(600))
+        tw, base = adv(f, s), NOTE_H - 12
+        cx = first.x() if first else PAD + 297     # no circle: where the mock-up's first one is
+        side = 1 if cx - 61 - tw >= PAD else -1     # the note left of the circle, or right of it near the left edge
+        x = min(max(cx - 61 - tw if side > 0 else cx + 61, PAD), PAD + COLS * CELL_W - tw)
+        p.save()
+        p.translate(x, base)
+        p.rotate(-3)
+        text_at(p, f, tok("hl-note"), 0, 0, s)
+        p.restore()
+        if first is None:
+            return
+        start = QPointF(x + tw if side > 0 else x, base - 4)
+        end = QPointF(first.x() - 7 * side, first.y() - RY - 6)
+        ctrl = QPointF(end.x() - 18 * side, start.y() + 4)
+        arrow = QPainterPath(start)
+        arrow.quadTo(ctrl, end)
+        u = (end - ctrl) / math.hypot((end - ctrl).x(), (end - ctrl).y())
+        for a in (0.5, -0.5):       # the head: two barbs either side of the way in
+            arrow.moveTo(end - QPointF(u.x() * math.cos(a) - u.y() * math.sin(a),
+                                       u.x() * math.sin(a) + u.y() * math.cos(a)) * 9)
+            arrow.lineTo(end)
+        p.setPen(QPen(tok("hl"), 1.8, cap=Qt.PenCapStyle.RoundCap, join=Qt.PenJoinStyle.RoundJoin))
+        p.drawPath(arrow)
+
+
+class FightsColumn(QWidget):
+    """the right-hand column: the header and grade key, then the FightGrid (in a scroll area past 8 rows)"""
+    KEY = (("S", "S", 90), ("A", "A", 80), ("B", "B C", 60), ("D", "D", 45))
+
+    def __init__(self):
+        super().__init__()
+        self.setFixedWidth(FIGHTS_W + EDGE)
         self.n = 0
+        self.grid = FightGrid()
+        self.scroll = QScrollArea()
+        self.scroll.setWidget(self.grid)
+        self.scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(28, 12 + 31 + 6, 0, 0)
+        lay.setContentsMargins(28 - PAD, 61, 0, 0)      # under the header (12 + 26 + 6) and the key (17)
+        lay.addWidget(self.scroll)
         lay.addStretch(1)
+        self.set_cells([], [])
+
+    def set_cells(self, cells: list[FightCell], review: list[int]):
+        self.n = len(cells)
+        self.grid.set_cells(cells, review)
+        self.scroll.setFixedHeight(min(self.grid.height(), NOTE_H + GRID_VIEW))
+        self.scroll.setVisible(bool(cells))
+        self.update()
 
     def paintEvent(self, _ev):
         p = QPainter(self)
         p.fillRect(QRectF(0, 0, 1, self.height()), tok("ln"))
-        line(p, font(22, 700, num=True, spacing=0.04), tok("tx"), 28, 12, 22 * 1.4, f"FIGHTS · {self.n}")
+        hf = font(22, 700, num=True, spacing=0.04)
+        base = baseline(hf, 12, 22 * 1.2)
+        x = 28 + text_at(p, hf, tok("tx"), 28, base, f"FIGHTS · {self.n} ")
+        if not self.n:
+            return
+        text_at(p, font(15, 700, num=True, spacing=0.04), tok("mu"), x, base, "· CIRCLED = REVIEW FIRST")
+        bf, kf = font(14, 700, num=True, spacing=0.04), font(12, 600, num=True, spacing=0.04)
+        base, x = baseline(bf, 12 + 22 * 1.2 + 6, 17), 28
+        for grade, letters, low in self.KEY:
+            ink = theme.grade_color(grade)
+            x += text_at(p, bf, ink, x, base, letters)
+            x += text_at(p, kf, ink, x, base, f" ≥{low}") + 14
+        p.fillRect(QRectF(x, base - 7, 7, 7), tok("tx"))
+        text_at(p, kf, tok("mu"), x + 11, base, "boss")
 
 
 class DebriefPage(QWidget):
@@ -479,9 +688,14 @@ class DebriefPage(QWidget):
         self.plate.button.clicked.connect(lambda: self.show_me and self.zoom.emit(*self.show_me))
         self.top = QWidget()
         self.top.setFixedHeight(HEAD_H)
-        self.head = QHBoxLayout(self.top)      # right of the title: room for the player picker
+        self.top.setContentsMargins(0, 0, EDGE, 0)
+        self.head = QHBoxLayout(self.top)      # right of the title: Whole run, and room for the player picker
         self.head.setContentsMargins(0, 0, 0, 0)
         self.head.addStretch(1)
+        self.whole = QPushButton("Whole run")  # while one fight's debrief shows
+        self.whole.hide()
+        self.whole.clicked.connect(lambda: self.picked.emit(-1))
+        self.head.addWidget(self.whole, 0, Qt.AlignmentFlag.AlignTop)
         self.hero_row = QHBoxLayout()
         self.hero_row.setContentsMargins(0, 14, 0, 16)
         self.hero_row.addWidget(self.hero, 0, Qt.AlignmentFlag.AlignTop)
@@ -495,26 +709,28 @@ class DebriefPage(QWidget):
         left.addWidget(self.breakdown)
         left.addItem(QSpacerItem(LEFT_MIN, 0, QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Expanding))
         self.fights = FightsColumn()
+        self.fights.grid.picked.connect(self.picked)
         cols = QHBoxLayout()
         cols.setSpacing(0)
         cols.addLayout(left, 1)
         cols.addWidget(self.fights)
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(16, 4, 16, 0)    # the tab bar is the air above
+        lay.setContentsMargins(16, 4, 0, 0)     # the tab bar is the air above; EDGE on the right, inside the parts
         lay.setSpacing(0)
         lay.addWidget(self.top)
         lay.addLayout(cols, 1)
         self._fit()
 
     def show_view(self, view: DebriefView, title: str, sub: str, show_me: tuple[float, float] | None = None,
-                  whose: str = "your"):
-        """show_me: the (start, end) "Show me on the timeline" zooms to; whose: "your", or "Anna's" """
+                  whose: str = "your", one_fight: bool = False):
+        """show_me: the (start, end) "Show me on the timeline" zooms to; whose: "your", or "Anna's";
+        one_fight: the view is one fight's, so offer the way back to the whole run"""
         self.title, self.sub = title, sub
+        self.whole.setVisible(one_fight)
         self.show_me = show_me if view.fix else None
         self.plate.can_show = self.show_me is not None
         self.breakdown.whose = whose
-        self.fights.n = len(view.fights)
-        self.fights.update()
+        self.fights.set_cells(view.fights, view.review)
         for part in (self.hero, self.plate, self.measures, self.breakdown):
             part.set_view(view, self.narrow)
         self.plate.setVisible(view.grade != "-")          # nothing judged (or no run): nothing to fix either
@@ -560,7 +776,7 @@ class DebriefPage(QWidget):
         m = self.layout().contentsMargins()
         x, top = m.left(), m.top()
         picker = self.top.childrenRect()
-        right = self.top.x() + picker.left() - 16 if picker.isValid() else self.width() - m.right()
+        right = self.top.x() + picker.left() - 16 if picker.isValid() else self.width() - EDGE
         tf = font(30, 700, num=True)
         line(p, tf, tok("tx"), x, top, 31.5, elide(tf, self.title, right - x))
         head, sep, rest = self.sub.partition(" · ")      # the date in tx, the rest in tx2
@@ -569,4 +785,4 @@ class DebriefPage(QWidget):
         hw = line(p, bf, tok("tx"), x, mt, 13 * 1.4, elide(bf, head, right - x))
         if sep:
             line(p, mf, tok("tx2"), x + hw, mt, 13 * 1.4, elide(mf, sep + rest, right - x - hw))
-        rule(p, x, top + HEAD_H - 1, self.width() - m.left() - m.right(), tok("gold"))
+        rule(p, x, top + HEAD_H - 1, self.width() - m.left() - EDGE, tok("gold"))

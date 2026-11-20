@@ -140,6 +140,10 @@ class ViewTests(unittest.TestCase):
         # nothing judged, but every category (and why) stays reachable in the drawer
         self.assertEqual([c.name for c in v.categories], ["Damage", "Interrupts"])
         self.assertEqual(build_view(Scorecard(0, "-", note="no combat"), [], None, 0).categories, [])
+        # an unjudged fight picked from the grid: the grid and its circles stay
+        cells = [cell(0, 95), cell(1, 60), cell(2, None)]
+        v = build_view(card, cells, None, 0)
+        self.assertEqual((v.fights, v.review), (cells, [1]))
 
     def test_fix_skips_high_scoring_tip(self):
         card = _card([Category("Damage", 60, 20, "d", "damage tip"), Category("Casting", 90, 80, "c", "casting tip")], "dps")

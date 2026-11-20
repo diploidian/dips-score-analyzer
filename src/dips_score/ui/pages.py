@@ -152,7 +152,7 @@ class ScoreTab(QWidget):
         role = ROLE_NAME.get(card.role, card.role)
         whose = "your" if self._is_me() else f"{self.a.roster[self._guid()].name}'s"
         self.page.show_view(view, title, sub if card.empty else f"{sub} · as {role}",
-                            self._window(fight) if view.fix and fight is not None else None, whose)
+                            self._window(fight) if view.fix and fight is not None else None, whose, self.fight >= 0)
 
     def show_whole(self):
         a = self.a
