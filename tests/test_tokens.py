@@ -28,6 +28,10 @@ class TokensTest(unittest.TestCase):
         self.assertEqual(tokens.normalize("classic", "night"), ("timeless", "night"))
         self.assertEqual(tokens.normalize("classical", "bogus"), ("classical", "auto"))
 
+    def test_normalize_non_strings(self):
+        self.assertEqual(tokens.normalize(["x"], {"a": 1}), ("timeless", "auto"))
+        self.assertEqual(tokens.normalize(5, None), ("timeless", "auto"))
+
     def test_resolve(self):
         self.assertEqual(tokens.resolve("auto", True), "night")
         self.assertEqual(tokens.resolve("auto", False), "day")

@@ -399,7 +399,7 @@ class Breakdown(_Part):
         if not v.measures:       # nothing judged: only the drawer, so every category and why is still there
             y += 25
             return (self._drawer(p, w, y + 8) if open_ else y) + 12
-        label_tab(p, 0, y, f"Where {self.whose} {round(sum(lost.points for lost in v.lost))} points went")
+        label_tab(p, 0, y, f"Where {self.whose} {100 - v.earned} points went")
         y += 25 + 8
         most = max((lost.points for lost in v.lost), default=0) or 1
         nf, vf = font(15), font(15, 700, num=True)

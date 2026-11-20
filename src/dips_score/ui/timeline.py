@@ -393,7 +393,7 @@ class Timeline(QWidget):
             hp_now, change = _health_at(D.hp.get(g, []), t)
             hp = "" if hp_now is None else f"{hp_now:.0%}"
             if change is not None and abs(change) >= 0.05:
-                c = "#f05050" if change < 0 else "#50dc78"
+                c = theme.DEATH.name() if change < 0 else theme.grade_color("S").name()
                 hp += f" <span style='color:{c}'>({change:+.0%})</span>"
             taken = sum(a for tt, a, _, _ in D.hits.get(g, []) if t - 1.5 <= tt <= t)
             doing = _casting_at(D.player_casts.get(g, []), t)
@@ -410,14 +410,14 @@ class Timeline(QWidget):
                 if hits:
                     big = max(hits, key=lambda h: h[1])
                     cause = f" by {big[2]} ({big[3]})"
-                rows.append(f"<tr><td></td><td colspan=3 style='color:#f0a040'>dropped {frm:.0%} -> {to:.0%} at "
+                rows.append(f"<tr><td></td><td colspan=3 style='color:{theme.readable(theme.FAIL).name()}'>dropped {frm:.0%} -> {to:.0%} at "
                             f"{_fmt(t0)}{_esc(cause)}</td></tr>")
                 for who, c, delay in _reactions(D, p, t0):
                     own = who.guid == g
                     what = f"{c.spell}" + ("" if own else f" on {p.name.split(' ')[0]}")
                     rows.append(f"<tr><td></td><td colspan=3>&nbsp;&rarr; <span style='color:{text_color(who).name()}'>"
                                 f"{'their next cast' if own else who.name}</span>: {_esc(what)} "
-                                f"<span style='color:#9696a0'>{delay:.1f}s after</span></td></tr>")
+                                f"<span style='color:{theme.DIM.name()}'>{delay:.1f}s after</span></td></tr>")
         if rows:
             out.append("<table cellspacing=1>" + "".join(rows) + "</table>")
         return "<br>".join(out)
@@ -539,7 +539,9 @@ class Timeline(QWidget):
         if self.hover_x is not None:
             p.setPen(QPen(QColor(255, 255, 255, 110), 1))
             p.drawLine(QPointF(self.hover_x, AXIS_H), QPointF(self.hover_x, self.height()))
-            p.fillRect(QRectF(self.hover_x - 28, 2, 56, AXIS_H - 6), QColor(40, 40, 50))
+            p.setPen(theme.EDGE)
+            p.setBrush(theme.PANEL)
+            p.drawRect(QRectF(self.hover_x - 28, 2, 56, AXIS_H - 6))
             p.setPen(theme.TEXT)
             p.drawText(QRectF(self.hover_x - 28, 2, 56, AXIS_H - 6), Qt.AlignmentFlag.AlignCenter,
                        _fmt(self.t(self.hover_x)))

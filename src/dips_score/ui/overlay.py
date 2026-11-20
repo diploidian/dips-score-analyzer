@@ -60,12 +60,13 @@ def card_html(s: dict) -> str:
     def n(v):
         return f"{v:,.0f}"
     kind = s.get("kind", "World")
+    WARN = theme.readable(theme.FAIL).name()
     chip = (f"<span style='background:{KIND_COLOR.get(kind, '#444')}; color:white; font-size:8pt;'>"
             f"&nbsp;{kind}&nbsp;</span>")
     more = f" <span style='color:{theme.DIM.name()}'>+{s['more']}</span>" if s.get("more") else ""
     dur = f"{int(s['duration'] // 60)}:{int(s['duration'] % 60):02d}"
     result = s.get("result", "")
-    res_color = "#f05050" if result == "you died" else theme.DIM.name()
+    res_color = theme.DEATH.name() if result == "you died" else theme.DIM.name()
     lines = [f"{chip}&nbsp; <span style='font-family:\"{theme.TITLE_FONT}\"; font-size:13pt; color:{theme.TITLE.name()}'>"
              f"{_esc(s['target'])}</span>{more}"
              f"<br><span style='color:{theme.DIM.name()}'>{dur} · </span><span style='color:{res_color}'>{result}</span>"
@@ -74,7 +75,7 @@ def card_html(s: dict) -> str:
         lines.append(f"<span style='font-size:11pt'>{_esc(s['verdict'])}</span>")
     missed = [c for c in s.get("cooldowns") or [] if not c.get("held") and c.get("counted", 0) > 0]
     if missed:
-        lines.append(f"<span style='color:#f0a040'>Missed:</span> " + ", ".join(
+        lines.append(f"<span style='color:{WARN}'>Missed:</span> " + ", ".join(
             f"{_esc(c['name'])} ×{c['counted']}" for c in sorted(missed, key=lambda c: -c["lost"])))
     stats = [f"<b>{s['dps']:.0f}</b> DPS", f"{n(s['damage'])} dmg"]
     if s.get("healing"):
@@ -82,7 +83,7 @@ def card_html(s: dict) -> str:
     stats.append(f"{n(s['taken'])} taken")
     if s.get("lowest_hp") is not None and s["taken"]:
         low = s["lowest_hp"]
-        c = "#f05050" if low < 0.35 else ("#f0a040" if low < 0.6 else theme.TEXT.name())
+        c = theme.DEATH.name() if low < 0.35 else (WARN if low < 0.6 else theme.TEXT.name())
         stats.append(f"low <span style='color:{c}'>{low:.0%}</span>")
     lines.append(" · ".join(stats))
     g = s.get("group")
@@ -95,13 +96,13 @@ def card_html(s: dict) -> str:
         lines.append(f"<span style='color:{theme.DIM.name()}'>With {_esc(names)} · </span>{share}")
     if s.get("best_before") and not any(g.startswith("Beat your best") for g in s.get("good", [])):
         diff = s["dps"] - s["best_before"]
-        c = "#50dc78" if diff >= 0 else theme.DIM.name()
+        c = theme.grade_color("S").name() if diff >= 0 else theme.DIM.name()
         lines.append(f"<span style='color:{theme.DIM.name()}'>Best before: {s['best_before']:.0f} DPS</span> "
                      f"<span style='color:{c}'>({diff:+.0f})</span>")
     for g in s.get("good", [])[:2]:
-        lines.append(f"<span style='color:#50dc78'>✔</span> {_esc(g)}")
+        lines.append(f"<span style='color:{theme.grade_color("S").name()}'>✔</span> {_esc(g)}")
     for g in [g for g in s.get("improve", []) if spoken(g) != s.get("verdict")][:3]:
-        lines.append(f"<span style='color:#f0a040'>▲</span> {_esc(g)}")
+        lines.append(f"<span style='color:{WARN}'>▲</span> {_esc(g)}")
     return "<br>".join(lines)
 
 

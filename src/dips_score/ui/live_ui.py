@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from PyQt6.QtCore import QObject, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPixmap
+from PyQt6.QtGui import QAction, QColor, QFont, QGuiApplication, QIcon, QPainter, QPixmap
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from ..config import Paths
@@ -123,6 +123,9 @@ def run_tray(paths: Paths) -> int:
     load_weights(paths.weights_file)
     load_upkeep(paths.classes_file)
     ctl = LiveController(paths, settings)
+    # follow Windows' light/dark switch while no window is open to do it (the window does it when open)
+    QGuiApplication.styleHints().colorSchemeChanged.connect(
+        lambda *_: apply_look(paths, settings) if settings["mode"] == "auto" else None)
     holder: dict = {}
 
     def open_window():

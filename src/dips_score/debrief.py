@@ -109,7 +109,8 @@ def _review(fights: list[FightCell]) -> list[int]:
     return sorted(f.index for f in low)
 
 
-def build_view(card: Scorecard, fights: list[FightCell], damage_share: float | None, deaths: int) -> DebriefView:
+def build_view(card: Scorecard, fights: list[FightCell], damage_share: float | None, deaths: int,
+               you: bool = True) -> DebriefView:
     if card.empty or card.grade == "-":  # nothing scored, or nothing judgeable: its categories and fights still shown
         return DebriefView(note=card.note, fights=fights, review=_review(fights), categories=card.categories,
                            bonus=round(card.bonus, 1), bonus_note=card.bonus_note)
@@ -129,7 +130,8 @@ def build_view(card: Scorecard, fights: list[FightCell], damage_share: float | N
         else:
             verdict = fix.title
         if deaths > 0 and fix.category != "Survival":
-            verdict += " and you died once" if deaths == 1 else f" and you died {deaths} times"
+            who = "you " if you else ""
+            verdict += f" and {who}died once" if deaths == 1 else f" and {who}died {deaths} times"
         verdict += "."
     return DebriefView(
         total=f"{card.total:.0f}", grade=card.grade, role=card.role, note=card.note, verdict=verdict,

@@ -146,7 +146,7 @@ class ScoreTab(QWidget):
 
     def _show(self, card: Scorecard, share: float | None, deaths: int, title: str, sub: str, fight: int | None):
         """fight: where "Show me" zooms (None: the fight whose card lost the most in the fix's category)"""
-        view = build_view(card, self.cells, share, deaths)
+        view = build_view(card, self.cells, share, deaths, self._is_me())
         if view.fix and fight is None:
             fight = worst_fight(self.cards, view.fix.category)
         role = ROLE_NAME.get(card.role, card.role)

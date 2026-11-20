@@ -19,6 +19,9 @@ ap.add_argument("--run", type=int, default=1)
 ap.add_argument("--tab", default="Debrief")
 ap.add_argument("--look", default="timeless,day", help="<theme>,<mode>")
 ap.add_argument("--click-look", help="<theme>,<mode>: click the rail's Look buttons after the window is up")
+ap.add_argument("--replay", action="store_true", help="sum up the game's old combat logs into the temp history (Fights page)")
+ap.add_argument("--hover", action="store_true", help="after the run opens, show the timeline and put the mouse over it")
+ap.add_argument("--overlay", action="store_true", help="save the after-fight card (a real fight from the history) instead of the window")
 ap.add_argument("--size", default="1500x950")
 ap.add_argument("--out", required=True)
 args = ap.parse_args()
@@ -49,6 +52,10 @@ from dips_score.ui import app as ui  # noqa: E402
 
 qapp = QApplication([])
 paths = config.paths()
+if args.replay or args.overlay:
+    from dips_score.live.history import replay
+    from dips_score.sources import combatlog
+    replay(paths, combatlog.find_logs(paths.logs))
 settings = ui.app_settings.load(paths)
 ui.apply_look(paths, settings)
 ui.load_weights(paths.weights_file)
@@ -75,9 +82,29 @@ if want in TABS:
     w.tabs.setCurrentIndex(TABS[want])     # the redraw keeps it, but be sure
 
 
+if args.hover:
+    from PyQt6.QtCore import QPoint
+    from PyQt6.QtTest import QTest
+    w.timeline_pane.show()
+    QTimer.singleShot(150, lambda: QTest.mouseMove(w.timeline, QPoint(w.timeline.width() // 2, w.timeline.height() // 2)))
+
+
 def grab():
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    w.grab().save(args.out)
+    if args.overlay:
+        from PyQt6.QtGui import QPainter, QPixmap
+        from dips_score.ui.overlay import Overlay
+        fights = w.live.history.fights
+        s = next((f for f in reversed(fights) if f.get("result") == "you died"), fights[-1])
+        ov = Overlay()
+        ov.show_fight(s)
+        ov.setWindowOpacity(1)
+        pm = QPixmap(ov.size())
+        pm.fill(0x3a4a3a)      # roughly what the card sits on in game
+        ov.render(pm)
+        pm.save(args.out)
+    else:
+        w.grab().save(args.out)
     qapp.quit()
 
 

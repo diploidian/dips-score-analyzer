@@ -82,12 +82,12 @@ class FightList(QListWidget):
                      + ("no damage" if not f["damage"] and not f.get("healing_role")
                         else f"{f['dps']:.0f} DPS · {f.get('efficiency', 1):.0%}")
                      + f" · {_dur(f['duration'])}"
-                     + (" · <span style='color:#f05050'>died</span>" if f.get("result") == "you died" else "")
+                     + (f" · <span style='color:{theme.DEATH.name()}'>died</span>" if f.get("result") == "you died" else "")
                      + "</span>")
         lbl.setTextFormat(Qt.TextFormat.RichText)
         lbl.setToolTip(_foes(f))
         lbl.setContentsMargins(6, 4, 6, 4)
-        lbl.setStyleSheet("background: transparent;")
+        lbl.setStyleSheet(f"background: transparent; color: {theme.TEXT.name()};")
         it.setSizeHint(lbl.sizeHint())
         if row is None:
             self.addItem(it)

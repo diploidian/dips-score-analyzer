@@ -400,6 +400,8 @@ class Window(QMainWindow):
         self.settings["theme"] = theme or self.settings["theme"]
         self.settings["mode"] = mode or self.settings["mode"]
         self._sync_look_buttons()
+        if self.settings_dialog:
+            self.settings_dialog.set_theme(self.settings["theme"])
         app_settings.save(self.paths, self.settings)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
@@ -417,6 +419,7 @@ class Window(QMainWindow):
         """re-show what's open, so widgets that set their own colors pick up the theme"""
         tab = self.tabs.currentIndex()
         view = (self.timeline.v0, self.timeline.v1)
+        tl_shown = self.timeline_pane.isVisible()
         self.fight_list.set_fights(self.live.history.fights)
         if self.stack.currentIndex() == 3:
             self._show_habits()
@@ -427,6 +430,7 @@ class Window(QMainWindow):
             self._show_run(self.current.data.run)
             self.tabs.setCurrentIndex(tab)
             self.timeline.set_view(*view)
+            self.timeline_pane.setVisible(tl_shown)
         else:
             self._picked(self.tree.currentItem())
         self._refresh_labels()

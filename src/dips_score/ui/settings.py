@@ -50,6 +50,13 @@ class SettingsDialog(QDialog):
     overlay_changed = pyqtSignal()
     move_overlay = pyqtSignal(bool)
 
+    def set_theme(self, key: str):
+        """show the look chosen elsewhere (the rail), without echoing it back"""
+        for b, k in zip(self.choice.buttons(), tokens.THEMES):
+            b.blockSignals(True)
+            b.setChecked(k == key)
+            b.blockSignals(False)
+
     def __init__(self, paths: Paths, current: str, parent=None, settings: dict | None = None):
         super().__init__(parent)
         self.paths = paths

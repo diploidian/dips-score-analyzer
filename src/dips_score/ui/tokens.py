@@ -186,7 +186,8 @@ def ink_for(category: str) -> str:
 
 def normalize(theme: str | None, mode: str | None) -> tuple[str, str]:
     """Legacy or unknown themes become timeless, unknown modes auto."""
-    return (theme if theme in THEMES else "timeless", mode if mode in MODES else "auto")
+    return (theme if isinstance(theme, str) and theme in THEMES else "timeless",
+            mode if isinstance(mode, str) and mode in MODES else "auto")
 
 
 def resolve(mode: str, os_dark: bool) -> str:

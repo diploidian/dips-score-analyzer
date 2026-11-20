@@ -117,6 +117,12 @@ class ViewTests(unittest.TestCase):
         self.assertEqual(build_view(_card([Category("Damage", 100, 10, "x")], "dps"), [], None, 0).verdict,
                          "Nothing stands out — nice run.")
 
+    def test_verdict_other_player_not_you(self):
+        card = blackfathom_card()
+        self.assertEqual(build_view(card, [], None, 3, you=False).verdict,
+                         "Consecration sat ready 75s while you were free to use it and died 3 times.")
+        self.assertTrue(build_view(card, [], None, 1, you=False).verdict.endswith(" and died once."))
+
     def test_measures_healer(self):
         card = _card([Category("Group health", 90, 35, "a; b"), Category("Response", 80, 35, "c"),
                       Category("Efficiency", 70, 20, "d"), Category("Casting", 60, 10, "e")], "healer")
