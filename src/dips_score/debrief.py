@@ -1,0 +1,125 @@
+"""What the debrief page shows, as plain data (no Qt)."""
+import re
+from dataclasses import dataclass, field
+
+from .scoring.score import Scorecard
+from .ui.tokens import ink_for
+
+
+@dataclass
+class FightCell:
+    index: int
+    at: str
+    label: str
+    score: int | None
+    grade: str
+    boss: bool
+    died: bool
+    start: float
+    end: float
+
+
+@dataclass
+class Measure:
+    name: str
+    score: float | None
+    ink: str
+    reason: str
+    on_target: bool
+
+
+@dataclass
+class Lost:
+    name: str
+    points: float
+    ink: str
+
+
+@dataclass
+class Fix:
+    title: str
+    points: float
+    category: str
+    damage: str | None
+
+
+@dataclass
+class DebriefView:
+    total: str = "–"
+    grade: str = "-"
+    role: str = ""
+    note: str = ""
+    verdict: str = ""
+    fix: Fix | None = None
+    next_fixes: list[Fix] = field(default_factory=list)
+    measures: list[Measure] = field(default_factory=list)
+    lost: list[Lost] = field(default_factory=list)
+    earned: int = 0
+    fights: list[FightCell] = field(default_factory=list)
+    review: list[int] = field(default_factory=list)
+
+
+def _fix(cat, points: float) -> Fix:
+    title = re.split(r" \(|\. ", cat.tip, maxsplit=1)[0].rstrip(".")
+    m = re.search(r"~[\d,]+ damage", cat.tip)
+    return Fix(title, round(points, 1), cat.name, m.group(0) if m else None)
+
+
+def _review(fights: list[FightCell]) -> list[int]:
+    low = sorted((f for f in fights if f.score is not None and f.score < 90),
+                 key=lambda f: (f.score, f.index))[:4]
+    return sorted(f.index for f in low)
+
+
+def build_view(card: Scorecard, fights: list[FightCell], damage_share: float | None, deaths: int) -> DebriefView:
+    if card.empty:
+        return DebriefView(note=card.note)
+    counted = [c for c in card.categories if not c.info_only]
+    top = sorted(counted, key=lambda c: -c.weight)[:4]  # stable: ties keep card order
+    measures = [Measure("Abilities on time" if c.name == "Cooldowns" else c.name, c.score, ink_for(c.name),
+                        c.summary.split(";")[0], c.score >= 90) for c in top]
+    lost = card.points_lost()
+    fixes = [_fix(c, p) for c, p in lost if c.tip]
+    fix = fixes[0] if fixes else None
+    if fix is None:
+        verdict = "Nothing stands out — nice run."
+    else:
+        dmg = next((c for c in counted if c.name == "Damage"), None)
+        if damage_share is not None and dmg and dmg.score >= 85:
+            verdict = f"Strong damage — {damage_share:.0%} of an even share — but {fix.title}"
+        else:
+            verdict = fix.title
+        if deaths > 0 and fix.category != "Survival":
+            verdict += " and you died once" if deaths == 1 else f" and you died {deaths} times"
+        verdict += "."
+    return DebriefView(
+        total=f"{card.total:.0f}", grade=card.grade, role=card.role, note=card.note, verdict=verdict,
+        fix=fix, next_fixes=fixes[1:3], measures=measures,
+        lost=[Lost(c.name, p, ink_for(c.name)) for c, p in lost],
+        earned=round(card.total), fights=fights, review=_review(fights))
+
+
+def _fmt_time(s: float) -> str:
+    s = int(max(0, s))
+    return f"{s // 60}:{s % 60:02d}"
+
+
+def fight_of(deaths, fights) -> dict[int, list]:
+    """which fight each death fell in (first match), as fight index -> deaths"""
+    out: dict[int, list] = {}
+    for d in deaths:
+        for i, f in enumerate(fights):
+            if f.start - 2 <= d.t <= f.end + 5:
+                out.setdefault(i, []).append(d)
+                break
+    return out
+
+
+def fight_cells(a) -> list[FightCell]:
+    mine = fight_of([d for d in a.deaths if d.guid == a.data.player_guid], a.data.fights)
+    cells = []
+    for i, fr in enumerate(a.fights):
+        f, c = fr.fight, fr.card
+        cells.append(FightCell(i, _fmt_time(f.start), f.label, None if c.empty else round(c.total),
+                               "-" if c.empty else c.grade, f.boss is not None, i in mine, f.start, f.end))
+    return cells
