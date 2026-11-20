@@ -216,14 +216,16 @@ class BossesRecordsTests(unittest.TestCase):
             "average boss score today · 6 of 6 killed",
             "Your weakest boss is Ghamoo-ra (86 A), the first one: it lost 8.0 points on Damage and 6.5 on Upkeep. "
             "Every other boss was 90 or better."))
-        # an earlier visit: Kelris a wipe, Aku'mai not reached, and a boss only met then (after today's, in its row)
+        # an earlier visit: Kelris a wipe, Aku'mai not reached, and a boss only met then: it slots in after the boss
+        # met just before it
         pairs.append((run("r11", datetime(2026, 11, 11, 21, 0)), analysed(card(82.0), 3490, 1720, kills=25, fights=[
             fight(200, 30, 88.0, "Ghamoo-ra"), fight(600, 30, 96.0, "Lady Sarevess"),
             fight(900, 30, 70.0, "Baron Aquanis"), fight(3300, 60, 40.0, "Twilight Lord Kelris", killed=False),
             fight(3800, 30, 97.0, "Old Serra'kis")])))
         rows, weakest, _ = build_bosses(pairs, TODAY)
         by = {r.name: r for r in rows}
-        self.assertEqual(list(by)[-1], "Baron Aquanis")
+        self.assertEqual(list(by), ["Ghamoo-ra", "Lady Sarevess", "Baron Aquanis", "Geilhast", "Twilight Lord Kelris",
+                                    "Aku'mai", "Old Serra'kis"])
         self.assertIs(weakest, by["Ghamoo-ra"])
         self.assertEqual((by["Ghamoo-ra"].history, by["Ghamoo-ra"].best), ([88.0, 85.5], (88.0, "11 Nov")))
         self.assertEqual((by["Lady Sarevess"].history, by["Lady Sarevess"].best), ([96.0, 100.0], (100.0, "today")))
@@ -236,6 +238,28 @@ class BossesRecordsTests(unittest.TestCase):
         self.assertEqual(bosses_text(rows, weakest, "18 Nov")[0],
                          "average boss score on 18 Nov · 6 of 7 killed")
         self.assertEqual(build_bosses(blackfathom()[:2]), ([], None, None))       # none scored
+        # met first on an earlier visit, before the last visit's first boss: it leads
+        pairs = [blackfathom()[2], (run("r8", datetime(2026, 11, 8, 21, 0)), analysed(card(70.0), 3600, 1800, fights=[
+            fight(50, 20, 80.0, "Lorgus Jett"), fight(200, 30, 90.0, "Ghamoo-ra")]))]
+        self.assertEqual([r.name for r in build_bosses(pairs, TODAY)[0]][:3],
+                         ["Lorgus Jett", "Ghamoo-ra", "Lady Sarevess"])
+
+    def test_bosses_killed(self):
+        """a boss counts as killed only when the log says so: not when that's unknown, scored or not"""
+        pairs = blackfathom()
+        a = pairs[2][1]
+        unscored = Scorecard(0.0, "-", "dps", note="nothing counted could be judged")
+        swap = {"Geilhast": fight(1824, 51, 98.7, "Geilhast", killed=None),       # unknown, scored
+                "Aku'mai": SimpleNamespace(fight=Fight(3695, 3745, "Aku'mai", None, True), card=unscored, damage=None),
+                "Old Serra'kis": SimpleNamespace(fight=Fight(3885, 3905, "Old Serra'kis", None, None), card=unscored,
+                                                 damage=None)}                  # unknown, not scored
+        a.fights = [swap.get(fr.fight.boss, fr) for fr in a.fights]
+        rows, weakest, _ = build_bosses(pairs, TODAY)
+        by = {r.name: r for r in rows}
+        self.assertEqual([(by[n].today, by[n].missed[-1], by[n].killed)
+                          for n in ("Geilhast", "Aku'mai", "Old Serra'kis")],
+                         [(98.7, "", False), (None, "not scored", True), (None, "not scored", False)])
+        self.assertEqual(bosses_text(rows, weakest, "today")[0], "average boss score today · 4 of 6 killed")
 
     def test_records_new_today(self):
         records, _ = build_records(records_history(), TODAY)
@@ -264,12 +288,13 @@ class BossesRecordsTests(unittest.TestCase):
 
     def test_records_within_reach(self):
         records, within = build_records(records_history(), TODAY)
-        # R9: 75.3 + 10.3 (Cooldowns, the last visit's top points lost) beats 82; +7 is ceil(82 − 75.3)
-        self.assertEqual(within, ("Best 82 A", "+7 needed — your Cooldowns fix is worth 10.3"))
+        # R9: 75.3 + 10.3 (Cooldowns, the last visit's top points lost) beats 82; +7 is ceil(82 − 75.3); the
+        # category by its display name, as History and Bosses have it
+        self.assertEqual(within, ("Best 82 A", "+7 needed — your Abilities on time fix is worth 10.3"))
         h = build_history(visits(records_history()))
         self.assertEqual(records_text(h, within, "today"), (
-            "Today's 75 B is 7 points short of your best. Your Cooldowns fix alone (−10.3) would have beaten it.",
-            "Best 82 A: +7 needed — your Cooldowns fix is worth 10.3", None))
+            "Today's 75 B is 7 points short of your best. Your Abilities on time fix alone (−10.3) would have "
+            "beaten it.", "Best 82 A: +7 needed — your Abilities on time fix is worth 10.3", None))
         # 75.3 + 10.3 doesn't beat 86: out of reach
         records, within = build_records(records_history(best=86.0), TODAY)
         self.assertIsNone(within)
@@ -296,6 +321,11 @@ class BossesRecordsTests(unittest.TestCase):
             "Every record here is from today's visit, your only scored one.", "First visit — records start here",
             "Visits with under 60 s in combat are too short to compare."))
         self.assertEqual(build_records(blackfathom()[:2]), ([], None))       # none scored
+        # a streak of one fight, and of none
+        for scores, want in (((95, 50), "1 fight"), ((50, 60), "none yet")):
+            one = [(run("r1", datetime(2026, 11, 18, 21, 0)), analysed(card(75.0), 3600, 1800, fights=[
+                fight(100 * k, 20, s) for k, s in enumerate(scores)]))]
+            self.assertEqual(build_records(one, TODAY)[0][5].value, want)
         self.assertEqual(records_text(build_history(visits(blackfathom()[:2])), None, "today")[:2],
                          ("No scored visit yet, so no records.", "No scored visit yet — come back after a full run"))
 
@@ -414,7 +444,7 @@ class HistoryTabTests(unittest.TestCase):
         page = self.dungeon(records_history())
         tab = page.records
         self.assertEqual((tab.hero.big, tab.hero.suffix), ("82", "A"))
-        self.assertEqual(tab.plate.title, "Best 82 A: +7 needed — your Cooldowns fix is worth 10.3")
+        self.assertEqual(tab.plate.title, "Best 82 A: +7 needed — your Abilities on time fix is worth 10.3")
         t, b, f = tab.plate.scale
         self.assertEqual((t, b, round(f, 3)), (75.334, 82.0, 85.591))
         opened = []

@@ -60,6 +60,7 @@ class BossRow:
     best: tuple[float, str] | None  # its best score, and when ("11 Nov", "today")
     missed: list[str] = field(default_factory=list)     # why each history score is missing ("" when it isn't)
     fight: tuple[float, float] | None = None            # its fight on the last visit, in that run's seconds
+    killed: bool = False        # killed on the last visit (the log said so: unknown is not killed)
 
 
 @dataclass
@@ -190,13 +191,26 @@ def _missed(fr) -> str:
     return "" if _boss_score(fr) is not None else "wipe" if fr.fight.killed is False else "not scored"
 
 
+def _route(per: list[dict]) -> list[str]:
+    """the bosses in the order you met them on the last visit; one met only before slots in after the boss you met
+    just before it, on the latest visit you met it (first, when none was)"""
+    order = list(per[-1]) if per else []
+    for b in reversed(per[:-1]):
+        prev = None
+        for name in b:
+            if name not in order:
+                order.insert(order.index(prev) + 1 if prev else 0, name)
+            prev = name
+    return order
+
+
 def build_bosses(pairs, today: date | None = None) -> tuple[list[BossRow], BossRow | None, float | None]:
-    """a row per boss in the order you met them on the last scored visit (then any met only before it); the weakest
-    on that visit, and its average boss score (None: no boss scored on it)"""
+    """a row per boss in the order you met them (_route); the weakest on the last scored visit, and its average boss
+    score (None: no boss scored on it)"""
     sv = _scored(pairs)
     per = [_boss_fights(a) for _, a in sv]
     rows = []
-    for name in dict.fromkeys([*(per[-1] if per else ()), *(n for b in per for n in b)]):
+    for name in _route(per):
         hist = [_boss_score(b[name]) if name in b else None for b in per]
         best = max(((s, v.when) for s, (v, _) in zip(hist, sv) if s is not None), key=lambda t: t[0], default=None)
         fr = per[-1].get(name)
@@ -206,7 +220,7 @@ def build_bosses(pairs, today: date | None = None) -> tuple[list[BossRow], BossR
             on.damage[0] / on.fight.duration if on and on.damage and on.fight.duration else None,
             on.damage[1] if on and on.damage else None, [(c.name, p) for c, p in on.card.points_lost()] if on else [],
             hist, None if best is None else (best[0], last_word(best[1], today)), [_missed(b.get(name)) for b in per],
-            (fr.fight.start, fr.fight.end) if fr else None))
+            (fr.fight.start, fr.fight.end) if fr else None, bool(fr) and fr.fight.killed is True))
     scored = [r for r in rows if r.today is not None]
     weakest = min(scored, key=lambda r: r.today, default=None)      # the first met, on a tie
     return rows, weakest, sum(r.today for r in scored) / len(scored) if scored else None
@@ -217,8 +231,7 @@ def bosses_text(rows: list[BossRow], weakest: BossRow | None, word: str) -> tupl
     if not rows:
         return None, "No boss fight on a scored visit yet."
     when = "today" if word == "today" else f"on {word}"
-    killed = sum(r.missed[-1] not in ("wipe", "not reached") for r in rows)
-    caption = f"average boss score {when} · {killed} of {len(rows)} killed"
+    caption = f"average boss score {when} · {sum(r.killed for r in rows)} of {len(rows)} killed"
     if weakest is None:
         return caption, f"No boss was scored {when}."
     s = f"Your weakest boss is {weakest.name} ({weakest.today:.0f} {weakest.grade})"
@@ -298,7 +311,7 @@ def build_records(pairs, today: date | None = None) -> tuple[list[Record], tuple
     within = None
     if prior is not None and prior > last.score and top and last.score + top[1] > prior:
         within = (f"Best {prior:.0f} {grade(prior)}",
-                  f"+{math.ceil(prior - last.score)} needed — your {top[0]} fix is worth {top[1]:.1f}")
+                  f"+{math.ceil(prior - last.score)} needed — your {display_name(top[0])} fix is worth {top[1]:.1f}")
     killed = [{fr.fight.boss for fr in a.fights if fr.fight.boss and fr.fight.killed} for _, a in sv]
     clear = [k >= set().union(*killed) for k in killed]     # it killed every boss you have here: left early, no clear
     dps, streak = [_top_dps(a) for _, a in sv], [_streak(a) for _, a in sv]
@@ -332,7 +345,7 @@ def build_records(pairs, today: date | None = None) -> tuple[list[Record], tuple
                 lambda s, short: f"{s:.0f}" if short else f"{s:.0f} DPS", lambda b, t: f"{b - t:.0f} DPS short",
                 note=dps_at),
         _record("Longest S streak", [k for k, _, _ in streak], sv, word,
-                lambda s, short: str(s) if short else _plural(s, "fight"), fewer, note=streak_at)]
+                lambda s, short: str(s) if short else _plural(s, "fight") if s else "none yet", fewer, note=streak_at)]
     clean = [i for i, (v, _) in enumerate(sv) if v.deaths == 0]
     d = last.deaths or 0
     records.append(Record("Deathless visits", f"{len(clean)} of {n}",
@@ -362,5 +375,6 @@ def records_text(h: HistoryView, within: tuple[str, str] | None, word: str) -> t
     short = f"{whose} is {_plural(need, 'point')} short of your best."
     if within:
         cat, x = next(iter(t.lost.items()))
-        return f"{short} Your {cat} fix alone ({MINUS}{x:.1f}) would have beaten it.", ": ".join(within), None
+        alone = f"Your {display_name(cat)} fix alone ({MINUS}{x:.1f}) would have beaten it."
+        return f"{short} {alone}", ": ".join(within), None
     return short, f"Best {b.score:.0f} {b.grade}: +{need} needed — more than any one fix is worth", None

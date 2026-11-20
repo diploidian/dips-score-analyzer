@@ -162,8 +162,10 @@ class Board(Part):
         else:
             line(p, nf, tok("tx"), nx, y, self.ROW_H, elide(nf, r.name, nw))
         vf, h = font(30, 700, num=True), self.ROW_H     # each cell centred in the row, as the mock-up's
-        self._figure(p, vf, tok("mu" if r.value == "–" else "tx"), xs[1] + 12, baseline(vf, y, h), r.value,
-                     font(13, 500))
+        if any(c.isdigit() for c in r.value):
+            self._figure(p, vf, tok("tx"), xs[1] + 12, baseline(vf, y, h), r.value, font(13, 500))
+        else:       # no record yet ("–", "none yet"): muted, whole
+            text_at(p, vf, tok("mu"), xs[1] + 12, baseline(vf, y, h), r.value)
         latest = r.when == self.word
         wf = font(14, 600 if latest else 400)
         text_at(p, wf, tok("tx" if latest else "tx2"), xs[2] + 12, baseline(wf, y, h), r.when)
