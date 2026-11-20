@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blackfathom Deeps records - dips score</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+.hero{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:28px;align-items:start}
+.sc{font:700 150px/.8 "Barlow Condensed",sans-serif;letter-spacing:-.02em;display:flex;align-items:flex-start;margin-top:22px}
+.sc em{font-style:normal;font-size:56px;line-height:1;margin:6px 0 0 10px;padding:5px 12px;border:2px solid var(--gold)}
+.cap{margin-top:18px;font:600 13px/1 "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--mu)}
+.vd{font-size:16px;line-height:1.45;margin-top:10px;color:var(--tx2);max-width:560px}
+
+.plate{position:relative;margin-top:12px;background:var(--plate);color:var(--plate-tx);padding:26px 24px 22px}
+.plate>.tab{position:absolute;top:-12px;left:16px}
+.plate .lb{font:700 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.16em;text-transform:uppercase;color:var(--plate-ac)}
+.plate .fix-h{font:600 30px/1.1 "Barlow Condensed",sans-serif;margin:10px 0 0}
+.plate .rule{border-top:1px solid var(--plate-ln);margin:16px 0}
+.reach{position:relative;height:56px;margin-top:14px;font-size:12px;color:var(--plate-mu)}
+.reach .rt{position:absolute;left:0;right:0;top:22px;height:8px;border:1px solid var(--plate-ln)}
+.reach .rt i{position:absolute;top:-1px;bottom:-1px}
+.reach .rt u{position:absolute;top:-7px;bottom:-7px;width:2px;margin-left:-1px;background:var(--plate-tx)}
+.reach span{position:absolute;white-space:nowrap;transform:translateX(-50%)}
+.reach span b{font:700 14px "Barlow Condensed",sans-serif;color:var(--plate-tx)}
+.reach .up{top:0}.reach .dn{top:38px}
+.reach .end{transform:none}
+
+.sec{margin-top:28px}
+table{width:100%;border-collapse:collapse;margin-top:-1px}
+th{text-align:left;font:700 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--tx2);padding:10px 12px;border-top:1px solid var(--tx);border-bottom:1px solid var(--tx)}
+td{padding:8px 12px;border-bottom:1px solid var(--ln);vertical-align:middle}
+.nm{font-size:15px;font-weight:500;width:26%}
+.nm small{display:block;font-size:12px;font-weight:400;color:var(--mu);margin-top:1px}
+.rv{font:700 30px/1 "Barlow Condensed",sans-serif;width:17%;white-space:nowrap}
+.rv small{font:500 13px Barlow,sans-serif;color:var(--mu);margin-left:5px}
+.wh{color:var(--tx2);width:13%}
+.wh b{font-weight:600;color:var(--tx)}
+.td{font:600 18px "Barlow Condensed",sans-serif;color:var(--tx2);width:13%;white-space:nowrap}
+.st{font:600 16px/1 "Barlow Condensed",sans-serif;letter-spacing:.03em;color:var(--tx2)}
+.st.rec{color:var(--tx);font-weight:700}
+.st small{font:400 12px Barlow,sans-serif;letter-spacing:0;color:var(--mu);margin-left:14px}
+.new+small{margin-left:32px}
+.new{position:relative;display:inline-block;color:var(--tx);font-weight:700}
+.new svg{position:absolute;left:-22px;top:-12px;width:150px;height:40px;overflow:visible;pointer-events:none}
+.sub td{padding:0}
+.sub a{display:flex;align-items:center;gap:9px;padding:12px 12px;text-decoration:none;font-size:14px;font-weight:500}
+.sub a span{color:var(--mu);font-weight:400}
+.sub a em{margin-left:auto;font-style:normal;color:var(--tx2);text-decoration:underline;text-underline-offset:3px}
+.sub a:hover em{color:var(--tx)}
+.sub svg{width:10px;height:10px;flex:none;fill:none;stroke:var(--tx2);stroke-width:1.6}
+
+.stk{display:flex;align-items:baseline;gap:10px;margin-top:12px;font-size:14px;color:var(--tx2)}
+.stk b{font:700 20px/1 "Barlow Condensed",sans-serif;color:var(--tx)}
+.stk i{font-style:normal;color:var(--mu)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html" aria-current="page">Dungeons</a>
+      <a href="fight.html">Fights</a>
+      <a href="habits.html">Habits</a>
+    </nav>
+    <div class="rl">Recent runs</div>
+    <a class="run" href="debrief.html"><span>Blackfathom Deeps</span><b>75 B</b></a>
+    <a class="run" href="#"><span>Kalimdor (open world)</span><b>23:37</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:17</b></a>
+    <a class="run" href="#"><span>Blackfathom Deeps</span><b>22:16</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:09</b></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+    <div class="rlinks"><a href="#">Settings</a><a href="#">Reload</a></div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>Blackfathom Deeps</h1><div class="meta"><b>8 visits · 6 scored</b> · best 82 A · last 75 B · as DPS</div></div>
+      <nav class="tabs" aria-label="Dungeon views"><a href="history.html">History</a><a href="bosses.html">Bosses</a><a href="records.html" aria-current="page">Records</a></nav>
+    </header>
+
+    <div class="hero">
+      <div>
+        <div class="sc c"><span data-count="82">82</span><em class="g-A">A</em></div>
+        <div class="cap">Best score here · 11 Nov</div>
+        <p class="vd">Today's 75 <b class="g-B">B</b> is 7 points short of your best. Fixing Consecration alone (−10.3) would have beaten it.</p>
+      </div>
+      <section class="plate" aria-labelledby="reach">
+        <h2 class="tab" id="reach">Within reach</h2>
+        <p class="fix-h">Best 82 A: +7 needed — your Cooldowns fix is worth 10.3</p>
+        <div class="reach" role="img" aria-label="Score scale 60 to 100: today 75, best 82, today plus the Cooldowns fix 86">
+          <span class="up" style="left:55%">best <b>82</b></span>
+          <div class="rt"><i style="left:0;width:38.3%;background:var(--plate-tx)"></i><i data-grow style="--i:0;left:38.3%;width:25.7%;background:var(--plate-ac)"></i><u style="left:55%"></u></div>
+          <span class="dn end" style="left:0">60</span>
+          <span class="dn" style="left:38.3%">today <b>75</b></span>
+          <span class="dn" style="left:64%">with the fix <b>86</b></span>
+          <span class="dn end" style="left:auto;right:0">100</span>
+        </div>
+        <div class="rule"></div>
+        <a class="btn" href="debrief.html">Show the fix</a>
+      </section>
+    </div>
+
+    <section class="sec" aria-label="Your records here">
+      <span class="tab">Your records here</span> <span class="illus">earlier visits illustrative</span>
+      <table>
+        <thead><tr><th scope="col">Record</th><th scope="col">Best</th><th scope="col">When</th><th scope="col">Today</th><th scope="col">Status</th></tr></thead>
+        <tbody>
+          <tr><td class="nm">Best score</td><td class="rv">82 <b class="g-A">A</b></td><td class="wh">11 Nov</td><td class="td">75 <b class="g-B">B</b></td><td class="st">7 short <small>within reach</small></td></tr>
+          <tr><td class="nm">Fastest clear<small>whole visit, entry to exit</small></td><td class="rv">58:10</td><td class="wh">11 Nov</td><td class="td">69:45</td><td class="st">11:35 behind</td></tr>
+          <tr><td class="nm">Least time in combat</td><td class="rv">28:40</td><td class="wh">11 Nov</td><td class="td">32:57</td><td class="st">4:17 behind</td></tr>
+          <tr><td class="nm">Most killing blows</td><td class="rv">31</td><td class="wh"><b>today</b></td><td class="td">31</td><td class="st"><span class="new">new record today<svg viewBox="0 0 150 40" aria-hidden="true"><path class="hl-stroke" data-draw style="--len:380;--i:0" d="M20 31 C6 24 10 9 46 5 C88 0 140 3 146 17 C151 31 112 38 70 37 C34 36 9 32 8 21 C7 12 22 7 40 6" stroke-width="3.5" stroke-linecap="round" opacity=".85"/></svg></span><small>was 27 · 8 Nov</small></td></tr>
+          <tr><td class="nm">Highest DPS in a fight<small>Lady Sarevess, 24s at 11:23</small></td><td class="rv">85<small>DPS</small></td><td class="wh"><b>today</b></td><td class="td">85</td><td class="st rec">new record today</td></tr>
+          <tr><td class="nm">Longest S streak<small>fights scoring 90+ in a row, 11:23 to 15:25</small></td><td class="rv">6<small>fights</small></td><td class="wh"><b>today</b></td><td class="td">6</td><td class="st rec">new record today</td></tr>
+          <tr><td class="nm">Deathless runs<small>visits with no deaths</small></td><td class="rv">2<small>of 6</small></td><td class="wh">last 11 Nov</td><td class="td">1 death</td><td class="st">not this visit</td></tr>
+          <tr class="sub"><td colspan="5"><a href="bosses.html"><svg viewBox="0 0 10 10" aria-hidden="true"><polyline points="3,1 7,5 3,9"/></svg>Best on each boss <span>(6) · today 5 of 6 at S</span><em>Bosses tab</em></a></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="sec" aria-label="Streaks">
+      <span class="tab">Streaks</span>
+      <p class="stk">Visits without a death: <b>0</b> <i>(current)</i> <i>·</i> visits graded B or better: <b>4</b> of 6 <i>(illustrative)</i></p>
+    </section>
+  </main>
+</div>
+</body>
+</html>
