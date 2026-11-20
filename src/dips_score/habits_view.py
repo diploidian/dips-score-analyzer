@@ -1,16 +1,14 @@
 """What the Habits page shows, as plain data (no Qt), from live.habits.habits(): your efficiency over the last 20
 fights against the ones before them, the habit to fix (the fix card that cost the most damage), this sitting's key
 figures, the trend, and every habit card grouped Fix · Build · Keep."""
-import re
 from dataclasses import dataclass, field
 
-from .live.habits import TREND_MIN
+from .live.habits import MOVE, TREND_MIN
 
 MINUS = "−"
 RECENT = 20                 # the fights in "last 20"; the ones before them are compared with them
 GROUPS = (("fix", "Fix"), ("build", "Build"), ("keep", "Keep"))
 NO_FIGHTS = "Fights appear here once you have some."
-PLAY = re.compile(r"About (\d+)% from playing worse .*the rest \(([+-]\d+)%\)")    # the DPS card's split
 
 
 @dataclass
@@ -61,11 +59,10 @@ def _figures(s: dict | None) -> list[tuple[str, str]]:
 
 
 def _play_not_gear(cards: list[dict]) -> bool:
-    """the DPS card says DPS fell mostly from your play: playing worse by more than gear, level and foes moved it"""
-    for c in cards:
-        if c["title"].startswith("DPS down") and (m := PLAY.match(c["detail"])):
-            return int(m[2]) >= 0 or int(m[1]) > -int(m[2])
-    return False
+    """the DPS card's split says DPS fell mostly from your play: playing worse by more than gear, level and what you
+    fought moved it (False without the split's figures)"""
+    c = next((c for c in cards if c.get("play") is not None), None)
+    return c is not None and c["dps_change"] < 0 and c["play"] < 0 and (c["rest"] >= 0 or c["play"] < c["rest"])
 
 
 def build_habits(h: dict) -> HabitsView:
@@ -94,24 +91,27 @@ def build_habits(h: dict) -> HabitsView:
                 if a is not None and b is not None and a != b:
                     out.append((i, b) if key == "level" else i)
         # the plate: the fix that cost the most damage, else the first fix (not the efficiency card: that is the hero)
-        fixes = [c for c in cards if c["kind"] == "fix" and not c["title"].startswith("Efficiency ")]
+        eff = next((c for c in cards if c.get("recent") is not None), None)
+        fixes = [c for c in cards if c["kind"] == "fix" and c is not eff]
         plate = max((c for c in fixes if c.get("cost") is not None), key=lambda c: c["cost"], default=None) or \
             (fixes[0] if fixes else None)
-        eff = next((c["title"] for c in cards if c["title"].startswith("Efficiency ")), "Efficiency")
-        drop = eff == "Efficiency is dropping" and _play_not_gear(cards)     # what the DPS card's split says
-        head = eff + (", and most of it is play, not gear" if drop else "")
-        if plate is None:
-            v.verdict = head + "."
-        elif plate.get("cost") is not None:
+        dropping = eff is not None and eff.get("before") is not None and eff["recent"] - eff["before"] <= -MOVE
+        head = eff and eff["title"] + (", and most of it is play, not gear" if dropping and _play_not_gear(cards)
+                                       else "")
+        say, sep = None, ". "
+        if plate is not None and plate.get("cost") is not None:
+            n, missed = plate.get("fights"), plate.get("missed")
             price = f"about {plate['cost']:,.0f} damage"
-            caption = plate["detail"].removeprefix(f"About {plate['cost']:,.0f} damage lost").lstrip(", ")
+            caption = None if n is None else \
+                (f"{_plural(missed, 'cast')} missed " if missed else "") + f"in {_plural(n, 'fight')}"
             v.fix = (plate["title"], price, caption)
-            where = re.search(r"in (\d+ fights?)$", caption)
-            v.verdict = f"{head}: {plate['title']} cost {price}{f' across {where[1]}' if where else ''}."
-        else:
+            say = f"{plate['title']} cost {price}" + ("" if n is None else f" across {_plural(n, 'fight')}")
+            sep = ": "
+        elif plate is not None:
             v.fix = (plate["title"], None, plate["detail"])
             d = plate["detail"].rstrip(".")
-            v.verdict = f"{head}. {plate['title']}: {d[:1].lower()}{d[1:]}."
+            say = f"{plate['title']}: {d[:1].lower()}{d[1:]}"
+        v.verdict = sep.join(s for s in (head, say) if s) + "." if head or say else ""
     for kind, name in GROUPS:
         rows = [(c["title"], c["detail"], c is plate) for c in cards if c["kind"] == kind]
         if rows:

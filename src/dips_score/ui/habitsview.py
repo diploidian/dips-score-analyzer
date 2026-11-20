@@ -75,7 +75,10 @@ class TrendChart(Part):
         top = 16 + 25 + 12
         if p and self.view.trend:
             self._chart(p, w, top)
-        return top + 280
+        v = self.view       # under the chart, what its upright lines mean (only those it has)
+        note = " · ".join(s for marks, s in ((v.levels, "solid line: you went up a level (the new level on top)"),
+                                             (v.gear_changes, "dashed line: your gear level changed")) if marks)
+        return top + 280 + (wrapped(p, font(12), tok("mu"), 0, top + 284, w, 12 * 1.4, note) + 4 if note else 0)
 
     def _chart(self, p: QPainter, w: float, top: float):
         """drawn in the mock-up's 280px-tall frame from top, its plot from x 44 to 16 short of the right edge"""
@@ -132,10 +135,10 @@ class TrendChart(Part):
             p.setPen(pen)
             p.drawLine(QPointF(a, Y(e)), QPointF(b, Y(e)))
         if v.before is not None:
-            b0 = X(max(0, n - 2 * RECENT))
-            average(b0, xs, v.before, "tx2")
+            bx = X(max(0, n - 2 * RECENT))       # where the before period starts
+            average(bx, xs, v.before, "tx2")
             s = f"{v.before:.1f}%"
-            halo_text(p, af, tok("tx2"), (b0 + xs - adv(af, s)) / 2, Y(v.before) + 20.5, s)    # over the line
+            halo_text(p, af, tok("tx2"), (bx + xs - adv(af, s)) / 2, Y(v.before) + 20.5, s)    # over the line
         ink = "tx2" if v.before is None else "gD" if v.recent < v.before else "m-dmg"
         average(xs, x1, v.recent, ink)
         s = f"{v.recent:.1f}%"
