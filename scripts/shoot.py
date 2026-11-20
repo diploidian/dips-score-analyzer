@@ -22,11 +22,11 @@ ap.add_argument("--click-look", help="<theme>,<mode>: click the rail's Look butt
 ap.add_argument("--replay", action="store_true", help="sum up the game's old combat logs into the temp history (Fights page)")
 ap.add_argument("--hover", action="store_true", help="after the run opens, show the timeline and put the mouse over it")
 ap.add_argument("--click", choices=["show-me", "show-pull", "all-pulls", "show-spell", "all-spells", "show-death",
-                                    "edit-roles"],
+                                    "edit-roles", "all-numbers"],
                 help="show-me: press the Debrief's \"Show me on the timeline\"; show-pull: the Pulls plate's "
                      "\"Show this pull\"; all-pulls: open the Pulls drawer and pick the pull to fix; show-spell: the "
                      "Spells plate's \"Show on the timeline\"; all-spells: open both Spells drawers; show-death: the "
-                     "Group plate's \"Show your death\"; edit-roles: open the Group page's Edit roles drawer")
+                     "Group plate's \"Show your death\"; edit-roles / all-numbers: open that Group drawer")
 ap.add_argument("--overlay", action="store_true", help="save the after-fight card (a real fight from the history) instead of the window")
 ap.add_argument("--size", default="1500x950")
 ap.add_argument("--out", required=True)
@@ -105,6 +105,8 @@ elif args.click == "show-death":
     print("timeline:", w.tabs.currentWidget() is w.timeline_tab, (round(w.timeline.v0, 1), round(w.timeline.v1, 1)))
 elif args.click == "edit-roles":
     w.group.roles_drawer.flip()
+elif args.click == "all-numbers":
+    w.group.numbers_drawer.flip()
 
 
 if args.hover:

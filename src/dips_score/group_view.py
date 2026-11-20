@@ -44,6 +44,7 @@ class PlayerCard:
     points: float
     score: float
     grade: str
+    breakdown: str = ""             # the score's hover help: each category, the bonus, the awards
 
 
 @dataclass
@@ -94,6 +95,20 @@ def _caption(roasts: list[str], behind_next: float | None) -> str:
     return s[:1].upper() + s[1:] + "." if s else ""
 
 
+def breakdown(pl, a) -> str:
+    """a player's placing taken apart, as plain text: each category's score, weight and numbers, then the hybrid
+    bonus and the awards (the old Summary tab's card tooltip)"""
+    card = pl.card
+    out = [f"{a.roster[pl.guid].name} — {ordinal(pl.rank)}, {pl.points:.0f} points",
+           _typeset(placing_reason(pl, a).split(": ", 1)[1]).split(" — ")[0]]       # "67 as a …, −2 from awards"
+    out += [f"{c.name} {'–' if c.unavailable else f'{c.score:.0f}'} · "
+            f"{'info only' if c.info_only else f'weight {c.weight:g}'} · {c.summary}" for c in card.categories]
+    if card.bonus:
+        out.append(f"Hybrid bonus +{card.bonus:.1f} · {card.bonus_note}")
+    out += [f"{aw.title} {KIND[aw.good][-2:]} · {aw.stat}" for aw in pl.awards]
+    return "\n".join(out)
+
+
 def of_line(v: GroupView) -> str:
     """the line beside the placing: "of 5 · 0.4 points behind 2nd · 35 behind the MVP" """
     if not v.of:
@@ -118,7 +133,7 @@ def build_group(a) -> GroupView:
             minus=_split(pl.weaknesses), awards=[(aw.title, aw.good, f"{KIND[aw.good]}: {aw.blurb} {aw.stat}")
                                                  for aw in pl.awards],
             radar=list(r.values) if r else None, details=list(r.details) if r else None, points=pl.points,
-            score=pl.card.total, grade=pl.card.grade))
+            score=pl.card.total, grade=pl.card.grade, breakdown=breakdown(pl, a)))
     v.podium = v.cards[:3]
     v.average = average(a.radars) if a.radars else None
     names = {g: p.name for g, p in a.roster.items()}

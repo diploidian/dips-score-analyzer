@@ -15,6 +15,7 @@ from dips_score.model.roster import Player  # noqa: E402
 from dips_score.model.summary import Award  # noqa: E402
 from dips_score.scoring.group import GroupData, Placing, damage_share  # noqa: E402
 from dips_score.scoring.radar import Radar, radars  # noqa: E402
+from dips_score.scoring.score import Category  # noqa: E402
 
 HAVE_QT = importlib.util.find_spec("PyQt6") is not None
 
@@ -69,6 +70,24 @@ AWARDS = [
     ("Overflowing Cup", "Most overhealing.", "shi", "11% of their healing", False),
 ]
 YOUR_DEATH = 1204.9     # your one death, at the end of pull 23
+# two cards' categories (name, score, weight, summary), as rank_group saw them
+CATEGORIES = {
+    "me": [("Damage", 97.3, 60, "106,991 damage (128% of an even share, 54/s)"),
+           ("Survival", 36.0, 25, "1 death; took 15,059 damage (3.0x the damage dealers' middle)"),
+           ("Utility", 0.0, 15, "0 interrupts and dispels (0.0 per 10 min)")],
+    "evi": [("Damage", 61.3, 60, "82,875 damage (99% of an even share, 42/s)"),
+            ("Survival", 60.0, 25, "1 death; took 4,427 damage (0.9x the damage dealers' middle)"),
+            ("Utility", 0.0, 0, "0 interrupts and dispels (0.0 per 10 min) - a Hunter can't, so it doesn't count")],
+}
+# a.summary.stats: damage, dps, on bosses, healing, overheal share, taken, deaths, interrupts, dispels, killing blows,
+# pulls started
+STATS = {
+    "pir": (110898, 56.1, 12955, 1644, 0.667, 7970, 0, 34, 2, 50, 2),
+    "ana": (90534, 45.8, 9485, 6138, 0.298, 58400, 1, 0, 3, 30, 69),
+    "me": (106991, 54.1, 14001, 4616, 0.389, 15713, 1, 0, 0, 31, 8),
+    "evi": (85395, 43.2, 9157, 0, 0.0, 4706, 1, 0, 0, 32, 6),
+    "shi": (47834, 24.2, 5653, 58829, 0.111, 5711, 1, 0, 0, 28, 7),
+}
 
 
 def analysis(group=GROUP, awards=AWARDS, me="me", deaths=((YOUR_DEATH, "me"),), with_radars=True):
@@ -77,12 +96,28 @@ def analysis(group=GROUP, awards=AWARDS, me="me", deaths=((YOUR_DEATH, "me"),), 
     roster = {g: Player(g, name, role=role, is_me=g == me) for g, name, role, *_ in group}
     ranking = []
     for rank, (g, _, _, score, grade, points, plus, minus, *_) in enumerate(group, 1):
-        ranking.append(Placing(g, SimpleNamespace(total=score, grade=grade), points, rank,
-                               [aw for aw in aws if aw.guid == g], plus, minus))
+        cats = [Category(*c) for c in CATEGORIES.get(g, [])]
+        card = SimpleNamespace(total=score, grade=grade, categories=cats, bonus=0.0, bonus_note="")
+        ranking.append(Placing(g, card, points, rank, [aw for aw in aws if aw.guid == g], plus, minus))
     rs = {g: Radar(g, values, details) for g, *_, values, details in group} if with_radars else {}
     return SimpleNamespace(ranking=ranking, roster=roster, radars=rs, summary=SimpleNamespace(awards=aws),
                            deaths=[SimpleNamespace(t=t, guid=g) for t, g in deaths],
                            data=SimpleNamespace(player_guid=me))
+
+
+def with_numbers(a):
+    """the stub, with the summary's numbers and run line (as the old Summary tab read them)"""
+    names = ("damage", "dps", "boss_damage", "healing", "overheal_share", "taken", "deaths", "interrupts", "dispels",
+             "killing_blows", "pulls_started")
+    for p in a.roster.values():
+        p.role_from = "addon"
+    a.summary.stats = {g: SimpleNamespace(player=a.roster[g], **dict(zip(names, STATS[g]))) for g in a.roster}
+    a.summary.combat_time, a.summary.bosses_killed, a.summary.bosses = 1977.6, 6, 6
+    a.summary.trash_killed, a.summary.wipes = 152, 0
+    a.data.duration = 4185.3
+    a.deaths = [SimpleNamespace(t=t, guid=g) for t, g in ((600.0, "ana"), (900.0, "shi"), (YOUR_DEATH, "me"),
+                                                         (1300.0, "evi"))]
+    return a
 
 
 class GroupViewTests(unittest.TestCase):
@@ -118,6 +153,24 @@ class GroupViewTests(unittest.TestCase):
         self.assertEqual([t for t, *_ in v.awards][-4:], ["Punching Bag", "Carpet Sampler", "Eager Beaver",
                                                           "Overflowing Cup"])
         self.assertEqual(sum(good for *_, good in v.awards), 9)
+
+    def test_breakdown(self):
+        """a card's score help: each category's score, weight and numbers, the bonus, the awards"""
+        v = build_group(analysis())
+        self.assertEqual(v.cards[2].breakdown.split("\n"), [
+            "Bao Kahn — 3rd, 65 points",
+            "67 as a damage dealer, −2 from awards",
+            "Damage 97 · weight 60 · 106,991 damage (128% of an even share, 54/s)",
+            "Survival 36 · weight 25 · 1 death; took 15,059 damage (3.0x the damage dealers' middle)",
+            "Utility 0 · weight 15 · 0 interrupts and dispels (0.0 per 10 min)",
+            "Boss Bane +2 · 14K on bosses",
+            "Punching Bag −2 · 16K damage taken",
+            "Eager Beaver −2 · 8 pulls started"])
+        self.assertIn("Utility 0 · info only · 0 interrupts and dispels (0.0 per 10 min) - a Hunter can't, so it "
+                      "doesn't count", v.cards[3].breakdown)
+        a = analysis()
+        a.ranking[4].card.bonus, a.ranking[4].card.bonus_note = 2.5, "45,421 damage = 40% of an even share"
+        self.assertIn("Hybrid bonus +2.5 · 45,421 damage = 40% of an even share", build_group(a).cards[4].breakdown)
 
     def test_move_up_phrasing(self):
         """the known weakness lines in plain words; anything else as it is"""
@@ -221,8 +274,11 @@ class GroupPageTests(unittest.TestCase):
         self.assertFalse(tab.grab().isNull())
         tips = [t for _, t in tab.standings.tips]
         self.assertIn("Roast, −2: Took the most hits without being the tank. 16K damage taken", tips)
+        self.assertIn(build_group(analysis()).cards[2].breakdown, tips)        # the score line's help
         tab.show_view(build_group(analysis(me="pir", deaths=())), "Blackfathom Deeps", "")    # 1st, alive: no button
         self.assertEqual((tab.plate.title, tab.plate.has_button), ("You placed first.", False))
+        tab.show_view(build_group(analysis(me="pir", deaths=((300.0, "pir"),))), "", "")     # 1st, died: none either
+        self.assertFalse(tab.plate.has_button)
         self.assertEqual(tab.plate.body, "Strongest at damage: 102,728 damage (123% of an even share, 52/s).")
         tab.show_view(build_group(analysis([], awards=[], deaths=())), "No run selected", "")   # nobody: no plate
         self.assertTrue(tab.plate.isHidden())
@@ -236,8 +292,7 @@ class GroupPageTests(unittest.TestCase):
         from dips_score.ui.group import GroupTab
         tab = GroupTab()
         a = analysis()
-        a.summary.stats = {g: SimpleNamespace(damage=1000, healing=0, taken=500, deaths=0, interrupts=0, dispels=0)
-                           for g in a.roster}
+        with_numbers(a)
         a.roster["me"].cls = "PALADIN"
         changed, forgot = [], []
         tab.changed.connect(lambda *x: changed.append(x))
@@ -249,6 +304,36 @@ class GroupPageTests(unittest.TestCase):
         self.assertEqual(changed, [("me", "PALADIN", "TANK")])
         next(b for b in tab.findChildren(QPushButton) if b.text() == "Forget my picks").click()
         self.assertEqual(forgot, [True])
+
+    def test_all_the_numbers(self):
+        """the old Summary tab's numbers, in placing order, names in tx, with the run line over them"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the page)
+        from dips_score.ui.group import GroupTab
+        tab = GroupTab()
+        a = with_numbers(analysis())
+        tab._fill_numbers(a)
+        self.assertEqual((tab.numbers_drawer.label, tab.numbers_drawer.body.isHidden()), ("ALL THE NUMBERS (5)", True))
+        self.assertEqual(tab.run_line.text(), "69:45 long, 32:57 in combat · bosses 6/6 · 152 trash killed · 4 deaths")
+        t = tab.numbers
+        self.assertEqual([t.horizontalHeaderItem(c).text() for c in range(t.columnCount())],
+                         ["Player", "Role", "Damage", "DPS", "On bosses", "Healing", "Overheal", "Taken", "Deaths",
+                          "Interrupts", "Dispels", "Killing blows", "Pulls"])
+        self.assertEqual([t.item(r, 0).text() for r in range(5)], [g[1] for g in GROUP])     # placing order
+        self.assertEqual([t.item(2, c).text() for c in range(13)],
+                         ["Bao Kahn", "DPS", "107K", "54", "14K", "4.6K", "39%", "16K", "1", "", "", "31", "8"])
+        self.assertIsNone(t.item(2, 0).data(Qt.ItemDataRole.ForegroundRole))      # no class colour
+        self.assertTrue(t.item(2, 0).toolTip().startswith("Bao Kahn — 3rd, 65 points"))
+        self.assertEqual(t.item(2, 2).toolTip(), "Bao Kahn — damage: damage to enemies, pets included\n"
+                                                 "2nd highest in the group, 24% of the group's")
+        self.assertEqual(t.item(2, 3).toolTip(),
+                         "Bao Kahn — dps: damage per second of combat\n2nd highest in the group")
+        self.assertEqual(t.item(2, 1).toolTip(), "role: from addon")
+        a.summary.wipes = 1
+        tab._fill_numbers(a)
+        self.assertTrue(tab.run_line.text().endswith("4 deaths · 1 wipe"))
 
 
 if __name__ == "__main__":

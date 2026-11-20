@@ -1,15 +1,16 @@
 """The Group tab's page, painted from a GroupView (see dips_score/group_view.py): where you placed and what would move
-you up (the plate), the podium, everyone's card with their map, the awards, and everyone's class and role in the
-Edit roles drawer.
+you up (the plate), the podium, everyone's card with their map, the awards; then everyone's numbers in the All the
+numbers drawer, and their class and role in the Edit roles drawer.
 
 Sizes follow docs/design/mockups/group.html (CSS px). The shared parts come from kit.py, the map from radar.py.
 """
 from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QPen
+from PyQt6.QtGui import QFont, QFontMetricsF, QPen
 from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QPushButton, QScrollArea, QToolTip,
                              QVBoxLayout, QWidget)
 
-from ..group_view import GroupView, PlayerCard, build_group, of_line
+from ..debrief import fmt_time
+from ..group_view import ROLE_WORD, GroupView, PlayerCard, breakdown, build_group, of_line
 from ..model.roster import CLASSES, ROLES
 from ..scoring.group import ordinal
 from . import assets, theme
@@ -28,6 +29,20 @@ RANK_W, PTS_W, GAP = 80, 96, 24         # a card's columns: rank | who and why |
 AWARD_W, HOLDER_W = 220, 340            # the awards list's title and holder columns
 SOURCE = {"you": "your pick", "addon": "from the add-on", "spells": "guessed from spells",
           "talents": "from your talents", "?": "unknown"}
+# All the numbers: each column's help, and its value in a stat line (model.summary.PlayerStats); higher is "more"
+STATS = {
+    "Damage": ("damage to enemies, pets included", lambda st: st.damage),
+    "DPS": ("damage per second of combat", lambda st: st.dps),
+    "On bosses": ("damage during boss fights", lambda st: st.boss_damage),
+    "Healing": ("healing that landed (overhealing not counted)", lambda st: st.healing),
+    "Overheal": ("share of their healing that was wasted on full health", lambda st: st.overheal_share),
+    "Taken": ("damage they took", lambda st: st.taken),
+    "Deaths": ("times they died (Feign Death not counted)", lambda st: st.deaths),
+    "Interrupts": ("spell casts they interrupted", lambda st: st.interrupts),
+    "Dispels": ("debuffs and buffs they dispelled", lambda st: st.dispels),
+    "Killing blows": ("enemies they landed the killing blow on", lambda st: st.killing_blows),
+    "Pulls": ("packs they were first to touch", lambda st: st.pulls_started),
+}
 
 
 def _sign(p, x: float, y: float, plus: bool, ink, size: float = 10):
@@ -61,23 +76,26 @@ def _mvp(p, x: float, y: float) -> QRectF:
     return r
 
 
-def _mod_head(p, title: str, note: list[str | None]) -> float:
-    """a module's label tab, its muted note beside it (None in the note: a sample of the map's dashed average line);
-    returns where its content starts"""
+def _mod_head(p, title: str, note: list[str | None], gap: float = 6) -> float:
+    """a module's label tab, its muted note beside it: parts gap apart, ink to ink (None: a sample of the map's dashed
+    average line, 12px after the words before it); returns where its content starts"""
     r = draw_label_tab(p, 0, 0, title)
     if p:
         f = font(13)
+        fm = QFontMetricsF(f)
         x, base = r.right() + 14, baseline(f, 0, 25)
         for k, part in enumerate(note):
-            x += 6 if k else 0
             if part is None:
                 pen = QPen(tok("mu"), 1.4)
                 pen.setDashPattern([4 / 1.4, 3 / 1.4])
                 p.setPen(pen)
-                p.drawLine(QPointF(x + 10, 12.5), QPointF(x + 32, 12.5))
-                x += 32
+                p.drawLine(QPointF(x + 12, 12.5), QPointF(x + 12 + 25, 12.5))     # 4 on, 3 off: ends on a dash
+                x += 12 + 25
             else:
-                x += text_at(p, f, tok("mu"), x, base, part)
+                ink = fm.tightBoundingRect(part)        # the glyphs' own edges, not their advance
+                x += gap if k else 0
+                text_at(p, f, tok("mu"), x - ink.left(), base, part)
+                x += ink.width()
     return 25 + 12
 
 
@@ -147,7 +165,7 @@ class Podium(Part):
         self.changed()
 
     def draw(self, p, w):
-        y = _mod_head(p, "Podium", [f"Placing points = score + 2 per award (max +6) {MINUS} 2 per roast"])
+        y = _mod_head(p, "Podium", ["Placing points = score + 2 per award (max +6)", MINUS, "2 per roast"], 4)
         floor = y + STEP_H[1]
         if p:
             steps = [self.cards[k] for k in (1, 0, 2) if k < len(self.cards)]
@@ -230,7 +248,8 @@ class Standings(Tips):
         line(p, sf, tok("mu"), right - adv(sf, "POINTS"), y0 + 40.8 + 6, 11, "POINTS")
         base = baseline(gf, y0 + 40.8 + 6 + 11 + 14, 18)
         gw = text_at(p, gf, theme.grade_color(c.grade), right - adv(gf, c.grade), base, c.grade)
-        text_at(p, sc, tok("mu"), right - gw - 2 - adv(sc, f"score {c.score:.0f}"), base, f"score {c.score:.0f}")
+        sw = text_at(p, sc, tok("mu"), right - gw - 2 - adv(sc, f"score {c.score:.0f}"), base, f"score {c.score:.0f}")
+        tips.append((QRectF(right - gw - 2 - sw, base - 16, gw + 2 + sw, 22), c.breakdown))
         return h + 34
 
     @staticmethod
@@ -362,6 +381,18 @@ class GroupTab(QScrollArea):
         self.t.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         rl.addWidget(self.t)
         self.roles_drawer = Drawer("Edit roles", roles)
+        numbers = QWidget()
+        nl = QVBoxLayout(numbers)
+        nl.setContentsMargins(0, 0, 0, 12)
+        self.run_line = dim_label()         # bosses and trash killed, deaths, wipes
+        nl.addWidget(self.run_line)
+        self.numbers = table(["Player", "Role", *STATS], stretch=0)
+        self.numbers.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.numbers.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        for col, (what, _) in enumerate(STATS.values(), 2):
+            self.numbers.horizontalHeaderItem(col).setToolTip(what)
+        nl.addWidget(self.numbers)
+        self.numbers_drawer = Drawer("All the numbers", numbers)
 
         hero_row = QHBoxLayout()
         hero_row.setContentsMargins(0, 8, 0, 0)
@@ -373,9 +404,12 @@ class GroupTab(QScrollArea):
         lay.setSpacing(0)
         lay.addSpacing(HEAD_H)
         lay.addLayout(hero_row)
-        for part in (self.podium, self.standings, self.awards, Fold(self.roles_drawer, last=True)):
+        for part in (self.podium, self.standings, self.awards):
             lay.addSpacing(26)
             lay.addWidget(part)
+        lay.addSpacing(26)
+        lay.addWidget(Fold(self.numbers_drawer))
+        lay.addWidget(Fold(self.roles_drawer, last=True))
         lay.addStretch(1)
         self.setWidget(self.page)
         self.setWidgetResizable(True)
@@ -383,6 +417,7 @@ class GroupTab(QScrollArea):
 
     def set_analysis(self, a):
         self._fill_roles(a)
+        self._fill_numbers(a)
         if not a:
             self.show_view(GroupView(), "No run selected", "")
             return
@@ -400,7 +435,8 @@ class GroupTab(QScrollArea):
         else:       # you placed first (or aren't placed: the plate is hidden)
             title = "You placed first."
             body = f"Strongest at {you.plus[0][0].lower()}: {you.plus[0][1]}." if you and you.plus else None
-        self.plate.set(title, None, None, "Show your death" if view.death_at is not None else None, [], body)
+        death = view.move_up is not None and view.death_at is not None      # placed 1st: nothing to move up from
+        self.plate.set(title, None, None, "Show your death" if death else None, [], body)
         self.plate.setVisible(you is not None)
         self.podium.set(view.podium)
         self.standings.set(view.cards, view.average)
@@ -454,10 +490,45 @@ class GroupTab(QScrollArea):
             for col, v in enumerate([fmt_num(st.damage), fmt_num(st.healing), fmt_num(st.taken), st.deaths,
                                      st.interrupts, st.dispels], 5):
                 self.t.setItem(r, col, item(v, theme.DEATH if col == 8 and v else None, align_right=True))
-        self.t.resizeRowsToContents()
-        # as tall as its rows: the page scrolls, not the table
-        self.t.setFixedHeight(self.t.horizontalHeader().sizeHint().height() + self.t.verticalHeader().length()
-                              + 2 * self.t.frameWidth())
+        _fit(self.t)
+
+    def _fill_numbers(self, a):
+        """the old Summary tab's numbers: the run line, and everyone's stats in placing order, each with where it
+        ranks in the group"""
+        t = self.numbers
+        t.setRowCount(0)
+        s = a.summary if a else None
+        self.run_line.setText("" if not s else
+                              f"{fmt_time(a.data.duration)} long, {fmt_time(s.combat_time)} in combat · bosses "
+                              f"{s.bosses_killed}/{s.bosses} · {s.trash_killed} trash killed · {len(a.deaths)} "
+                              f"death{'s' if len(a.deaths) != 1 else ''}"
+                              + (f" · {s.wipes} wipe{'s' if s.wipes != 1 else ''}" if s.wipes else ""))
+        stats = list(s.stats.values()) if s else []
+        placing = {pl.guid: pl for pl in a.ranking} if a else {}
+        order = list(placing)
+        for st in sorted(stats, key=lambda st: order.index(st.player.guid) if st.player.guid in order else 99):
+            p, r = st.player, t.rowCount()
+            t.insertRow(r)
+            vals = [p.name, ROLE_WORD.get(p.role, "DPS"), fmt_num(st.damage), f"{st.dps:.0f}", fmt_num(st.boss_damage),
+                    fmt_num(st.healing), f"{st.overheal_share:.0%}" if st.healing else "", fmt_num(st.taken),
+                    st.deaths or "", st.interrupts or "", st.dispels or "", st.killing_blows or "",
+                    st.pulls_started or ""]
+            for col, v in enumerate(vals):
+                name = (["Player", "Role"] + list(STATS))[col]
+                it = item(v, theme.DEATH if name == "Deaths" and v else None, align_right=col >= 2)
+                if name in STATS:
+                    what, key = STATS[name]
+                    mine, total = key(st), sum(key(o) for o in stats)
+                    share = f", {mine / total:.0%} of the group's" if total and name not in ("DPS", "Overheal") else ""
+                    it.setToolTip(f"{p.name} — {name.lower()}: {what}\n"
+                                  f"{ordinal(1 + sum(key(o) > mine for o in stats))} highest in the group{share}")
+                elif col == 0 and p.guid in placing:
+                    it.setToolTip(breakdown(placing[p.guid], a))
+                elif col == 1:
+                    it.setToolTip("role: your pick" if p.role_from == "you" else f"role: from {p.role_from}")
+                t.setItem(r, col, it)
+        self.numbers_drawer.set_count(t.rowCount())
+        _fit(t)
 
     def resizeEvent(self, ev):
         narrow = self.window().width() < NARROW      # the mock-up's smaller placing figure
@@ -467,3 +538,9 @@ class GroupTab(QScrollArea):
                 part.narrow = narrow
                 part.changed()
         super().resizeEvent(ev)
+
+
+def _fit(t):
+    """a drawer's table, as tall as its rows: the page scrolls, not the table"""
+    t.resizeRowsToContents()
+    t.setFixedHeight(t.horizontalHeader().sizeHint().height() + t.verticalHeader().length() + 2 * t.frameWidth())
