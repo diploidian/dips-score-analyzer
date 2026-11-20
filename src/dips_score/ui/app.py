@@ -1,7 +1,7 @@
 """The window.
 
 Left: dungeons, each opening into its visits. Right: picking a dungeon shows its page (your score
-on every visit); picking a visit shows its tabs (Score, Group, Pulls, Spells, Summary) above the
+on every visit); picking a visit shows its tabs (Debrief, Group, Pulls, Spells, Summary) above the
 timeline. The window watches the add-on's saved file and reloads when the game saves (/reload,
 logout); a new visit opens by itself.
 """
@@ -13,7 +13,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QFileSystemWatcher, Qt, QTimer
 from PyQt6.QtGui import QFont, QGuiApplication
-from PyQt6.QtWidgets import (QApplication, QHBoxLayout, QMainWindow, QPushButton, QScrollArea, QSplitter,
+from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QSplitter,
                              QStackedWidget, QTabWidget, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
                              QWidget)
 
@@ -29,6 +29,7 @@ from . import texture, theme
 from .pages import DungeonPage, GroupTab, PullsTab, ScoreTab, SpellsTab, dim_label
 from .summary import SummaryTab
 from .timeline import Timeline
+from .tokens import THEMES
 from .settings import SettingsDialog
 from ..live.habits import habits
 from ..live.tail import LogTail
@@ -58,6 +59,7 @@ class Window(QMainWindow):
         self.tree.setMinimumWidth(260)
         self.tree.currentItemChanged.connect(self._picked)
         left = QWidget()
+        left.setObjectName("rail")
         ll = QVBoxLayout(left)
         ll.setContentsMargins(8, 8, 0, 8)
         modes = QHBoxLayout()
@@ -92,15 +94,40 @@ class Window(QMainWindow):
         row.addWidget(reload_btn, 1)
         cog = QToolButton()
         cog.setText("\u2699")            # the settings cog
-        cog.setToolTip("Settings: the look (Azeroth or Classic) and the game art it uses")
-        cog.setStyleSheet("font-size: 14pt; padding: 1px 8px;")
+        cog.setToolTip("Settings: the game folder, the game art and the overlay")
         cog.clicked.connect(self._open_settings)
         row.addWidget(cog)
         ll.addLayout(row)
+        look = QLabel("LOOK")
+        look.setObjectName("dim")
+        f = QFont(theme.NUM_FONT)
+        f.setPixelSize(11)
+        f.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 112)   # about 0.12em
+        look.setFont(f)
+        ll.addWidget(look)
+        self.look_buttons: dict[str, QPushButton] = {}
+        self.theme_group, self.mode_group = QButtonGroup(self), QButtonGroup(self)
+        for key, label, group in (*((k, n, self.theme_group) for k, n in (("classical", "Classical"),
+                                                                           ("timeless", "Timeless"))),
+                                  *((k, n, self.mode_group) for k, n in (("day", "Day"), ("night", "Night"),
+                                                                          ("auto", "Auto")))):
+            b = QPushButton(label)
+            b.setCheckable(True)
+            group.addButton(b)
+            self.look_buttons[key] = b
+            b.clicked.connect(lambda _c, k=key: self._set_look(theme=k) if k in THEMES else self._set_look(mode=k))
+        for keys in (("classical", "timeless"), ("day", "night", "auto")):
+            r = QHBoxLayout()
+            for k in keys:
+                r.addWidget(self.look_buttons[k])
+            ll.addLayout(r)
         self.weights: WeightsDialog | None = None
         self.settings_dialog: SettingsDialog | None = None
         # opened from the tray: share the controller's settings, so changes here reach the overlay
         self.settings = live.settings if live else app_settings.load(paths)
+        self._sync_look_buttons()
+        QGuiApplication.styleHints().colorSchemeChanged.connect(
+            lambda *_: self._set_look() if self.settings["mode"] == "auto" else None)
         self.rescore_timer = QTimer(singleShot=True, interval=120)   # sliders move fast: score once they pause
         self.rescore_timer.timeout.connect(self._rescore)
 
@@ -110,7 +137,7 @@ class Window(QMainWindow):
         self.score, self.group, self.pulls = ScoreTab(), GroupTab(), PullsTab()
         self.spells, self.summary = SpellsTab(), SummaryTab()
         self.tabs = QTabWidget()
-        for w, name in ((self.score, "Score"), (self.group, "Group"), (self.pulls, "Pulls"),
+        for w, name in ((self.score, "Debrief"), (self.group, "Group"), (self.pulls, "Pulls"),
                         (self.spells, "Spells"), (self.summary, "Summary")):
             self.tabs.addTab(w, name)
         self.timeline = Timeline()
@@ -352,8 +379,17 @@ class Window(QMainWindow):
         self.reload()
 
     def _set_theme(self, name: str):
+        self._set_look(theme=name)
+
+    def _sync_look_buttons(self):
+        for k in (self.settings["theme"], self.settings["mode"]):
+            self.look_buttons[k].setChecked(True)
+
+    def _set_look(self, theme: str | None = None, mode: str | None = None):
         """switch the look and redraw everything open"""
-        self.settings["theme"] = name
+        self.settings["theme"] = theme or self.settings["theme"]
+        self.settings["mode"] = mode or self.settings["mode"]
+        self._sync_look_buttons()
         app_settings.save(self.paths, self.settings)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:

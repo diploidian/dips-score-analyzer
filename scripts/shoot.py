@@ -16,8 +16,9 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("--saved")
 ap.add_argument("--run", type=int, default=1)
-ap.add_argument("--tab", default="Score")
+ap.add_argument("--tab", default="Debrief")
 ap.add_argument("--look", default="timeless,day", help="<theme>,<mode>")
+ap.add_argument("--click-look", help="<theme>,<mode>: click the rail's Look buttons after the window is up")
 ap.add_argument("--size", default="1500x950")
 ap.add_argument("--out", required=True)
 args = ap.parse_args()
@@ -58,7 +59,7 @@ w.resize(width, height)
 w.show()
 PAGES = {"dungeons": w.mode_dungeons, "fights": w.mode_fights, "habits": w.mode_habits}
 TABS = {w.tabs.tabText(i).lower(): i for i in range(w.tabs.count())}
-want = args.tab.lower()
+want = {"score": "debrief"}.get(args.tab.lower(), args.tab.lower())   # Score is the old name
 if want not in PAGES and want not in TABS:
     sys.exit(f"unknown --tab {args.tab!r}; valid: " + ", ".join(w.tabs.tabText(i) for i in range(w.tabs.count()))
              + ", " + ", ".join(k.title() for k in PAGES))
@@ -67,6 +68,11 @@ if want in PAGES:
 else:
     w._open_run_id(w.runs[args.run - 1].id)
     w.tabs.setCurrentIndex(TABS[want])
+if args.click_look:
+    for key in args.click_look.split(","):
+        w.look_buttons[key].click()
+if want in TABS:
+    w.tabs.setCurrentIndex(TABS[want])     # the redraw keeps it, but be sure
 
 
 def grab():
@@ -77,5 +83,7 @@ def grab():
 
 QTimer.singleShot(400, grab)
 qapp.exec()
+if args.click_look:
+    print("settings.json:", (Path(tmp) / "dips-score" / "settings.json").read_text(encoding="utf-8"))
 shutil.rmtree(tmp, ignore_errors=True)
 print("saved", args.out)
