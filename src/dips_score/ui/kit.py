@@ -344,6 +344,7 @@ class Plate(Part):
         self.has_button = False
         self.wrap = True           # the rows wrap; the page sets False when that wouldn't fit its height
         self.price_px = 32         # the price's size (the fight page's is 46)
+        self.price_words = False   # True: only the price's figure big, its words muted, the caption on its own line
         self.button_y = self.next_y = 0.0
 
     def set(self, title: str, price: str | None, caption: str | None, button: str | None,
@@ -391,9 +392,15 @@ class Plate(Part):
         if self.body:
             y += wrapped(p, font(14), tok("plate-mu"), x, y, cw, 14 * 1.45, self.body) + 4
         price = [(self.price, font(self.price_px, 700, num=True), tok("plate-ac"))] if self.price else []
+        gap = 12 if n else 18
+        if self.price_words and self.price:     # "about 7,298 damage", 7px apart
+            words = [(s, font(self.price_px, 700, num=True), tok("plate-ac")) if any(c.isdigit() for c in s)
+                     else (s, font(13), tok("plate-mu")) for s in self.price.split()]
+            y += flow(p, words, x, y, cw, 7, 2) + 2
+            price, gap = [], 7
         price += [(s, font(13), tok("plate-mu")) for s in (self.caption or "").split(" · ") if s]
         if price:
-            y += flow(p, price, x, y, cw, 12 if n else 18, 2)
+            y += flow(p, price, x, y, cw, gap, 2)
         if self.has_button:
             self.button_y = y + 10
             y = self.button_y + self.button.sizeHint().height()

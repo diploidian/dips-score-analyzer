@@ -4,7 +4,8 @@
 
 --run is the number `python dips-score.pyw runs` prints (with --tab Fights: the run loaded behind it, whose timeline
 its Show on the timeline goes to). --saved picks a dips-Score.lua (default: the game's).
-Settings and history live in a temp APPDATA, so yours are never touched (--fight-json copies fights into it).
+Settings and history live in a temp APPDATA, so yours are never touched (--fight-json and --spells-json copy
+yours into it).
 """
 import argparse
 import json
@@ -23,6 +24,8 @@ ap.add_argument("--click-look", help="<theme>,<mode>: click the rail's Look butt
 ap.add_argument("--replay", action="store_true", help="sum up the game's old combat logs into the temp history (Fights page)")
 ap.add_argument("--fight-json", help="a fights.jsonl (one fight per line, as the app keeps them; a copy of yours, say) "
                                      "to seed the temp history with (Fights page)")
+ap.add_argument("--spells-json", help="a spells.json (the spell books, a copy of yours) for the temp history (Habits "
+                                      "page: which spells you have cast)")
 ap.add_argument("--hover", action="store_true", help="after the run opens, show the timeline and put the mouse over it")
 ap.add_argument("--click", choices=["show-me", "show-pull", "all-pulls", "show-spell", "all-spells", "show-death",
                                     "edit-roles", "all-numbers", "show-fight", "abilities"],
@@ -53,6 +56,8 @@ wow = config.paths().wow     # --wow is not offered: DIPS_WOW or the default
     json.dumps({"theme": theme_name, "mode": mode, "wow_folder": str(wow), "motion": False}), encoding="utf-8")
 if args.fight_json:
     shutil.copyfile(args.fight_json, Path(tmp) / "dips-score" / "fights.jsonl")
+if args.spells_json:
+    shutil.copyfile(args.spells_json, Path(tmp) / "dips-score" / "spells.json")
 
 if args.saved:
     _load = analysis.load_saved

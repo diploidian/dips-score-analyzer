@@ -95,6 +95,26 @@ class ShellTests(unittest.TestCase):
             w._mode("fights")
             self.assertFalse(w.fight_detail.plate.has_button)
 
+    def test_habit_to_fix_opens_fights(self):
+        """R8: the Habits plate's Open Fights switches the rail to Fights mode"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        from test_habits import fight
+        row = {"name": "Judgement", "cd": 10, "lost": 200, "missed": 1, "counted": 1}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            w.live.history.fights = [fight(i, cooldowns=[row]) for i in range(6)]
+            w.mode_habits.click()
+            self.assertEqual(w.stack.currentIndex(), 3)
+            self.assertEqual(w.habits_page.plate.title, "Judgement left unused")
+            w.habits_page.plate.button.click()
+            self.assertTrue(w.mode_fights.isChecked())
+            self.assertEqual((w.stack.currentIndex(), w.left_stack.currentIndex()), (2, 1))
+
 
 if __name__ == "__main__":
     unittest.main()

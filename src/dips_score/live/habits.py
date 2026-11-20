@@ -89,7 +89,8 @@ def _damage_cards(win: list[dict]) -> list[tuple]:
     if lost and lost.most_common(1)[0][1] >= 1:
         name, total = lost.most_common(1)[0]
         casts = f", {missed[name]} casts missed" if missed[name] else ""
-        out.append(("fix", f"{name} left unused", f"About {total:,.0f} damage lost{casts} in {seen[name]} fights"))
+        out.append(("fix", f"{name} left unused", f"About {total:,.0f} damage lost{casts} in {seen[name]} fights",
+                    total))      # its cost: the one card with a damage figure
     elif rows:
         out.append(("keep", "Cooldowns used on time", f"No damage lost to idle cooldowns in {len(dmg)} fights"))
     auto = [f["auto"] for f in dmg if f.get("auto")]
@@ -223,4 +224,6 @@ def habits(fights: list[dict], char: dict | None = None, book: dict | None = Non
             "trend": trend,
             "session": _session(mine), "char": char and {
                 "class": char.get("class"), "race": char.get("race"), "level": char.get("level"),
-                "spec": char.get("spec"), "gear": gear_level(char)}, "cards": [{"kind": k, "title": t, "detail": d} for k, t, d in cards]}
+                "spec": char.get("spec"), "gear": gear_level(char)},
+            "cards": [{"kind": k, "title": t, "detail": d, "cost": cost[0] if cost else None}
+                      for k, t, d, *cost in cards]}

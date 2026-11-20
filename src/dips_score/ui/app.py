@@ -176,6 +176,7 @@ class Window(QMainWindow):
         self.stack.addWidget(self.fight_detail)          # 2
         self.habits_page = HabitsPage()
         self.stack.addWidget(self.habits_page)           # 3
+        self.habits_page.open_fights.connect(lambda: self._mode("fights"))     # R8: the list stays unfiltered
         self.fight_list.picked.connect(self._show_fight)
         self.fight_detail.show_me.connect(self._fight_on_timeline)     # Show on the timeline (R7: the loaded run)
         self.fight_list.itemClicked.connect(lambda _i: self._mode("fights") if self.mode_habits.isChecked() else None)
