@@ -42,6 +42,7 @@ class ShellTests(unittest.TestCase):
             w.score.zoom.emit(385.0, 480.0)               # a fight picked: zoomed, still on the Debrief
             self.assertEqual(tabs.currentIndex(), 0)
             self.assertEqual((w.timeline.v0, w.timeline.v1), (385.0, 480.0))
+            self.assertEqual(w.timeline_tab.scope, (385.0, 480.0))     # its picker followed (no run: a custom view)
             w.score.page.zoom.emit(100.0, 200.0)          # Show me: the Timeline tab
             self.assertIs(tabs.currentWidget(), w.timeline_tab)
             self.assertEqual((w.timeline.v0, w.timeline.v1), (100.0, 200.0))

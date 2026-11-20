@@ -14,8 +14,8 @@ from pathlib import Path
 from PyQt6.QtCore import QFileSystemWatcher, Qt, QTimer
 from PyQt6.QtGui import QFont, QGuiApplication
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QMainWindow, QPushButton,
-                             QScrollArea, QSplitter, QStackedWidget, QTabWidget, QTreeWidget,
-                             QTreeWidgetItem, QVBoxLayout, QWidget)
+                             QSplitter, QStackedWidget, QTabWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
+                             QWidget)
 
 from .. import analysis
 from ..analysis import Analysis
@@ -32,7 +32,7 @@ from .group import GroupTab
 from .pages import DungeonPage, ScoreTab, dim_label
 from .pulls import PullsTab
 from .spells import SpellsTab
-from .timeline import Timeline
+from .timelinetab import TimelineTab
 from .settings import SettingsDialog
 from .tokens import THEMES
 from ..live.habits import habits
@@ -141,17 +141,8 @@ class Window(QMainWindow):
         self.score, self.group, self.pulls = ScoreTab(), GroupTab(), PullsTab()
         self.score.page.settings = self.settings
         self.spells = SpellsTab()
-        self.timeline = Timeline()
-        scroll = QScrollArea()
-        scroll.setWidget(self.timeline)
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.timeline_tab = QWidget()
-        tll = QVBoxLayout(self.timeline_tab)
-        tll.setContentsMargins(0, 0, 0, 0)
-        tll.addWidget(dim_label("Wheel to zoom, drag to pan, double-click for the whole run, hover for details "
-                                "(shift+wheel scrolls down to everyone's rows)"))
-        tll.addWidget(scroll, 1)
+        self.timeline_tab = TimelineTab()        # the fight picker and the idle verdict over the lanes
+        self.timeline = self.timeline_tab.timeline
         self.tabs = QTabWidget()
         for w, name in ((self.score, "Debrief"), (self.timeline_tab, "Timeline"), (self.pulls, "Pulls"),
                         (self.spells, "Spells"), (self.group, "Group")):
@@ -341,7 +332,7 @@ class Window(QMainWindow):
         a = self.current
         for tab in (self.score, self.group, self.pulls, self.spells):
             tab.set_analysis(a)
-        self.timeline.set_analysis(a)
+        self.timeline_tab.set_analysis(a)
         self.stack.setCurrentIndex(1)
         self._refresh_labels()
 
@@ -351,9 +342,11 @@ class Window(QMainWindow):
 
     def _set_timeline(self, start: float | None = None, end: float | None = None, guid: str | None = None,
                       spell: str | None = None):
-        """the timeline zoomed to start..end and a player's spell lit up, each when given, without leaving the tab"""
+        """the timeline zoomed to start..end and a player's spell lit up, each when given, without leaving the tab;
+        the Timeline tab's picker follows the view"""
         if start is not None and end is not None:
             self.timeline.set_view(start, end)
+            self.timeline_tab.follow(start, end)
         if guid:
             self.timeline.highlight(guid, spell)
 

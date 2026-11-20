@@ -28,13 +28,13 @@ ap.add_argument("--spells-json", help="a spells.json (the spell books, a copy of
                                       "page: which spells you have cast)")
 ap.add_argument("--hover", action="store_true", help="after the run opens, show the timeline and put the mouse over it")
 ap.add_argument("--click", choices=["show-me", "show-pull", "all-pulls", "show-spell", "all-spells", "show-death",
-                                    "edit-roles", "all-numbers", "show-fight", "abilities"],
+                                    "edit-roles", "all-numbers", "show-fight", "abilities", "group"],
                 help="show-me: press the Debrief's \"Show me on the timeline\"; show-pull: the Pulls plate's "
                      "\"Show this pull\"; all-pulls: open the Pulls drawer and pick the pull to fix; show-spell: the "
                      "Spells plate's \"Show on the timeline\"; all-spells: open both Spells drawers; show-death: the "
                      "Group plate's \"Show your death\"; edit-roles / all-numbers: open that Group drawer; "
                      "show-fight: the Fights plate's \"Show on the timeline\"; abilities: open the Fights page's "
-                     "Abilities drawer")
+                     "Abilities drawer; group: show-me, then open the timeline's Group row")
 ap.add_argument("--overlay", action="store_true", help="save the after-fight card (a real fight from the history) instead of the window")
 ap.add_argument("--size", default="1500x950")
 ap.add_argument("--out", required=True)
@@ -126,6 +126,9 @@ elif args.click == "show-fight":
     print("timeline:", w.tabs.currentWidget() is w.timeline_tab, (round(w.timeline.v0, 1), round(w.timeline.v1, 1)))
 elif args.click == "abilities":
     w.fight_detail.drawer.flip()
+elif args.click == "group":
+    w.score.page.plate.button.click()
+    w.timeline.group.flip()
 
 
 if args.hover:
