@@ -27,7 +27,8 @@ from ..scoring.score import load_weights
 from ..sources.savedvars import Run
 from . import settings as app_settings
 from . import texture, theme
-from .pages import DungeonPage, GroupTab, PullsTab, ScoreTab, SpellsTab, dim_label
+from .pages import DungeonPage, GroupTab, ScoreTab, SpellsTab, dim_label
+from .pulls import PullsTab
 from .summary import SummaryTab
 from .timeline import Timeline
 from .settings import SettingsDialog
@@ -163,6 +164,7 @@ class Window(QMainWindow):
         self.score.page.zoom.connect(self.show_on_timeline)   # Show me
         self.score.zoom.connect(self._set_timeline)           # a fight picked
         self.pulls.zoom.connect(self._set_timeline)           # a pull picked
+        self.pulls.show_me.connect(self.show_on_timeline)     # Show this pull
         # a spell picked lights up on the timeline; a refill only clears it
         self.spells.highlight.connect(lambda guid, spell: self._set_timeline(None, None, guid, spell) if guid
                                       else self.timeline.highlight(None, None))

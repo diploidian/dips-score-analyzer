@@ -32,10 +32,10 @@ def font(px: int, weight: int = 400, num: bool = False, spacing: float = 0) -> Q
     return f
 
 
-def hand_font() -> QFont:
-    """Caveat 600 27px: the highlighter's handwriting"""
+def hand_font(px: int = 27) -> QFont:
+    """Caveat 600, 27px unless told: the highlighter's handwriting"""
     f = QFont(theme.HAND_FONT)
-    f.setPixelSize(27)
+    f.setPixelSize(px)
     f.setWeight(QFont.Weight(600))
     return f
 
@@ -164,10 +164,10 @@ def draw_hand_circle(p: QPainter, rect: QRectF, ink: QColor, rotation: float, fr
     p.restore()
 
 
-def draw_hand_note(p: QPainter, text: str, anchor: QPointF, target: QPointF | None):
-    """text in the highlighter's hand, its baseline starting at anchor and tilted 3° up, with an arrow from its
-    nearer end to target (None: no arrow). Fade it with the painter's opacity."""
-    f = hand_font()
+def draw_hand_note(p: QPainter, text: str, anchor: QPointF, target: QPointF | None, px: int = 27):
+    """text in the highlighter's hand (px tall), its baseline starting at anchor and tilted 3° up, with an arrow
+    from its nearer end to target (None: no arrow). Fade it with the painter's opacity."""
+    f = hand_font(px)
     p.save()
     p.translate(anchor)
     p.rotate(-3)
@@ -234,6 +234,7 @@ class Hero(Part):
     def __init__(self):
         super().__init__()
         self.big, self.suffix, self.caption, self.chip, self.verdict = "–", None, None, None, ""
+        self.unit = (64, 54, 700, 6, 2)     # a unit's px (narrow px), weight, and dx, dy from the number's top right
 
     def set(self, big: str, suffix: str | None, caption: str | None, chip: str | None, verdict: str):
         """suffix: a grade letter (boxed) or a unit ("%", "K", "pulls"); chip: a change, "−…" in gD, else gS"""
@@ -259,8 +260,9 @@ class Hero(Part):
             if p:
                 p.setOpacity(1)
         elif self.suffix and p:
-            u = font(54 if self.narrow else 64, 700, num=True)
-            line(p, u, tok("tx2"), x + 6, top + 2, u.pixelSize(), self.suffix)
+            px, npx, weight, dx, dy = self.unit
+            u = font(npx if self.narrow else px, weight, num=True)
+            line(p, u, tok("tx2"), x + dx, top + dy, u.pixelSize(), self.suffix)
         y = top + lh + 16
         if self.caption:
             y += wrapped(p, font(14), tok("mu"), 0, y, w, 14 * 1.4, self.caption) + 8
@@ -426,20 +428,23 @@ class BarRows(Part):
 
 
 class KeyFigures(Part):
-    """the key figures: one ruled row of number and caption in equal columns, no boxes"""
+    """the key figures in equal columns, no boxes: one ruled row of number and caption, or stacked cells (number,
+    caption, a muted line under it) divided by 1px rules"""
 
     def __init__(self):
         super().__init__()
-        self.items: list[tuple[str, str]] = []
+        self.items: list[tuple[str, ...]] = []
 
-    def set(self, items: list[tuple[str, str]]):
-        """(number, caption) pairs"""
+    def set(self, items: list[tuple[str, ...]]):
+        """(number, caption) pairs, or (number, caption, sub) triples for stacked cells"""
         self.items = items
         self.changed()
 
     def draw(self, p, w):
         if not self.items:
             return 0
+        if len(self.items[0]) == 3:
+            return self._stacked(p, w)
         if p:
             bf, cf = font(30, 700, num=True), font(13)
             base, cw = baseline(bf, 1 + 10, 30), w / len(self.items)
@@ -449,6 +454,24 @@ class KeyFigures(Part):
                 text_at(p, cf, tok("mu"), k * cw + nw + 7, base, elide(cf, cap, max(0.0, cw - nw - 14)))
             rule(p, 0, 1 + 10 + 30 + 9, w, tok("ln"))
         return 1 + 10 + 30 + 9 + 1
+
+    def _stacked(self, p, w):
+        """a cell each: the number (40px), its caption (14px tx2), the sub-caption (12px mu); 18px (narrow 14) in from
+        the rule between cells, the first flush left"""
+        pad, cw = (14 if self.narrow else 18), w / len(self.items)
+        bf, cf, sf = font(40, 700, num=True), font(14), font(12)
+        h = 0.0
+        for k, (num, cap, sub) in enumerate(self.items):
+            x = k * cw + (pad if k else 0)
+            iw = max(0.0, cw - pad - (pad if k else 0))
+            line(p, bf, tok("tx"), x, 2, 40, num)
+            y = 2 + 40 + 2 + wrapped(p, cf, tok("tx2"), x, 2 + 40 + 2, iw, 14 * 1.4, cap) + 1
+            y += wrapped(p, sf, tok("mu"), x, y, iw, 12 * 1.4, sub) if sub else 0
+            h = max(h, y + 4)
+        if p:
+            for k in range(1, len(self.items)):
+                p.fillRect(QRectF(round(k * cw), 0, 1, h), tok("ln"))
+        return h
 
 
 class Drawer(QWidget):

@@ -43,6 +43,13 @@ class ShellTests(unittest.TestCase):
             w.score.page.zoom.emit(100.0, 200.0)          # Show me: the Timeline tab
             self.assertIs(tabs.currentWidget(), w.timeline_tab)
             self.assertEqual((w.timeline.v0, w.timeline.v1), (100.0, 200.0))
+            tabs.setCurrentWidget(w.pulls)
+            w.pulls.zoom.emit(300.0, 400.0)               # a pull picked in the drawer: zoomed, still on Pulls
+            self.assertIs(tabs.currentWidget(), w.pulls)
+            self.assertEqual((w.timeline.v0, w.timeline.v1), (300.0, 400.0))
+            w.pulls.show_me.emit(1092.4, 1207.9)          # Show this pull: the Timeline tab
+            self.assertIs(tabs.currentWidget(), w.timeline_tab)
+            self.assertEqual((w.timeline.v0, w.timeline.v1), (1092.4, 1207.9))
             w.live.timer.stop()
 
 

@@ -21,7 +21,9 @@ ap.add_argument("--look", default="timeless,day", help="<theme>,<mode>")
 ap.add_argument("--click-look", help="<theme>,<mode>: click the rail's Look buttons after the window is up")
 ap.add_argument("--replay", action="store_true", help="sum up the game's old combat logs into the temp history (Fights page)")
 ap.add_argument("--hover", action="store_true", help="after the run opens, show the timeline and put the mouse over it")
-ap.add_argument("--click", choices=["show-me"], help="show-me: press the Debrief's \"Show me on the timeline\"")
+ap.add_argument("--click", choices=["show-me", "show-pull", "all-pulls"],
+                help="show-me: press the Debrief's \"Show me on the timeline\"; show-pull: the Pulls plate's "
+                     "\"Show this pull\"; all-pulls: open the Pulls drawer and pick its first row")
 ap.add_argument("--overlay", action="store_true", help="save the after-fight card (a real fight from the history) instead of the window")
 ap.add_argument("--size", default="1500x950")
 ap.add_argument("--out", required=True)
@@ -83,6 +85,11 @@ if want in TABS:
     w.tabs.setCurrentIndex(TABS[want])     # the redraw keeps it, but be sure
 if args.click == "show-me":
     w.score.page.plate.button.click()
+elif args.click == "show-pull":
+    w.pulls.plate.button.click()
+elif args.click == "all-pulls":
+    w.pulls.drawer.flip()
+    w.pulls.table.selectRow(0)
 
 
 if args.hover:

@@ -82,6 +82,10 @@ class KitTests(unittest.TestCase):
         kf.set([("2,583", "damage"), ("23", "DPS"), ("433", "taken"), ("53", "healing")])
         self.assertEqual(kf.heightForWidth(500), 51)
         self.paints(kf)
+        kf.set([("0", "entered under 50% health", "lowest was 57%, at 63:27"),    # stacked: a muted line under each
+                ("6", "you pulled", "12:27, 15:54, 28:16, 37:35, 43:12, 55:02")])
+        self.assertGreater(kf.heightForWidth(500), 51)
+        self.paints(kf)
         t = tag("PvP")
         self.assertEqual((t.text(), t.sizeHint().height()), ("PvP", 18))
         self.paints(t)

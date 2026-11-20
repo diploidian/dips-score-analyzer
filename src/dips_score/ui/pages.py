@@ -1,11 +1,10 @@
-"""The run's tabs (Debrief, Group, Pulls, Spells, Summary) and the dungeon page."""
+"""The run's tabs (Debrief, Group, Spells) and the dungeon page; Pulls is pulls.py."""
 from __future__ import annotations
 
 from PyQt6.QtCore import QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter
 from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
-                             QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem,
-                             QVBoxLayout, QWidget)
+                             QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from ..analysis import Analysis
 from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, worst_fight  # fmt_time: summary.py
@@ -17,9 +16,6 @@ from ..sources.savedvars import Run
 from . import assets, theme
 from .debrief import DebriefPage
 from .timeline import text_color, spell_color
-
-MARKER_COLORS = {"Skull": "#f0f0f0", "Cross": "#ff4040", "Square": "#40a0ff", "Moon": "#c0d0ff",
-                 "Triangle": "#40ff60", "Diamond": "#c040ff", "Circle": "#ff9020", "Star": "#ffe040"}
 
 
 def fmt_num(n: float) -> str:
@@ -269,106 +265,6 @@ class GroupTab(QWidget):
             for col, v in enumerate([fmt_num(st.damage), fmt_num(st.healing), fmt_num(st.taken), st.deaths,
                                      st.interrupts, st.dispels], 5):
                 self.t.setItem(r, col, item(v, theme.DEATH if col == 8 and v else None, align_right=True))
-
-
-# ============================================================================ Pulls
-class PullsTab(QWidget):
-    zoom = pyqtSignal(float, float)
-
-    def __init__(self):
-        super().__init__()
-        self.a: Analysis | None = None
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0, 6, 0, 0)
-        split = QSplitter()
-        self.list = table(["#", "At", "Pull", "Mobs", "Packs", "Pulled by", "Length", "Died"], stretch=2)
-        self.list.itemSelectionChanged.connect(self._pick)
-        split.addWidget(self.list)
-        right = QWidget()
-        rl = QVBoxLayout(right)
-        rl.setContentsMargins(6, 0, 0, 0)
-        self.head = QLabel("Pick a pull")
-        self.head.setObjectName("title")
-        self.sub = dim_label()
-        rl.addWidget(self.head)
-        rl.addWidget(self.sub)
-        self.tree = QTreeWidget()
-        self.tree.setHeaderLabels(["Mob", "Marker", "Went for", "Died", "Kill #", "Killed by"])
-        self.tree.setRootIsDecorated(True)
-        self.tree.header().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        rl.addWidget(self.tree, 1)
-        rl.addWidget(dim_label("Who pulled: the first player to touch the mob (an ability, or \"body pull\" when the mob "
-                               "attacked first). \"Went for\" is the first player it hit: the log has no threat data, "
-                               "so that's a good guess at its first target, not a certainty."))
-        split.addWidget(right)
-        split.setSizes([520, 620])
-        lay.addWidget(split)
-
-    def set_analysis(self, a: Analysis | None):
-        self.a = a
-        self.list.blockSignals(True)
-        self.list.setRowCount(0)
-        self.tree.clear()
-        self.head.setText("Pick a pull")
-        self.sub.setText("")
-        if a:
-            for pl in a.pulls:
-                if not pl.packs and not pl.fight.boss:
-                    continue
-                died = [d for d in a.deaths if pl.start - 2 <= d.t <= pl.fight.end + 5]
-                first = pl.packs[0] if pl.packs else None
-                puller = a.roster.get(first.puller) if first and first.puller else None
-                r = self.list.rowCount()
-                self.list.insertRow(r)
-                vals = [pl.index + 1, fmt_time(pl.start), pl.fight.label, len(pl.enemies), len(pl.packs),
-                        puller.name if puller else "?", f"{pl.fight.end - pl.start:.0f}s",
-                        ", ".join(d.name.split(" ")[0] for d in died) or "-"]
-                for col, v in enumerate(vals):
-                    color = text_color(puller) if col == 5 and puller else theme.BOSS.lighter(250) if col == 2 and pl.fight.boss \
-                        else theme.FAIL if col == 4 and v > 1 else theme.DEATH if col == 7 and v != "-" else None
-                    self.list.setItem(r, col, item(v, color, align_right=col in (3, 4), data=pl.index if col == 0 else None))
-        self.list.blockSignals(False)
-
-    def _pick(self):
-        a = self.a
-        rows = self.list.selectionModel().selectedRows()
-        if not a or not rows:
-            return
-        idx = self.list.item(rows[0].row(), 0).data(Qt.ItemDataRole.UserRole)
-        pl = a.pulls[idx]
-        self.head.setText(pl.fight.label + (" - killed" if pl.fight.killed else " - wipe" if pl.fight.killed is False else ""))
-        n_dead = sum(1 for e in pl.enemies if e.died is not None)
-        self.sub.setText(f"at {fmt_time(pl.start)} · {pl.fight.end - pl.start:.0f}s · {len(pl.enemies)} mobs in "
-                         f"{len(pl.packs)} pack{'s' if len(pl.packs) != 1 else ''} · {n_dead} killed")
-        order = {en.guid: n for n, en in enumerate(pl.kill_order, 1)}
-        name = lambda g: a.roster[g].name if g in a.roster else "-"  # noqa: E731
-        self.tree.clear()
-        for i, pk in enumerate(pl.packs, 1):
-            puller = a.roster.get(pk.puller) if pk.puller else None
-            top = QTreeWidgetItem([f"{'Extra pack' if pk.extra else 'Pack'} {i} at {fmt_time(pk.start)} - "
-                                   f"{puller.name if puller else '?'} ({pk.how})"])
-            top.setForeground(0, theme.FAIL if pk.extra else theme.TEXT)
-            f = QFont()
-            f.setBold(True)
-            top.setFont(0, f)
-            for en in pk.enemies:
-                died = f"{fmt_time(en.died)} (+{en.died - pl.start:.0f}s)" if en.died is not None else "alive"
-                killer = f"{name(en.killer)}" + (f" - {en.killing_blow}" if en.killing_blow else "") if en.killer else "-"
-                child = QTreeWidgetItem([en.name, en.marker or "", name(en.first_target), died,
-                                         str(order.get(en.guid, "")), killer])
-                if en.marker:
-                    child.setForeground(1, QColor(MARKER_COLORS.get(en.marker, "#ffffff")))
-                    if (mi := assets.icon(assets.marker_name(en.marker) or "")) is not None:
-                        child.setIcon(1, mi)
-                for col, g in ((2, en.first_target), (5, en.killer)):
-                    if g in a.roster:
-                        child.setForeground(col, text_color(a.roster[g]))
-                top.addChild(child)
-            self.tree.addTopLevelItem(top)
-            top.setFirstColumnSpanned(True)
-            top.setExpanded(True)
-        self.zoom.emit(pl.start - 3, pl.fight.end + 3)
 
 
 # ============================================================================ Spells
