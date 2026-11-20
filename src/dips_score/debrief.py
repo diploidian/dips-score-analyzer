@@ -59,6 +59,10 @@ class DebriefView:
     review: list[int] = field(default_factory=list)
 
 
+def display_name(category: str) -> str:
+    return "Abilities on time" if category == "Cooldowns" else category
+
+
 def _fix(cat, points: float) -> Fix:
     title = re.split(r" \(|\. ", cat.tip, maxsplit=1)[0].rstrip(".")
     m = re.search(r"~[\d,]+ damage", cat.tip)
@@ -72,14 +76,14 @@ def _review(fights: list[FightCell]) -> list[int]:
 
 
 def build_view(card: Scorecard, fights: list[FightCell], damage_share: float | None, deaths: int) -> DebriefView:
-    if card.empty:
+    if card.empty or card.grade == "-":  # nothing scored, or nothing judgeable
         return DebriefView(note=card.note)
     counted = [c for c in card.categories if not c.info_only]
     top = sorted(counted, key=lambda c: -c.weight)[:4]  # stable: ties keep card order
-    measures = [Measure("Abilities on time" if c.name == "Cooldowns" else c.name, c.score, ink_for(c.name),
+    measures = [Measure(display_name(c.name), c.score, ink_for(c.name),
                         c.summary.split(";")[0], c.score >= 90) for c in top]
     lost = card.points_lost()
-    fixes = [_fix(c, p) for c, p in lost if c.tip]
+    fixes = [_fix(c, p) for c, p in lost if c.tip and c.score < 85]  # same filter as Scorecard.tips
     fix = fixes[0] if fixes else None
     if fix is None:
         verdict = "Nothing stands out — nice run."
@@ -120,6 +124,7 @@ def fight_cells(a) -> list[FightCell]:
     cells = []
     for i, fr in enumerate(a.fights):
         f, c = fr.fight, fr.card
-        cells.append(FightCell(i, _fmt_time(f.start), f.label, None if c.empty else round(c.total),
-                               "-" if c.empty else c.grade, f.boss is not None, i in mine, f.start, f.end))
+        none = c.empty or c.grade == "-"
+        cells.append(FightCell(i, _fmt_time(f.start), f.label, None if none else round(c.total),
+                               "-" if none else c.grade, f.boss is not None, i in mine, f.start, f.end))
     return cells

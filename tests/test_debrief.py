@@ -5,7 +5,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dips_score.debrief import FightCell, build_view  # noqa: E402
+from types import SimpleNamespace as NS  # noqa: E402
+
+from dips_score.debrief import FightCell, build_view, display_name, fight_cells, fight_of  # noqa: E402
 from dips_score.scoring.score import Category, Scorecard, _card  # noqa: E402
 
 
@@ -128,6 +130,51 @@ class ViewTests(unittest.TestCase):
                       Category("Casting", 50, 15, "e")], "tank")
         self.assertEqual([m.name for m in build_view(card, [], None, 0).measures],
                          ["Holding mobs", "Survival", "Pickups", "Abilities on time"])
+
+    def test_view_unjudgeable_card(self):
+        card = _card([Category("Damage", 0, 20, "x", unavailable="no data")], "dps")
+        v = build_view(card, [], None, 0)
+        self.assertEqual((v.total, v.grade, v.fix, v.measures, v.lost, v.review),
+                         ("–", "-", None, [], [], []))
+
+    def test_fix_skips_high_scoring_tip(self):
+        card = _card([Category("Damage", 60, 20, "d", "damage tip"), Category("Casting", 90, 80, "c", "casting tip")], "dps")
+        # Casting loses 8 points vs Damage 4, but scores 90 so it is not a fix
+        v = build_view(card, [], None, 0)
+        self.assertEqual((v.fix.category, v.next_fixes), ("Damage", []))
+
+    def test_display_name(self):
+        self.assertEqual((display_name("Cooldowns"), display_name("Survival")), ("Abilities on time", "Survival"))
+        v = build_view(blackfathom_card(), [], None, 0)
+        self.assertIn("Cooldowns", [x.name for x in v.lost])
+        self.assertEqual(v.fix.category, "Cooldowns")
+
+    def test_survival_fix_omits_death(self):
+        card = _card([Category("Survival", 40, 10, "s", "You died a lot.")], "dps")
+        self.assertEqual(build_view(card, [], None, 2).verdict, "You died a lot.")
+
+    def test_review_tie_goes_to_earliest(self):
+        self.assertEqual(review([80, 80, 80, 80, 80]), [0, 1, 2, 3])
+
+    def test_fight_of_edges(self):
+        fights = [NS(start=10, end=20), NS(start=25, end=30)]
+        d = lambda t: NS(t=t)  # noqa: E731
+        got = fight_of([d(8), d(25), d(7.9), d(26), d(100)], fights)
+        # 8 -> fight 0 (start-2); 25 is inside fight 0 (end+5), first match wins; 26 -> fight 1; others excluded
+        self.assertEqual({i: [x.t for x in v] for i, v in got.items()}, {0: [8, 25], 1: [26]})
+
+    def test_fight_cells(self):
+        def fr(f, card): return NS(fight=f, card=card)
+        good = _card([Category("Damage", 95, 20, "x")], "dps")
+        bad = _card([Category("Damage", 0, 20, "x", unavailable="n")], "dps")
+        f0 = NS(start=0, end=30, boss="Boss", label="Boss")
+        f1 = NS(start=40, end=60, boss=None, label="Trash")
+        a = NS(fights=[fr(f0, good), fr(f1, bad)], data=NS(player_guid="me", fights=[f0, f1]),
+               deaths=[NS(t=10, guid="me"), NS(t=50, guid="other")])
+        c0, c1 = fight_cells(a)
+        self.assertEqual((c0.boss, c0.died, c0.score, c0.at), (True, True, 95, "0:00"))
+        self.assertEqual((c1.boss, c1.died, c1.score, c1.grade, c1.at), (False, False, None, "-", "0:40"))
+        self.assertEqual(build_view(good, [c0, c1], None, 0).review, [])
 
 
 if __name__ == "__main__":
