@@ -2,7 +2,7 @@
 import re
 from dataclasses import dataclass, field
 
-from .scoring.score import Scorecard
+from .scoring.score import Category, Scorecard
 from .ui.tokens import ink_for
 
 
@@ -57,6 +57,9 @@ class DebriefView:
     earned: int = 0
     fights: list[FightCell] = field(default_factory=list)
     review: list[int] = field(default_factory=list)
+    categories: list[Category] = field(default_factory=list)   # all of the card's, for the All categories drawer
+    bonus: float = 0.0          # hybrid bonus points, on top of the categories
+    bonus_note: str = ""
 
 
 def display_name(category: str) -> str:
@@ -100,7 +103,8 @@ def build_view(card: Scorecard, fights: list[FightCell], damage_share: float | N
         total=f"{card.total:.0f}", grade=card.grade, role=card.role, note=card.note, verdict=verdict,
         fix=fix, next_fixes=fixes[1:3], measures=measures,
         lost=[Lost(c.name, p, ink_for(c.name)) for c, p in lost],
-        earned=round(card.total), fights=fights, review=_review(fights))
+        earned=round(card.total), fights=fights, review=_review(fights), categories=card.categories,
+        bonus=round(card.bonus, 1), bonus_note=card.bonus_note)
 
 
 def fmt_time(s: float) -> str:

@@ -7,8 +7,8 @@ height for a width, so text wraps the way it is drawn.
 import math
 
 from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QTextLayout
-from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QSizePolicy, QToolTip, QVBoxLayout, QWidget
+from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPen, QPolygonF, QTextLayout
+from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QSizePolicy, QSpacerItem, QToolTip, QVBoxLayout, QWidget
 
 from ..debrief import DebriefView, display_name
 from . import theme
@@ -18,6 +18,7 @@ MINUS = "−"
 NARROW = 1420        # the mock-up's breakpoint (window width): a smaller hero below it
 HEAD_H = 71          # title, meta line and the gold rule under them
 FIGHTS_W = 460       # the right-hand column
+LEFT_MIN = 480       # the left column never gets narrower (the page scrolls sideways instead)
 PREVIEW = ("Rotation", "Pacing")   # measures still being worked out
 
 
@@ -195,6 +196,7 @@ class FixPlate(_Part):
         self.button.setObjectName("showme")
         self.button.hide()
         self.can_show = False      # set by the page: a fix, and a fight to zoom to
+        self.wrap = True           # the next fixes wrap; the page sets False when that wouldn't fit its height
         self.button_y = self.next_y = 0.0
 
     def set_view(self, view, narrow):
@@ -212,8 +214,9 @@ class FixPlate(_Part):
         self.button.setVisible(self.can_show)
 
     def event(self, ev):
-        """the next fixes are cut to one line each: hovering them shows them whole"""
-        if ev.type() == QEvent.Type.ToolTip and self.view.next_fixes and ev.pos().y() >= self.next_y:
+        """when the next fixes are cut to one line each, hovering them shows them whole"""
+        if (ev.type() == QEvent.Type.ToolTip and not self.wrap and self.view.next_fixes
+                and ev.pos().y() >= self.next_y):
             QToolTip.showText(ev.globalPos(), "\n".join(nx.title for nx in self.view.next_fixes), self)
             return True
         return super().event(ev)
@@ -225,13 +228,14 @@ class FixPlate(_Part):
         self.draw(p, self.width())
         label_tab(p, 14, 0, "Fix this first")    # straddles the plate's top edge
 
-    def draw(self, p, w):
+    def draw(self, p, w, wrap: bool | None = None):
         v, fix, n = self.view, self.view.fix, self.narrow
+        wrap = self.wrap if wrap is None else wrap
         x, cw = 18, w - 36
         y = 12 + 22
         tpx = 21 if n else 23
         y += wrapped(p, font(tpx, 600, num=True), tok("plate-tx"), x, y, cw, tpx * 1.15,
-                     fix.title if fix else "Nothing stands out — nice run.") + 8
+                     fix.title if fix else "Nothing to fix this run.") + 8
         if fix is None:
             return y + 14
         price = [(f"{MINUS}{fix.points:.1f} points", font(32, 700, num=True), tok("plate-ac")),
@@ -253,10 +257,15 @@ class FixPlate(_Part):
                 y += 4 if k else 0
                 cost = f"{MINUS}{nx.points:.1f} {display_name(nx.category)}"
                 cost_w = adv(bf, cost)
+                tw = max(0.0, cw - cost_w - 10)
                 if p:
                     line(p, bf, tok("plate-ac"), x + cw - cost_w, y, lh, cost)
-                    line(p, nf, tok("plate-tx"), x, y, lh, elide(nf, nx.title, cw - cost_w - 10))
-                y += lh
+                if wrap:
+                    y += wrapped(p, nf, tok("plate-tx"), x, y, tw, lh, nx.title)
+                else:
+                    if p:
+                        line(p, nf, tok("plate-tx"), x, y, lh, elide(nf, nx.title, tw))
+                    y += lh
         return y + 14
 
 
@@ -269,7 +278,7 @@ class MeasureBars(_Part):
         y = 1 + 12
         label_tab(p, 0, y, "Effectiveness")
         y += 25 + 8
-        bx, bw = 174, w - 298           # columns: 160 name, 14 gap, the bar, 14 gap, 110 value
+        bx, bw = 174, max(0, w - 298)   # columns: 160 name, 14 gap, the bar, 14 gap, 110 value
         nf, vf, rf, sf = font(14, 500), font(30, 700, num=True), font(11), font(11, 500)
         r1, r2 = 14 * 1.4, 11 * 1.4 - 2    # the name row; the reason row tucks up 2px
         for k, m in enumerate(self.view.measures):
@@ -287,7 +296,7 @@ class MeasureBars(_Part):
                 p.fillRect(QRectF(bx, by, bw * max(0.0, min(100.0, m.score or 0)) / 100, 10), tok(m.ink))
                 p.fillRect(QRectF(bx + bw * 0.9, by - 4, 2, 18), tok("tx"))
                 line(p, rf, tok("mu"), bx, y + r1 - 2, 11 * 1.4, elide(rf, m.reason, bw))
-                score = f"{m.score:.0f}"
+                score = "–" if m.score is None else f"{m.score:.0f}"
                 base = baseline(vf, y + (r1 + r2 - 30) / 2, 30)
                 sw = text_at(p, vf, tok("tx"), w - adv(vf, score), base, score)
                 note = "on target" if m.on_target else "below 90"
@@ -296,15 +305,83 @@ class MeasureBars(_Part):
         return y + 12
 
 
-class Breakdown(_Part):
-    """Where your points went: a bar per category, as long as the points it lost, then the points earned"""
+class DrawerToggle(QWidget):
+    """the All categories header: a drawn chevron and its label. Click it, or Tab to it and press Space or Enter"""
+    toggled = pyqtSignal(bool)
 
-    def draw(self, p, w):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.open, self.label = False, ""
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)     # the focus ring is for the keyboard, like :focus-visible
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def set_label(self, s: str):
+        self.label = s.upper()
+        self.setAccessibleName(s)
+        self.setFixedSize(math.ceil(adv(font(12, 600, num=True, spacing=0.08), self.label)) + 28, 25)
+        self.update()
+
+    def mousePressEvent(self, _ev):
+        self.flip()
+
+    def keyPressEvent(self, ev):
+        if ev.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self.flip()
+        else:
+            super().keyPressEvent(ev)
+
+    def flip(self):
+        self.open = not self.open
+        self.update()
+        self.toggled.emit(self.open)
+
+    def paintEvent(self, _ev):
+        p = QPainter(self)
+        if self.hasFocus():
+            box(p, QRectF(self.rect()), tok("hl"), width=2)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(QPen(tok("tx"), 1.6))
+        c = QPointF(12, self.height() / 2)
+        pts = ((-4, -2), (0, 2), (4, -2)) if self.open else ((-2, -4), (2, 0), (-2, 4))   # down, or right
+        p.drawPolyline(QPolygonF([c + QPointF(dx, dy) for dx, dy in pts]))
+        line(p, font(12, 600, num=True, spacing=0.08), tok("tx"), 22, 0, self.height(), self.label)
+
+
+class Breakdown(_Part):
+    """Where your points went: a bar per category, as long as the points it lost, then the points earned.
+    Its All categories drawer (every category of the card, and the hybrid bonus) opens under Earned."""
+
+    def __init__(self):
+        super().__init__()
+        self.whose = "your"
+        self.open = False
+        self.toggle = DrawerToggle(self)        # on the tab's line, so the shut drawer takes no height
+        self.toggle.toggled.connect(self._open)
+
+    def set_view(self, view, narrow):
+        super().set_view(view, narrow)
+        self.toggle.set_label(f"All categories ({len(view.categories)})")
+        self.toggle.setVisible(bool(view.categories))
+        self._place()
+
+    def resizeEvent(self, ev):
+        self._place()
+        super().resizeEvent(ev)
+
+    def _place(self):
+        self.toggle.move(self.width() - self.toggle.width(), 13)
+
+    def _open(self, open_: bool):
+        self.open = open_
+        self.updateGeometry()
+        self.update()
+
+    def draw(self, p, w, open_: bool | None = None):
         v = self.view
         if p:
             rule(p, 0, 0, w, tok("ln"))
         y = 1 + 12
-        label_tab(p, 0, y, f"Where your {100 - v.earned} points went")
+        label_tab(p, 0, y, f"Where {self.whose} {round(sum(lost.points for lost in v.lost))} points went")
         y += 25 + 8
         most = max((lost.points for lost in v.lost), default=0) or 1
         nf, vf = font(15), font(15, 700, num=True)
@@ -319,6 +396,16 @@ class Breakdown(_Part):
                 s = f"{MINUS}{lost.points:.1f}"
                 line(p, vf, tok("tx"), w - adv(vf, s), y + 3, 18, s)
             y += 3 + 18 + 3
+        if v.bonus > 0:          # so the rows add up to Earned
+            if v.lost:
+                if p:
+                    rule(p, 0, y, w, tok("ln"))
+                y += 1
+            if p:
+                line(p, nf, tok("tx"), 0, y + 3, 18, "Hybrid bonus")
+                s = f"+{v.bonus:.1f}"
+                line(p, vf, tok("tx"), w - adv(vf, s), y + 3, 18, s)
+            y += 3 + 18 + 3
         if p:
             rule(p, 0, y, w, tok("tx"), 2)
         y += 2 + 6
@@ -328,7 +415,32 @@ class Breakdown(_Part):
             ew = text_at(p, ef, tok("tx"), 0, base, "Earned")
             text_at(p, sf, tok("mu"), ew + 6, base, f"· {v.earned} of 100")
             text_at(p, ef, tok("tx"), w - adv(ef, str(v.earned)), base, str(v.earned))
-        return y + 22 + 3 + 12
+        y += 22 + 3
+        if self.open if open_ is None else open_:
+            y = self._drawer(p, w, y + 12)
+        return y + 12
+
+    def _drawer(self, p, w, y) -> float:
+        """one ruled row per category in the card's order (name, score, weight or why it's info only), then
+        the hybrid bonus"""
+        v = self.view
+        nf, vf, df = font(15), font(15, 700, num=True), font(13)
+        rows = [(display_name(c.name), "–" if c.unavailable else f"{c.score:.0f}",
+                 f"info only · {c.unavailable}" if c.unavailable else
+                 f"{'info only' if c.info_only else f'weight {c.weight}'} · {c.summary}", c.info_only)
+                for c in v.categories]
+        if v.bonus > 0:
+            rows.append(("Hybrid bonus", f"+{v.bonus:.1f}", v.bonus_note, False))
+        for name, score, detail, dim in rows:
+            if p:
+                rule(p, 0, y, w, tok("ln"))
+            y += 1 + 3
+            ink = tok("mu") if dim else tok("tx")
+            if p:
+                line(p, nf, ink, 0, y, 18, elide(nf, name, 150))
+                line(p, vf, ink, 200 - adv(vf, score), y, 18, score)
+            y += max(18.0, wrapped(p, df, tok("mu"), 220, y, max(0, w - 220), 18, detail)) + 3
+        return y
 
 
 class FightsColumn(QWidget):
@@ -367,7 +479,7 @@ class DebriefPage(QWidget):
         self.head.addStretch(1)
         self.hero_row = QHBoxLayout()
         self.hero_row.setContentsMargins(0, 14, 0, 16)
-        self.hero_row.addWidget(self.hero, 0, Qt.AlignmentFlag.AlignTop)
+        self.hero_row.addWidget(self.hero, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         self.hero_row.addWidget(self.plate, 1, Qt.AlignmentFlag.AlignTop)
         left = QVBoxLayout()
         left.setContentsMargins(0, 0, 28, 0)
@@ -375,7 +487,7 @@ class DebriefPage(QWidget):
         left.addLayout(self.hero_row)
         left.addWidget(self.measures)
         left.addWidget(self.breakdown)
-        left.addStretch(1)
+        left.addItem(QSpacerItem(LEFT_MIN, 0, QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Expanding))
         self.fights = FightsColumn()
         cols = QHBoxLayout()
         cols.setSpacing(0)
@@ -388,22 +500,41 @@ class DebriefPage(QWidget):
         lay.addLayout(cols, 1)
         self._fit()
 
-    def show_view(self, view: DebriefView, title: str, sub: str, show_me: tuple[float, float] | None = None):
-        """show_me: the (start, end) "Show me on the timeline" zooms to"""
+    def show_view(self, view: DebriefView, title: str, sub: str, show_me: tuple[float, float] | None = None,
+                  whose: str = "your"):
+        """show_me: the (start, end) "Show me on the timeline" zooms to; whose: "your", or "Anna's" """
         self.title, self.sub = title, sub
         self.show_me = show_me if view.fix else None
         self.plate.can_show = self.show_me is not None
+        self.breakdown.whose = whose
         self.fights.n = len(view.fights)
         self.fights.update()
         for part in (self.hero, self.plate, self.measures, self.breakdown):
             part.set_view(view, self.narrow)
+        self.plate.setVisible(view.grade != "-")          # nothing judged (or no run): nothing to fix either
         for part in (self.measures, self.breakdown):     # an empty card: nothing to measure
             part.setVisible(bool(view.measures))
+        self._wrap_next()
         self.update()
 
     def resizeEvent(self, ev):
         self._fit()
+        self._wrap_next()
         super().resizeEvent(ev)
+
+    def _wrap_next(self):
+        """wrap the plate's next fixes, as the mock-up does, when the page (drawer shut) still fits its height;
+        otherwise they stay one line each"""
+        m = self.layout().contentsMargins()
+        lw = self.measures.width()
+        rest = (self.measures.heightForWidth(lw) + math.ceil(self.breakdown.draw(None, lw, open_=False))
+                if self.measures.isVisibleTo(self) else 0)
+        plate = math.ceil(self.plate.draw(None, self.plate.width(), wrap=True)) if self.plate.isVisibleTo(self) else 0
+        need = m.top() + HEAD_H + 14 + max(self.hero.heightForWidth(self.hero.width()), plate) + 16 + rest + m.bottom()
+        wrap = need <= (self.parentWidget() or self).height()
+        if wrap != self.plate.wrap:
+            self.plate.wrap = wrap
+            self.plate.set_view(self.plate.view, self.narrow)
 
     def _fit(self):
         """the mock-up's narrow hero below a 1420px window"""

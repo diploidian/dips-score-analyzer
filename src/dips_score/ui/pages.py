@@ -92,7 +92,6 @@ class ScoreTab(QWidget):
         scroll.setWidget(self.page)
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.addWidget(scroll)
@@ -151,8 +150,9 @@ class ScoreTab(QWidget):
         if view.fix and fight is None:
             fight = worst_fight(self.cards, view.fix.category)
         role = ROLE_NAME.get(card.role, card.role)
+        whose = "your" if self._is_me() else f"{self.a.roster[self._guid()].name}'s"
         self.page.show_view(view, title, sub if card.empty else f"{sub} · as {role}",
-                            self._window(fight) if view.fix and fight is not None else None)
+                            self._window(fight) if view.fix and fight is not None else None, whose)
 
     def show_whole(self):
         a = self.a

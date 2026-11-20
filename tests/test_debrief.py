@@ -149,6 +149,17 @@ class ViewTests(unittest.TestCase):
         self.assertIn("Cooldowns", [x.name for x in v.lost])
         self.assertEqual(v.fix.category, "Cooldowns")
 
+    def test_view_all_categories(self):
+        # every category, info-only ones too, in the card's order, for the All categories drawer
+        card = blackfathom_card()
+        v = build_view(card, [], None, 0)
+        self.assertEqual([c.name for c in v.categories], [c.name for c in card.categories])
+        self.assertEqual((v.bonus, v.bonus_note), (0, ""))
+        healer = _card([Category("Group health", 80, 35, "a"), Category("Response", 70, 35, "b")], "healer",
+                       2.46, "bonus note")
+        self.assertEqual((build_view(healer, [], None, 0).bonus, build_view(healer, [], None, 0).bonus_note),
+                         (2.5, "bonus note"))
+
     def test_survival_fix_omits_death(self):
         card = _card([Category("Survival", 40, 10, "s", "You died a lot.")], "dps")
         self.assertEqual(build_view(card, [], None, 2).verdict, "You died a lot.")
