@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bao Kahn habits - dips score</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+.rail .sl{display:flex;gap:16px;padding:14px 20px 0;font-size:13px}
+.rail .sl a{color:var(--rail-mu);text-decoration:none}.rail .sl a:hover{text-decoration:underline}
+.main{display:flex;flex-direction:column;padding-bottom:16px}
+.top{margin-bottom:0;border-bottom-color:var(--gold)}
+.hb{display:grid;grid-template-columns:minmax(0,1fr) 470px;flex:1}
+.lcol{padding-right:28px;border-right:1px solid var(--ln);min-width:0}
+.rcol{padding:16px 0 0 28px;min-width:0}
+.hero{display:grid;grid-template-columns:280px minmax(0,1fr);gap:28px;padding:14px 0 18px;border-bottom:1px solid var(--ln)}
+.sc{font:700 150px/.8 "Barlow Condensed",sans-serif;letter-spacing:-.02em;display:flex;align-items:flex-start;margin-top:8px}
+.sc em{font-style:normal;font-size:64px;line-height:1;margin:2px 0 0 6px;color:var(--tx2)}
+.cap{margin-top:10px;font-size:13px;color:var(--mu)}
+.chip{margin-top:14px}
+.chip b{display:inline-block;font:600 14px "Barlow Condensed",sans-serif;color:var(--gD);border:1px solid var(--gD);padding:2px 8px}
+.vd{font-size:15px;line-height:1.4;margin-top:8px;color:var(--tx2)}
+.kf{display:flex;gap:20px;padding:12px 0 11px;border-bottom:1px solid var(--ln)}
+.kf div{flex:1 1 0;min-width:0}.kf div:last-child{flex-grow:1.4}
+.kf b{display:block;font:700 30px/1 "Barlow Condensed",sans-serif;white-space:nowrap}
+.kf b small{font-size:19px;font-weight:600;margin-left:1px}
+.kf span{display:block;margin-top:4px;font-size:12px;color:var(--mu)}
+.sec{padding-top:16px}
+.sec .tab{margin-bottom:12px}.sec .illus{margin-left:12px}
+.ch svg{display:block;width:100%;height:auto;overflow:visible}
+.ch text{font-family:Barlow,sans-serif}.ch text.c{font-family:"Barlow Condensed",sans-serif}
+.ch text.hand{font:600 25px Caveat,cursive;fill:var(--hl-note)}
+.fix{position:relative;margin-top:12px;align-self:start;background:var(--plate);color:var(--plate-tx);padding:24px 20px 18px}
+.fix .tab{position:absolute;top:-12px;left:16px}
+.fix .fix-h{font:600 27px/1.1 "Barlow Condensed",sans-serif;margin-bottom:6px}
+.fix .m{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:7px;row-gap:2px}
+.fix .m b{font:700 36px/1 "Barlow Condensed",sans-serif;color:var(--plate-ac)}
+.fix .m span{font-size:13px;color:var(--plate-mu);white-space:nowrap}.fix .m .sep{flex-basis:100%;margin-top:2px}
+.fix .btn{margin-top:14px}
+.hab>.tab{margin-bottom:2px}
+.gh{display:flex;align-items:center;gap:8px;margin-top:14px;padding-bottom:7px;font:700 12px/1 "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--tx)}
+.gh i{width:8px;height:8px;flex:none}
+.hl{list-style:none;border-bottom:1px solid var(--ln)}
+.hl li{padding:6px 0 7px;border-top:1px solid var(--ln)}
+.hl b{display:block;font:500 15px/1.3 Barlow,sans-serif;color:var(--tx)}
+.hl span{display:block;font-size:13px;line-height:1.35;color:var(--tx2)}
+.hl em{display:inline-block;margin-left:8px;padding:1px 5px;border:1px solid var(--ln);font:600 11px/1.2 Barlow,sans-serif;font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:var(--mu);vertical-align:1px}
+@media (max-width:1419px){.sc{font-size:128px}.sc em{font-size:54px}.hero{grid-template-columns:236px minmax(0,1fr);gap:22px}.fix .fix-h{font-size:24px}.kf{gap:14px}.kf b{font-size:26px}.kf b small{font-size:17px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html">Dungeons</a>
+      <a href="fight.html">Fights</a>
+      <a href="habits.html" aria-current="page">Habits</a>
+    </nav>
+    <div class="rl">Recent runs</div>
+    <a class="run" href="debrief.html"><span>Blackfathom Deeps</span><b>75 B</b></a>
+    <a class="run" href="#"><span>Kalimdor (open world)</span><b>23:37</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:17</b></a>
+    <a class="run" href="#"><span>Blackfathom Deeps</span><b>22:16</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:09</b></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+    <div class="rlinks"><a href="#">Settings</a><a href="#">Reload</a></div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>Bao Kahn</h1><div class="meta"><b>level 30 Undead Paladin</b> · gear 27 · last 40 fights</div></div>
+    </header>
+    <div class="hb">
+      <div class="lcol">
+        <div class="hero">
+          <div>
+            <div class="sc c"><span data-count="77">77</span><em>%</em></div>
+            <p class="cap">efficiency, last 20 fights</p>
+            <div class="chip"><b>−10 pts vs the 18 before</b></div>
+            <p class="vd">Efficiency is dropping, and most of it is play, not gear: Consecration left unused cost about 7,298 damage across 26 fights.</p>
+          </div>
+          <section class="fix" aria-labelledby="fixh">
+            <h2 class="tab" id="fixh">Habit to fix</h2>
+            <p class="fix-h">Consecration left unused</p>
+            <div class="m"><span>about</span><b>7,298</b><span>damage</span><span class="sep">76 casts missed in 26 fights</span></div>
+            <a class="btn" href="#">Show the fights</a>
+          </section>
+        </div>
+        <div class="kf" aria-label="Key figures">
+          <div><b class="c">43</b><span>fights · 37 kills</span></div>
+          <div><b class="c">25</b><span>kills / hour</span></div>
+          <div><b class="c">46<small>s</small></b><span>avg gap</span></div>
+          <div><b class="c">0<small>s</small></b><span>avg rest</span></div>
+          <div><b class="c">96<small>%</small> / 95<small>%</small></b><span>start health / mana</span></div>
+        </div>
+        <section class="sec ch" aria-labelledby="ech">
+          <h2 class="tab" id="ech">Efficiency, fight by fight</h2><span class="illus">shape illustrative; averages real</span>
+          <svg viewBox="0 0 686 280" role="img" aria-label="Efficiency per fight over the last 40 fights: average 86.8% in the 18 fights before, 76.5% over the last 20">
+            <line x1="44" x2="670" y1="34" y2="34" stroke="var(--ln)"/>
+            <line x1="44" x2="670" y1="142" y2="142" stroke="var(--ln)" stroke-dasharray="3 3"/>
+            <line x1="44" x2="670" y1="250" y2="250" stroke="var(--tx)"/>
+            <text x="36" y="38" text-anchor="end" font-size="11" fill="var(--mu)">100%</text>
+            <text x="36" y="146" text-anchor="end" font-size="11" fill="var(--mu)">50%</text>
+            <text x="36" y="254" text-anchor="end" font-size="11" fill="var(--mu)">0</text>
+            <line x1="357" x2="357" y1="12" y2="250" stroke="var(--ln)"/>
+            <text class="c" x="76" y="22" font-size="11" font-weight="700" letter-spacing="1.6" fill="var(--mu)">18 BEFORE</text>
+            <text class="c" x="365" y="22" font-size="11" font-weight="700" letter-spacing="1.6" fill="var(--mu)">LAST 20</text>
+            <path d="M44 38.3 L60.1 44.8 L76.1 57.8 L92.2 62.1 L108.2 59.9 L124.3 75 L140.3 53.4 L156.4 59.9 L172.4 79.4 L188.5 53.4 L204.5 57.8 L220.6 49.1 L236.6 55.6 L252.7 59.9 L268.7 77.2 L284.8 53.4 L300.8 68.6 L316.9 70.7 L332.9 55.6 L349 76.3 L365 64.2 L381.1 62.1 L397.1 66.4 L413.2 64.2 L429.2 70.7 L445.3 66.4 L461.3 75 L477.4 70.7 L493.4 77.2 L509.5 72.9 L525.5 81.5 L541.6 77.2 L557.6 83.7 L573.7 81.5 L589.7 88 L605.8 96.6 L621.8 107.4 L637.9 118.2 L653.9 129 L670 142" fill="none" stroke="var(--tx)" stroke-width="1.8" stroke-linejoin="round"/>
+            <line x1="76" x2="357" y1="62.5" y2="62.5" stroke="var(--tx2)" stroke-width="2" stroke-dasharray="6 4"/>
+            <line x1="357" x2="670" y1="84.8" y2="84.8" stroke="var(--gD)" stroke-width="2" stroke-dasharray="6 4"/>
+            <text class="c" x="212" y="83" text-anchor="middle" font-size="17" font-weight="700" fill="var(--tx2)">86.8%</text>
+            <text class="c" x="670" y="77" text-anchor="end" font-size="17" font-weight="700" fill="var(--gD)">76.5%</text>
+            <text x="44" y="270" font-size="11" fill="var(--mu)">fight 1</text>
+            <text x="188.5" y="270" text-anchor="middle" font-size="11" fill="var(--mu)">10</text>
+            <text x="349" y="270" text-anchor="middle" font-size="11" fill="var(--mu)">20</text>
+            <text x="509.5" y="270" text-anchor="middle" font-size="11" fill="var(--mu)">30</text>
+            <text x="670" y="270" text-anchor="end" font-size="11" fill="var(--mu)">40</text>
+            <g class="hl-stroke" stroke-linecap="round" aria-hidden="true">
+              <ellipse data-draw style="--len:146;--i:0" cx="357" cy="73.6" rx="17" ry="26" transform="rotate(-6 357 73.6)" stroke-width="4" opacity=".85"/>
+              <path data-draw style="--len:100;--i:1" d="M390 180 Q372 148 361 104 M358.2 112.6 L361 104 L367 110.7" stroke-width="1.8"/>
+            </g>
+            <text data-fade style="--i:1" class="hand" x="378" y="204" transform="rotate(-3 378 204)">drop starts here</text>
+          </svg>
+        </section>
+      </div>
+      <div class="rcol">
+        <section class="hab" aria-labelledby="hh">
+          <h2 class="tab" id="hh">Habits</h2>
+          <h3 class="gh"><i style="background:var(--gD)"></i>Fix · 6</h3>
+          <ul class="hl">
+            <li><b>Efficiency is dropping</b><span>76.5% over the last 20 fights vs 86.8% in the 18 before</span></li>
+            <li><b>Consecration left unused<em>habit to fix</em></b><span>about 7,298 damage lost, 76 casts missed in 26 fights</span></li>
+            <li><b>Swings going missing</b><span>3.6 per minute, 152 in 37 fights</span></li>
+            <li><b>DPS down 5%</b><span>about 12% from playing worse (efficiency 87% → 77%) and +8% from gear, level and what you fought</span></li>
+            <li><b>Failed casts: out of range</b><span>15 times in 40 fights, 0.4 per fight</span></li>
+            <li><b>Dying in fights</b><span>died in 1 of 40</span></li>
+          </ul>
+          <h3 class="gh"><i style="background:var(--m-cast)"></i>Build · 4</h3>
+          <ul class="hl">
+            <li><b>Use a defensive when low</b><span>2 close calls with Divine Protection ready</span></li>
+            <li><b>Spells you never use</b><span>you know Exorcism and have not cast it in your last 40 fights</span></li>
+            <li><b>Gear slots to fill</b><span>trinket 1 and trinket 2 are empty</span></li>
+            <li><b>Gear nearly broken</b><span>lowest durability under 20% in 19 of your last 24 fights, worst 7%</span></li>
+          </ul>
+          <h3 class="gh"><i style="background:var(--m-dmg)"></i>Keep · 1</h3>
+          <ul class="hl">
+            <li><b>Always pulling with Retribution Aura</b><span>present at pull in all 40 fights</span></li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

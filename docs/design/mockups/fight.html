@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fight detail · dips score</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+/* rail: recent fights. The Timeless day rail is dark while its grade inks are set for a light page, so they are lifted toward the rail text there. */
+.rail{--rS:var(--gS);--rD:var(--gD);--rail-ln:color-mix(in srgb,var(--rail-mu) 45%,transparent)}
+html[data-theme="timeless"][data-mode="day"] .rail{--rS:color-mix(in srgb,var(--gS) 40%,var(--rail-tx));--rD:color-mix(in srgb,var(--gD) 40%,var(--rail-tx))}
+.rail .fl{display:block;padding:5px 16px 6px 20px;text-decoration:none;color:var(--rail-tx)}
+.rail .fl:hover,.rail .fl[aria-current="page"]{background:var(--rail-on)}
+.rail .fl span{display:block;font-size:13px;line-height:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail .fl[aria-current="page"] span{font-weight:600}
+.rail .fl small{display:flex;align-items:center;gap:4px;font-size:12px;line-height:16px;color:var(--rail-mu);white-space:nowrap}
+.rail .fl small b{font-weight:600}.rail .fl .e-s{color:var(--rS)}.rail .fl .e-d{color:var(--rD)}
+.rail .fl i{margin-left:auto;font:600 11px/1 "Barlow Condensed",sans-serif;font-style:normal;letter-spacing:.12em;text-transform:uppercase;color:var(--rail-mu);border:1px solid var(--rail-ln);padding:2px 4px 1px}
+.rail .lk{display:flex;gap:16px;padding:14px 20px 0;font-size:13px}
+.rail .lk a{color:var(--rail-mu);text-decoration:none}.rail .lk a:hover{text-decoration:underline}
+
+.main{display:flex;flex-direction:column;padding-bottom:16px}
+.top{margin-bottom:0;border-bottom-color:var(--gold)}
+.fp{display:grid;grid-template-columns:minmax(0,1fr) 420px;flex:1}
+.lcol{padding-right:28px;border-right:1px solid var(--ln);min-width:0}
+.rcol{padding:4px 0 0 28px;min-width:0}
+
+/* hero: the number, its bullet bar, the verdict; the plate beside it */
+.hero{display:grid;grid-template-columns:330px minmax(0,1fr);gap:28px;padding:14px 0 18px}
+.sc{font:700 150px/.8 "Barlow Condensed",sans-serif;letter-spacing:-.02em;display:flex;align-items:flex-start;margin-top:8px}
+.sc small{font-size:64px;line-height:1;margin:0 0 0 4px}
+.cp{margin-top:12px;font-size:15px;color:var(--tx2)}
+.bb{position:relative;height:10px;background:var(--track);margin-top:12px}
+.bb i{position:absolute;left:0;top:0;bottom:0;background:var(--m-cd)}
+.bb u{position:absolute;left:90%;top:-4px;bottom:-4px;width:2px;background:var(--tx)}
+.tk{position:relative;height:12px;margin-top:6px;font:600 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
+.tk span{position:absolute;left:90%;transform:translateX(-50%)}
+.vd{font-size:16px;line-height:1.4;margin-top:10px;color:var(--tx2)}
+.st{margin-top:12px;display:flex;align-items:center;gap:10px;font-size:14px;color:var(--tx2)}
+.kt{display:inline-block;padding:3px 6px 2px;border:1px solid var(--ln);color:var(--mu);font:600 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase}
+
+.fix{position:relative;margin-top:20px;background:var(--plate);color:var(--plate-tx);padding:26px 20px 18px;display:flex;flex-direction:column;align-self:start}
+.fix .tab{position:absolute;top:-12px;left:14px}
+.fix .fix-h{font:600 25px/1.15 "Barlow Condensed",sans-serif;margin:0 0 10px}
+.fix .m{display:flex;align-items:baseline;gap:10px}
+.fix .m b{font:700 46px/1 "Barlow Condensed",sans-serif;color:var(--plate-ac);white-space:nowrap}
+.fix .m span{font-size:14px;color:var(--plate-mu)}
+.fix .btn{margin-top:16px;align-self:flex-start}
+
+/* key figures: one ruled row */
+.kf{display:flex;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);padding:10px 0 9px}
+.kf div{flex:1;display:flex;align-items:baseline;gap:7px}
+.kf b{font:700 30px/1 "Barlow Condensed",sans-serif}
+.kf span{font-size:13px;color:var(--mu)}
+
+.sec{padding:14px 0;border-bottom:1px solid var(--ln)}.sec.l{border-bottom:0}
+.sec>.tab{margin-bottom:8px}
+.sec>p{font-size:15px;line-height:1.4;color:var(--tx2);margin-bottom:8px}.sec>p b{color:var(--tx);font-weight:600}
+
+/* where the damage went: ruled breakdown, bar ∝ damage */
+.bk{display:grid;grid-template-columns:260px minmax(0,1fr) 84px}
+.bk>*{padding:5px 0;border-top:1px solid var(--ln);display:flex;align-items:center;min-height:30px}.bk>.f{border-top:0}
+.bk .n{font-size:15px;font-weight:500;gap:6px}.bk .n small{font-size:13px;font-weight:400;color:var(--mu)}
+.bk .w{padding-right:18px}.bk .b{display:block;height:10px}
+.bk .v{justify-content:flex-end;font:700 19px/1 "Barlow Condensed",sans-serif}
+.bk .e{grid-column:1/3;gap:8px;border-top:2px solid var(--tx);padding-top:8px;font:700 21px/22px "Barlow Condensed",sans-serif}
+.bk .e small{font:500 14px "Barlow Condensed",sans-serif;color:var(--mu);letter-spacing:.03em}
+.bk .e+.v{border-top:2px solid var(--tx);padding-top:8px;font-size:23px}
+
+.dr{display:flex;align-items:center;gap:8px;width:100%;margin-top:4px;padding:12px 0;background:none;border:0;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);color:var(--tx);cursor:pointer;text-align:left;font:700 13px/1 "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.dr span{color:var(--mu)}
+.dr svg{margin-left:auto;width:14px;height:14px}
+.dr:hover{color:var(--tx2)}
+
+/* went well */
+.ww>div{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--ln);font-size:15px}
+.ww>div:first-child{border-top:0}
+.ww svg{width:16px;height:16px;flex:none}
+.ww b{font:700 19px/1 "Barlow Condensed",sans-serif}
+.ww .al{color:var(--tx2)}
+.ww .al em{font:600 11px/1 "Barlow Condensed",sans-serif;font-style:normal;letter-spacing:.14em;text-transform:uppercase;color:var(--mu);width:34px;flex:none}
+
+/* group: ranked by damage, healing muted beside */
+.gt{display:grid;grid-template-columns:20px minmax(0,140px) minmax(0,1fr) 54px 54px}
+.gt>*{padding:6px 0;border-top:1px solid var(--ln);display:flex;align-items:center;min-height:32px}
+.gt .h{border-top:0;min-height:0;padding:0 0 4px;justify-content:flex-end;font:600 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
+.gt .r{font:600 14px "Barlow Condensed",sans-serif;color:var(--mu)}
+.gt .n{font-size:14px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block;line-height:20px}
+.gt .me{font-weight:600}
+.gt .w{padding-right:12px}.gt .b{display:block;height:8px;background:var(--mu)}.gt .me+.w .b{background:var(--m-dmg)}
+.gt .d,.gt .hh{justify-content:flex-end;font:700 17px/1 "Barlow Condensed",sans-serif}
+.gt .hh{font-weight:600;color:var(--mu)}
+.gt .z{color:var(--mu)}
+
+@media (max-width:1419px){.fp{grid-template-columns:minmax(0,1fr) 380px}.hero{grid-template-columns:290px minmax(0,1fr);gap:22px}.sc{font-size:132px}.sc small{font-size:56px}.fix .fix-h{font-size:22px}.fix .m b{font-size:40px}.bk{grid-template-columns:240px minmax(0,1fr) 80px}.gt{grid-template-columns:20px minmax(0,128px) minmax(0,1fr) 50px 50px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html">Dungeons</a>
+      <a href="fight.html" aria-current="page">Fights</a>
+      <a href="habits.html">Habits</a>
+    </nav>
+    <div class="rl">Recent fights</div>
+    <a class="fl" href="fight.html" aria-current="page"><span>Blackfathom Oracle +3</span><small>23 DPS · <b class="e-d">49%</b> · 1:52<i>PvP</i></small></a>
+    <a class="fl" href="#"><span>Fallenroot Rogue</span><small>35 DPS · <b>74%</b> · 0:14<i>Dungeon</i></small></a>
+    <a class="fl" href="#"><span>Fallenroot Shadowstalker +1</span><small>21 DPS · <b>61%</b> · 0:20</small></a>
+    <a class="fl" href="#"><span>Old Serra'kis +1</span><small>29 DPS · <b class="e-d">55%</b> · 1:36</small></a>
+    <a class="fl" href="#"><span>Aku'mai</span><small>no damage · 0:20</small></a>
+    <a class="fl" href="#"><span>Aku'mai +1</span><small>47 DPS · <b>87%</b> · 1:24<i>Boss</i></small></a>
+    <a class="fl" href="#"><span>Aku'mai Snapjaw +1</span><small>35 DPS · <b>67%</b> · 1:00</small></a>
+    <a class="fl" href="#"><span>Aku'mai Servant</span><small>56 DPS · <b>82%</b> · 0:31</small></a>
+    <a class="fl" href="#"><span>Twilight Lord Kelris +2</span><small>40 DPS · <b>70%</b> · 2:09</small></a>
+    <a class="fl" href="#"><span>Twilight Shadowmage</span><small>72 DPS · <b class="e-s">93%</b> · 0:57</small></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+    <div class="rlinks"><a href="#">Settings</a><a href="#">Reload</a></div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>Blackfathom Oracle +3 more</h1><div class="meta"><b>Wed 18 Nov 23:38:49</b> · Blackfathom Deeps</div></div>
+    </header>
+    <div class="fp">
+      <div class="lcol">
+        <div class="hero">
+          <div>
+            <div class="sc c"><span data-count="49">49</span><small>%</small></div>
+            <p class="cp">of the damage that was possible</p>
+            <div class="bb" role="img" aria-label="49% of possible damage; clean is 90%"><i data-grow style="--i:0;width:49%"></i><u></u></div>
+            <div class="tk" aria-hidden="true"><span>clean</span></div>
+            <p class="vd">12 swings lost while not attacking, about 1,538 damage.</p>
+            <div class="st"><span class="kt">PvP</span><span>1:52 long · they got away</span></div>
+          </div>
+          <section class="fix" aria-labelledby="gaph">
+            <h2 class="tab" id="gaph">Biggest gap</h2>
+            <p class="fix-h">12 swings lost while you weren't attacking</p>
+            <div class="m"><b>≈ 1,538</b><span>damage</span></div>
+            <a class="btn" href="timeline.html">Show on the timeline</a>
+          </section>
+        </div>
+        <div class="kf">
+          <div><b class="c">2,583</b><span>damage</span></div>
+          <div><b class="c">23</b><span>DPS</span></div>
+          <div><b class="c">433</b><span>taken</span></div>
+          <div><b class="c">53</b><span>healing</span></div>
+        </div>
+        <section class="sec l"><h2 class="tab">Where the damage went</h2>
+          <div class="bk">
+            <span class="n f">Swings lost <small>×12</small></span><span class="w f"><i class="b" data-grow style="--i:1;width:100%;background:var(--m-act)"></i></span><span class="v c f">≈1,538</span>
+            <span class="n">Judgement sat ready <small>64.6 s</small></span><span class="w"><i class="b" data-grow style="--i:2;width:39.9%;background:var(--m-cd)"></i></span><span class="v c">≈614</span>
+            <span class="n">Consecration sat ready <small>72.8 s</small></span><span class="w"><i class="b" data-grow style="--i:3;width:22.3%;background:var(--m-cd)"></i></span><span class="v c">≈343</span>
+            <span class="n">Holy Strike sat ready <small>38.6 s</small></span><span class="w"><i class="b" data-grow style="--i:4;width:13.7%;background:var(--m-cd)"></i></span><span class="v c">≈211</span>
+            <span class="e c">Left on the table <small>· estimate — only time you were free to act</small></span><span class="v c">≈2,705</span>
+          </div>
+        </section>
+        <button class="dr" type="button" aria-expanded="false">Abilities <span>(8)</span><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M3 5.5 L7 9.5 L11 5.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+      <div class="rcol">
+        <section class="sec"><h2 class="tab">Went well</h2>
+          <div class="ww">
+            <div><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5 L6.5 12.5 L13.5 3.5" fill="none" stroke="var(--m-dmg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b class="c">1</b> dispel</span></div>
+            <div><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 8.5 L6.5 12.5 L13.5 3.5" fill="none" stroke="var(--m-dmg)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Never below <b class="c">86%</b> health</span></div>
+            <div class="al"><em>Also</em><span>Holy Strike: out of range ×2</span></div>
+          </div>
+        </section>
+        <section class="sec l"><h2 class="tab">Group</h2>
+          <p>You did <b>25%</b> of the damage (<b>3rd of 5</b>) and <b>11%</b> of the healing.</p>
+          <div class="gt">
+            <span class="h"></span><span class="h"></span><span class="h"></span><span class="h">Damage</span><span class="h">Healing</span>
+            <span class="r c">1</span><span class="n">Piraña Segundo</span><span class="w"><i class="b" data-grow style="--i:5;width:100%"></i></span><span class="d c">4,518</span><span class="hh c">177</span>
+            <span class="r c">2</span><span class="n">Evilguy Verybad</span><span class="w"><i class="b" data-grow style="--i:6;width:67.3%"></i></span><span class="d c">3,040</span><span class="hh c">0</span>
+            <span class="r c">3</span><span class="n me">You</span><span class="w"><i class="b" data-grow style="--i:7;width:57.2%"></i></span><span class="d c">2,583</span><span class="hh c">53</span>
+            <span class="r c">4</span><span class="n">Shizuka Tsuruta</span><span class="w"></span><span class="d c z">0</span><span class="hh c">198</span>
+            <span class="r c">5</span><span class="n">Anaruz Lightborne</span><span class="w"></span><span class="d c z">0</span><span class="hh c">68</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

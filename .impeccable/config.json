@@ -17,6 +17,15 @@
         "value": "condensed\",sans-serif",
         "createdAt": "2026-11-20T03:16:52.770Z",
         "reason": "detector parse slip: the value is the tail of \"Barlow Condensed\",sans-serif, which DESIGN.md declares"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "*",
+        "files": [
+          "docs/design/mockups/*.html"
+        ],
+        "createdAt": "2026-11-20T18:04:05.214Z",
+        "reason": "controller decision: mock-up pages are ahead of the build; DESIGN.md's ramp was generated from the debrief only and is refreshed when these pages are built"
       }
     ]
   }
