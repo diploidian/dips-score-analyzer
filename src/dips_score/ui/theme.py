@@ -1,93 +1,100 @@
-"""Colors, fonts and the window style, in two themes:
+"""Colors, fonts and the window style: two themes (Timeless, Classical) x two modes (day, night).
 
-    classic   flat and dark, with the dips accent (the original look)
-    wow       "Azeroth": dark stone and leather, gold-bronze frames, gold titles, game-style tooltips and
-              buttons. Uses the game's own font and frame art when they're in the assets folder (see
-              assets.py), and draws a look-alike when they aren't.
-
-Everything that paints reads these module values when it paints, so `apply()` switches the theme at once
-(the window then re-shows what's open so widgets with their own styles pick it up).
+The colours come from tokens.py. `apply()` picks a token set and fills the module values below; everything
+that paints reads them when it paints, so applying a theme switches the whole look at once (the window then
+re-shows what's open so widgets with their own styles pick it up).
 """
-from PyQt6.QtGui import QColor
+import sys
+from pathlib import Path
 
-NAME = "classic"
+from PyQt6.QtGui import QColor, QFontDatabase
+
+from . import tokens
+
+NAME = "timeless"
+MODE = "day"                 # resolved: "day" or "night", never "auto"
+T: dict[str, QColor] = {}    # the current token set
 TEXTURE: str | None = None   # the dips-Core texture tile (see texture.py), drawn behind every window
-FONT = "Segoe UI"          # body text
-TITLE_FONT = "Segoe UI"    # titles and names
 
-# ---- palette (replaced by apply) ----
-ACCENT = QColor(64, 153, 255)
-BG = QColor(14, 14, 18)
-PANEL = QColor(22, 22, 28)
-LANE = QColor(28, 28, 35)
-GRID = QColor(255, 255, 255, 18)
-TEXT = QColor(234, 234, 240)
-DIM = QColor(150, 150, 160)
-EDGE = QColor(42, 42, 51)          # panel borders
-SELECT = QColor(29, 53, 80)        # selected rows
-TITLE = QColor(255, 255, 255)      # titles
+FONT = "Barlow"                  # body text
+NUM_FONT = "Barlow Condensed"    # numbers and labels
+HAND_FONT = "Caveat"             # the handwritten notes
+TITLE_FONT = FONT                # titles and names (older pages read this)
 
-# ---- meaning colors (the same in both themes) ----
-COMBAT = QColor(64, 153, 255, 50)
-BOSS = QColor(200, 120, 255, 70)
-BUSY = QColor(80, 200, 120)
-IDLE = QColor(240, 80, 80)
-CAST = QColor(64, 153, 255)
-CAST_OK = QColor(120, 190, 255)
-CAST_BAD = QColor(240, 80, 80)
-FAIL = QColor(255, 170, 60)
-KEY = QColor(220, 220, 230)
-CLICK = QColor(255, 150, 50)
-SPAM = QColor(240, 80, 80)
-MOVE = QColor(250, 210, 80)
-HP = QColor(80, 220, 120)
-HP_LOW = QColor(240, 80, 80)
-HIT = QColor(240, 80, 80, 160)
-DEATH = QColor(255, 60, 60)
+FONTS_DIR = Path(__file__).parent / "fonts"
+_fonts_loaded = False
 
-PALETTES = {
-    "classic": dict(ACCENT=QColor(64, 153, 255), BG=QColor(14, 14, 18), PANEL=QColor(22, 22, 28),
-                    LANE=QColor(28, 28, 35), GRID=QColor(255, 255, 255, 18), TEXT=QColor(234, 234, 240),
-                    DIM=QColor(150, 150, 160), EDGE=QColor(42, 42, 51), SELECT=QColor(29, 53, 80),
-                    TITLE=QColor(255, 255, 255), COMBAT=QColor(64, 153, 255, 50)),
-    # the game's own UI colors: gold text (1, 0.82, 0), parchment-white body text, bronze frames
-    "wow": dict(ACCENT=QColor(255, 209, 0), BG=QColor(12, 10, 8), PANEL=QColor(24, 19, 14),
-                LANE=QColor(31, 25, 19), GRID=QColor(255, 209, 0, 16), TEXT=QColor(240, 230, 210),
-                DIM=QColor(168, 151, 122), EDGE=QColor(122, 94, 52), SELECT=QColor(74, 52, 18),
-                TITLE=QColor(255, 209, 0), COMBAT=QColor(255, 196, 80, 45)),
-}
-THEMES = {"classic": "Classic (flat dark)", "wow": "Azeroth (World of Warcraft style)"}
+# ---- legacy names: filled from T by apply(), so pages not yet redesigned follow the theme ----
+ACCENT = BG = PANEL = LANE = GRID = TEXT = DIM = EDGE = SELECT = TITLE = QColor()
+COMBAT = BOSS = BUSY = IDLE = CAST = CAST_OK = CAST_BAD = FAIL = KEY = CLICK = QColor()
+SPAM = MOVE = HP = HP_LOW = HIT = DEATH = QColor()
+
+def _alpha(c: QColor, a: int) -> QColor:
+    c = QColor(c)
+    c.setAlpha(a)
+    return c
 
 
-def apply(name: str):
-    """switch the palette and fonts (call app.setStyleSheet(stylesheet()) after)"""
-    global NAME, FONT, TITLE_FONT
-    from . import assets
-    NAME = name if name in PALETTES else "classic"
+def apply(name: str, mode: str = "auto", os_dark: bool = False) -> None:
+    """switch the palette (call app.setStyleSheet(stylesheet()) after)"""
+    global NAME, MODE, T
+    NAME, m = tokens.normalize(name, mode)
+    MODE = tokens.resolve(m, os_dark)
+    T = {k: QColor(v) for k, v in tokens.TOKENS[(NAME, MODE)].items()}
     g = globals()
-    for k, v in PALETTES[NAME].items():
-        g[k] = QColor(v)
-    if NAME == "wow":
-        game = assets.font_family()          # Friz Quadrata, if it's in the assets folder
-        FONT = game or "Segoe UI"
-        TITLE_FONT = game or "Palatino Linotype"
-    else:
-        FONT = TITLE_FONT = "Segoe UI"
+    g.update(ACCENT=tok("gold"), BG=tok("bg"), PANEL=tok("panel"), LANE=tok("track"), GRID=_alpha(T["ln"], 120),
+             TEXT=tok("tx"), DIM=tok("mu"), EDGE=tok("ln"), SELECT=tok("track"), TITLE=tok("tx"),
+             COMBAT=_alpha(T["plate"], 45), BOSS=_alpha(T["gC"], 70), BUSY=tok("m-dmg"), IDLE=tok("m-surv"),
+             CAST=tok("m-cast"), CAST_OK=tok("m-pace"), CAST_BAD=tok("gD"), FAIL=tok("hl-note"), KEY=tok("tx2"),
+             CLICK=tok("hl"), SPAM=tok("gD"), MOVE=tok("m-upk"), HP=tok("m-dmg"), HP_LOW=tok("gD"),
+             HIT=_alpha(T["gD"], 160), DEATH=tok("gD"))
+
+
+def _lum(c: QColor) -> float:
+    def ch(v):
+        v /= 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    return 0.2126 * ch(c.red()) + 0.7152 * ch(c.green()) + 0.0722 * ch(c.blue())
+
+
+def _contrast(a: QColor, b: QColor) -> float:
+    x, y = sorted((_lum(a), _lum(b)), reverse=True)
+    return (x + 0.05) / (y + 0.05)
+
+
+def readable(c: QColor, on: QColor | None = None) -> QColor:
+    """c darkened (same hue) until it reads at 4.5:1 on `on` (default: panel); unchanged when it already does.
+    shortcut: only darkens, so a light-on-dark colour that fails on a night theme is left alone."""
+    on = on or T["panel"]
+    h, s, l, a = c.getHslF()
+    out = QColor(c)
+    while _contrast(out, on) < 4.5 and l > 0 and _lum(on) > 0.3:
+        l = max(0.0, l - 0.02)
+        out.setHslF(max(h, 0.0), s, l, a)
+    return out
+
+
+def tok(key: str) -> QColor:
+    return QColor(T[key])
+
+
+def load_fonts() -> None:
+    """register the bundled Barlow / Barlow Condensed / Caveat files (needs a QApplication); once"""
+    global _fonts_loaded
+    if _fonts_loaded:
+        return
+    for f in sorted(FONTS_DIR.glob("*.ttf")):
+        if QFontDatabase.addApplicationFont(str(f)) < 0:
+            print(f"dips score: couldn't load font {f.name}", file=sys.stderr)
+    _fonts_loaded = True
 
 
 def grade_color(grade: str) -> QColor:
-    return {"S": QColor(255, 200, 60), "A": QColor(80, 220, 120), "B": QColor(64, 153, 255),
-            "C": QColor(200, 200, 210), "D": QColor(255, 150, 50)}.get(grade, QColor(240, 80, 80))
+    return tok({"S": "gS", "A": "gA", "B": "gB", "C": "gC"}.get(grade, "gD"))
 
 
 def score_color(s: float) -> QColor:
-    if s >= 85:
-        return QColor(80, 220, 120)
-    if s >= 65:
-        return QColor(64, 153, 255)
-    if s >= 45:
-        return QColor(255, 170, 60)
-    return QColor(240, 80, 80)
+    return tok("gS" if s >= 85 else "gB" if s >= 65 else "gC" if s >= 45 else "gD")
 
 
 def _c(c: QColor) -> str:
@@ -101,79 +108,71 @@ def set_texture(path: str | None):
 
 def panel() -> str:
     """panel color: a little see-through when the texture is on, so it shows behind panels too"""
-    return _c(QColor(PANEL.red(), PANEL.green(), PANEL.blue(), 205)) if TEXTURE else PANEL.name()
+    return _c(_alpha(PANEL, 205)) if TEXTURE else PANEL.name()
 
 
 def stylesheet() -> str:
-    """the whole window's style for the theme in use"""
+    """the whole window's style for the theme in use: flat and square, 1px lines"""
     # windows carry the background (and the texture); everything inside is see-through unless it's a panel
     tex = f"background-image: url({TEXTURE}); background-repeat: repeat-xy;" if TEXTURE else ""
     pnl = panel()
-    base = f"""
-QWidget {{ background: transparent; color: {TEXT.name()}; font-family: "{FONT}"; font-size: 10pt; }}
-QMainWindow, QDialog {{ background-color: {BG.name()}; {tex} }}
-QComboBox QAbstractItemView, QComboBoxPrivateContainer, QMenu {{ background: {PANEL.name()};
-    selection-background-color: {SELECT.name()}; }}
-QListWidget, QTableWidget, QTreeWidget {{ background: {pnl}; border: 1px solid {EDGE.name()}; outline: 0; }}
-QTableWidget {{ gridline-color: {_c(QColor(EDGE.red(), EDGE.green(), EDGE.blue(), 90))}; }}
+    ln, tx, mu, hl = T["ln"].name(), T["tx"].name(), T["mu"].name(), T["hl"].name()
+    btn_ln = ln if tokens.TOKENS[(NAME, MODE)]["btn-ln"] == "transparent" else T["btn-ln"].name()
+    return f"""
+QWidget {{ background: transparent; color: {tx}; font-family: "{FONT}"; font-size: 10pt; }}
+QMainWindow, QDialog {{ background-color: {T["bg"].name()}; {tex} }}
+QComboBox QAbstractItemView, QComboBoxPrivateContainer, QMenu {{ background: {T["panel"].name()};
+    border: 1px solid {ln}; selection-background-color: {T["track"].name()}; selection-color: {tx}; }}
+QListWidget, QTableWidget, QTreeWidget {{ background: {pnl}; border: 1px solid {ln}; outline: 0; }}
+QTableWidget {{ gridline-color: {ln}; }}
 QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selected {{
-    background: {SELECT.name()}; color: white; }}
+    background: {T["track"].name()}; color: {tx}; }}
 QTreeWidget::item {{ padding: 4px 2px; }}
-QHeaderView::section {{ background: {pnl}; color: {DIM.name()}; border: 0;
-    border-bottom: 1px solid {EDGE.name()}; padding: 4px 6px; }}
-QLabel#dim {{ color: {DIM.name()}; }}
-QLabel#title {{ font-family: "{TITLE_FONT}"; font-size: 15pt; font-weight: 600; color: {TITLE.name()}; }}
-QSplitter::handle {{ background: {PANEL.darker(130).name()}; }}
-QScrollBar:vertical {{ background: {PANEL.name()}; width: 10px; }}
-QScrollBar::handle:vertical {{ background: {EDGE.name()}; min-height: 20px; }}
+QHeaderView::section {{ background: {pnl}; color: {mu}; border: 0; border-bottom: 1px solid {ln};
+    padding: 4px 6px; }}
+QLabel#dim {{ color: {mu}; }}
+QLabel#title {{ font-size: 15pt; font-weight: 600; color: {tx}; }}
+#rail {{ background: {T["rail"].name()}; color: {T["rail-tx"].name()}; }}
+#rail QLabel {{ color: {T["rail-tx"].name()}; }}
+#rail QLabel#dim {{ color: {T["rail-mu"].name()}; }}
+#rail QLabel#look {{ color: {T["rail-mu"].name()}; font-family: "{NUM_FONT}"; font-size: 11px; font-weight: 600; }}
+#rail QPushButton {{ background: {T["rail"].name()}; color: {T["rail-tx"].name()};
+    border: 1px solid {T["rail-mu"].name()}; padding: 5px 10px; font-weight: 500; }}
+#rail QPushButton:hover {{ background: {T["rail-on"].name()}; }}
+#rail QPushButton:checked {{ background: {T["rail-on"].name()}; border: 1px solid {T["rail-tx"].name()};
+    font-weight: 600; }}
+#rail QPushButton[seg="1"] {{ border-right-width: 0; }}
+#rail QPushButton[seg="1"][last="1"] {{ border-right-width: 1px; }}
+#rail QPushButton[seg="1"]:checked {{ border-right-width: 1px; }}
+#rail QToolButton {{ background: {T["rail"].name()}; color: {T["rail-tx"].name()};
+    border: 1px solid {T["rail-mu"].name()}; font-size: 14pt; padding: 1px 8px; }}
+#rail QToolButton:hover {{ background: {T["rail-on"].name()}; }}
+QSplitter::handle {{ background: {ln}; }}
+QScrollBar:vertical {{ background: {T["panel"].name()}; width: 10px; }}
+QScrollBar::handle:vertical {{ background: {ln}; min-height: 20px; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ height: 0; }}
 QScrollArea {{ border: 0; }}
-QComboBox {{ background: {PANEL.lighter(130).name()}; border: 1px solid {EDGE.name()}; padding: 2px 6px; }}
-QTabBar::tab {{ background: {pnl}; color: {DIM.name()}; padding: 6px 16px; border: 1px solid {EDGE.name()};
+QComboBox {{ background: {T["panel"].name()}; border: 1px solid {ln}; padding: 2px 6px; }}
+QTabWidget::pane {{ border: 1px solid {ln}; top: -1px; background: {pnl}; }}
+QTabBar::tab {{ background: {pnl}; color: {mu}; padding: 6px 16px; border: 1px solid {ln};
     border-bottom: 0; margin-right: 2px; }}
-QTabBar::tab:selected {{ color: {TITLE.name()}; border-top: 2px solid {ACCENT.name()}; }}
-QGroupBox {{ border: 1px solid {EDGE.name()}; margin-top: 10px; padding-top: 6px; }}
-QGroupBox::title {{ subcontrol-origin: margin; left: 8px; color: {TITLE.name()}; }}
-QSlider::handle:horizontal {{ background: {ACCENT.name()}; width: 12px; margin: -4px 0; border-radius: 6px; }}
-QRadioButton::indicator {{ width: 12px; height: 12px; border: 1px solid {DIM.name()}; border-radius: 7px;
-    background: {PANEL.name()}; }}
-QRadioButton::indicator:checked {{ border: 1px solid {ACCENT.name()};
-    background: qradialgradient(cx:0.5, cy:0.5, radius:0.5, fx:0.5, fy:0.5, stop:0 {ACCENT.name()},
-    stop:0.55 {ACCENT.name()}, stop:0.65 {PANEL.name()}); }}
-QSlider::groove:horizontal {{ background: {EDGE.name()}; height: 4px; }}
+QTabBar::tab:selected {{ color: {tx}; border: 1px solid {tx}; font-weight: 600; }}
+QGroupBox {{ border: 1px solid {ln}; margin-top: 10px; padding-top: 6px; }}
+QGroupBox::title {{ subcontrol-origin: margin; left: 8px; color: {tx}; }}
+QSlider::groove:horizontal {{ background: {ln}; height: 4px; }}
+QSlider::handle:horizontal {{ background: {hl}; width: 12px; margin: -4px 0; }}
+QRadioButton::indicator {{ width: 12px; height: 12px; border: 1px solid {mu}; border-radius: 7px;
+    background: {T["panel"].name()}; }}
+QRadioButton::indicator:checked {{ border: 1px solid {hl}; background: {hl}; }}
+QPushButton, QToolButton {{ background: {T["btn"].name()}; color: {T["btn-tx"].name()};
+    border: 1px solid {btn_ln}; padding: 5px 12px; }}
+QPushButton:hover, QToolButton:hover {{ border-color: {hl}; }}
+QPushButton:checked {{ border-color: {hl}; }}
+QPushButton#showme {{ border-color: {T["plate-ln"].name()}; font-size: 13px; font-weight: 600; padding: 10px 16px; }}
+QToolTip {{ background: {T["panel"].name()}; color: {tx}; border: 1px solid {ln}; padding: 4px; }}
+QLineEdit, QSpinBox {{ background: {T["panel"].name()}; border: 1px solid {ln}; selection-background-color: {hl};
+    selection-color: {T["bg"].name()}; }}
 """
-    if NAME == "classic":
-        return base + f"""
-QTabWidget::pane {{ border: 1px solid {EDGE.name()}; top: -1px; background: {pnl}; }}
-QPushButton, QToolButton {{ background: #23232c; border: 1px solid #33333d; padding: 5px 12px; }}
-QPushButton:hover, QToolButton:hover {{ border-color: {ACCENT.name()}; }}
-QPushButton:checked {{ border-color: {ACCENT.name()}; }}
-QToolTip {{ background: #1b1b22; color: {TEXT.name()}; border: 1px solid #3a3a45; padding: 4px; }}
-"""
-    from . import assets
-    frame = assets.nine_patch("ui-dialogbox-border")       # the game's dialog frame, if extracted
-    tip = assets.nine_patch("ui-tooltip-border")
-    pane = (f"border: 12px solid transparent; border-image: url({frame}) 12 12 12 12 stretch stretch;"
-            if frame else f"border: 2px ridge {EDGE.name()};")
-    tooltip = (f"border: 6px solid transparent; border-image: url({tip}) 6 6 6 6 stretch stretch;"
-               if tip else "border: 2px solid #6a7894; border-radius: 4px;")
-    return base + f"""
-QTabWidget::pane {{ {pane} background: {pnl}; top: -1px; }}
-QTabBar::tab {{ font-family: "{TITLE_FONT}"; background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #2b2117, stop:1 #17120c);
-    color: {DIM.name()}; border: 1px solid {EDGE.name()}; border-bottom: 0; border-top-left-radius: 4px;
-    border-top-right-radius: 4px; }}
-QTabBar::tab:selected {{ color: {TITLE.name()}; background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #4a3518,
-    stop:1 #241a0e); border: 1px solid {ACCENT.darker(140).name()}; border-bottom: 0; }}
-QTreeWidget, QTableWidget {{ border: 2px ridge {EDGE.name()}; }}
-QHeaderView::section {{ font-family: "{TITLE_FONT}"; color: {TITLE.name()};
-    background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #2a2015, stop:1 #1a140d); }}
-QPushButton, QToolButton {{ font-family: "{TITLE_FONT}"; color: {TITLE.name()}; padding: 5px 14px;
-    background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #7a1410, stop:0.5 #520c08, stop:1 #330604);
-    border: 1px solid #b08a3e; border-radius: 3px; }}
-QPushButton:hover, QToolButton:hover {{ background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #9a2018,
-    stop:0.5 #6a120c, stop:1 #400806); border-color: {ACCENT.name()}; }}
-QPushButton:pressed, QPushButton:checked {{ background: #2a0503; }}
-QComboBox {{ background: #1e1710; border: 1px solid #8a6d3b; border-radius: 2px; }}
-QToolTip {{ background: rgba(6, 8, 20, 240); color: {TEXT.name()}; padding: 6px; {tooltip} }}
-QScrollBar::handle:vertical {{ background: #6a5230; border-radius: 4px; }}
-"""
+
+
+apply("timeless", "day")

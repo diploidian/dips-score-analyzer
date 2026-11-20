@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run debrief</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+.main{display:flex;flex-direction:column;padding-bottom:12px}
+.top{margin-bottom:0;border-bottom-color:var(--gold)}
+.deb{display:grid;grid-template-columns:minmax(0,1fr) 460px;flex:1}
+.lcol{padding-right:28px;border-right:1px solid var(--ln);min-width:0}
+.rcol{padding-left:28px;display:flex;flex-direction:column;padding-top:12px}
+.hero{display:grid;grid-template-columns:260px minmax(0,1fr);gap:28px;padding:14px 0 16px;border-bottom:1px solid var(--ln)}
+.sc{font:700 150px/.8 "Barlow Condensed",sans-serif;letter-spacing:-.02em;display:flex;align-items:flex-start;margin-top:8px}
+.sc em{font-style:normal;font-size:56px;line-height:1;margin:6px 0 0 10px;padding:5px 12px;border:2px solid var(--gold);color:var(--gB)}
+.chip{margin-top:16px;display:flex;align-items:center;gap:8px}
+.chip b{font:600 14px "Barlow Condensed",sans-serif;color:var(--gS);border:1px solid var(--gS);padding:2px 8px}
+.vd{font-size:15px;line-height:1.4;margin-top:8px;color:var(--tx2)}
+.fix{position:relative;margin-top:12px;background:var(--plate);color:var(--plate-tx);padding:22px 18px 14px;display:flex;flex-direction:column;align-self:start}
+.fix .tab{position:absolute;top:-12px;left:14px}
+.fix .fix-h{font:600 23px/1.15 "Barlow Condensed",sans-serif;margin:0 0 8px}
+.fix .m{display:flex;flex-wrap:wrap;column-gap:18px;row-gap:2px;align-items:baseline}.fix .m b,.fix .m span{white-space:nowrap}
+.fix .m b{font:700 32px "Barlow Condensed",sans-serif;color:var(--plate-ac)}
+.fix .m span{font-size:13px;color:var(--plate-mu)}
+.fix .btn{margin-top:10px;align-self:flex-start;border-color:var(--plate-ln)}
+.nx{margin-top:10px;border-top:1px solid var(--plate-ln);padding-top:7px;display:grid;gap:4px;font-size:13px}
+.nx div{display:flex;justify-content:space-between;gap:10px}
+.nx b{font:600 14px "Barlow Condensed",sans-serif;color:var(--plate-ac);white-space:nowrap}
+.sec{padding:12px 0;border-bottom:1px solid var(--ln)}.sec.l{border-bottom:0}
+.sec .tab{margin-bottom:8px}
+.ef{display:grid;grid-template-columns:160px 1fr 110px;align-items:center;gap:0 14px;padding:5px 0;border-top:1px solid var(--ln)}
+.sec .tab+.ef{border-top:0}
+.ef .n{font-weight:500}.ef .n .tag{margin-left:8px}
+.ef .t{font:700 30px/1 "Barlow Condensed",sans-serif;display:flex;justify-content:flex-end;align-items:baseline;gap:6px;grid-row:span 2}
+.ef .t small{font:500 11px Barlow,sans-serif;color:var(--mu);white-space:nowrap}
+.bar{position:relative;height:10px;background:var(--track)}.bar i{position:absolute;left:0;top:0;bottom:0}
+.bar u{position:absolute;left:90%;top:-4px;bottom:-4px;width:2px;background:var(--tx)}
+.ef p{grid-column:2;font-size:12px;color:var(--mu);margin-top:-2px}
+.bk{display:grid;grid-template-columns:120px 240px 1fr;align-items:stretch}
+.bk>*{padding:3px 0;border-top:1px solid var(--ln);display:flex;align-items:center}.bk>.v{justify-content:flex-end}.bk>.f{border-top:0}
+.bk .n{font-size:15px;line-height:18px}.bk .v{font-size:15px;line-height:18px;font-weight:700;text-align:right}
+.bk .b{display:block;height:10px}
+.bk .e{gap:6px;border-top:2px solid var(--tx);padding-top:6px;font:700 20px/22px "Barlow Condensed",sans-serif;grid-column:1/3}
+.bk .e small{font:500 14px "Barlow Condensed",sans-serif;color:var(--mu);letter-spacing:.04em}
+.bk .e+.v{border-top:2px solid var(--tx);padding-top:6px;font-size:20px;line-height:22px}
+.rcol h3{font:700 22px "Barlow Condensed",sans-serif;letter-spacing:.04em;text-transform:uppercase;padding-bottom:6px}
+.rcol h3 i{font-style:normal;color:var(--mu);font-size:15px}
+.key{display:flex;gap:14px;align-items:center;font:600 12px "Barlow Condensed",sans-serif;letter-spacing:.04em;color:var(--mu)}
+.key b{font-weight:700;font-size:14px}.key .k{width:7px;height:7px;background:var(--tx);display:inline-block;margin-right:4px}
+.gw{position:relative;width:432px;margin-top:34px;background:var(--panel)}
+.g{position:relative;z-index:1;display:grid;grid-template-columns:repeat(8,1fr);grid-auto-rows:75px;border:1px solid var(--gold)}
+.g i{position:relative;box-shadow:inset -1px -1px 0 var(--ln);padding:4px 5px;font-style:normal;display:flex;flex-direction:column}
+.g s{text-decoration:none;font:500 11px/12px "Barlow Condensed",sans-serif;color:var(--mu)}
+.g em{font:500 11px/13px "Barlow Condensed",sans-serif;color:var(--mu);font-style:normal}
+.g b{font:700 21px/24px "Barlow Condensed",sans-serif;margin-top:2px}
+.g s,.g em,.g b{text-shadow:0 0 3px var(--panel),0 0 2px var(--panel),0 0 1px var(--panel)}
+.g b u{text-decoration:none;font-size:14px;margin-left:2px}
+.g svg{width:42px;height:14px;margin-top:auto;margin-bottom:3px}
+.g i.k:after{content:"";position:absolute;right:5px;top:5px;width:6px;height:6px;background:var(--tx)}
+.ov{position:absolute;z-index:0;left:0;top:0;width:432px;height:100%;overflow:visible;fill:none;pointer-events:none}
+.ov text{font:600 27px Caveat,cursive;fill:var(--hl-note);stroke:none}
+.foot{margin-top:10px;font:600 12px "Barlow Condensed",sans-serif;letter-spacing:.04em;color:var(--mu)}
+@media (max-width:1419px){.hero{grid-template-columns:214px minmax(0,1fr);gap:22px}.sc{font-size:126px}.sc em{font-size:46px;padding:4px 10px}.fix .fix-h{font-size:21px}.fix .m{column-gap:12px}.nx{font-size:12px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html">Dungeons</a>
+      <a href="fight-card.html">Fights</a>
+      <a href="#">Habits</a>
+    </nav>
+    <div class="rl">Recent runs</div>
+    <a class="run" href="debrief.html" aria-current="page"><span>Blackfathom Deeps</span><b>75 B</b></a>
+    <a class="run" href="#"><span>Kalimdor (open world)</span><b>23:37</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:17</b></a>
+    <a class="run" href="#"><span>Blackfathom Deeps</span><b>22:16</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:09</b></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>Blackfathom Deeps</h1><div class="meta"><b>Wed 18 Nov 22:27</b> · 69:45 long · 32:57 in combat · 64 fights · as DPS</div></div>
+      <nav class="tabs" aria-label="Run views"><a href="debrief.html" aria-current="page">Debrief</a><a href="#">Timeline</a><a href="fight-card.html">Fights</a><a href="group.html">Group</a></nav>
+    </header>
+    <div class="deb">
+      <div class="lcol">
+        <div class="hero">
+          <div>
+            <div class="sc c"><span data-count="75">75</span><em>B</em></div>
+            <div class="chip"><b>+6 vs last visit</b><span class="illus">illustrative</span></div>
+            <p class="vd">Strong damage — 128% of an even share — but Consecration sat unused and you died once.</p>
+          </div>
+          <section class="fix" aria-labelledby="fixh">
+            <h2 class="tab" id="fixh">Fix this first</h2>
+            <p class="fix-h">Consecration sat ready 75s while you were free to use it</p>
+            <div class="m"><b>−10.3 points</b><span>Cooldowns</span><span>~1,177 damage</span></div>
+            <a class="btn" href="#">Show me on the timeline</a>
+            <div class="nx"><div><span>You died once — look at the seconds before it</span><b>−6.3 Survival</b></div><div><span>Seal of Command up only 69% of combat</span><b>−2.7 Upkeep</b></div></div>
+          </section>
+        </div>
+        <section class="sec"><span class="tab">Effectiveness</span>
+<div class="ef"><span class="n">Damage</span><div class="bar"><i data-grow style="--i:0;width:97%;background:var(--m-dmg)"></i><u></u></div><span class="t c"><small>on target</small>97</span><p>106,991 dmg, 128% of an even share</p></div>
+<div class="ef"><span class="n">Abilities on time</span><div class="bar"><i data-grow style="--i:1;width:23%;background:var(--m-cd)"></i><u></u></div><span class="t c"><small>below 90</small>23</span><p>Consecration ready 75s, Judgement 20s</p></div>
+<div class="ef"><span class="n">Rotation<span class="tag">preview</span></span><div class="bar"><i data-grow style="--i:2;width:78%;background:var(--m-rot)"></i><u></u></div><span class="t c"><small>below 90</small>78</span><p>Holy Strike while Judgement was ready ×14</p></div>
+<div class="ef"><span class="n">Pacing<span class="tag">preview</span></span><div class="bar"><i data-grow style="--i:3;width:86%;background:var(--m-pace)"></i><u></u></div><span class="t c"><small>below 90</small>86</span><p>3 pulls entered under 50% hp</p></div>
+        </section>
+        <section class="sec l"><span class="tab">Where your 25 points went</span>
+          <div class="bk"><span class="n f">Cooldowns</span><span class="f"><i class="b" data-grow style="--i:4;width:220px;background:var(--m-cd)"></i></span><span class="v c f">−10.3</span><span class="n">Survival</span><span class=""><i class="b" data-grow style="--i:5;width:135px;background:var(--m-surv)"></i></span><span class="v c">−6.3</span><span class="n">Upkeep</span><span class=""><i class="b" data-grow style="--i:6;width:58px;background:var(--m-upk)"></i></span><span class="v c">−2.7</span><span class="n">Casting</span><span class=""><i class="b" data-grow style="--i:7;width:58px;background:var(--m-cast)"></i></span><span class="v c">−2.7</span><span class="n">Activity</span><span class=""><i class="b" data-grow style="--i:8;width:43px;background:var(--m-act)"></i></span><span class="v c">−2.0</span><span class="n">Damage</span><span class=""><i class="b" data-grow style="--i:9;width:17px;background:var(--m-dmg)"></i></span><span class="v c">−0.8</span><span class="e c">Earned <small>· 75 of 100</small></span><span class="v c">75</span></div>
+        </section>
+      </div>
+      <div class="rcol">
+        <h3>Fights · 64 <i>· circled = review first</i></h3>
+        <div class="key"><span class="g-S"><b>S</b> ≥90</span><span class="g-A"><b>A</b> ≥80</span><span class="g-B"><b>B C</b> ≥60</span><span class="g-D"><b>D</b> ≥45</span><span><span class="k"></span>boss</span><span class="illus">cell traces illustrative</span></div>
+        <div class="gw"><svg width="0" height="0" style="position:absolute"><defs><symbol id="a" viewBox="0 0 42 14"><polyline fill="none" stroke="currentColor" stroke-width="1.3" points="0,11 6,8 11,9 17,4 22,7 27,3 32,6 42,2"/></symbol><symbol id="b" viewBox="0 0 42 14"><polyline fill="none" stroke="currentColor" stroke-width="1.3" points="0,9 7,10 12,5 19,6 24,2 31,5 36,3 42,4"/></symbol><symbol id="c" viewBox="0 0 42 14"><polyline fill="none" stroke="currentColor" stroke-width="1.3" points="0,12 8,7 13,8 20,3 27,6 34,2 42,5"/></symbol><symbol id="d" viewBox="0 0 42 14"><polyline fill="none" stroke="currentColor" stroke-width="1.3" points="0,6 6,9 12,4 17,8 24,3 30,7 36,2 42,6"/></symbol><symbol id="e" viewBox="0 0 42 14"><polyline fill="none" stroke="currentColor" stroke-width="1.3" points="0,10 9,10 15,6 20,9 28,4 35,7 42,3"/></symbol><symbol id="f" viewBox="0 0 42 14"><polyline fill="none" stroke="currentColor" stroke-width="1.3" points="0,6 6,10 11,12 16,8 22,13 27,12 34,13 42,12"/></symbol><symbol id="g" viewBox="0 0 42 14"><polyline fill="none" stroke="currentColor" stroke-width="1.3" points="0,5 7,4 13,6 20,3 27,5 31,12 42,12"/></symbol></defs></svg>
+<div class="g c">
+<i class="g-A"><s>1</s><em>0:41</em><b>88<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-S"><s>2</s><em>1:35</em><b>92<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-A"><s>3</s><em>2:30</em><b>84<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-A k"><s>4</s><em>3:47</em><b>85<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-S"><s>5</s><em>5:02</em><b>91<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-C"><s>6</s><em>6:25</em><b>70<u>C</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#f"/></svg></i>
+<i class="g-A"><s>7</s><em>7:40</em><b>86<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-S"><s>8</s><em>8:49</em><b>95<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-B"><s>9</s><em>9:58</em><b>76<u>B</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-A"><s>10</s><em>10:41</em><b>89<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-S k"><s>11</s><em>11:23</em><b>100<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-S"><s>12</s><em>12:50</em><b>93<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-A"><s>13</s><em>14:02</em><b>82<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-S"><s>14</s><em>15:20</em><b>90<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-A"><s>15</s><em>16:31</em><b>87<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-S"><s>16</s><em>17:44</em><b>94<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-S"><s>17</s><em>28:40</em><b>91<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-B"><s>18</s><em>29:10</em><b>77<u>B</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-S k"><s>19</s><em>30:24</em><b>99<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-A"><s>20</s><em>31:30</em><b>88<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-S"><s>21</s><em>32:27</em><b>96<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-B"><s>22</s><em>33:41</em><b>74<u>B</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-A"><s>23</s><em>34:50</em><b>85<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-S"><s>24</s><em>35:58</em><b>92<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-A"><s>25</s><em>37:02</em><b>83<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-S"><s>26</s><em>38:11</em><b>90<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-A"><s>27</s><em>39:20</em><b>87<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-S"><s>28</s><em>40:29</em><b>95<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-A"><s>29</s><em>41:38</em><b>81<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-A"><s>30</s><em>42:47</em><b>89<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-D"><s>31</s><em>43:57</em><b>50<u>D</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#g"/></svg></i>
+<i class="g-B"><s>32</s><em>45:09</em><b>78<u>B</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-A"><s>33</s><em>46:18</em><b>86<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-S"><s>34</s><em>47:26</em><b>93<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-A"><s>35</s><em>48:35</em><b>84<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-S"><s>36</s><em>49:44</em><b>91<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-A"><s>37</s><em>50:52</em><b>88<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-S"><s>38</s><em>52:01</em><b>97<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-A"><s>39</s><em>53:02</em><b>82<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-B"><s>40</s><em>54:00</em><b>73<u>B</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-B"><s>41</s><em>55:02</em><b>75<u>B</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-S k"><s>42</s><em>55:26</em><b>90<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-S"><s>43</s><em>56:30</em><b>94<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-A"><s>44</s><em>57:38</em><b>85<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-A"><s>45</s><em>58:44</em><b>89<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-S"><s>46</s><em>59:50</em><b>92<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-A"><s>47</s><em>60:44</em><b>80<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-S k"><s>48</s><em>61:35</em><b>99<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-A"><s>49</s><em>62:40</em><b>86<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-S"><s>50</s><em>63:30</em><b>91<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-C"><s>51</s><em>64:26</em><b>62<u>C</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#f"/></svg></i>
+<i class="g-S k"><s>52</s><em>64:45</em><b>98<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-A"><s>53</s><em>65:10</em><b>87<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-S"><s>54</s><em>65:40</em><b>93<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-A"><s>55</s><em>66:05</em><b>84<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-S"><s>56</s><em>66:30</em><b>90<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-A"><s>57</s><em>66:58</em><b>88<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-S"><s>58</s><em>67:25</em><b>95<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-A"><s>59</s><em>67:50</em><b>82<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#a"/></svg></i>
+<i class="g-S"><s>60</s><em>68:15</em><b>91<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#b"/></svg></i>
+<i class="g-A"><s>61</s><em>68:38</em><b>86<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#c"/></svg></i>
+<i class="g-S"><s>62</s><em>69:00</em><b>94<u>S</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#d"/></svg></i>
+<i class="g-A"><s>63</s><em>69:14</em><b>85<u>A</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#e"/></svg></i>
+<i class="g-D"><s>64</s><em>69:28</em><b>53<u>D</u></b><svg viewBox="0 0 42 14" aria-hidden="true"><use href="#f"/></svg></i>
+</div>
+<svg class="ov" viewBox="0 0 432 608" aria-hidden="true">
+<g class="hl-stroke" stroke-width="5" opacity=".8" stroke-linecap="round">
+<ellipse data-draw style="--len:180;--i:0" cx="297" cy="48" rx="31" ry="26" transform="rotate(-5 297 48)"/>
+<ellipse data-draw style="--len:180;--i:1" cx="351" cy="279" rx="31" ry="26" transform="rotate(4 351 279)"/>
+<ellipse data-draw style="--len:180;--i:2" cx="135" cy="510" rx="31" ry="26" transform="rotate(-3 135 510)"/>
+<ellipse data-draw style="--len:176;--i:3" cx="404" cy="587" rx="30" ry="26" transform="rotate(6 404 587)"/>
+</g>
+<g class="hl-stroke" stroke-width="1.6" stroke-linecap="round" opacity=".6">
+<path data-draw style="--len:190;--i:1" d="M303 74 Q352 160 351 253"/>
+<path data-draw style="--len:210;--i:2" d="M330 305 Q220 405 142 484"/>
+<path data-draw style="--len:260;--i:3" d="M158 536 Q290 612 374 588"/>
+</g>
+<g data-fade style="--i:1" class="hl-stroke" stroke-width="2.4" stroke-linecap="round"><path d="M327 293 l8 8 M335 293 l-8 8"/></g>
+<g data-fade style="--i:3"><g class="hl-stroke" stroke-width="1.8" stroke-linecap="round"><path d="M236 -16 Q272 -12 290 16 M281 11 l9 6 l-11 2"/></g>
+<text x="130" y="-12" transform="rotate(-3 130 -12)">review these 4</text></g>
+</svg></div>
+        <div class="foot">Review order: 6:25 → 43:57 (died) → 64:26 → 69:28 · 10-min break 18:19 → 28:16</div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

@@ -1,9 +1,9 @@
 """The window.
 
 Left: dungeons, each opening into its visits. Right: picking a dungeon shows its page (your score
-on every visit); picking a visit shows its tabs (Score, Group, Pulls, Spells, Summary) above the
-timeline. The window watches the add-on's saved file and reloads when the game saves (/reload,
-logout); a new visit opens by itself.
+on every visit); picking a visit shows its tabs (Debrief, Group, Pulls, Spells, Summary) above the
+timeline (hidden under the Debrief until its "Show me"). The window watches the add-on's saved file
+and reloads when the game saves (/reload, logout); a new visit opens by itself.
 """
 from __future__ import annotations
 
@@ -12,14 +12,15 @@ import traceback
 from pathlib import Path
 
 from PyQt6.QtCore import QFileSystemWatcher, Qt, QTimer
-from PyQt6.QtGui import QFont
-from PyQt6.QtWidgets import (QApplication, QHBoxLayout, QMainWindow, QPushButton, QScrollArea, QSplitter,
-                             QStackedWidget, QTabWidget, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
-                             QWidget)
+from PyQt6.QtGui import QFont, QGuiApplication
+from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QMainWindow, QPushButton,
+                             QScrollArea, QSplitter, QStackedWidget, QTabWidget, QToolButton, QTreeWidget,
+                             QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from .. import analysis
 from ..analysis import Analysis
 from ..config import Paths
+from ..debrief import DebriefView
 from ..model.roster import Overrides
 from ..scoring.classes import load_upkeep
 from ..scoring.score import load_weights
@@ -30,6 +31,7 @@ from .pages import DungeonPage, GroupTab, PullsTab, ScoreTab, SpellsTab, dim_lab
 from .summary import SummaryTab
 from .timeline import Timeline
 from .settings import SettingsDialog
+from .tokens import THEMES
 from ..live.habits import habits
 from ..live.tail import LogTail
 from .fightsview import FightDetail, FightList
@@ -58,6 +60,7 @@ class Window(QMainWindow):
         self.tree.setMinimumWidth(260)
         self.tree.currentItemChanged.connect(self._picked)
         left = QWidget()
+        left.setObjectName("rail")
         ll = QVBoxLayout(left)
         ll.setContentsMargins(8, 8, 0, 8)
         modes = QHBoxLayout()
@@ -92,15 +95,40 @@ class Window(QMainWindow):
         row.addWidget(reload_btn, 1)
         cog = QToolButton()
         cog.setText("\u2699")            # the settings cog
-        cog.setToolTip("Settings: the look (Azeroth or Classic) and the game art it uses")
-        cog.setStyleSheet("font-size: 14pt; padding: 1px 8px;")
+        cog.setToolTip("Settings: the game folder, the game art and the overlay")
         cog.clicked.connect(self._open_settings)
         row.addWidget(cog)
         ll.addLayout(row)
+        look = QLabel("LOOK")
+        look.setObjectName("look")      # themed in theme.stylesheet (Barlow Condensed 600)
+        ll.addWidget(look)
+        self.look_buttons: dict[str, QPushButton] = {}
+        self.theme_group, self.mode_group = QButtonGroup(self), QButtonGroup(self)
+        for key, label, group in (*((k, n, self.theme_group) for k, n in (("classical", "Classical"),
+                                                                           ("timeless", "Timeless"))),
+                                  *((k, n, self.mode_group) for k, n in (("day", "Day"), ("night", "Night"),
+                                                                          ("auto", "Auto")))):
+            b = QPushButton(label)
+            b.setCheckable(True)
+            group.addButton(b)
+            self.look_buttons[key] = b
+            b.clicked.connect(lambda _c, k=key: self._set_look(theme=k) if k in THEMES else self._set_look(mode=k))
+        for keys in (("classical", "timeless"), ("day", "night", "auto")):
+            r = QHBoxLayout()
+            r.setSpacing(0)
+            for k in keys:
+                b = self.look_buttons[k]
+                b.setProperty("seg", "1")
+                b.setProperty("last", "1" if k == keys[-1] else "0")
+                r.addWidget(b)
+            ll.addLayout(r)
         self.weights: WeightsDialog | None = None
         self.settings_dialog: SettingsDialog | None = None
         # opened from the tray: share the controller's settings, so changes here reach the overlay
         self.settings = live.settings if live else app_settings.load(paths)
+        self._sync_look_buttons()
+        QGuiApplication.styleHints().colorSchemeChanged.connect(
+            lambda *_: self._set_look() if self.settings["mode"] == "auto" else None)
         self.rescore_timer = QTimer(singleShot=True, interval=120)   # sliders move fast: score once they pause
         self.rescore_timer.timeout.connect(self._rescore)
 
@@ -108,25 +136,28 @@ class Window(QMainWindow):
         self.dungeon = DungeonPage()
         self.dungeon.open_run.connect(self._open_run_id)
         self.score, self.group, self.pulls = ScoreTab(), GroupTab(), PullsTab()
+        self.score.page.settings = self.settings
         self.spells, self.summary = SpellsTab(), SummaryTab()
         self.tabs = QTabWidget()
-        for w, name in ((self.score, "Score"), (self.group, "Group"), (self.pulls, "Pulls"),
+        for w, name in ((self.score, "Debrief"), (self.group, "Group"), (self.pulls, "Pulls"),
                         (self.spells, "Spells"), (self.summary, "Summary")):
             self.tabs.addTab(w, name)
         self.timeline = Timeline()
         self.score.zoom.connect(self.timeline.set_view)
+        # the debrief brings the hidden timeline back only when asked: Show me, or picking a fight (not a rescore)
+        self.score.page.zoom.connect(lambda *_: self.timeline_pane.show())
+        self.score.page.picked.connect(lambda i: self.timeline_pane.show() if i >= 0 else None)
         self.pulls.zoom.connect(self.timeline.set_view)
         self.spells.highlight.connect(self.timeline.highlight)
         self.group.changed.connect(self._group_changed)
-        # the Spells tab's highlight only makes sense while it's showing
-        self.tabs.currentChanged.connect(lambda i: None if self.tabs.widget(i) is self.spells
-                                         else self.timeline.highlight(None, None))
+        self.tabs.currentChanged.connect(self._tab_changed)
         self.group.forget.connect(self._forget_picks)
         scroll = QScrollArea()
         scroll.setWidget(self.timeline)
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        tl = QWidget()
+        tl = self.timeline_pane = QWidget()
+        tl.hide()                 # the Debrief shows first, and has the room to itself
         tll = QVBoxLayout(tl)
         tll.setContentsMargins(0, 0, 0, 0)
         tll.addWidget(dim_label("Timeline - wheel to zoom, drag to pan, double-click for the whole run, hover for "
@@ -296,7 +327,7 @@ class Window(QMainWindow):
         except Exception:
             traceback.print_exc()
             self.current = None
-            self.score.card.show_card(run.zone, "Couldn't analyze this run - see the terminal.", None, None)
+            self.score.page.show_view(DebriefView(), run.zone, "Couldn't analyze this run - see the terminal.")
             self.stack.setCurrentIndex(1)
             return
         a = self.current
@@ -305,6 +336,12 @@ class Window(QMainWindow):
         self.timeline.set_analysis(a)
         self.stack.setCurrentIndex(1)
         self._refresh_labels()
+
+    def _tab_changed(self, i: int):
+        w = self.tabs.widget(i)
+        if w is not self.spells:          # its highlight only makes sense while it's showing
+            self.timeline.highlight(None, None)
+        self.timeline_pane.setVisible(w is not self.score)   # the debrief needs the height; "Show me" brings it back
 
     def _mode(self, which: str):
         self.mode_dungeons.setChecked(which == "dungeons")
@@ -352,8 +389,19 @@ class Window(QMainWindow):
         self.reload()
 
     def _set_theme(self, name: str):
+        self._set_look(theme=name)
+
+    def _sync_look_buttons(self):
+        for k in (self.settings["theme"], self.settings["mode"]):
+            self.look_buttons[k].setChecked(True)
+
+    def _set_look(self, theme: str | None = None, mode: str | None = None):
         """switch the look and redraw everything open"""
-        self.settings["theme"] = name
+        self.settings["theme"] = theme or self.settings["theme"]
+        self.settings["mode"] = mode or self.settings["mode"]
+        self._sync_look_buttons()
+        if self.settings_dialog:
+            self.settings_dialog.set_theme(self.settings["theme"])
         app_settings.save(self.paths, self.settings)
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
@@ -371,6 +419,7 @@ class Window(QMainWindow):
         """re-show what's open, so widgets that set their own colors pick up the theme"""
         tab = self.tabs.currentIndex()
         view = (self.timeline.v0, self.timeline.v1)
+        tl_shown = self.timeline_pane.isVisible()
         self.fight_list.set_fights(self.live.history.fights)
         if self.stack.currentIndex() == 3:
             self._show_habits()
@@ -381,6 +430,7 @@ class Window(QMainWindow):
             self._show_run(self.current.data.run)
             self.tabs.setCurrentIndex(tab)
             self.timeline.set_view(*view)
+            self.timeline_pane.setVisible(tl_shown)
         else:
             self._picked(self.tree.currentItem())
         self._refresh_labels()
@@ -398,10 +448,10 @@ class Window(QMainWindow):
             analysis.rescore(a)
         self._refresh_labels()
         if self.stack.currentIndex() == 1 and self.current:
-            rows = self.score.fights.selectionModel().selectedRows()
+            fight = self.score.fight
             self.score.set_analysis(self.current)
-            if rows:
-                self.score.fights.selectRow(rows[0].row())
+            if fight >= 0:
+                self.score.show_fight(fight)
         else:
             self._picked(self.tree.currentItem())
 
@@ -446,7 +496,9 @@ class Window(QMainWindow):
 
 def apply_look(paths: Paths, settings: dict):
     """theme, then the dips-Core texture, then the style for both"""
-    theme.apply(settings["theme"])
+    theme.load_fonts()
+    os_dark = QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Dark
+    theme.apply(settings["theme"], settings["mode"], os_dark)
     on, alpha, _ = app_settings.texture_choice(paths, settings)
     theme.set_texture(texture.tile(paths, alpha) if on else None)
     QApplication.instance().setStyleSheet(theme.stylesheet())

@@ -34,7 +34,7 @@ class RadarChart(QWidget):
             return ""
         rows = []
         for i, axis in enumerate(AXES):
-            avg = f"<td style='color:#9696a0'>&nbsp;group avg {self.avg[i]:.0f}</td>" if self.avg else ""
+            avg = f"<td style='color:{theme.DIM.name()}'>&nbsp;group avg {self.avg[i]:.0f}</td>" if self.avg else ""
             rows.append(f"<tr><td>{axis}</td><td align=right><b>{self.radar.values[i]:.0f}</b></td>{avg}"
                         f"<td>&nbsp;{self.radar.details[i]}</td></tr>")
         return (f"<b style='color:{self.color.name()}'>{self.name}</b> - share of the group's best on each axis "

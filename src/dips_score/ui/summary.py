@@ -13,7 +13,7 @@ from . import assets, theme
 from .pages import dim_label, fmt_num, fmt_time, item, table
 from ..scoring.radar import average
 from .radar import RadarChart
-from .timeline import player_color
+from .timeline import player_color, text_color
 
 MEDALS = {1: QColor(255, 205, 70), 2: QColor(200, 205, 215), 3: QColor(205, 135, 75)}
 ROLE_WORD = {"TANK": "Tank", "HEALER": "Healer", "DPS": "Damage"}
@@ -33,7 +33,7 @@ def card_tooltip(a: Analysis, pl) -> str:
     for aw in pl.awards:
         rows.append(f"<tr><td>{aw.title}</td><td align=right><b>{'+2' if aw.good else '-2'}</b></td><td></td>"
                     f"<td>&nbsp;{aw.stat}</td></tr>")
-    return (f"<b style='color:{player_color(p).name()}'>{p.name}</b> - {ordinal(pl.rank)}, "
+    return (f"<b style='color:{text_color(p).name()}'>{p.name}</b> - {ordinal(pl.rank)}, "
             f"{pl.points:.0f} points<br>{pl.card.total:.0f} as {ROLE_WORD.get(p.role or 'DPS', 'Damage').lower()}"
             f"{', ' + format(award_points(pl.awards), '+g') + ' from awards' if pl.awards else ''}"
             f"<table cellspacing=2>{''.join(rows)}</table>")
@@ -194,7 +194,7 @@ class StandingRow(QFrame):
         body = QVBoxLayout()
         icon_png = assets.png_path(assets.class_icon_name(p.cls) or "")
         icon_html = f"<img src='{icon_png}' width=18 height=18>&nbsp;" if icon_png else ""
-        head = QLabel(f"{icon_html}<span style='color:{c.name()}; font-weight:600; font-size:11pt; "
+        head = QLabel(f"{icon_html}<span style='color:{text_color(p).name()}; font-weight:600; font-size:11pt; "
                       f"font-family:\"{theme.TITLE_FONT}\"'>{p.name}</span>"
                       f"<span style='color:{theme.DIM.name()}'>&nbsp;&nbsp;{ROLE_WORD.get(p.role or 'DPS')}"
                       f"{' · MVP' if pl.mvp else ''}{' · you' if p.is_me else ''}</span>")
@@ -335,7 +335,7 @@ class SummaryTab(QWidget):
             p = st.player
             r = self.t.rowCount()
             self.t.insertRow(r)
-            c = player_color(p)
+            c = text_color(p)
             vals = ["●", p.name, ROLE_WORD.get(p.role or "DPS"), fmt_num(st.damage), f"{st.dps:.0f}",
                     fmt_num(st.boss_damage), fmt_num(st.healing), f"{st.overheal_share:.0%}" if st.healing else "",
                     fmt_num(st.taken), st.deaths or "", st.interrupts or "", st.dispels or "", st.killing_blows or "",

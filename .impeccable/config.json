@@ -1,0 +1,23 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          "docs/design/mockups/*.html"
+        ],
+        "createdAt": "2026-11-20T03:06:31.622Z",
+        "reason": "user confirmed: ivory grounds come from the user's own Classical and Timeless moodboards"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "condensed\",sans-serif",
+        "createdAt": "2026-11-20T03:16:52.770Z",
+        "reason": "detector parse slip: the value is the tail of \"Barlow Condensed\",sans-serif, which DESIGN.md declares"
+      }
+    ]
+  }
+}

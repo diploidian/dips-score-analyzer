@@ -181,10 +181,17 @@ class Scorecard:
         """no combat: nothing was scored"""
         return not self.categories
 
+    def points_lost(self) -> list[tuple[Category, float]]:
+        """counted categories' share of the points missing from 100, largest first (bonus not netted)"""
+        counted = [c for c in self.categories if not c.info_only]
+        weight = sum(c.weight for c in counted)
+        lost = [(c, c.weight * (100 - c.score) / weight) for c in counted] if weight else []
+        return sorted(((c, p) for c, p in lost if round(p, 1) != 0), key=lambda cp: -cp[1])
+
     @property
     def tips(self) -> list[str]:
-        worst = sorted((c for c in self.categories if c.tip and not c.info_only), key=lambda c: c.score)
-        return [c.tip for c in worst[:3] if c.score < 85]
+        worst = [c for c, _ in self.points_lost() if c.tip and c.score < 85]
+        return [c.tip for c in worst[:3]]
 
 
 def grade(total: float) -> str:
