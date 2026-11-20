@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>After each fight · dips score</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+.stage { position: relative; height: 470px; background: var(--rail); border: 1px solid var(--ln); margin-bottom: 36px; }
+.stage .illus { position: absolute; left: 16px; bottom: 14px; color: var(--rail-mu); }
+.stage .fc { position: absolute; top: 16px; right: 16px; }
+.sec { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.sec::after { content: ""; flex: 1; border-top: 1px solid var(--ln); }
+.states { display: grid; grid-template-columns: repeat(auto-fill, 380px); gap: 24px 28px; margin-bottom: 36px; }
+.cap { margin-top: 8px; font-size: 12px; color: var(--mu); display: flex; gap: 8px; align-items: center; }
+.cap b { font: 700 11px/1 "Barlow Condensed", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--tx); }
+
+/* the card: 380 x 236 */
+.fc { width: 380px; height: 236px; padding: 11px 14px 10px; background: var(--panel); border: 1px solid var(--tx); color: var(--tx); display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+.fc-h { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--tx2); min-height: 16px; }
+.fc-h b { font: 700 13px/1 "Barlow Condensed", sans-serif; letter-spacing: .08em; text-transform: uppercase; color: var(--tx); }
+.fc-h .tag { margin-left: auto; }
+.fc-e { display: grid; gap: 5px; }
+.fc-n { display: flex; align-items: baseline; gap: 8px; }
+.fc-n .c { font-size: 30px; font-weight: 700; line-height: .9; }
+.fc-n span { font-size: 12px; color: var(--tx2); }
+.bar { position: relative; height: 10px; background: var(--track); }
+.bar i { display: block; height: 100%; background: var(--m-cd); }
+.bar.ok i { background: var(--m-dmg); }
+.bar::after { content: ""; position: absolute; left: 90%; top: -3px; bottom: -3px; width: 2px; background: var(--tx); }
+.tick { position: relative; height: 11px; font: 600 11px/1 "Barlow Condensed", sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--mu); }
+.tick span { position: absolute; left: 90%; transform: translateX(-50%); }
+.fc-v { font: 500 15px/1.2 Barlow, sans-serif; }
+.gap { background: var(--plate); color: var(--plate-tx); padding: 7px 10px; font-size: 13px; line-height: 1.3; }
+.gap small { display: block; font: 700 11px/1 "Barlow Condensed", sans-serif; letter-spacing: .16em; text-transform: uppercase; color: var(--plate-mu); margin-bottom: 3px; }
+.gap em { font-style: normal; color: var(--plate-ac); font-weight: 600; }
+.gap u { color: var(--plate-ac); text-underline-offset: 3px; }
+.chips { display: flex; gap: 14px; font-size: 12px; color: var(--tx2); }
+.chips span { display: inline-flex; align-items: center; gap: 6px; }
+.chips svg { width: 8px; height: 8px; }
+.fc-f { margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
+.fc-f .mk { font: 700 11px/1 "Barlow Condensed", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--mu); }
+.fc-f button { font: 500 12px/1 Barlow, sans-serif; color: var(--tx2); background: none; border: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 2px 0; }
+.fc-f button:hover { color: var(--tx); }
+
+.how { border-top: 1px solid var(--tx); }
+.how div { display: grid; grid-template-columns: 240px 1fr; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--ln); font-size: 14px; }
+.how b { font: 700 13px/1.3 "Barlow Condensed", sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+.how span { color: var(--tx2); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html">Dungeons</a>
+      <a href="fight-card.html" aria-current="page">Fights</a>
+      <a href="#">Habits</a>
+    </nav>
+    <div class="rl">Recent runs</div>
+    <a class="run" href="debrief.html"><span>Blackfathom Deeps</span><b>75 B</b></a>
+    <a class="run" href="#"><span>Kalimdor (open world)</span><b>23:37</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:17</b></a>
+    <a class="run" href="#"><span>Blackfathom Deeps</span><b>22:16</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:09</b></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>After each fight</h1><div class="meta">The card shown over the game ~2 s after combat ends · <b>380 × 236</b></div></div>
+      <nav class="tabs" aria-label="Run views"><a href="debrief.html">Debrief</a><a href="#">Timeline</a><a href="fight-card.html" aria-current="page">Fights</a><a href="group.html">Group</a></nav>
+    </header>
+
+    <div class="sec"><span class="tab">Over your game</span></div>
+    <div class="stage">
+      <span class="illus">your game · card numbers illustrative</span>
+
+      <article class="fc" aria-label="After-fight card, gap fight">
+        <div class="fc-h"><b>Trash</b><span>6:25 · 90 s</span></div>
+        <div class="fc-e">
+          <div class="fc-n"><span class="c">80%</span><span>of the damage that was possible</span></div>
+          <div class="bar"><i data-grow style="width:80%"></i></div>
+          <div class="tick"><span>clean</span></div>
+        </div>
+        <p class="fc-v">Consecration sat ready while you were free.</p>
+        <div class="gap"><small>Biggest gap</small>Consecration sat ready <em>18 s · ~280 damage</em></div>
+        <div class="chips">
+          <span><svg viewBox="0 0 8 8"><rect width="8" height="8" fill="var(--m-rot)"/></svg>Rotation 74%</span>
+          <span><svg viewBox="0 0 8 8"><rect width="8" height="8" fill="var(--m-pace)"/></svg>Entered at 64% hp</span>
+        </div>
+        <div class="fc-f"><span class="mk">dips score</span><button type="button">Dismiss</button></div>
+      </article>
+    </div>
+
+    <div class="sec"><span class="tab">Every state</span></div>
+    <div class="states">
+      <figure>
+        <article class="fc" aria-label="Gap fight">
+          <div class="fc-h"><b>Trash</b><span>6:25 · 90 s</span></div>
+          <div class="fc-e">
+            <div class="fc-n"><span class="c">80%</span><span>of the damage that was possible</span></div>
+            <div class="bar"><i style="width:80%"></i></div>
+            <div class="tick"><span>clean</span></div>
+          </div>
+          <p class="fc-v">Consecration sat ready while you were free.</p>
+          <div class="gap"><small>Biggest gap</small>Consecration sat ready <em>18 s · ~280 damage</em></div>
+          <div class="chips">
+            <span><svg viewBox="0 0 8 8"><rect width="8" height="8" fill="var(--m-rot)"/></svg>Rotation 74%</span>
+            <span><svg viewBox="0 0 8 8"><rect width="8" height="8" fill="var(--m-pace)"/></svg>Entered at 64% hp</span>
+          </div>
+          <div class="fc-f"><span class="mk">dips score</span><button type="button">Dismiss</button></div>
+        </article>
+        <figcaption class="cap"><b>Gap fight</b><span class="illus">illustrative</span></figcaption>
+      </figure>
+
+      <figure>
+        <article class="fc" aria-label="You died">
+          <div class="fc-h"><b>Trash</b><span>43:57 · 12 s</span></div>
+          <div class="fc-e">
+            <div class="fc-n"><span class="c">24%</span><span>of an even share</span></div>
+            <div class="bar"><i style="width:24%"></i></div>
+            <div class="tick"><span>clean</span></div>
+          </div>
+          <p class="fc-v">You died. Look at the seconds before it.</p>
+          <div class="gap"><small>Death</small>Died at 43:57 · <u>show the last 5 s</u></div>
+          <div class="chips">
+            <span><svg viewBox="0 0 8 8"><rect width="8" height="8" fill="var(--m-surv)"/></svg>Survival</span>
+          </div>
+          <div class="fc-f"><span class="mk">dips score</span><button type="button">Dismiss</button></div>
+        </article>
+        <figcaption class="cap"><b>You died</b><span>24% is the real damage share</span></figcaption>
+      </figure>
+
+      <figure>
+        <article class="fc" aria-label="Clean fight">
+          <div class="fc-h"><b>Lady Sarevess</b><span>11:23 · 24 s</span><span class="tag">Boss kill</span></div>
+          <div class="fc-e">
+            <div class="fc-n"><span class="c">96%</span><span>of the damage that was possible</span></div>
+            <div class="bar ok"><i style="width:96%"></i></div>
+            <div class="tick"><span>clean</span></div>
+          </div>
+          <p class="fc-v">Clean fight: 96% of the damage that was possible.</p>
+          <div class="fc-f"><span class="mk">dips score</span><button type="button">Dismiss</button></div>
+        </article>
+        <figcaption class="cap"><b>Clean fight</b><span class="illus">illustrative</span></figcaption>
+      </figure>
+
+      <figure>
+        <article class="fc" aria-label="Open world fight">
+          <div class="fc-h"><b>Kalimdor</b><span>23:37 · 14 s</span></div>
+          <div class="fc-e">
+            <div class="fc-n"><span class="c">92%</span><span>of the damage that was possible</span></div>
+            <div class="bar ok"><i style="width:92%"></i></div>
+            <div class="tick"><span>clean</span></div>
+          </div>
+          <p class="fc-v">Clean fight: 92% of the damage that was possible.</p>
+          <div class="chips">
+            <span><svg viewBox="0 0 8 8"><rect width="8" height="8" fill="var(--m-pace)"/></svg>Rested 0 s before pulling</span>
+          </div>
+          <div class="fc-f"><span class="mk">dips score</span><button type="button">Dismiss</button></div>
+        </article>
+        <figcaption class="cap"><b>Open world</b><span class="illus">illustrative</span></figcaption>
+      </figure>
+    </div>
+
+    <div class="sec"><span class="tab">How it decides</span></div>
+    <div class="how">
+      <div><b>Clean fight</b><span>90% or more of the damage that was possible.</span></div>
+      <div><b>Biggest gap</b><span>The single ability that cost the most.</span></div>
+      <div><b>Shown for 6 s</b><span>Then it fades. The time is a setting.</span></div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

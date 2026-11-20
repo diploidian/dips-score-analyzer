@@ -1,0 +1,2368 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-20T03:16:28+00:00",
+  "title": "Design System: dips score",
+  "extensions": {
+    "colorMeta": {
+      "timeless-day-bg": {
+        "role": "neutral",
+        "displayName": "Timeless Day Ground",
+        "canonical": "#EFE5D3",
+        "tonalRamp": [
+          "#0D0B08",
+          "#272520",
+          "#464138",
+          "#686053",
+          "#898173",
+          "#AAA49A",
+          "#CCC9C2",
+          "#F1EEEA"
+        ]
+      },
+      "timeless-day-panel": {
+        "role": "neutral",
+        "displayName": "Timeless Day Panel",
+        "canonical": "#F7F0E3",
+        "tonalRamp": [
+          "#0C0B09",
+          "#272521",
+          "#45423B",
+          "#666157",
+          "#878277",
+          "#A9A49D",
+          "#CBC9C4",
+          "#F0EEEB"
+        ]
+      },
+      "timeless-day-ln": {
+        "role": "neutral",
+        "displayName": "Timeless Day Rule",
+        "canonical": "#D8CAB2",
+        "tonalRamp": [
+          "#0D0B07",
+          "#28241E",
+          "#484135",
+          "#6A604D",
+          "#8C816D",
+          "#ACA496",
+          "#CDC8C0",
+          "#F2EEE8"
+        ]
+      },
+      "timeless-day-track": {
+        "role": "neutral",
+        "displayName": "Timeless Day Track",
+        "canonical": "#E2D5BC",
+        "tonalRamp": [
+          "#0D0B07",
+          "#28251E",
+          "#484134",
+          "#6A604D",
+          "#8B816D",
+          "#ACA495",
+          "#CDC9C0",
+          "#F1EEE8"
+        ]
+      },
+      "timeless-day-rail": {
+        "role": "neutral",
+        "displayName": "Timeless Day Rail",
+        "canonical": "#4A2F1F",
+        "tonalRamp": [
+          "#0F0A07",
+          "#2C231D",
+          "#4F3E34",
+          "#755B4C",
+          "#977C6C",
+          "#B5A095",
+          "#D3C6BF",
+          "#F5ECE7"
+        ]
+      },
+      "timeless-day-rail-on": {
+        "role": "neutral",
+        "displayName": "Timeless Day Rail Current",
+        "canonical": "#5F402C",
+        "tonalRamp": [
+          "#100A06",
+          "#2D231C",
+          "#503D31",
+          "#775A48",
+          "#997B68",
+          "#B6A092",
+          "#D4C6BE",
+          "#F6ECE6"
+        ]
+      },
+      "timeless-day-rail-tx": {
+        "role": "neutral",
+        "displayName": "Timeless Day Rail Ink",
+        "canonical": "#F1E7D6",
+        "tonalRamp": [
+          "#0C0B08",
+          "#272520",
+          "#464139",
+          "#686053",
+          "#898174",
+          "#AAA49A",
+          "#CCC9C3",
+          "#F1EEEA"
+        ]
+      },
+      "timeless-day-rail-mu": {
+        "role": "neutral",
+        "displayName": "Timeless Day Rail Muted",
+        "canonical": "#D3BFA6",
+        "tonalRamp": [
+          "#0E0B07",
+          "#2A241D",
+          "#4A4033",
+          "#6E5E4B",
+          "#907F6B",
+          "#AFA394",
+          "#CFC8BF",
+          "#F3EEE7"
+        ]
+      },
+      "timeless-day-rail-ac": {
+        "role": "neutral",
+        "displayName": "Timeless Day Rail Accent",
+        "canonical": "#F1C27D",
+        "tonalRamp": [
+          "#110A02",
+          "#2F220F",
+          "#553D17",
+          "#7E591D",
+          "#A17B41",
+          "#BCA079",
+          "#D7C6AF",
+          "#F9EDDC"
+        ]
+      },
+      "timeless-day-tx": {
+        "role": "neutral",
+        "displayName": "Timeless Day Ink",
+        "canonical": "#2A1C12",
+        "tonalRamp": [
+          "#0E0A08",
+          "#292420",
+          "#4A4039",
+          "#6D5E54",
+          "#8E7F74",
+          "#AEA29B",
+          "#CFC8C3",
+          "#F2EDEA"
+        ]
+      },
+      "timeless-day-tx2": {
+        "role": "neutral",
+        "displayName": "Timeless Day Second Ink",
+        "canonical": "#3E3022",
+        "tonalRamp": [
+          "#0D0B08",
+          "#29241F",
+          "#494037",
+          "#6C5E51",
+          "#8E7F72",
+          "#AEA399",
+          "#CEC8C2",
+          "#F2EEE9"
+        ]
+      },
+      "timeless-day-mu": {
+        "role": "neutral",
+        "displayName": "Timeless Day Muted",
+        "canonical": "#6E5E4E",
+        "tonalRamp": [
+          "#0E0B08",
+          "#29241F",
+          "#494037",
+          "#6C5E51",
+          "#8E7F71",
+          "#AEA398",
+          "#CFC8C1",
+          "#F2EDE9"
+        ]
+      },
+      "timeless-day-plate": {
+        "role": "primary",
+        "displayName": "Timeless Day Plate",
+        "canonical": "#4E5A32",
+        "tonalRamp": [
+          "#0A0C06",
+          "#23271B",
+          "#3E452E",
+          "#5B6644",
+          "#7C8864",
+          "#A0A98F",
+          "#C6CCBC",
+          "#ECF0E5"
+        ]
+      },
+      "timeless-day-plate-tx": {
+        "role": "neutral",
+        "displayName": "Timeless Day Plate Ink",
+        "canonical": "#F1E7D6",
+        "tonalRamp": [
+          "#0C0B08",
+          "#272520",
+          "#464139",
+          "#686053",
+          "#898174",
+          "#AAA49A",
+          "#CCC9C3",
+          "#F1EEEA"
+        ]
+      },
+      "timeless-day-plate-mu": {
+        "role": "neutral",
+        "displayName": "Timeless Day Plate Muted",
+        "canonical": "#E2DCC4",
+        "tonalRamp": [
+          "#0C0B07",
+          "#27251F",
+          "#454236",
+          "#66614F",
+          "#87836F",
+          "#A9A597",
+          "#CBC9C1",
+          "#F0EEE8"
+        ]
+      },
+      "timeless-day-plate-ac": {
+        "role": "neutral",
+        "displayName": "Timeless Day Plate Price",
+        "canonical": "#F1C27D",
+        "tonalRamp": [
+          "#110A02",
+          "#2F220F",
+          "#553D17",
+          "#7E591D",
+          "#A17B41",
+          "#BCA079",
+          "#D7C6AF",
+          "#F9EDDC"
+        ]
+      },
+      "timeless-day-plate-ln": {
+        "role": "neutral",
+        "displayName": "Timeless Day Plate Rule",
+        "canonical": "#8C9868",
+        "tonalRamp": [
+          "#0A0C05",
+          "#232719",
+          "#3F452B",
+          "#5D663F",
+          "#7E885F",
+          "#A1A98C",
+          "#C7CCBA",
+          "#EDF0E4"
+        ]
+      },
+      "timeless-day-btn": {
+        "role": "neutral",
+        "displayName": "Timeless Day Button",
+        "canonical": "#5A3A24",
+        "tonalRamp": [
+          "#100A06",
+          "#2D221B",
+          "#513D30",
+          "#785A46",
+          "#9A7B66",
+          "#B7A091",
+          "#D4C6BD",
+          "#F7ECE6"
+        ]
+      },
+      "timeless-day-btn-tx": {
+        "role": "neutral",
+        "displayName": "Timeless Day Button Ink",
+        "canonical": "#F1E7D6",
+        "tonalRamp": [
+          "#0C0B08",
+          "#272520",
+          "#464139",
+          "#686053",
+          "#898174",
+          "#AAA49A",
+          "#CCC9C3",
+          "#F1EEEA"
+        ]
+      },
+      "timeless-day-gold": {
+        "role": "secondary",
+        "displayName": "Timeless Day Gold Leaf",
+        "canonical": "#7A5F30",
+        "tonalRamp": [
+          "#0F0A04",
+          "#2C2416",
+          "#4F3F25",
+          "#745D35",
+          "#977E56",
+          "#B4A285",
+          "#D3C8B6",
+          "#F5EDE1"
+        ]
+      },
+      "timeless-day-gS": {
+        "role": "grade",
+        "displayName": "Timeless Day Grade S",
+        "canonical": "#4E6A2E",
+        "tonalRamp": [
+          "#080D04",
+          "#202817",
+          "#384827",
+          "#526A37",
+          "#728C58",
+          "#99AD87",
+          "#C2CEB7",
+          "#E9F2E2"
+        ]
+      },
+      "timeless-day-gA": {
+        "role": "grade",
+        "displayName": "Timeless Day Grade A",
+        "canonical": "#6A4228",
+        "tonalRamp": [
+          "#110905",
+          "#2F221A",
+          "#543C2D",
+          "#7C5841",
+          "#9F7961",
+          "#BB9E8D",
+          "#D7C5BB",
+          "#F8ECE4"
+        ]
+      },
+      "timeless-day-gB": {
+        "role": "grade",
+        "displayName": "Timeless Day Grade B",
+        "canonical": "#7F5F14",
+        "tonalRamp": [
+          "#100A02",
+          "#2D2410",
+          "#513F19",
+          "#785C21",
+          "#9B7E44",
+          "#B7A27A",
+          "#D4C8B0",
+          "#F6EDDD"
+        ]
+      },
+      "timeless-day-gC": {
+        "role": "grade",
+        "displayName": "Timeless Day Grade C",
+        "canonical": "#A44A24",
+        "tonalRamp": [
+          "#160602",
+          "#381D12",
+          "#65321D",
+          "#954828",
+          "#BA694A",
+          "#D1957E",
+          "#E5C0B2",
+          "#FFE8DE"
+        ]
+      },
+      "timeless-day-gD": {
+        "role": "grade",
+        "displayName": "Timeless Day Grade D/F",
+        "canonical": "#8A2420",
+        "tonalRamp": [
+          "#170504",
+          "#3A1B17",
+          "#682D28",
+          "#9A413A",
+          "#C0635A",
+          "#D59088",
+          "#E8BDB8",
+          "#FFE6E2"
+        ]
+      },
+      "timeless-day-hl": {
+        "role": "tertiary",
+        "displayName": "Timeless Day Highlighter",
+        "canonical": "#E07A10",
+        "tonalRamp": [
+          "#170600",
+          "#3A1C04",
+          "#683100",
+          "#9A4600",
+          "#BF6914",
+          "#D49565",
+          "#E7C0A4",
+          "#FFE8D5"
+        ]
+      },
+      "timeless-day-hl-note": {
+        "role": "tertiary",
+        "displayName": "Timeless Day Highlighter Note",
+        "canonical": "#B85A00",
+        "tonalRamp": [
+          "#170600",
+          "#391D0A",
+          "#663208",
+          "#974800",
+          "#BC6A30",
+          "#D2956F",
+          "#E6C0AA",
+          "#FFE8D9"
+        ]
+      },
+      "timeless-day-m-dmg": {
+        "role": "measure",
+        "displayName": "Timeless Day Damage",
+        "canonical": "#4E6A2E",
+        "tonalRamp": [
+          "#080D04",
+          "#202817",
+          "#384827",
+          "#526A37",
+          "#728C58",
+          "#99AD87",
+          "#C2CEB7",
+          "#E9F2E2"
+        ]
+      },
+      "timeless-day-m-cd": {
+        "role": "measure",
+        "displayName": "Timeless Day Cooldowns",
+        "canonical": "#A44A24",
+        "tonalRamp": [
+          "#160602",
+          "#381D12",
+          "#65321D",
+          "#954828",
+          "#BA694A",
+          "#D1957E",
+          "#E5C0B2",
+          "#FFE8DE"
+        ]
+      },
+      "timeless-day-m-rot": {
+        "role": "measure",
+        "displayName": "Timeless Day Rotation",
+        "canonical": "#6A4228",
+        "tonalRamp": [
+          "#110905",
+          "#2F221A",
+          "#543C2D",
+          "#7C5841",
+          "#9F7961",
+          "#BB9E8D",
+          "#D7C5BB",
+          "#F8ECE4"
+        ]
+      },
+      "timeless-day-m-pace": {
+        "role": "measure",
+        "displayName": "Timeless Day Pacing",
+        "canonical": "#2F5D62",
+        "tonalRamp": [
+          "#050D0E",
+          "#1A2829",
+          "#2D474A",
+          "#42696D",
+          "#638A8F",
+          "#8FABAE",
+          "#BCCDCF",
+          "#E5F1F2"
+        ]
+      },
+      "timeless-day-m-surv": {
+        "role": "measure",
+        "displayName": "Timeless Day Survival",
+        "canonical": "#8A2420",
+        "tonalRamp": [
+          "#170504",
+          "#3A1B17",
+          "#682D28",
+          "#9A413A",
+          "#C0635A",
+          "#D59088",
+          "#E8BDB8",
+          "#FFE6E2"
+        ]
+      },
+      "timeless-day-m-upk": {
+        "role": "measure",
+        "displayName": "Timeless Day Upkeep",
+        "canonical": "#8C6A1C",
+        "tonalRamp": [
+          "#100A02",
+          "#2E230F",
+          "#523F16",
+          "#795C1C",
+          "#9C7E40",
+          "#B8A278",
+          "#D5C8AF",
+          "#F7EDDC"
+        ]
+      },
+      "timeless-day-m-cast": {
+        "role": "measure",
+        "displayName": "Timeless Day Casting",
+        "canonical": "#4A5A78",
+        "tonalRamp": [
+          "#080B11",
+          "#20252F",
+          "#394254",
+          "#53617C",
+          "#74839F",
+          "#9AA6BA",
+          "#C2C9D6",
+          "#EAEFF8"
+        ]
+      },
+      "timeless-day-m-act": {
+        "role": "measure",
+        "displayName": "Timeless Day Activity",
+        "canonical": "#766656",
+        "tonalRamp": [
+          "#0D0B08",
+          "#29241F",
+          "#494037",
+          "#6C5E51",
+          "#8E7F71",
+          "#AEA398",
+          "#CEC8C1",
+          "#F2EEE9"
+        ]
+      },
+      "timeless-night-bg": {
+        "role": "neutral",
+        "displayName": "Timeless Night Ground",
+        "canonical": "#17110C",
+        "tonalRamp": [
+          "#0C0B0A",
+          "#272423",
+          "#46413D",
+          "#67605A",
+          "#88817B",
+          "#A9A4A0",
+          "#CCC8C6",
+          "#F0EEEC"
+        ]
+      },
+      "timeless-night-panel": {
+        "role": "neutral",
+        "displayName": "Timeless Night Panel",
+        "canonical": "#211913",
+        "tonalRamp": [
+          "#0D0B09",
+          "#272422",
+          "#46413D",
+          "#685F59",
+          "#89807A",
+          "#AAA49F",
+          "#CCC8C5",
+          "#F1EEEC"
+        ]
+      },
+      "timeless-night-ln": {
+        "role": "neutral",
+        "displayName": "Timeless Night Rule",
+        "canonical": "#3A2E22",
+        "tonalRamp": [
+          "#0D0B08",
+          "#282420",
+          "#484039",
+          "#6B5F53",
+          "#8C8074",
+          "#ACA39A",
+          "#CEC8C3",
+          "#F2EEEA"
+        ]
+      },
+      "timeless-night-track": {
+        "role": "neutral",
+        "displayName": "Timeless Night Track",
+        "canonical": "#2C2219",
+        "tonalRamp": [
+          "#0D0B09",
+          "#282421",
+          "#47413B",
+          "#695F56",
+          "#8B8077",
+          "#ABA39C",
+          "#CDC8C4",
+          "#F1EEEB"
+        ]
+      },
+      "timeless-night-rail": {
+        "role": "neutral",
+        "displayName": "Timeless Night Rail",
+        "canonical": "#2A1C12",
+        "tonalRamp": [
+          "#0E0A08",
+          "#292420",
+          "#4A4039",
+          "#6D5E54",
+          "#8E7F74",
+          "#AEA29B",
+          "#CFC8C3",
+          "#F2EDEA"
+        ]
+      },
+      "timeless-night-rail-on": {
+        "role": "neutral",
+        "displayName": "Timeless Night Rail Current",
+        "canonical": "#3A2718",
+        "tonalRamp": [
+          "#0E0A07",
+          "#2A241E",
+          "#4C3F36",
+          "#705D4F",
+          "#927E6F",
+          "#B1A297",
+          "#D0C7C0",
+          "#F4EDE8"
+        ]
+      },
+      "timeless-night-rail-tx": {
+        "role": "neutral",
+        "displayName": "Timeless Night Rail Ink",
+        "canonical": "#F0E6D4",
+        "tonalRamp": [
+          "#0D0B08",
+          "#272520",
+          "#464138",
+          "#686053",
+          "#898173",
+          "#AAA49A",
+          "#CCC9C2",
+          "#F1EEEA"
+        ]
+      },
+      "timeless-night-rail-mu": {
+        "role": "neutral",
+        "displayName": "Timeless Night Rail Muted",
+        "canonical": "#D6C9B4",
+        "tonalRamp": [
+          "#0D0B08",
+          "#28251F",
+          "#484136",
+          "#6A6050",
+          "#8B8170",
+          "#ACA497",
+          "#CDC8C1",
+          "#F1EEE9"
+        ]
+      },
+      "timeless-night-rail-ac": {
+        "role": "neutral",
+        "displayName": "Timeless Night Rail Accent",
+        "canonical": "#F7D49A",
+        "tonalRamp": [
+          "#100A03",
+          "#2D2313",
+          "#513F20",
+          "#775C2D",
+          "#9A7E4E",
+          "#B6A281",
+          "#D4C7B3",
+          "#F6EDDF"
+        ]
+      },
+      "timeless-night-tx": {
+        "role": "neutral",
+        "displayName": "Timeless Night Ink",
+        "canonical": "#F0E6D4",
+        "tonalRamp": [
+          "#0D0B08",
+          "#272520",
+          "#464138",
+          "#686053",
+          "#898173",
+          "#AAA49A",
+          "#CCC9C2",
+          "#F1EEEA"
+        ]
+      },
+      "timeless-night-tx2": {
+        "role": "neutral",
+        "displayName": "Timeless Night Second Ink",
+        "canonical": "#D6C9B4",
+        "tonalRamp": [
+          "#0D0B08",
+          "#28251F",
+          "#484136",
+          "#6A6050",
+          "#8B8170",
+          "#ACA497",
+          "#CDC8C1",
+          "#F1EEE9"
+        ]
+      },
+      "timeless-night-mu": {
+        "role": "neutral",
+        "displayName": "Timeless Night Muted",
+        "canonical": "#B5A792",
+        "tonalRamp": [
+          "#0D0B07",
+          "#28241E",
+          "#484136",
+          "#6B5F4F",
+          "#8C816F",
+          "#ACA497",
+          "#CEC8C0",
+          "#F2EEE8"
+        ]
+      },
+      "timeless-night-plate": {
+        "role": "primary",
+        "displayName": "Timeless Night Plate",
+        "canonical": "#55633A",
+        "tonalRamp": [
+          "#0A0C06",
+          "#23271B",
+          "#3D462E",
+          "#5A6743",
+          "#7B8863",
+          "#A0AA8F",
+          "#C6CCBC",
+          "#ECF0E5"
+        ]
+      },
+      "timeless-night-plate-tx": {
+        "role": "neutral",
+        "displayName": "Timeless Night Plate Ink",
+        "canonical": "#F3EBDB",
+        "tonalRamp": [
+          "#0C0B09",
+          "#272521",
+          "#45423A",
+          "#676155",
+          "#888275",
+          "#A9A49B",
+          "#CCC9C3",
+          "#F0EEEA"
+        ]
+      },
+      "timeless-night-plate-mu": {
+        "role": "neutral",
+        "displayName": "Timeless Night Plate Muted",
+        "canonical": "#E1DCC4",
+        "tonalRamp": [
+          "#0C0B08",
+          "#27251F",
+          "#454236",
+          "#65624F",
+          "#878370",
+          "#A8A597",
+          "#CBC9C1",
+          "#F0EFE9"
+        ]
+      },
+      "timeless-night-plate-ac": {
+        "role": "neutral",
+        "displayName": "Timeless Night Plate Price",
+        "canonical": "#F7D49A",
+        "tonalRamp": [
+          "#100A03",
+          "#2D2313",
+          "#513F20",
+          "#775C2D",
+          "#9A7E4E",
+          "#B6A281",
+          "#D4C7B3",
+          "#F6EDDF"
+        ]
+      },
+      "timeless-night-plate-ln": {
+        "role": "neutral",
+        "displayName": "Timeless Night Plate Rule",
+        "canonical": "#8C9868",
+        "tonalRamp": [
+          "#0A0C05",
+          "#232719",
+          "#3F452B",
+          "#5D663F",
+          "#7E885F",
+          "#A1A98C",
+          "#C7CCBA",
+          "#EDF0E4"
+        ]
+      },
+      "timeless-night-btn": {
+        "role": "neutral",
+        "displayName": "Timeless Night Button",
+        "canonical": "#6E4A2E",
+        "tonalRamp": [
+          "#100905",
+          "#2E221A",
+          "#523D2D",
+          "#7A5941",
+          "#9C7A61",
+          "#B99F8D",
+          "#D5C6BB",
+          "#F7ECE4"
+        ]
+      },
+      "timeless-night-btn-tx": {
+        "role": "neutral",
+        "displayName": "Timeless Night Button Ink",
+        "canonical": "#F0E6D4",
+        "tonalRamp": [
+          "#0D0B08",
+          "#272520",
+          "#464138",
+          "#686053",
+          "#898173",
+          "#AAA49A",
+          "#CCC9C2",
+          "#F1EEEA"
+        ]
+      },
+      "timeless-night-btn-ln": {
+        "role": "neutral",
+        "displayName": "Timeless Night Button Edge",
+        "canonical": "#F4C77F",
+        "tonalRamp": [
+          "#110A01",
+          "#2F230E",
+          "#543D15",
+          "#7D5A1A",
+          "#A07B3F",
+          "#BBA177",
+          "#D7C7AE",
+          "#F8EDDC"
+        ]
+      },
+      "timeless-night-gold": {
+        "role": "secondary",
+        "displayName": "Timeless Night Gold Leaf",
+        "canonical": "#C8A56A",
+        "tonalRamp": [
+          "#100A03",
+          "#2D2313",
+          "#513F1F",
+          "#785C2A",
+          "#9A7D4C",
+          "#B7A27F",
+          "#D4C7B3",
+          "#F6EDDF"
+        ]
+      },
+      "timeless-night-gS": {
+        "role": "grade",
+        "displayName": "Timeless Night Grade S",
+        "canonical": "#A9C46F",
+        "tonalRamp": [
+          "#090D02",
+          "#212810",
+          "#3A481A",
+          "#566A22",
+          "#768C45",
+          "#9CAD7B",
+          "#C3CEB0",
+          "#EAF2DD"
+        ]
+      },
+      "timeless-night-gA": {
+        "role": "grade",
+        "displayName": "Timeless Night Grade A",
+        "canonical": "#6FB0A8",
+        "tonalRamp": [
+          "#040D0C",
+          "#172927",
+          "#264945",
+          "#366C66",
+          "#578E87",
+          "#88AEA9",
+          "#B8CFCB",
+          "#E3F2F0"
+        ]
+      },
+      "timeless-night-gB": {
+        "role": "grade",
+        "displayName": "Timeless Night Grade B",
+        "canonical": "#D9B24A",
+        "tonalRamp": [
+          "#110A00",
+          "#2E2406",
+          "#533F00",
+          "#7B5C00",
+          "#9E7E21",
+          "#BAA36A",
+          "#D6C8A7",
+          "#F7EED7"
+        ]
+      },
+      "timeless-night-gC": {
+        "role": "grade",
+        "displayName": "Timeless Night Grade C",
+        "canonical": "#E07A45",
+        "tonalRamp": [
+          "#170601",
+          "#391C0D",
+          "#673012",
+          "#984615",
+          "#BE683B",
+          "#D49475",
+          "#E7BFAD",
+          "#FFE8DB"
+        ]
+      },
+      "timeless-night-gD": {
+        "role": "grade",
+        "displayName": "Timeless Night Grade D/F",
+        "canonical": "#EF5B4E",
+        "tonalRamp": [
+          "#1B0302",
+          "#401511",
+          "#73221C",
+          "#AA2E26",
+          "#D15448",
+          "#E4887C",
+          "#F2B9B1",
+          "#FFE4DD"
+        ]
+      },
+      "timeless-night-hl": {
+        "role": "tertiary",
+        "displayName": "Timeless Night Highlighter",
+        "canonical": "#FFC233",
+        "tonalRamp": [
+          "#130900",
+          "#332200",
+          "#5B3B00",
+          "#875600",
+          "#AA7800",
+          "#C39F58",
+          "#DCC69E",
+          "#FCEDD1"
+        ]
+      },
+      "timeless-night-hl-note": {
+        "role": "tertiary",
+        "displayName": "Timeless Night Highlighter Note",
+        "canonical": "#FFC233",
+        "tonalRamp": [
+          "#130900",
+          "#332200",
+          "#5B3B00",
+          "#875600",
+          "#AA7800",
+          "#C39F58",
+          "#DCC69E",
+          "#FCEDD1"
+        ]
+      },
+      "timeless-night-m-dmg": {
+        "role": "measure",
+        "displayName": "Timeless Night Damage",
+        "canonical": "#9BB36A",
+        "tonalRamp": [
+          "#090D03",
+          "#212813",
+          "#3B4820",
+          "#57692D",
+          "#778B4E",
+          "#9DAC81",
+          "#C4CEB4",
+          "#EBF2DF"
+        ]
+      },
+      "timeless-night-m-cd": {
+        "role": "measure",
+        "displayName": "Timeless Night Cooldowns",
+        "canonical": "#D9733F",
+        "tonalRamp": [
+          "#170601",
+          "#3A1C0D",
+          "#673013",
+          "#994516",
+          "#BE673C",
+          "#D49475",
+          "#E7BFAD",
+          "#FFE8DB"
+        ]
+      },
+      "timeless-night-m-rot": {
+        "role": "measure",
+        "displayName": "Timeless Night Rotation",
+        "canonical": "#B98A5E",
+        "tonalRamp": [
+          "#110904",
+          "#302215",
+          "#553C24",
+          "#7E5833",
+          "#A17954",
+          "#BC9F84",
+          "#D8C5B5",
+          "#F9ECE1"
+        ]
+      },
+      "timeless-night-m-pace": {
+        "role": "measure",
+        "displayName": "Timeless Night Pacing",
+        "canonical": "#5FA3A8",
+        "tonalRamp": [
+          "#030D0E",
+          "#15292A",
+          "#23494C",
+          "#326C70",
+          "#548D92",
+          "#86AEB0",
+          "#B7CED0",
+          "#E2F2F3"
+        ]
+      },
+      "timeless-night-m-surv": {
+        "role": "measure",
+        "displayName": "Timeless Night Survival",
+        "canonical": "#D9574A",
+        "tonalRamp": [
+          "#190403",
+          "#3E1813",
+          "#6F2720",
+          "#A4372E",
+          "#CA5B4E",
+          "#DE8C80",
+          "#EEBBB3",
+          "#FFE5DF"
+        ]
+      },
+      "timeless-night-m-upk": {
+        "role": "measure",
+        "displayName": "Timeless Night Upkeep",
+        "canonical": "#D4A73A",
+        "tonalRamp": [
+          "#110A00",
+          "#302305",
+          "#563E00",
+          "#7F5A00",
+          "#A27C1B",
+          "#BCA268",
+          "#D7C7A6",
+          "#F9EDD6"
+        ]
+      },
+      "timeless-night-m-cast": {
+        "role": "measure",
+        "displayName": "Timeless Night Casting",
+        "canonical": "#8A9CC4",
+        "tonalRamp": [
+          "#080B12",
+          "#202530",
+          "#384257",
+          "#536181",
+          "#7382A4",
+          "#9AA5BE",
+          "#C2C9D9",
+          "#E9EFF9"
+        ]
+      },
+      "timeless-night-m-act": {
+        "role": "measure",
+        "displayName": "Timeless Night Activity",
+        "canonical": "#A89A8A",
+        "tonalRamp": [
+          "#0D0B08",
+          "#282420",
+          "#484138",
+          "#6A5F52",
+          "#8C8073",
+          "#ACA399",
+          "#CDC8C2",
+          "#F2EEE9"
+        ]
+      },
+      "classical-day-bg": {
+        "role": "neutral",
+        "displayName": "Classical Day Ground",
+        "canonical": "#F4EBDD",
+        "tonalRamp": [
+          "#0C0B09",
+          "#272521",
+          "#46413A",
+          "#676056",
+          "#888176",
+          "#A9A49C",
+          "#CCC9C4",
+          "#F0EEEB"
+        ]
+      },
+      "classical-day-panel": {
+        "role": "neutral",
+        "displayName": "Classical Day Panel",
+        "canonical": "#FAF5EC",
+        "tonalRamp": [
+          "#0C0B0A",
+          "#262522",
+          "#44423D",
+          "#64615A",
+          "#86827B",
+          "#A7A59F",
+          "#CBC9C6",
+          "#EFEEEC"
+        ]
+      },
+      "classical-day-ln": {
+        "role": "neutral",
+        "displayName": "Classical Day Rule",
+        "canonical": "#E0D0BE",
+        "tonalRamp": [
+          "#0D0B08",
+          "#29241F",
+          "#494037",
+          "#6B5F51",
+          "#8D8072",
+          "#ADA399",
+          "#CEC8C2",
+          "#F2EEE9"
+        ]
+      },
+      "classical-day-track": {
+        "role": "neutral",
+        "displayName": "Classical Day Track",
+        "canonical": "#E2D3BF",
+        "tonalRamp": [
+          "#0D0B08",
+          "#28241F",
+          "#484137",
+          "#6B5F50",
+          "#8C8070",
+          "#ACA498",
+          "#CEC8C1",
+          "#F2EEE9"
+        ]
+      },
+      "classical-day-rail": {
+        "role": "neutral",
+        "displayName": "Classical Day Rail",
+        "canonical": "#ECE1D0",
+        "tonalRamp": [
+          "#0D0B08",
+          "#282520",
+          "#474139",
+          "#686053",
+          "#8A8174",
+          "#AAA49A",
+          "#CCC8C2",
+          "#F1EEEA"
+        ]
+      },
+      "classical-day-rail-on": {
+        "role": "neutral",
+        "displayName": "Classical Day Rail Current",
+        "canonical": "#FAF5EC",
+        "tonalRamp": [
+          "#0C0B0A",
+          "#262522",
+          "#44423D",
+          "#64615A",
+          "#86827B",
+          "#A7A59F",
+          "#CBC9C6",
+          "#EFEEEC"
+        ]
+      },
+      "classical-day-rail-tx": {
+        "role": "neutral",
+        "displayName": "Classical Day Rail Ink",
+        "canonical": "#2A191C",
+        "tonalRamp": [
+          "#0E0A0B",
+          "#2A2324",
+          "#4B3E40",
+          "#6E5C5F",
+          "#907D7F",
+          "#AFA1A3",
+          "#CFC7C8",
+          "#F3EDED"
+        ]
+      },
+      "classical-day-rail-mu": {
+        "role": "neutral",
+        "displayName": "Classical Day Rail Muted",
+        "canonical": "#6F5A55",
+        "tonalRamp": [
+          "#0E0A09",
+          "#2A2322",
+          "#4B3F3C",
+          "#6F5C58",
+          "#917D79",
+          "#B0A19E",
+          "#D0C7C5",
+          "#F3EDEB"
+        ]
+      },
+      "classical-day-rail-ac": {
+        "role": "neutral",
+        "displayName": "Classical Day Rail Accent",
+        "canonical": "#7A5A28",
+        "tonalRamp": [
+          "#100A03",
+          "#2D2315",
+          "#513E23",
+          "#785C32",
+          "#9A7D53",
+          "#B7A183",
+          "#D4C7B5",
+          "#F6EDE0"
+        ]
+      },
+      "classical-day-tx": {
+        "role": "neutral",
+        "displayName": "Classical Day Ink",
+        "canonical": "#2A191C",
+        "tonalRamp": [
+          "#0E0A0B",
+          "#2A2324",
+          "#4B3E40",
+          "#6E5C5F",
+          "#907D7F",
+          "#AFA1A3",
+          "#CFC7C8",
+          "#F3EDED"
+        ]
+      },
+      "classical-day-tx2": {
+        "role": "neutral",
+        "displayName": "Classical Day Second Ink",
+        "canonical": "#4D3B39",
+        "tonalRamp": [
+          "#0E0A0A",
+          "#292323",
+          "#4A3F3E",
+          "#6E5D5B",
+          "#907D7B",
+          "#AFA1A0",
+          "#CFC7C6",
+          "#F3EDEC"
+        ]
+      },
+      "classical-day-mu": {
+        "role": "neutral",
+        "displayName": "Classical Day Muted",
+        "canonical": "#6F5A55",
+        "tonalRamp": [
+          "#0E0A09",
+          "#2A2322",
+          "#4B3F3C",
+          "#6F5C58",
+          "#917D79",
+          "#B0A19E",
+          "#D0C7C5",
+          "#F3EDEB"
+        ]
+      },
+      "classical-day-plate": {
+        "role": "primary",
+        "displayName": "Classical Day Plate",
+        "canonical": "#6E1F2E",
+        "tonalRamp": [
+          "#150608",
+          "#361C1F",
+          "#613237",
+          "#904851",
+          "#B56971",
+          "#CC9498",
+          "#E2BFC1",
+          "#FFE7E9"
+        ]
+      },
+      "classical-day-plate-tx": {
+        "role": "neutral",
+        "displayName": "Classical Day Plate Ink",
+        "canonical": "#F6EEE2",
+        "tonalRamp": [
+          "#0C0B09",
+          "#272521",
+          "#45413B",
+          "#666057",
+          "#888178",
+          "#A9A49D",
+          "#CBC9C4",
+          "#F0EEEB"
+        ]
+      },
+      "classical-day-plate-mu": {
+        "role": "neutral",
+        "displayName": "Classical Day Plate Muted",
+        "canonical": "#E9D8CA",
+        "tonalRamp": [
+          "#0D0B08",
+          "#292420",
+          "#494039",
+          "#6B5F54",
+          "#8D8074",
+          "#ADA39B",
+          "#CEC8C3",
+          "#F2EEEA"
+        ]
+      },
+      "classical-day-plate-ac": {
+        "role": "neutral",
+        "displayName": "Classical Day Plate Price",
+        "canonical": "#F2B8A6",
+        "tonalRamp": [
+          "#120906",
+          "#31211C",
+          "#573A31",
+          "#815547",
+          "#A47567",
+          "#BF9C91",
+          "#D9C4BD",
+          "#FAEBE6"
+        ]
+      },
+      "classical-day-plate-ln": {
+        "role": "neutral",
+        "displayName": "Classical Day Plate Rule",
+        "canonical": "#9C5A68",
+        "tonalRamp": [
+          "#13070A",
+          "#331E22",
+          "#5B353D",
+          "#864E5A",
+          "#AA6F7B",
+          "#C4979F",
+          "#DDC1C5",
+          "#FDE9EC"
+        ]
+      },
+      "classical-day-btn": {
+        "role": "neutral",
+        "displayName": "Classical Day Button",
+        "canonical": "#F6EEE2",
+        "tonalRamp": [
+          "#0C0B09",
+          "#272521",
+          "#45413B",
+          "#666057",
+          "#888178",
+          "#A9A49D",
+          "#CBC9C4",
+          "#F0EEEB"
+        ]
+      },
+      "classical-day-btn-tx": {
+        "role": "neutral",
+        "displayName": "Classical Day Button Ink",
+        "canonical": "#6E1F2E",
+        "tonalRamp": [
+          "#150608",
+          "#361C1F",
+          "#613237",
+          "#904851",
+          "#B56971",
+          "#CC9498",
+          "#E2BFC1",
+          "#FFE7E9"
+        ]
+      },
+      "classical-day-gold": {
+        "role": "secondary",
+        "displayName": "Classical Day Gold Leaf",
+        "canonical": "#7A5A28",
+        "tonalRamp": [
+          "#100A03",
+          "#2D2315",
+          "#513E23",
+          "#785C32",
+          "#9A7D53",
+          "#B7A183",
+          "#D4C7B5",
+          "#F6EDE0"
+        ]
+      },
+      "classical-day-gS": {
+        "role": "grade",
+        "displayName": "Classical Day Grade S",
+        "canonical": "#7C5D20",
+        "tonalRamp": [
+          "#100A03",
+          "#2D2313",
+          "#513F1F",
+          "#775C2A",
+          "#9A7E4C",
+          "#B7A27F",
+          "#D4C7B3",
+          "#F6EDDF"
+        ]
+      },
+      "classical-day-gA": {
+        "role": "grade",
+        "displayName": "Classical Day Grade A",
+        "canonical": "#3D5A44",
+        "tonalRamp": [
+          "#070D09",
+          "#1F2821",
+          "#36473A",
+          "#4F6955",
+          "#708A75",
+          "#98AB9B",
+          "#C1CDC3",
+          "#E9F1EA"
+        ]
+      },
+      "classical-day-gB": {
+        "role": "grade",
+        "displayName": "Classical Day Grade B",
+        "canonical": "#6B4429",
+        "tonalRamp": [
+          "#110905",
+          "#2F221A",
+          "#543C2D",
+          "#7C5841",
+          "#9F7961",
+          "#BB9F8D",
+          "#D7C5BA",
+          "#F8ECE4"
+        ]
+      },
+      "classical-day-gC": {
+        "role": "grade",
+        "displayName": "Classical Day Grade C",
+        "canonical": "#9A4E35",
+        "tonalRamp": [
+          "#150704",
+          "#361E16",
+          "#603526",
+          "#8E4D37",
+          "#B36E57",
+          "#CB9786",
+          "#E1C1B7",
+          "#FFE9E1"
+        ]
+      },
+      "classical-day-gD": {
+        "role": "grade",
+        "displayName": "Classical Day Grade D/F",
+        "canonical": "#8E1F2F",
+        "tonalRamp": [
+          "#180506",
+          "#3B191B",
+          "#6A2B2F",
+          "#9C3D45",
+          "#C35F64",
+          "#D88E8F",
+          "#EABCBC",
+          "#FFE5E5"
+        ]
+      },
+      "classical-day-hl": {
+        "role": "tertiary",
+        "displayName": "Classical Day Highlighter",
+        "canonical": "#D01F45",
+        "tonalRamp": [
+          "#1C0204",
+          "#421217",
+          "#771928",
+          "#B01C3A",
+          "#D9485A",
+          "#EA8288",
+          "#F6B6B8",
+          "#FFE1E2"
+        ]
+      },
+      "classical-day-hl-note": {
+        "role": "tertiary",
+        "displayName": "Classical Day Highlighter Note",
+        "canonical": "#D01F45",
+        "tonalRamp": [
+          "#1C0204",
+          "#421217",
+          "#771928",
+          "#B01C3A",
+          "#D9485A",
+          "#EA8288",
+          "#F6B6B8",
+          "#FFE1E2"
+        ]
+      },
+      "classical-day-m-dmg": {
+        "role": "measure",
+        "displayName": "Classical Day Damage",
+        "canonical": "#3D5A44",
+        "tonalRamp": [
+          "#070D09",
+          "#1F2821",
+          "#36473A",
+          "#4F6955",
+          "#708A75",
+          "#98AB9B",
+          "#C1CDC3",
+          "#E9F1EA"
+        ]
+      },
+      "classical-day-m-cd": {
+        "role": "measure",
+        "displayName": "Classical Day Cooldowns",
+        "canonical": "#7A2232",
+        "tonalRamp": [
+          "#160607",
+          "#381C1E",
+          "#643036",
+          "#93454E",
+          "#B9666F",
+          "#D09297",
+          "#E5BEC0",
+          "#FFE7E8"
+        ]
+      },
+      "classical-day-m-rot": {
+        "role": "measure",
+        "displayName": "Classical Day Rotation",
+        "canonical": "#8F6D38",
+        "tonalRamp": [
+          "#100A03",
+          "#2D2314",
+          "#513E21",
+          "#785C2F",
+          "#9B7D50",
+          "#B8A182",
+          "#D5C7B4",
+          "#F7EDE0"
+        ]
+      },
+      "classical-day-m-pace": {
+        "role": "measure",
+        "displayName": "Classical Day Pacing",
+        "canonical": "#6B4429",
+        "tonalRamp": [
+          "#110905",
+          "#2F221A",
+          "#543C2D",
+          "#7C5841",
+          "#9F7961",
+          "#BB9F8D",
+          "#D7C5BA",
+          "#F8ECE4"
+        ]
+      },
+      "classical-day-m-surv": {
+        "role": "measure",
+        "displayName": "Classical Day Survival",
+        "canonical": "#A54A5F",
+        "tonalRamp": [
+          "#160609",
+          "#371B21",
+          "#632F3A",
+          "#924556",
+          "#B86676",
+          "#CF929C",
+          "#E4BEC4",
+          "#FFE7EB"
+        ]
+      },
+      "classical-day-m-upk": {
+        "role": "measure",
+        "displayName": "Classical Day Upkeep",
+        "canonical": "#2F5D62",
+        "tonalRamp": [
+          "#050D0E",
+          "#1A2829",
+          "#2D474A",
+          "#42696D",
+          "#638A8F",
+          "#8FABAE",
+          "#BCCDCF",
+          "#E5F1F2"
+        ]
+      },
+      "classical-day-m-cast": {
+        "role": "measure",
+        "displayName": "Classical Day Casting",
+        "canonical": "#5E3A5A",
+        "tonalRamp": [
+          "#0F090F",
+          "#2C212B",
+          "#503A4D",
+          "#765571",
+          "#987593",
+          "#B69CB2",
+          "#D3C3D1",
+          "#F6EAF4"
+        ]
+      },
+      "classical-day-m-act": {
+        "role": "measure",
+        "displayName": "Classical Day Activity",
+        "canonical": "#766656",
+        "tonalRamp": [
+          "#0D0B08",
+          "#29241F",
+          "#494037",
+          "#6C5E51",
+          "#8E7F71",
+          "#AEA398",
+          "#CEC8C1",
+          "#F2EEE9"
+        ]
+      },
+      "classical-night-bg": {
+        "role": "neutral",
+        "displayName": "Classical Night Ground",
+        "canonical": "#171615",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252524",
+          "#424241",
+          "#626160",
+          "#838281",
+          "#A6A5A4",
+          "#C9C9C8",
+          "#EFEEEE"
+        ]
+      },
+      "classical-night-panel": {
+        "role": "neutral",
+        "displayName": "Classical Night Panel",
+        "canonical": "#201F1E",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424241",
+          "#626160",
+          "#838281",
+          "#A6A5A4",
+          "#C9C9C8",
+          "#EFEEEE"
+        ]
+      },
+      "classical-night-ln": {
+        "role": "neutral",
+        "displayName": "Classical Night Rule",
+        "canonical": "#363331",
+        "tonalRamp": [
+          "#0C0B0B",
+          "#262524",
+          "#434140",
+          "#63605F",
+          "#858280",
+          "#A7A4A3",
+          "#CAC9C8",
+          "#EFEEED"
+        ]
+      },
+      "classical-night-track": {
+        "role": "neutral",
+        "displayName": "Classical Night Track",
+        "canonical": "#2A2826",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#262524",
+          "#434240",
+          "#63615F",
+          "#848280",
+          "#A6A5A3",
+          "#CAC9C8",
+          "#EFEEEE"
+        ]
+      },
+      "classical-night-rail": {
+        "role": "neutral",
+        "displayName": "Classical Night Rail",
+        "canonical": "#121110",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252524",
+          "#424241",
+          "#626160",
+          "#838281",
+          "#A6A5A4",
+          "#C9C9C8",
+          "#EFEEEE"
+        ]
+      },
+      "classical-night-rail-on": {
+        "role": "neutral",
+        "displayName": "Classical Night Rail Current",
+        "canonical": "#2B2927",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#262524",
+          "#434240",
+          "#63615F",
+          "#848280",
+          "#A6A5A3",
+          "#CAC9C8",
+          "#EFEEEE"
+        ]
+      },
+      "classical-night-rail-tx": {
+        "role": "neutral",
+        "displayName": "Classical Night Rail Ink",
+        "canonical": "#F1E6D8",
+        "tonalRamp": [
+          "#0D0B09",
+          "#272521",
+          "#46413A",
+          "#686055",
+          "#898176",
+          "#AAA49C",
+          "#CCC8C3",
+          "#F1EEEA"
+        ]
+      },
+      "classical-night-rail-mu": {
+        "role": "neutral",
+        "displayName": "Classical Night Rail Muted",
+        "canonical": "#B5ADA4",
+        "tonalRamp": [
+          "#0C0B09",
+          "#272522",
+          "#45413C",
+          "#666059",
+          "#88817A",
+          "#A9A49F",
+          "#CBC8C5",
+          "#F0EEEC"
+        ]
+      },
+      "classical-night-rail-ac": {
+        "role": "neutral",
+        "displayName": "Classical Night Rail Accent",
+        "canonical": "#C9A46A",
+        "tonalRamp": [
+          "#100A03",
+          "#2E2313",
+          "#523E1F",
+          "#795C2B",
+          "#9C7D4C",
+          "#B8A17F",
+          "#D5C7B3",
+          "#F7EDDF"
+        ]
+      },
+      "classical-night-tx": {
+        "role": "neutral",
+        "displayName": "Classical Night Ink",
+        "canonical": "#F1E6D8",
+        "tonalRamp": [
+          "#0D0B09",
+          "#272521",
+          "#46413A",
+          "#686055",
+          "#898176",
+          "#AAA49C",
+          "#CCC8C3",
+          "#F1EEEA"
+        ]
+      },
+      "classical-night-tx2": {
+        "role": "neutral",
+        "displayName": "Classical Night Second Ink",
+        "canonical": "#D8C8BA",
+        "tonalRamp": [
+          "#0D0B08",
+          "#282420",
+          "#484039",
+          "#6B5F54",
+          "#8D8074",
+          "#ADA39B",
+          "#CEC8C3",
+          "#F2EEEA"
+        ]
+      },
+      "classical-night-mu": {
+        "role": "neutral",
+        "displayName": "Classical Night Muted",
+        "canonical": "#B5ADA4",
+        "tonalRamp": [
+          "#0C0B09",
+          "#272522",
+          "#45413C",
+          "#666059",
+          "#88817A",
+          "#A9A49F",
+          "#CBC8C5",
+          "#F0EEEC"
+        ]
+      },
+      "classical-night-plate": {
+        "role": "primary",
+        "displayName": "Classical Night Plate",
+        "canonical": "#7E2737",
+        "tonalRamp": [
+          "#160608",
+          "#371C1F",
+          "#633036",
+          "#934550",
+          "#B86770",
+          "#CF9297",
+          "#E4BEC1",
+          "#FFE7E9"
+        ]
+      },
+      "classical-night-plate-tx": {
+        "role": "neutral",
+        "displayName": "Classical Night Plate Ink",
+        "canonical": "#F6EEE2",
+        "tonalRamp": [
+          "#0C0B09",
+          "#272521",
+          "#45413B",
+          "#666057",
+          "#888178",
+          "#A9A49D",
+          "#CBC9C4",
+          "#F0EEEB"
+        ]
+      },
+      "classical-night-plate-mu": {
+        "role": "neutral",
+        "displayName": "Classical Night Plate Muted",
+        "canonical": "#E9D3C6",
+        "tonalRamp": [
+          "#0E0A08",
+          "#2A2420",
+          "#4A3F39",
+          "#6E5D54",
+          "#907E74",
+          "#AFA29A",
+          "#CFC7C3",
+          "#F3EDEA"
+        ]
+      },
+      "classical-night-plate-ac": {
+        "role": "neutral",
+        "displayName": "Classical Night Plate Price",
+        "canonical": "#F5BFAE",
+        "tonalRamp": [
+          "#110906",
+          "#30211C",
+          "#563A32",
+          "#7E5649",
+          "#A27769",
+          "#BD9D93",
+          "#D8C4BE",
+          "#F9EBE6"
+        ]
+      },
+      "classical-night-plate-ln": {
+        "role": "neutral",
+        "displayName": "Classical Night Plate Rule",
+        "canonical": "#A85666",
+        "tonalRamp": [
+          "#150609",
+          "#361D21",
+          "#60323A",
+          "#8E4956",
+          "#B36A76",
+          "#CB949C",
+          "#E1BFC4",
+          "#FFE7EB"
+        ]
+      },
+      "classical-night-btn": {
+        "role": "neutral",
+        "displayName": "Classical Night Button",
+        "canonical": "#F1E6D8",
+        "tonalRamp": [
+          "#0D0B09",
+          "#272521",
+          "#46413A",
+          "#686055",
+          "#898176",
+          "#AAA49C",
+          "#CCC8C3",
+          "#F1EEEA"
+        ]
+      },
+      "classical-night-btn-tx": {
+        "role": "neutral",
+        "displayName": "Classical Night Button Ink",
+        "canonical": "#6E1F2E",
+        "tonalRamp": [
+          "#150608",
+          "#361C1F",
+          "#613237",
+          "#904851",
+          "#B56971",
+          "#CC9498",
+          "#E2BFC1",
+          "#FFE7E9"
+        ]
+      },
+      "classical-night-gold": {
+        "role": "secondary",
+        "displayName": "Classical Night Gold Leaf",
+        "canonical": "#C9A46A",
+        "tonalRamp": [
+          "#100A03",
+          "#2E2313",
+          "#523E1F",
+          "#795C2B",
+          "#9C7D4C",
+          "#B8A17F",
+          "#D5C7B3",
+          "#F7EDDF"
+        ]
+      },
+      "classical-night-gS": {
+        "role": "grade",
+        "displayName": "Classical Night Grade S",
+        "canonical": "#E0C07A",
+        "tonalRamp": [
+          "#100A02",
+          "#2D2410",
+          "#503F19",
+          "#765D21",
+          "#997F44",
+          "#B6A37A",
+          "#D3C8B0",
+          "#F6EEDD"
+        ]
+      },
+      "classical-night-gA": {
+        "role": "grade",
+        "displayName": "Classical Night Grade A",
+        "canonical": "#86B794",
+        "tonalRamp": [
+          "#060D08",
+          "#1B291F",
+          "#2F4937",
+          "#446C50",
+          "#658E71",
+          "#90AE98",
+          "#BDCEC1",
+          "#E6F2E9"
+        ]
+      },
+      "classical-night-gB": {
+        "role": "grade",
+        "displayName": "Classical Night Grade B",
+        "canonical": "#6FB3B8",
+        "tonalRamp": [
+          "#030D0E",
+          "#15292A",
+          "#24494C",
+          "#326C70",
+          "#548D92",
+          "#86AEB0",
+          "#B7CED0",
+          "#E2F2F3"
+        ]
+      },
+      "classical-night-gC": {
+        "role": "grade",
+        "displayName": "Classical Night Grade C",
+        "canonical": "#D9925A",
+        "tonalRamp": [
+          "#140802",
+          "#342010",
+          "#5D3819",
+          "#8A5121",
+          "#AE7343",
+          "#C79B7A",
+          "#DEC3B0",
+          "#FEEADD"
+        ]
+      },
+      "classical-night-gD": {
+        "role": "grade",
+        "displayName": "Classical Night Grade D/F",
+        "canonical": "#E86A6A",
+        "tonalRamp": [
+          "#190405",
+          "#3D1818",
+          "#6C2929",
+          "#A0393C",
+          "#C75C5C",
+          "#DB8C89",
+          "#EDBBB8",
+          "#FFE5E3"
+        ]
+      },
+      "classical-night-hl": {
+        "role": "tertiary",
+        "displayName": "Classical Night Highlighter",
+        "canonical": "#FF4F86",
+        "tonalRamp": [
+          "#1C0108",
+          "#42101F",
+          "#771537",
+          "#AF1551",
+          "#D84371",
+          "#EA7F98",
+          "#F6B4C1",
+          "#FFE0E9"
+        ]
+      },
+      "classical-night-hl-note": {
+        "role": "tertiary",
+        "displayName": "Classical Night Highlighter Note",
+        "canonical": "#FF4F86",
+        "tonalRamp": [
+          "#1C0108",
+          "#42101F",
+          "#771537",
+          "#AF1551",
+          "#D84371",
+          "#EA7F98",
+          "#F6B4C1",
+          "#FFE0E9"
+        ]
+      },
+      "classical-night-m-dmg": {
+        "role": "measure",
+        "displayName": "Classical Night Damage",
+        "canonical": "#6F9A79",
+        "tonalRamp": [
+          "#060D08",
+          "#1C291F",
+          "#314937",
+          "#486B50",
+          "#688D70",
+          "#92AD98",
+          "#BECEC1",
+          "#E7F2E9"
+        ]
+      },
+      "classical-night-m-cd": {
+        "role": "measure",
+        "displayName": "Classical Night Cooldowns",
+        "canonical": "#C2505F",
+        "tonalRamp": [
+          "#180507",
+          "#3B191D",
+          "#6A2A32",
+          "#9C3C4A",
+          "#C25F6A",
+          "#D88E93",
+          "#EABCBE",
+          "#FFE5E7"
+        ]
+      },
+      "classical-night-m-rot": {
+        "role": "measure",
+        "displayName": "Classical Night Rotation",
+        "canonical": "#C9A46A",
+        "tonalRamp": [
+          "#100A03",
+          "#2E2313",
+          "#523E1F",
+          "#795C2B",
+          "#9C7D4C",
+          "#B8A17F",
+          "#D5C7B3",
+          "#F7EDDF"
+        ]
+      },
+      "classical-night-m-pace": {
+        "role": "measure",
+        "displayName": "Classical Night Pacing",
+        "canonical": "#B58660",
+        "tonalRamp": [
+          "#110904",
+          "#2F2217",
+          "#553C27",
+          "#7E5838",
+          "#A17958",
+          "#BC9E87",
+          "#D8C5B7",
+          "#F9ECE2"
+        ]
+      },
+      "classical-night-m-surv": {
+        "role": "measure",
+        "displayName": "Classical Night Survival",
+        "canonical": "#D27A8C",
+        "tonalRamp": [
+          "#150609",
+          "#361C21",
+          "#60313B",
+          "#8F4857",
+          "#B36978",
+          "#CB939D",
+          "#E2BFC4",
+          "#FFE7EB"
+        ]
+      },
+      "classical-night-m-upk": {
+        "role": "measure",
+        "displayName": "Classical Night Upkeep",
+        "canonical": "#5FA3A8",
+        "tonalRamp": [
+          "#030D0E",
+          "#15292A",
+          "#23494C",
+          "#326C70",
+          "#548D92",
+          "#86AEB0",
+          "#B7CED0",
+          "#E2F2F3"
+        ]
+      },
+      "classical-night-m-cast": {
+        "role": "measure",
+        "displayName": "Classical Night Casting",
+        "canonical": "#A47CA0",
+        "tonalRamp": [
+          "#0F090F",
+          "#2C212B",
+          "#4F3A4D",
+          "#755572",
+          "#987594",
+          "#B59CB2",
+          "#D3C3D1",
+          "#F6EAF4"
+        ]
+      },
+      "classical-night-m-act": {
+        "role": "measure",
+        "displayName": "Classical Night Activity",
+        "canonical": "#A89A8A",
+        "tonalRamp": [
+          "#0D0B08",
+          "#282420",
+          "#484138",
+          "#6A5F52",
+          "#8C8073",
+          "#ACA399",
+          "#CDC8C2",
+          "#F2EEE9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Run score numeral and group placing; one per page."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page title in the header."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "The fix sentence on the plate."
+      },
+      "metric": {
+        "displayName": "Metric",
+        "purpose": "Measure scores, plate prices, ranks."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Sentences and table cells, tabular figures."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Boxed module label and tracked-caps heads."
+      },
+      "hand": {
+        "displayName": "Hand",
+        "purpose": "Caveat annotation over data, highlighter colour only."
+      }
+    },
+    "themes": {
+      "attributes": "html[data-theme][data-mode]",
+      "themes": [
+        "timeless",
+        "classical"
+      ],
+      "modes": [
+        "day",
+        "night",
+        "auto"
+      ],
+      "default": {
+        "theme": "timeless",
+        "mode": "auto"
+      },
+      "storageKey": "dips-score-theme",
+      "toggleLocation": "rail, under the Look label",
+      "note": "btn-ln is transparent in Timeless Day, Classical Day and Classical Night; #F4C77F in Timeless Night."
+    },
+    "shadows": [
+      {
+        "name": "pressed-ring",
+        "value": "inset 0 0 0 1px var(--tx)",
+        "purpose": "Active tab or pressed toggle. The only ring; no drop shadows exist."
+      },
+      {
+        "name": "title-underline",
+        "value": "inset 0 -2px 0 var(--gold)",
+        "purpose": "Award titles (roasts use var(--m-cd))."
+      }
+    ],
+    "motion": [
+      {
+        "name": "grow",
+        "value": "transform .7s cubic-bezier(.16,1,.3,1), 60ms stagger, 150ms delay",
+        "purpose": "Bars grow from the left on entrance."
+      },
+      {
+        "name": "draw",
+        "value": "stroke-dashoffset .55s cubic-bezier(.65,0,.35,1), 260ms stagger, 900ms delay",
+        "purpose": "Highlighter circles and routes draw in review order."
+      },
+      {
+        "name": "fade",
+        "value": "opacity .4s ease-out, 260ms stagger, 1100ms delay",
+        "purpose": "Hand note and cross marks appear after the routes."
+      },
+      {
+        "name": "count",
+        "value": "700ms, ease-out quartic",
+        "purpose": "Score numeral counts up from 0."
+      },
+      {
+        "name": "theme-swap",
+        "value": "colours .22s ease-out",
+        "purpose": "Crossfade on theme or mode change."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce",
+        "purpose": "All entrance motion off; page renders settled."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "min-width",
+        "value": "1280px"
+      },
+      {
+        "name": "debrief-compact",
+        "value": "1419px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The filled button; one per module at most.",
+      "html": "<button class=\"ds-btn\">Show me on the timeline</button>",
+      "css": ".ds-btn{font:600 13px/1 Barlow,sans-serif;padding:10px 16px;background:var(--btn,#5A3A24);color:var(--btn-tx,#F1E7D6);border:1px solid var(--btn-ln,transparent);border-radius:0;cursor:pointer}.ds-btn:hover{filter:brightness(1.08)}.ds-btn:focus-visible{outline:2px solid var(--hl,#E07A10);outline-offset:2px}"
+    },
+    {
+      "name": "View Tabs",
+      "kind": "nav",
+      "refersTo": "tab-control",
+      "description": "Run view tabs; same vocabulary as the segmented toggles.",
+      "html": "<nav class=\"ds-tabs\"><a href=\"#\" aria-current=\"page\">Debrief</a><a href=\"#\">Timeline</a><a href=\"#\">Fights</a><a href=\"#\">Group</a></nav>",
+      "css": ".ds-tabs{display:inline-flex;border:1px solid var(--ln,#D8CAB2);background:var(--panel,#F7F0E3)}.ds-tabs a{font:500 14px/1 Barlow,sans-serif;color:var(--tx2,#3E3022);padding:8px 14px;text-decoration:none}.ds-tabs a+a{border-left:1px solid var(--ln,#D8CAB2)}.ds-tabs a:hover{color:var(--tx,#2A1C12)}.ds-tabs a[aria-current=page]{color:var(--tx,#2A1C12);font-weight:600;box-shadow:inset 0 0 0 1px var(--tx,#2A1C12)}.ds-tabs a:focus-visible{outline:2px solid var(--hl,#E07A10);outline-offset:2px}"
+    },
+    {
+      "name": "Day / Night Toggle",
+      "kind": "chip",
+      "refersTo": "segmented-toggle",
+      "description": "Segmented toggle in the rail's Look group; Auto is the default.",
+      "html": "<div class=\"ds-seg\" role=\"group\" aria-label=\"Day or night\"><button>Day</button><button>Night</button><button aria-pressed=\"true\">Auto</button></div>",
+      "css": ".ds-seg{display:inline-flex;border:1px solid var(--ln,#D8CAB2);background:var(--panel,#F7F0E3)}.ds-seg button{font:500 12px/1 Barlow,sans-serif;color:var(--tx2,#3E3022);background:none;border:0;padding:6px 10px;cursor:pointer}.ds-seg button+button{border-left:1px solid var(--ln,#D8CAB2)}.ds-seg button:hover{color:var(--tx,#2A1C12)}.ds-seg button[aria-pressed=true]{color:var(--tx,#2A1C12);font-weight:600;box-shadow:inset 0 0 0 1px var(--tx,#2A1C12)}.ds-seg button:focus-visible{outline:2px solid var(--hl,#E07A10);outline-offset:2px}"
+    },
+    {
+      "name": "Module Label",
+      "kind": "custom",
+      "refersTo": "module-label",
+      "description": "The boxed tracked-caps heading that names a module.",
+      "html": "<h2 class=\"ds-label\">Effectiveness</h2>",
+      "css": ".ds-label{display:inline-block;margin:0;padding:6px 10px;border:1px solid var(--ln,#D8CAB2);background:var(--panel,#F7F0E3);font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;line-height:1;letter-spacing:.16em;text-transform:uppercase;color:var(--tx,#2A1C12)}"
+    },
+    {
+      "name": "Fix Plate",
+      "kind": "card",
+      "refersTo": "fix-plate",
+      "description": "The one solid surface per screen: the fix and its price.",
+      "html": "<section class=\"ds-plate\"><h2 class=\"ds-plate-tab\">Fix this first</h2><p class=\"ds-plate-h\">Consecration sat ready 75s while you were free to use it</p><div class=\"ds-plate-m\"><b>&minus;10.3 points</b><span>Cooldowns</span><span>~1,177 damage</span></div></section>",
+      "css": ".ds-plate{position:relative;margin-top:14px;background:var(--plate,#4E5A32);color:var(--plate-tx,#F1E7D6);padding:22px 18px 14px}.ds-plate-tab{position:absolute;top:-12px;left:14px;margin:0;padding:6px 10px;border:1px solid var(--ln,#D8CAB2);background:var(--panel,#F7F0E3);font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;line-height:1;letter-spacing:.16em;text-transform:uppercase;color:var(--tx,#2A1C12)}.ds-plate-h{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:23px;line-height:1.15;margin:0 0 8px}.ds-plate-m{display:flex;gap:18px;align-items:baseline}.ds-plate-m b{font-family:'Barlow Condensed',sans-serif;font-size:32px;color:var(--plate-ac,#F1C27D)}.ds-plate-m span{font:13px Barlow,sans-serif;color:var(--plate-mu,#E2DCC4)}"
+    },
+    {
+      "name": "Measure Bar",
+      "kind": "custom",
+      "refersTo": "measure-bar",
+      "description": "One measure: its ink, the 90 target tick, the score.",
+      "html": "<div class=\"ds-ef\"><span>Abilities on time</span><div class=\"ds-bar\"><i style=\"width:23%\"></i><u></u></div><b>23</b></div>",
+      "css": ".ds-ef{display:grid;grid-template-columns:140px 1fr 50px;gap:14px;align-items:center;font:500 14px Barlow,sans-serif;color:var(--tx,#2A1C12)}.ds-bar{position:relative;height:10px;background:var(--track,#E2D5BC)}.ds-bar i{position:absolute;inset:0 auto 0 0;background:var(--m-cd,#A44A24);transition:width .7s cubic-bezier(.16,1,.3,1)}.ds-bar u{position:absolute;left:90%;top:-4px;bottom:-4px;width:2px;background:var(--tx,#2A1C12)}.ds-ef b{font-family:'Barlow Condensed',sans-serif;font-size:30px;text-align:right}.ds-ef:hover .ds-bar i{filter:brightness(1.08)}"
+    },
+    {
+      "name": "Fight Cell",
+      "kind": "custom",
+      "refersTo": "fight-cell",
+      "description": "One fight in the 8x8 catalog: number, time, score with letter.",
+      "html": "<div class=\"ds-cell\"><s>6</s><em>6:25</em><b>70<u>C</u></b></div>",
+      "css": ".ds-cell{width:54px;height:74px;padding:4px 5px;background:var(--panel,#F7F0E3);border:1px solid var(--gold,#7A5F30);display:flex;flex-direction:column;color:var(--gC,#A44A24);font-family:'Barlow Condensed',sans-serif;}.ds-cell s,.ds-cell em{text-decoration:none;font-style:normal;font-weight:500;font-size:11px;line-height:12px;color:var(--mu,#6E5E4E)}.ds-cell b{font-weight:700;font-size:21px;line-height:24px;margin-top:2px}.ds-cell u{text-decoration:none;font-size:14px;margin-left:2px}.ds-cell:hover{outline:2px solid var(--hl,#E07A10);outline-offset:-2px}"
+    },
+    {
+      "name": "Rail",
+      "kind": "nav",
+      "refersTo": "rail",
+      "description": "Left navigation column with wordmark and sections.",
+      "html": "<aside class=\"ds-rail\"><div class=\"ds-logo\">dips <span>score</span></div><a href=\"#\">Dungeons</a><a href=\"#\" aria-current=\"page\">Fights</a><a href=\"#\">Habits</a></aside>",
+      "css": ".ds-rail{width:200px;background:var(--rail,#4A2F1F);color:var(--rail-tx,#F1E7D6);padding:22px 0}.ds-logo{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:22px;line-height:1;padding:0 20px 24px}.ds-logo span{color:var(--rail-ac,#F1C27D)}.ds-rail a{display:block;padding:9px 20px;font:15px Barlow,sans-serif;color:var(--rail-tx,#F1E7D6);text-decoration:none}.ds-rail a:hover,.ds-rail a[aria-current=page]{background:var(--rail-on,#5F402C)}.ds-rail a[aria-current=page]{font-weight:600}.ds-rail a:focus-visible{outline:2px solid var(--hl,#E07A10);outline-offset:-2px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Race Sheet",
+    "overview": "**Creative North Star: \"The Race Sheet\"**\n\ndips score reads like the sheet a coach hands a driver after a session: one giant result, one fix, and the laps that need a second look marked by hand. Every page is a ruled sheet on a warm ivory or near-black ground, divided by hairlines into modules, each module named by a small boxed tracked-caps label. Exactly one surface per screen is a solid colour plate, and it always holds the thing to change next. The system refuses the equal-weight widget wall of analytics dashboards: sizes are deliberately unequal, so the score numeral at 150px dwarfs everything and the eye has nowhere else to land first.\n\nThe world ships as two themes, each with a day and a night mode, all four as complete token sets. **Timeless** is ivory with a dark walnut rail, an olive plate, rust and teal measures, and an amber highlighter that glows at night. **Classical** is soft ivory with a pale rail, a burgundy plate, gold leaf and forest, and a hot-rose highlighter; its night mode is warm near-black with lifted burgundy. Timeless is the default theme. Day or night defaults to Auto, which follows the OS setting; the \"Look\" group at the foot of the rail holds both toggles, and a choice is remembered. Theme and mode are a first-class part of the system: no colour exists outside the four sets.\n\nBarlow carries body text and Barlow Condensed carries every number, heading and label; Caveat appears only in the hand-drawn marks. Density is high but calm: tabular figures, 1px rules, square corners, no shadows. The shipping app is PyQt6 and the build path (QSS and QPainter, or an embedded web view) is undecided; these tokens are the source for either, and their flat, square, unshadowed form is chosen to survive a QSS translation without loss.",
+    "keyCharacteristics": [
+      "One giant score numeral with its grade letter boxed in gold.",
+      "One solid plate per screen, holding the single fix and its price in points and damage.",
+      "Hairline-ruled modules named by small boxed tracked-caps labels.",
+      "One colour per measure, carried through bars, sparklines, chips and the points breakdown.",
+      "Grade letters always printed beside their colour.",
+      "A highlighter and a Caveat hand for the marks a coach would add: circles, routes, a note.",
+      "Square corners and no drop shadows anywhere.",
+      "Two themes by day and night, Auto by default."
+    ],
+    "rules": [
+      {
+        "name": "The One Plate Rule",
+        "body": "A screen has exactly one solid `plate` surface, and it holds the fix: \"Fix this first\" on the debrief, \"Recurring fix\" on history, \"To move up\" on group, \"Biggest gap\" on the fight card. Everything else sits on `bg` or `panel` behind hairlines.",
+        "section": "colors"
+      },
+      {
+        "name": "The Letter Always Shows Rule",
+        "body": "Grade colour is a second channel. The letter (S, A, B, C, D) is always printed beside or inside its ink: in the grid cells, the score box, the legend, the visits table.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Ink Per Measure Rule",
+        "body": "A measure uses its `m-*` ink in every place it appears (effectiveness bar, breakdown bar, sparkline, chip swatch) and no other measure borrows it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Four Sets Rule",
+        "body": "No hex is written outside `theme.css`. A new colour role is added to all four theme-mode sets at once, or it is not added.",
+        "section": "colors"
+      },
+      {
+        "name": "The Condensed Numbers Rule",
+        "body": "Every number a player reads at a glance (score, grade, points, fight times, ranks) is set in Barlow Condensed with tabular figures. Barlow is for sentences.",
+        "section": "typography"
+      },
+      {
+        "name": "The Hand Is Rare Rule",
+        "body": "Caveat appears only as an annotation drawn over data, in highlighter colour, at most once or twice per page.",
+        "section": "typography"
+      },
+      {
+        "name": "The Unequal Weight Rule",
+        "body": "No grid of equal-sized cards. The first viewport has one dominant element (the score), one plate, and ruled lists; equal cells are reserved for data that is genuinely uniform, like the 8×8 fight grid or the measure sparklines.",
+        "section": "layout"
+      },
+      {
+        "name": "The Hairline Rule",
+        "body": "Separate with a 1px rule before reaching for space, fill or elevation. Strong rules (`tx`, 1–2px) mark the head of a list or a total; quiet rules (`ln`, 1px) separate rows.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do take every colour from the theme tokens and check a new surface in all four sets: Timeless and Classical, each by day and night.",
+      "Do give each screen one plate, holding the fix and its price in points and damage.",
+      "Do print the grade letter next to every grade colour, and a label next to every measure colour.",
+      "Do set numbers in Barlow Condensed with tabular figures.",
+      "Do separate with 1px rules (`ln` for rows, `tx` for heads and totals) and keep every corner square.",
+      "Do keep the 90 target tick on every measure bar.",
+      "Do label illustrative values with the small tracked-caps \"illustrative\" mark.",
+      "Do default day or night to Auto and keep the theme toggles in the rail under \"Look\"."
+    ],
+    "donts": [
+      "Don't build equal-weight widget walls of same-sized cards; that is the analytics-dashboard look this system refuses.",
+      "Don't add a second plate to a screen or use the plate colour as a general accent.",
+      "Don't use the highlighter or Caveat for interface chrome; they are for hand marks, focus, selection and \"you\".",
+      "Don't add drop shadows or rounded corners; the only shadows are inset rule lines.",
+      "Don't let a measure borrow another measure's ink.",
+      "Don't put a tracked-caps label above a heading as a kicker; the module label is the heading.",
+      "Don't write a hex value outside the theme token sets."
+    ]
+  }
+}

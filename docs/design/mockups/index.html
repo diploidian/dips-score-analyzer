@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dips score mock-ups</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+  .lead { max-width: 68ch; color: var(--tx2); font-size: 15px; margin-bottom: 26px; }
+  .pages { border-top: 1px solid var(--tx); }
+  .pages a { display: grid; grid-template-columns: 220px 1fr 140px; gap: 24px; align-items: baseline; padding: 18px 0; border-bottom: 1px solid var(--ln); text-decoration: none; }
+  .pages a:hover h2 { text-decoration: underline; text-underline-offset: 4px; }
+  .pages h2 { font: 700 26px/1.1 "Barlow Condensed", sans-serif; }
+  .pages p { color: var(--tx2); font-size: 15px; max-width: 62ch; }
+  .pages .open { justify-self: end; font: 600 14px Barlow, sans-serif; color: var(--tx); }
+  .notes { margin-top: 30px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .notes p { margin-top: 12px; } .notes p b { color: var(--tx); font-weight: 600; }
+  .notes p { color: var(--tx2); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html">Dungeons</a>
+      <a href="fight-card.html">Fights</a>
+      <a href="#">Habits</a>
+    </nav>
+    <div class="rl">Recent runs</div>
+    <a class="run" href="debrief.html"><span>Blackfathom Deeps</span><b>75 B</b></a>
+    <a class="run" href="#"><span>Kalimdor (open world)</span><b>23:37</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:17</b></a>
+    <a class="run" href="#"><span>Blackfathom Deeps</span><b>22:16</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:09</b></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>Redesign mock-ups</h1><div class="meta"><b>Split Sheet, circled</b> · two themes, each day and night · real data from Blackfathom Deeps, 18 Nov</div></div>
+    </header>
+    <p class="lead">Four screens for review before anything is built. Switch the theme and day or night in the left rail; the choice carries across pages. Numbers come from your real run unless a page marks them illustrative.</p>
+    <div class="pages">
+      <a href="debrief.html"><h2>Run debrief</h2><p>After a dungeon: the grade, the one fix and what it cost, four measures, where the 25 points went, and the four fights to review, circled.</p><span class="open">Open</span></a>
+      <a href="fight-card.html"><h2>After-fight card</h2><p>Over the game, two seconds after each fight: how efficient it was and the biggest ability gap, in every state.</p><span class="open">Open</span></a>
+      <a href="history.html"><h2>Dungeon history</h2><p>Am I getting better here: score per visit over the grade bands, the fix that keeps coming back, and each measure visit by visit.</p><span class="open">Open</span></a>
+      <a href="group.html"><h2>Group</h2><p>How you stacked up: your placing, the podium, everyone's strengths, awards and roasts.</p><span class="open">Open</span></a>
+    </div>
+    <div class="notes">
+      <div><h2 class="tab">What is real</h2><p><b>Your Blackfathom run.</b> Score 75 B, the categories and points lost, 64 fights with times and scores, the death at 43:57, group names and roles, your 3rd place.</p></div>
+      <div><h2 class="tab">What is illustrative</h2><p><b>Labelled on each page.</b> Rotation and Pacing (not scored yet), earlier visits, other players' scores and awards, per-fight efficiency on the cards.</p></div>
+      <div><h2 class="tab">Not decided yet</h2><p><b>How it ships.</b> Redraw this in the PyQt app, or embed a web view. Also Rotation and Pacing scoring and their default weights.</p></div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

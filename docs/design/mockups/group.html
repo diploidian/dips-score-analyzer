@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Group · Blackfathom Deeps</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+.mod { margin-top: 26px; }
+.mod-h { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.mod-h .note { font-size: 13px; color: var(--mu); }
+.hero { display: grid; grid-template-columns: 1fr 380px; gap: 28px; align-items: stretch; }
+.place { display: flex; align-items: flex-end; align-self: start; gap: 22px; padding-top: 18px; }
+.place .big { font: 700 150px/.82 "Barlow Condensed", sans-serif; color: var(--tx); }
+.place .big sup { font-size: 56px; vertical-align: top; position: relative; top: 8px; margin-left: 2px; }
+.place .of { font: 600 22px/1.1 "Barlow Condensed", sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+.place p { margin-top: 8px; font-size: 15px; color: var(--tx2); max-width: 46ch; line-height: 1.45; }
+.plate { background: var(--plate); color: var(--plate-tx); padding: 22px 24px; display: flex; flex-direction: column; gap: 12px; align-items: flex-start; }
+.plate .tab { background: none; color: var(--plate-ac); border-color: var(--plate-ln); }
+.plate p { font-size: 16px; line-height: 1.45; }
+.plate .btn { margin-top: auto; }
+
+.podium { display: grid; grid-template-columns: repeat(3, 190px); gap: 12px; align-items: end; border-bottom: 1px solid var(--tx); width: max-content; }
+.pcol { background: var(--panel); border: 1px solid var(--ln); border-bottom: 0; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
+.pcol.me { border: 3px solid var(--hl); border-bottom: 0; }
+.pcol .rk { font: 700 34px/1 "Barlow Condensed", sans-serif; }
+.pcol .nm { font-weight: 600; font-size: 15px; }
+.pcol .ro { font-size: 12px; color: var(--mu); }
+.pcol .pt { font: 700 26px/1 "Barlow Condensed", sans-serif; }
+.pcol .pt small { font: 600 11px "Barlow Condensed"; letter-spacing: .12em; color: var(--mu); margin-left: 4px; text-transform: uppercase; }
+.mvp { position: absolute; top: 12px; right: 12px; border: 1px solid var(--gold); color: var(--tx); font: 700 11px/1 "Barlow Condensed", sans-serif; letter-spacing: .16em; padding: 3px 6px; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font: 600 11px/1 "Barlow Condensed", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--mu); padding: 0 10px 8px; border-bottom: 1px solid var(--tx); }
+td { padding: 12px 10px; border-bottom: 1px solid var(--ln); vertical-align: middle; font-size: 14px; }
+tr.me td { background: var(--panel); }
+.rank, .sc, .pts { font: 700 24px/1 "Barlow Condensed", sans-serif; }
+.who { font-weight: 600; }
+.chip { display: inline-block; border: 1px solid var(--ln); color: var(--tx2); font-size: 12px; padding: 2px 7px; margin: 0 4px 3px 0; white-space: nowrap; }
+.chip.w { color: var(--mu); border-style: dashed; }
+.chip.aw { border-color: var(--gold); color: var(--tx); font-weight: 600; }
+.chip.ro { border-color: var(--m-cd); color: var(--tx); font-weight: 600; }
+.chip.ro svg { vertical-align: 1px; margin-right: 4px; }
+.bar { height: 8px; background: var(--track); width: 110px; }
+.bar i { display: block; height: 100%; background: var(--tx2); }
+
+.awl { border-top: 1px solid var(--tx); }
+.awl div { display: grid; grid-template-columns: 200px 1fr 220px; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--ln); align-items: center; }
+.awl .t { font: 700 17px/1 "Barlow Condensed", sans-serif; letter-spacing: .03em; }
+.awl .t.aw { box-shadow: inset 0 -2px 0 var(--gold); } .awl .t.ro { box-shadow: inset 0 -2px 0 var(--m-cd); }
+.awl .h { color: var(--tx2); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html">Dungeons</a>
+      <a href="fight-card.html">Fights</a>
+      <a href="#">Habits</a>
+    </nav>
+    <div class="rl">Recent runs</div>
+    <a class="run" href="debrief.html" aria-current="page"><span>Blackfathom Deeps</span><b>75 B</b></a>
+    <a class="run" href="#"><span>Kalimdor (open world)</span><b>23:37</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:17</b></a>
+    <a class="run" href="#"><span>Blackfathom Deeps</span><b>22:16</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:09</b></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>Blackfathom Deeps</h1><div class="meta"><b>Wed 18 Nov 22:27</b> · 69:45 long · 32:57 in combat · 64 fights · as DPS · <span class="illus">scores and awards illustrative except your placing</span></div></div>
+      <nav class="tabs" aria-label="Run views"><a href="debrief.html">Debrief</a><a href="#">Timeline</a><a href="fight-card.html">Fights</a><a href="group.html" aria-current="page">Group</a></nav>
+    </header>
+
+
+    <section class="hero" aria-label="Your placing">
+      <div class="place">
+        <div class="big c">3<sup>rd</sup></div>
+        <div>
+          <div class="of">of 5 · 4 points behind MVP</div>
+          <p>83 as a damage dealer, +2 for Last Word, +2 for Janitor, −2 for the Carpet Sampler roast. Strongest at killing blows.</p>
+        </div>
+      </div>
+      <div class="plate">
+        <span class="tab">To move up</span>
+        <p>Stay alive: your one death cost the Carpet Sampler roast (−2) and most of your Survival points.</p>
+        <a class="btn" href="fight-card.html">Show the death</a>
+      </div>
+    </section>
+
+    <section class="mod">
+      <div class="mod-h"><span class="tab">Podium</span><span class="note">Placing points = score + 2 per award (max +6) − 2 per roast</span></div>
+      <div class="podium">
+        <div class="pcol" style="height:120px"><div><div class="rk">2nd</div><div class="nm">Evilguy Verybad</div><div class="ro">DPS</div></div><div class="pt">88<small>points</small></div></div>
+        <div class="pcol" style="height:160px"><span class="mvp">MVP</span><div><div class="rk">1st</div><div class="nm">Anaruz Lightborne</div><div class="ro">Tank</div></div><div class="pt">89<small>points</small></div></div>
+        <div class="pcol me" style="height:100px"><div><div class="rk">3rd</div><div class="nm">Bao Kahn <span class="tag">you</span></div></div><div class="pt">85<small>points</small></div></div>
+      </div>
+    </section>
+
+    <section class="mod">
+      <div class="mod-h"><span class="tab">Standings</span><span class="note">Every member scored from the combat log only</span></div>
+      <table>
+        <thead><tr><th>#</th><th>Player</th><th>Role</th><th>Score</th><th>Points</th><th>Of 100</th><th>Strengths</th><th>Weakness</th><th>Awards</th></tr></thead>
+        <tbody>
+          <tr><td class="rank">1</td><td class="who">Anaruz Lightborne <span class="tag">MVP</span></td><td>Tank</td><td><span class="sc">87</span> <b class="g-A">A</b></td><td class="pts">89</td><td><div class="bar"><i data-grow style="--i:0;width:89%"></i></div></td>
+            <td><span class="chip">Holding mobs</span><span class="chip">Pickups</span></td><td><span class="chip w">Damage</span></td><td><span class="chip aw">Shush</span></td></tr>
+          <tr><td class="rank">2</td><td class="who">Evilguy Verybad</td><td>DPS</td><td><span class="sc">84</span> <b class="g-A">A</b></td><td class="pts">88</td><td><div class="bar"><i data-grow style="--i:1;width:88%"></i></div></td>
+            <td><span class="chip">Damage</span><span class="chip">Survival</span></td><td><span class="chip w">Utility</span></td><td><span class="chip aw">Wrecking Ball</span><span class="chip aw">Boss Bane</span></td></tr>
+          <tr class="me"><td class="rank">3</td><td class="who">Bao Kahn <span class="tag">you</span></td><td>DPS</td><td><span class="sc">83</span> <b class="g-A">A</b></td><td class="pts">85</td><td><div class="bar"><i data-grow style="--i:2;width:85%"></i></div></td>
+            <td><span class="chip">Killing blows</span><span class="chip">Damage</span></td><td><span class="chip w">Survival</span></td>
+            <td><span class="chip aw">Last Word</span><span class="chip aw">Janitor</span><span class="chip ro"><svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M0 4h8" stroke="currentColor" stroke-width="2"/></svg>Carpet Sampler</span></td></tr>
+          <tr><td class="rank">4</td><td class="who">Shizuka Tsuruta</td><td>Healer</td><td><span class="sc">80</span> <b class="g-A">A</b></td><td class="pts">82</td><td><div class="bar"><i data-grow style="--i:3;width:82%"></i></div></td>
+            <td><span class="chip">Healing</span><span class="chip">Survival</span></td><td><span class="chip w">Utility — not judged (no dispels needed)</span></td><td><span class="chip aw">Spare Hands</span></td></tr>
+          <tr><td class="rank">5</td><td class="who">Piraña Segundo</td><td>DPS</td><td><span class="sc">81</span> <b class="g-A">A</b></td><td class="pts">79</td><td><div class="bar"><i data-grow style="--i:4;width:79%"></i></div></td>
+            <td><span class="chip">Damage</span><span class="chip">Utility</span></td><td><span class="chip w">Survival</span></td><td><span class="chip ro"><svg width="8" height="8" viewBox="0 0 8 8" aria-hidden="true"><path d="M0 4h8" stroke="currentColor" stroke-width="2"/></svg>Eager Beaver</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="mod">
+      <div class="mod-h"><span class="tab">Awards this run</span><span class="note">+2 for each award, −2 for each roast</span></div>
+      <div class="awl">
+        <div><span class="t aw">Wrecking Ball</span><span>Most damage done</span><span class="h">Evilguy Verybad</span></div>
+        <div><span class="t aw">Boss Bane</span><span>Most damage to bosses</span><span class="h">Evilguy Verybad</span></div>
+        <div><span class="t aw">Shush</span><span>Most interrupts</span><span class="h">Anaruz Lightborne</span></div>
+        <div><span class="t aw">Last Word</span><span>Most killing blows</span><span class="h">Bao Kahn (you) · 31</span></div>
+        <div><span class="t aw">Janitor</span><span>Most damage to trash</span><span class="h">Bao Kahn (you)</span></div>
+        <div><span class="t aw">Spare Hands</span><span>Healer who still found time to hurt things</span><span class="h">Shizuka Tsuruta</span></div>
+        <div><span class="t ro">Carpet Sampler (roast)</span><span>Spent the most time lying down</span><span class="h">Bao Kahn (you) · 1 death</span></div>
+        <div><span class="t ro">Eager Beaver (roast)</span><span>Started the most pulls without being the tank</span><span class="h">Piraña Segundo</span></div>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>
