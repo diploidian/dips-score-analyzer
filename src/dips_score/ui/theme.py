@@ -135,8 +135,7 @@ QLabel#title {{ font-size: 15pt; font-weight: 600; color: {tx}; }}
 #rail {{ background: {T["rail"].name()}; color: {T["rail-tx"].name()}; }}
 #rail QLabel {{ color: {T["rail-tx"].name()}; }}
 #rail QLabel#dim {{ color: {T["rail-mu"].name()}; }}
-#rail QLabel#look {{ color: {T["rail-mu"].name()}; font-family: "{NUM_FONT}"; font-size: 11px; font-weight: 600;
-    margin-top: 14px; }}
+#rail QLabel#look {{ color: {T["rail-mu"].name()}; font-family: "{NUM_FONT}"; font-size: 11px; font-weight: 600; }}
 #rail QPushButton {{ background: {T["rail"].name()}; color: {T["rail-tx"].name()};
     border: 1px solid {T["rail-mu"].name()}; padding: 5px 10px; font-weight: 500; }}
 #rail QPushButton:hover {{ background: {T["rail-on"].name()}; }}

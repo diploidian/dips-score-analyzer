@@ -71,7 +71,7 @@ ROLE_NAME = {"dps": "DPS"}
 class ScoreTab(QWidget):
     """the Debrief tab: a player's debrief for the whole run, or for the fight picked. You get your full
     scorecard; anyone else is scored from the combat log alone (as on the Group tab)."""
-    zoom = pyqtSignal(float, float)     # Show me, or a fight picked: where the timeline should show
+    zoom = pyqtSignal(float, float)     # a fight picked: where the timeline should show (Show me is page.zoom)
 
     def __init__(self):
         super().__init__()
@@ -81,7 +81,6 @@ class ScoreTab(QWidget):
         self.cells: list = []
         self.deaths: list = []             # the picked player's
         self.page = DebriefPage()
-        self.page.zoom.connect(self.zoom)
         self.page.picked.connect(self._pick)
         self.who = QComboBox()
         self.who.setMinimumWidth(220)

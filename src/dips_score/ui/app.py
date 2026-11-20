@@ -86,6 +86,7 @@ class Window(QMainWindow):
         self.status = dim_label()               # what's loaded, then the log delay (see _status)
         self.status_text = ""
         ll.addWidget(self.status)
+        ll.addSpacing(14)
         look = QLabel("LOOK")
         look.setObjectName("look")      # themed in theme.stylesheet (Barlow Condensed 600)
         ll.addWidget(look)
@@ -158,11 +159,13 @@ class Window(QMainWindow):
         for w, name in ((self.score, "Debrief"), (self.timeline_tab, "Timeline"), (self.pulls, "Pulls"),
                         (self.spells, "Spells"), (group_page, "Group")):
             self.tabs.addTab(w, name)
-        self.score.zoom.connect(self.show_on_timeline)        # Show me, and picking a fight
-        self.pulls.zoom.connect(self.show_on_timeline)        # picking a pull
-        # picking a spell lights it up on the timeline; a refill only clears it, staying where it is
-        self.spells.highlight.connect(lambda guid, spell: self.show_on_timeline(
-            self.timeline.v0, self.timeline.v1, guid, spell) if guid else self.timeline.highlight(None, None))
+        # only the "Show ..." buttons switch to the Timeline tab; a pick readies the timeline and stays where it is
+        self.score.page.zoom.connect(self.show_on_timeline)   # Show me
+        self.score.zoom.connect(self._set_timeline)           # a fight picked
+        self.pulls.zoom.connect(self._set_timeline)           # a pull picked
+        # a spell picked lights up on the timeline; a refill only clears it
+        self.spells.highlight.connect(lambda guid, spell: self._set_timeline(None, None, guid, spell) if guid
+                                      else self.timeline.highlight(None, None))
         self.group.changed.connect(self._group_changed)
         self.tabs.currentChanged.connect(self._tab_changed)
         self.group.forget.connect(self._forget_picks)
@@ -344,12 +347,18 @@ class Window(QMainWindow):
         if self.tabs.widget(i) not in (self.spells, self.timeline_tab):   # a spell's highlight lasts while it's in view
             self.timeline.highlight(None, None)
 
-    def show_on_timeline(self, start: float, end: float, guid: str | None = None, spell: str | None = None):
-        """the Timeline tab, zoomed to start..end, and with a player's spell lit up when given"""
-        self.tabs.setCurrentWidget(self.timeline_tab)
-        self.timeline.set_view(start, end)
+    def _set_timeline(self, start: float | None = None, end: float | None = None, guid: str | None = None,
+                      spell: str | None = None):
+        """the timeline zoomed to start..end and a player's spell lit up, each when given, without leaving the tab"""
+        if start is not None and end is not None:
+            self.timeline.set_view(start, end)
         if guid:
             self.timeline.highlight(guid, spell)
+
+    def show_on_timeline(self, start: float, end: float, guid: str | None = None, spell: str | None = None):
+        """the Timeline tab, zoomed to start..end, and with a player's spell lit up when given"""
+        self._set_timeline(start, end, guid, spell)
+        self.tabs.setCurrentWidget(self.timeline_tab)
 
     def _mode(self, which: str):
         self.mode_dungeons.setChecked(which == "dungeons")

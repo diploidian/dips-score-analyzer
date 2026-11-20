@@ -1,4 +1,4 @@
-"""The window's shell (ui/app.py): the run tabs, and every "show it" landing on the Timeline tab.
+"""The window's shell (ui/app.py): the run tabs; a pick readies the timeline, a "Show ..." button goes to it.
 Needs PyQt6, so it is skipped on a Python without it:
 PYTHONPATH=<folder with PyQt6> python -m unittest discover -s tests"""
 import importlib.util
@@ -29,14 +29,20 @@ class ShellTests(unittest.TestCase):
                              ["Debrief", "Timeline", "Pulls", "Spells", "Group"])
             w.spells.highlight.emit(None, None)          # a refill clears, and stays on the Debrief
             self.assertEqual(tabs.currentIndex(), 0)
-            w.spells.highlight.emit("guid-1", "Fireball")
-            self.assertIs(tabs.currentWidget(), w.timeline_tab)
+            tabs.setCurrentWidget(w.spells)
+            view = (w.timeline.v0, w.timeline.v1)
+            w.spells.highlight.emit("guid-1", "Fireball")  # a spell picked: lit up, same view, still on Spells
+            self.assertIs(tabs.currentWidget(), w.spells)
             self.assertEqual((w.timeline.hl_guid, w.timeline.hl_spell), ("guid-1", "Fireball"))
+            self.assertEqual((w.timeline.v0, w.timeline.v1), view)
             tabs.setCurrentIndex(0)
-            w.score.zoom.emit(385.0, 480.0)               # Show me
-            self.assertIs(tabs.currentWidget(), w.timeline_tab)
-            self.assertEqual((w.timeline.v0, w.timeline.v1), (385.0, 480.0))
             self.assertIsNone(w.timeline.hl_guid)        # left for the Debrief: the spell's highlight went
+            w.score.zoom.emit(385.0, 480.0)               # a fight picked: zoomed, still on the Debrief
+            self.assertEqual(tabs.currentIndex(), 0)
+            self.assertEqual((w.timeline.v0, w.timeline.v1), (385.0, 480.0))
+            w.score.page.zoom.emit(100.0, 200.0)          # Show me: the Timeline tab
+            self.assertIs(tabs.currentWidget(), w.timeline_tab)
+            self.assertEqual((w.timeline.v0, w.timeline.v1), (100.0, 200.0))
             w.live.timer.stop()
 
 
