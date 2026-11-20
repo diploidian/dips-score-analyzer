@@ -13,9 +13,9 @@ from pathlib import Path
 
 from PyQt6.QtCore import QFileSystemWatcher, Qt, QTimer
 from PyQt6.QtGui import QFont, QGuiApplication
-from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QMainWindow, QPushButton, QScrollArea, QSplitter,
-                             QStackedWidget, QTabWidget, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
-                             QWidget)
+from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QMainWindow, QPushButton,
+                             QScrollArea, QSplitter, QStackedWidget, QTabWidget, QToolButton, QTreeWidget,
+                             QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from .. import analysis
 from ..analysis import Analysis
@@ -29,8 +29,8 @@ from . import texture, theme
 from .pages import DungeonPage, GroupTab, PullsTab, ScoreTab, SpellsTab, dim_label
 from .summary import SummaryTab
 from .timeline import Timeline
-from .tokens import THEMES
 from .settings import SettingsDialog
+from .tokens import THEMES
 from ..live.habits import habits
 from ..live.tail import LogTail
 from .fightsview import FightDetail, FightList
@@ -99,11 +99,7 @@ class Window(QMainWindow):
         row.addWidget(cog)
         ll.addLayout(row)
         look = QLabel("LOOK")
-        look.setObjectName("dim")
-        f = QFont(theme.NUM_FONT)
-        f.setPixelSize(11)
-        f.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 112)   # about 0.12em
-        look.setFont(f)
+        look.setObjectName("look")      # themed in theme.stylesheet (Barlow Condensed 600)
         ll.addWidget(look)
         self.look_buttons: dict[str, QPushButton] = {}
         self.theme_group, self.mode_group = QButtonGroup(self), QButtonGroup(self)
@@ -118,8 +114,12 @@ class Window(QMainWindow):
             b.clicked.connect(lambda _c, k=key: self._set_look(theme=k) if k in THEMES else self._set_look(mode=k))
         for keys in (("classical", "timeless"), ("day", "night", "auto")):
             r = QHBoxLayout()
+            r.setSpacing(0)
             for k in keys:
-                r.addWidget(self.look_buttons[k])
+                b = self.look_buttons[k]
+                b.setProperty("seg", "1")
+                b.setProperty("last", "1" if k == keys[-1] else "0")
+                r.addWidget(b)
             ll.addLayout(r)
         self.weights: WeightsDialog | None = None
         self.settings_dialog: SettingsDialog | None = None
