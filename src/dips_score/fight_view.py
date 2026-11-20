@@ -29,7 +29,7 @@ class FightView:
     rows: list[tuple[str, str, float]] = field(default_factory=list)    # (label, detail, damage), most first
     left_on_table: float | None = None
     went_well: list[str] = field(default_factory=list)
-    also: list[str] = field(default_factory=list)       # what to improve that isn't a row already
+    also: list[str] = field(default_factory=list)       # a close call, then what to improve that isn't a row
     group: list[tuple[str, int, int, bool]] | None = None   # (name, damage, healing, is you), most damage first
     group_line: str | None = None
     abilities: list[dict] = field(default_factory=list)
@@ -83,6 +83,19 @@ def _group(d: dict) -> tuple[list[tuple[str, int, int, bool]] | None, str | None
     return rows, line
 
 
+def _also(d: dict, own: tuple[str, ...]) -> list[str]:
+    """d["improve"] less the lines that are rows already; a close call (danger you lived through) on top, in place of
+    summary's own "Dropped to" line"""
+    lines = [s for s in d.get("improve") or [] if not s.startswith(own)]
+    danger = d.get("danger")
+    if not danger or d.get("result") == "you died":
+        return lines
+    close = f"Close call: down to {danger['hp']:.0%} health at {fmt_time(danger['t'])}"
+    if unused := danger.get("unused"):
+        close += f" — {' and '.join(unused[:2])} {'was' if len(unused) == 1 else 'were'} ready"
+    return [close] + [s for s in lines if not s.startswith("Dropped to ")]
+
+
 def _hero(d: dict, eff: float | None) -> tuple[str, str | None, str]:
     """the big figure, its unit and caption: the efficiency; a healer's healing when there's none"""
     if d.get("healing_role"):
@@ -109,12 +122,12 @@ def build_fight(d: dict) -> FightView:
                  (_n(d["healing"]), "healing")],
         rows=[(label, detail, dmg) for label, detail, dmg, _ in losses],
         went_well=list(d.get("good") or []),
-        also=[s for s in d.get("improve") or [] if not s.startswith(own)],
+        also=_also(d, own),
         abilities=list(d.get("abilities") or []))
     v.big, v.unit, v.caption = _hero(d, eff)
     if losses:
         v.gap = (losses[0][3], f"≈ {_n(losses[0][2])}")
-    if d.get("potential") is not None:
+    if d.get("potential") is not None and d["potential"] - d["damage"] >= 1:      # under 1: nothing left
         v.left_on_table = d["potential"] - d["damage"]
     v.group, v.group_line = _group(d)
     return v

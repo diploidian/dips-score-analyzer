@@ -119,12 +119,37 @@ class FightViewTests(unittest.TestCase):
         heal = dict(ORACLE, healing_role=True, healing=4200, efficiency=1.0, potential=2583, good=["Healed 4,200"],
                     improve=["Piraña Segundo died"])
         v = build_fight(heal)
-        self.assertEqual((v.rows, v.gap, v.left_on_table), ([], None, 0))
+        self.assertEqual((v.rows, v.gap, v.left_on_table), ([], None, None))     # nothing left: no total
         self.assertEqual((v.big, v.unit), ("100", "%"))           # efficiency stays the figure while there is one
         self.assertEqual(v.also, ["Piraña Segundo died"])
         del heal["efficiency"]
         v = build_fight(heal)
         self.assertEqual((v.big, v.unit, v.caption), ("4,200", None, "healed · mostly healing this fight"))
+
+    def test_close_call_tops_also(self):
+        """danger: one line at the top of Also, in place of summary's own "Dropped to" line; the detail stays in the
+        drawer"""
+        danger = {"t": 75.758, "hp": 0.2393617021276596, "unused": ["Divine Protection"],
+                  "hits": [{"who": "Aku'mai", "spell": "Melee", "amount": 160}]}
+        f = dict(ORACLE, danger=danger,
+                 improve=ORACLE["improve"] + ["Dropped to 24% health with Divine Protection ready"])
+        v = build_fight(f)
+        self.assertEqual(v.also, ["Close call: down to 24% health at 1:15 — Divine Protection was ready",
+                                  "Holy Strike: Out of range ×2"])
+        two = build_fight(dict(f, danger=dict(danger, unused=["Divine Protection", "Lay on Hands"])))
+        self.assertEqual(two.also[0], "Close call: down to 24% health at 1:15 — Divine Protection and Lay on Hands "
+                                      "were ready")
+        bare = build_fight(dict(f, danger=dict(danger, unused=[])))
+        self.assertEqual(bare.also[0], "Close call: down to 24% health at 1:15")
+        died = dict(ORACLE, result="you died", danger=dict(danger, hp=0.0, unused=[]),
+                    improve=["Dropped to 0% health (Aku'mai: Melee for 160)"])
+        self.assertEqual(build_fight(died).also, ["Dropped to 0% health (Aku'mai: Melee for 160)"])  # not a close call
+
+    def test_nothing_left_on_the_table(self):
+        """under 1 left (or a potential under the damage): no total, as the old page's >= 1"""
+        self.assertIsNone(build_fight(dict(ORACLE, potential=2583.4)).left_on_table)
+        self.assertIsNone(build_fight(dict(ORACLE, potential=2500.0)).left_on_table)
+        self.assertAlmostEqual(build_fight(dict(ORACLE, potential=2584.0)).left_on_table, 1.0)
 
     def test_held_and_idle_rows(self):
         f = dict(ORACLE, cooldowns=[dict(ORACLE["cooldowns"][0], held=True, lost=0.0),
