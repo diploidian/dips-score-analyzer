@@ -138,6 +138,8 @@ class Window(QMainWindow):
         # ---- right: the dungeon page, or a run's tabs
         self.dungeon = DungeonPage()
         self.dungeon.open_run.connect(self._open_run_id)
+        # Bosses' "Show the fight": that visit, its Timeline tab at the fight
+        self.dungeon.show_fight.connect(lambda rid, a, b: (self._open_run_id(rid), self.show_on_timeline(a, b)))
         self.score, self.group, self.pulls = ScoreTab(), GroupTab(), PullsTab()
         self.score.page.settings = self.settings
         self.spells = SpellsTab()

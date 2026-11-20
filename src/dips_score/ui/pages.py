@@ -1,5 +1,5 @@
-"""The Debrief tab and the dungeon page (its History tab is historytab.py); Pulls is pulls.py, Spells is spells.py,
-Group is group.py."""
+"""The Debrief tab and the dungeon page (its History, Bosses and Records tabs are historytab.py, bossestab.py and
+recordstab.py); Pulls is pulls.py, Spells is spells.py, Group is group.py."""
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt, pyqtSignal
@@ -9,14 +9,15 @@ from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHeaderView, 
 
 from ..analysis import Analysis
 from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, worst_fight
-from ..dungeon_view import build_history, history_meta, visits
+from ..dungeon_view import build_bosses, build_history, build_records, history_meta, visits
 from ..scoring.group import ordinal, player_card
 from ..scoring.score import Scorecard
 from ..sources.savedvars import Run
 from . import assets
+from .bossestab import BossesTab
 from .debrief import DebriefPage
 from .historytab import HistoryTab
-from .kit import HEAD_H, Sheet
+from .recordstab import RecordsTab
 from .timeline import text_color
 
 
@@ -209,26 +210,21 @@ class ScoreTab(QWidget):
 
 # ============================================================================ Dungeon page
 class DungeonPage(QTabWidget):
-    """a dungeon's page, in text tabs like a run's: History (your score on every visit; historytab.py), Bosses and
-    Records"""
+    """a dungeon's page, in text tabs like a run's: History (your score on every visit; historytab.py), Bosses (each
+    boss on the last visit; bossestab.py) and Records (your bests here; recordstab.py)"""
     open_run = pyqtSignal(str)   # run id
+    show_fight = pyqtSignal(str, float, float)      # a visit's run id, and where its timeline should show
 
     def __init__(self):
         super().__init__()
         self.pairs: list[tuple[Run, Analysis | None]] = []     # each visit, newest first, and its analysis
-        self.history = HistoryTab()
+        self.history, self.bosses, self.records = HistoryTab(), BossesTab(), RecordsTab()
         self.history.open_run.connect(self.open_run)
-        self.addTab(self.history, "History")
-        self.soon: list[Sheet] = []
-        for name in ("Bosses", "Records"):      # shortcut: placeholders until Task 10 builds them
-            s = Sheet()
-            lay = QVBoxLayout(s)
-            lay.setContentsMargins(16, 4, 16, 16)
-            lay.addSpacing(HEAD_H + 14)
-            lay.addWidget(dim_label(f"{name}: coming in the next commit."))
-            lay.addStretch(1)
-            self.soon.append(s)
-            self.addTab(s, name)
+        self.bosses.show_fight.connect(self.show_fight)
+        self.records.open_run.connect(self.open_run)
+        self.records.to_bosses.connect(lambda: self.setCurrentWidget(self.bosses))
+        for tab, name in ((self.history, "History"), (self.bosses, "Bosses"), (self.records, "Records")):
+            self.addTab(tab, name)
 
     def show_dungeon(self, zone: str, runs: list[Run], analyses: dict[str, Analysis]):
         """runs: the dungeon's visits; analyses: theirs by run id (one that couldn't be analysed is missing)"""
@@ -236,6 +232,6 @@ class DungeonPage(QTabWidget):
         view = build_history(visits(self.pairs))
         meta = history_meta(view)
         self.history.show_view(zone, meta, view)
-        for s in self.soon:
-            s.title, s.sub = zone, meta
-            s.update()
+        rows, weakest, average = build_bosses(self.pairs)
+        self.bosses.show_view(zone, meta, rows, weakest, average, view)
+        self.records.show_view(zone, meta, *build_records(self.pairs), view, rows)

@@ -1,23 +1,27 @@
-"""The dungeon page's History tab: dungeon_view.py (no Qt), and its widgets in ui/historytab.py (skipped without
-PyQt6: PYTHONPATH=<folder with PyQt6> python -m unittest discover -s tests).
+"""The dungeon page: dungeon_view.py (no Qt), and its widgets in ui/historytab.py, ui/bossestab.py and
+ui/recordstab.py (skipped without PyQt6: PYTHONPATH=<folder with PyQt6> python -m unittest discover -s tests).
 
-R2: the cards below are the real Blackfathom Deeps visits' (18 Nov 22:16, 22:17 and 22:27), as literals."""
+R2: the cards below are the real Blackfathom Deeps visits' (18 Nov 22:16, 22:17 and 22:27), as literals, and so are
+22:27's bosses and fights (from group-data.json)."""
 import importlib.util
 import os
 import sys
 import unittest
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dips_score.dungeon_view import (TOO_SHORT, UNJUDGED, Visit, build_history, history_meta, plate_text,  # noqa: E402
+from dips_score.dungeon_view import (TOO_SHORT, UNJUDGED, Record, Visit, bosses_text, build_bosses,  # noqa: E402
+                                     build_history, build_records, history_meta, plate_text, records_text,
                                      trend_note, visits)
-from dips_score.scoring.score import Category, Scorecard  # noqa: E402
+from dips_score.model.run import Fight  # noqa: E402
+from dips_score.scoring.score import Category, Scorecard, grade  # noqa: E402
 
 HAVE_QT = importlib.util.find_spec("PyQt6") is not None
 ME = "Player-5826-0217F1D2"
+TODAY = date(2026, 11, 18)
 
 
 def card_2227() -> Scorecard:
@@ -39,16 +43,40 @@ def card_2216() -> Scorecard:
         Category("Positioning", 0.0, 0, "", unavailable="too few position readings to judge")])
 
 
+def card(total: float, lost: dict | None = None) -> Scorecard:
+    """a card scoring total whose points_lost() is lost: each lost category weighs 10 of the 100"""
+    cats = [Category(n, 100 - 10 * p, 10, "") for n, p in (lost or {}).items()]
+    return Scorecard(total, grade(total), "dps", cats + [Category("Input", 100.0, 100 - 10 * len(cats), "")])
+
+
+def fight(at: float, length: float, score: float, boss=None, damage=None, share=None, lost=None, killed=True):
+    """a fight's result: its start and length in the run's seconds; damage and share: yours"""
+    return SimpleNamespace(fight=Fight(at, at + length, boss, None, killed if boss else None), card=card(score, lost),
+                           damage=None if damage is None else (damage, share))
+
+
+# 22:27's six bosses: start, length, score, your damage and its share of an even split, the points lost
+BOSSES = [fight(227, 31, 85.5, "Ghamoo-ra", 1087, 1.06, {"Damage": 8.0, "Upkeep": 6.5}),
+          fight(683, 24.4, 100.0, "Lady Sarevess", 2071, 1.5),
+          fight(1824, 51, 98.7, "Geilhast", 3550, 1.54, {"Casting": 1.3}),
+          fight(3326, 44, 90.5, "Twilight Lord Kelris", 2664, 1.2, {"Activity": 4.0, "Damage": 2.8, "Casting": 1.9}),
+          fight(3695, 50, 99.1, "Aku'mai", 3256, 1.5, {"Survival": 0.6, "Upkeep": 0.3}),
+          fight(3885, 20, 98.4, "Old Serra'kis", 1373, 1.33, {"Upkeep": 1.6})]
+# and its fights from 10:24 to 15:54 round Lady Sarevess: 11:23 to 15:25, six, is its longest run scoring 90 or more
+TRASH = [fight(624, 9, 100), fight(635, 13, 97), fight(657, 20, 86), fight(747, 9, 93), fight(788, 11, 97),
+         fight(849, 21, 97), fight(875, 40, 99), fight(925, 22, 99), fight(954, 10, 81)]
+
+
 def run(rid: str, when: datetime, pieces: int = 1):
     return SimpleNamespace(id=rid, start_time=when, parts=[rid] * pieces)
 
 
-def analysed(card, duration, combat, bosses=(0, 0), mine=0, others=0, wipes=0):
+def analysed(card, duration, combat, bosses=(0, 0), mine=0, others=0, wipes=0, kills=0, fights=()):
     return SimpleNamespace(card=card, data=SimpleNamespace(duration=duration, player_guid=ME),
-                           metrics=SimpleNamespace(combat_time=combat),
+                           metrics=SimpleNamespace(combat_time=combat, kills=kills),
                            summary=SimpleNamespace(bosses_killed=bosses[0], bosses=bosses[1]),
                            deaths=[SimpleNamespace(guid=ME)] * mine + [SimpleNamespace(guid="Player-2")] * others,
-                           wipes=[None] * wipes)
+                           wipes=[None] * wipes, fights=list(fights))
 
 
 def blackfathom():
@@ -58,8 +86,23 @@ def blackfathom():
             (run("1795069037-Bao", datetime(2026, 11, 18, 22, 17, 17)),
              analysed(Scorecard(0.0, "-", "dps", note="no combat in this run, nothing to score"), 20.805, 0)),
             (run("1795069645-Bao", datetime(2026, 11, 18, 22, 27, 25), pieces=2),
-             analysed(card_2227(), 4185.257, 1977.628, (6, 6), mine=1, others=3)),
+             analysed(card_2227(), 4185.257, 1977.628, (6, 6), mine=1, others=3, kills=31,
+                      fights=sorted(BOSSES + TRASH, key=lambda fr: fr.fight.start))),
             (run("broken", datetime(2026, 11, 17, 20, 0)), None)]
+
+
+def records_history(best: float = 82.0):
+    """made up round the real 22:27: 8 Nov, left after the trash (faster, so not a clear); 11 Nov, a clear scoring
+    best; 17 Nov, too short to compare (its big numbers never count); then 22:27"""
+    left = analysed(card(71.0), 1000, 600, kills=27, fights=[
+        fight(0, 30, 95, damage=2100, share=1.0), fight(100, 20, 92), fight(200, 20, 91), fight(300, 20, 95),
+        fight(400, 20, 70)])
+    clear = analysed(card(best, {"Cooldowns": 6.2}), 3490, 1720, (6, 6), kills=25, fights=[
+        fight(0, 30, 95, "Ghamoo-ra"), fight(100, 25, 95, "Lady Sarevess", 2000, 1.4), fight(200, 30, 95, "Geilhast"),
+        fight(300, 30, 95, "Twilight Lord Kelris"), fight(400, 30, 95, "Aku'mai"), fight(500, 30, 50, "Old Serra'kis")])
+    short = analysed(card(64.0), 45, 40, kills=99, fights=[fight(0, 40, 99, damage=20000, share=3.0)])
+    return [(run("r8", datetime(2026, 11, 8, 21, 0)), left), (run("r11", datetime(2026, 11, 11, 21, 0)), clear),
+            (run("r17", datetime(2026, 11, 17, 21, 0)), short), blackfathom()[2]]
 
 
 def visit(day: int, score: float | None, lost: dict, cats: dict | None = None, short: float | None = None) -> Visit:
@@ -155,6 +198,108 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(history_meta(h), "2 visits · none scored")
 
 
+class BossesRecordsTests(unittest.TestCase):
+    def test_bosses_weakest(self):
+        pairs = blackfathom()
+        pairs[0][1].fights = [fight(1, 2.2, 20.0, "Ghamoo-ra", 50, 1.0)]     # R10: too short to compare, never counts
+        rows, weakest, average = build_bosses(pairs, TODAY)
+        self.assertEqual([r.name for r in rows], ["Ghamoo-ra", "Lady Sarevess", "Geilhast", "Twilight Lord Kelris",
+                                                  "Aku'mai", "Old Serra'kis"])
+        self.assertIs(weakest, rows[0])
+        self.assertEqual((weakest.today, weakest.grade, weakest.kill_s, round(weakest.dps), weakest.share,
+                          weakest.lost, weakest.history, weakest.best, weakest.fight),
+                         (85.5, "A", 31, 35, 1.06, [("Damage", 8.0), ("Upkeep", 6.5)], [85.5], (85.5, "today"),
+                          (227, 258)))
+        self.assertEqual(round(average), 95)
+        self.assertAlmostEqual(average, (85.5 + 100 + 98.7 + 90.5 + 99.1 + 98.4) / 6)
+        self.assertEqual(bosses_text(rows, weakest, "today"), (
+            "average boss score today · 6 of 6 killed",
+            "Your weakest boss is Ghamoo-ra (86 A), the first one: it lost 8.0 points on Damage and 6.5 on Upkeep. "
+            "Every other boss was 90 or better."))
+        # an earlier visit: Kelris a wipe, Aku'mai not reached, and a boss only met then (after today's, in its row)
+        pairs.append((run("r11", datetime(2026, 11, 11, 21, 0)), analysed(card(82.0), 3490, 1720, kills=25, fights=[
+            fight(200, 30, 88.0, "Ghamoo-ra"), fight(600, 30, 96.0, "Lady Sarevess"),
+            fight(900, 30, 70.0, "Baron Aquanis"), fight(3300, 60, 40.0, "Twilight Lord Kelris", killed=False),
+            fight(3800, 30, 97.0, "Old Serra'kis")])))
+        rows, weakest, _ = build_bosses(pairs, TODAY)
+        by = {r.name: r for r in rows}
+        self.assertEqual(list(by)[-1], "Baron Aquanis")
+        self.assertIs(weakest, by["Ghamoo-ra"])
+        self.assertEqual((by["Ghamoo-ra"].history, by["Ghamoo-ra"].best), ([88.0, 85.5], (88.0, "11 Nov")))
+        self.assertEqual((by["Lady Sarevess"].history, by["Lady Sarevess"].best), ([96.0, 100.0], (100.0, "today")))
+        self.assertEqual((by["Twilight Lord Kelris"].history, by["Twilight Lord Kelris"].missed),
+                         ([None, 90.5], ["wipe", ""]))
+        self.assertEqual((by["Aku'mai"].history, by["Aku'mai"].missed), ([None, 99.1], ["not reached", ""]))
+        b = by["Baron Aquanis"]
+        self.assertEqual((b.today, b.grade, b.kill_s, b.dps, b.lost, b.history, b.missed, b.best, b.fight),
+                         (None, "-", None, None, [], [70.0, None], ["", "not reached"], (70.0, "11 Nov"), None))
+        self.assertEqual(bosses_text(rows, weakest, "18 Nov")[0],
+                         "average boss score on 18 Nov · 6 of 7 killed")
+        self.assertEqual(build_bosses(blackfathom()[:2]), ([], None, None))       # none scored
+
+    def test_records_new_today(self):
+        records, _ = build_records(records_history(), TODAY)
+        self.assertEqual(records, [
+            Record("Best score", "82 A", "11 Nov", "75 B", "7 short · within reach", False),
+            Record("Fastest clear", "58:10", "11 Nov", "69:45", "11:35 behind", False, "whole visit, entry to exit"),
+            Record("Least time in combat", "28:40", "11 Nov", "32:57", "4:17 behind", False),
+            Record("Most killing blows", "31", "today", "31", "new record today · was 27 · 8 Nov", True),
+            Record("Highest DPS in a fight", "85 DPS", "today", "85", "new record today · was 80 · 11 Nov", True,
+                   "Lady Sarevess, 24s at 11:23"),
+            Record("Longest S streak", "6 fights", "today", "6", "new record today · was 5 · 11 Nov", True,
+                   "fights scoring 90+ in a row, 11:23 to 15:25"),
+            Record("Deathless visits", "2 of 3", "last 11 Nov", "1 death", "not this visit", False,
+                   "visits with no deaths")])
+        # the last visit on another day: "new record", its day for "today"
+        records, _ = build_records(records_history(), date(2026, 11, 20))
+        self.assertEqual((records[3].when, records[3].status), ("18 Nov", "new record · was 27 · 8 Nov"))
+        # the last visit the best: a new record, so nothing to reach
+        records, within = build_records(records_history(best=70.0), TODAY)
+        self.assertEqual(records[0],
+                         Record("Best score", "75 B", "today", "75 B", "new record today · was 71 B · 8 Nov", True))
+        self.assertIsNone(within)
+        h = build_history(visits(records_history(best=70.0)))
+        self.assertEqual(records_text(h, within, "today"), ("Today's 75 B is your best score here.",
+                                                            "New best today: 75 B — come back to beat it", None))
+
+    def test_records_within_reach(self):
+        records, within = build_records(records_history(), TODAY)
+        # R9: 75.3 + 10.3 (Cooldowns, the last visit's top points lost) beats 82; +7 is ceil(82 − 75.3)
+        self.assertEqual(within, ("Best 82 A", "+7 needed — your Cooldowns fix is worth 10.3"))
+        h = build_history(visits(records_history()))
+        self.assertEqual(records_text(h, within, "today"), (
+            "Today's 75 B is 7 points short of your best. Your Cooldowns fix alone (−10.3) would have beaten it.",
+            "Best 82 A: +7 needed — your Cooldowns fix is worth 10.3", None))
+        # 75.3 + 10.3 doesn't beat 86: out of reach
+        records, within = build_records(records_history(best=86.0), TODAY)
+        self.assertIsNone(within)
+        self.assertEqual(records[0].status, "11 short")
+        h = build_history(visits(records_history(best=86.0)))
+        self.assertEqual(records_text(h, within, "18 Nov"), (
+            "The 18 Nov visit's 75 B is 11 points short of your best.",
+            "Best 86 A: +11 needed — more than any one fix is worth", None))
+
+    def test_records_single_visit(self):
+        records, within = build_records(blackfathom(), TODAY)       # one scored visit; two too short; one broken
+        self.assertIsNone(within)
+        self.assertEqual({r.status for r in records}, {"first visit"})
+        self.assertFalse(any(r.new_today for r in records))
+        self.assertEqual([(r.name, r.value, r.when, r.today) for r in records], [
+            ("Best score", "75 B", "today", "75 B"), ("Fastest clear", "69:45", "today", "69:45"),
+            ("Least time in combat", "32:57", "today", "32:57"), ("Most killing blows", "31", "today", "31"),
+            ("Highest DPS in a fight", "85 DPS", "today", "85"), ("Longest S streak", "6 fights", "today", "6"),
+            ("Deathless visits", "0 of 1", "–", "1 death")])
+        self.assertEqual((records[4].note, records[5].note),
+                         ("Lady Sarevess, 24s at 11:23", "fights scoring 90+ in a row, 11:23 to 15:25"))
+        h = build_history(visits(blackfathom()))
+        self.assertEqual(records_text(h, within, "today"), (
+            "Every record here is from today's visit, your only scored one.", "First visit — records start here",
+            "Visits with under 60 s in combat are too short to compare."))
+        self.assertEqual(build_records(blackfathom()[:2]), ([], None))       # none scored
+        self.assertEqual(records_text(build_history(visits(blackfathom()[:2])), None, "today")[:2],
+                         ("No scored visit yet, so no records.", "No scored visit yet — come back after a full run"))
+
+
 @unittest.skipUnless(HAVE_QT, "needs PyQt6")
 class HistoryTabTests(unittest.TestCase):
     @classmethod
@@ -233,6 +378,61 @@ class HistoryTabTests(unittest.TestCase):
         self.assertFalse(tab.grab().isNull())
         tab.resize(1000, 1400)                          # narrow: labels thin out, nothing breaks
         self.assertFalse(tab.grab().isNull())
+
+    @staticmethod
+    def dungeon(pairs):
+        from dips_score.ui.pages import DungeonPage
+        page = DungeonPage()
+        page.show_dungeon("Blackfathom Deeps", [r for r, _ in pairs], {r.id: a for r, a in pairs if a})
+        page.resize(1500, 1100)
+        page.show()
+        return page
+
+    def test_bosses_tab(self):
+        page = self.dungeon(blackfathom())
+        tab = page.bosses
+        self.assertEqual((tab.page.title, tab.hero.big, tab.hero.suffix), ("Blackfathom Deeps", "95", "S"))
+        self.assertEqual((tab.plate.title, tab.plate.price, tab.plate.caption, tab.plate.body),
+                         ("Ghamoo-ra · 86 A", "−8.0 points", "Damage · then −6.5 Upkeep", "31 s · 35 DPS"))
+        self.assertEqual(tab.table.heads[5], "Score by visit")      # one scored visit: no history yet
+        shown = []
+        page.show_fight.connect(lambda *a: shown.append(a))
+        tab.plate.button.click()
+        self.assertEqual(shown, [("1795069645-Bao", 224.0, 261.0)])     # that visit, at Ghamoo-ra (3 s either side)
+        page.setCurrentWidget(tab)
+        self.assertFalse(page.grab().isNull())
+        self.assertLess(tab.route.circled.center().x(), tab.route.width() / 6)     # the weakest: the first station
+        page = self.dungeon(blackfathom()[:2])          # none scored: nothing to show but the head and the plate
+        self.assertEqual((page.bosses.hero.big, page.bosses.plate.has_button), ("–", False))
+        self.assertTrue(page.bosses.route.isHidden() and page.bosses.table.isHidden())
+        page.setCurrentWidget(page.bosses)
+        self.assertFalse(page.grab().isNull())
+
+    def test_records_tab(self):
+        from PyQt6.QtCore import QPoint, Qt
+        from PyQt6.QtTest import QTest
+        page = self.dungeon(records_history())
+        tab = page.records
+        self.assertEqual((tab.hero.big, tab.hero.suffix), ("82", "A"))
+        self.assertEqual(tab.plate.title, "Best 82 A: +7 needed — your Cooldowns fix is worth 10.3")
+        t, b, f = tab.plate.scale
+        self.assertEqual((t, b, round(f, 3)), (75.334, 82.0, 85.591))
+        opened = []
+        page.open_run.connect(opened.append)
+        tab.plate.button.click()
+        self.assertEqual(opened, ["1795069645-Bao"])
+        page.setCurrentWidget(tab)
+        self.assertFalse(page.grab().isNull())
+        self.assertEqual(tab.board.circled, 3)      # three new records: only the first in board order is circled
+        QTest.mouseClick(tab.board, Qt.MouseButton.LeftButton, pos=QPoint(60, round(tab.board.link_y + 20)))
+        self.assertIs(page.currentWidget(), page.bosses)        # the Bosses row
+        page = self.dungeon(blackfathom())              # one scored visit
+        tab = page.records
+        self.assertEqual((tab.plate.title, tab.plate.has_button, tab.plate.scale),
+                         ("First visit — records start here", False, None))
+        page.setCurrentWidget(tab)
+        self.assertFalse(page.grab().isNull())
+        self.assertIsNone(tab.board.circled)
 
 
 if __name__ == "__main__":
