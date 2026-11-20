@@ -6,7 +6,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from dips_score.ui import tokens  # noqa: E402
+import os  # noqa: E402
+import tempfile  # noqa: E402
+
+from dips_score.config import Paths  # noqa: E402
+from dips_score.ui import settings_store, tokens  # noqa: E402
 
 
 class TokensTest(unittest.TestCase):
@@ -33,6 +37,22 @@ class TokensTest(unittest.TestCase):
     def test_ink_for(self):
         self.assertEqual(tokens.ink_for("Cooldowns"), "m-cd")
         self.assertEqual(tokens.ink_for("Something new"), "m-act")
+
+    def test_settings_legacy_theme(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = os.environ.get("APPDATA")
+            os.environ["APPDATA"] = d
+            try:
+                paths = Paths(Path(d))
+                (paths.data_dir).mkdir()
+                (paths.data_dir / "settings.json").write_text('{"theme": "wow"}', encoding="utf-8")
+                got = settings_store.load(paths)
+            finally:
+                if old is None:
+                    del os.environ["APPDATA"]
+                else:
+                    os.environ["APPDATA"] = old
+        self.assertEqual((got["theme"], got["mode"]), ("timeless", "auto"))
 
 
 if __name__ == "__main__":

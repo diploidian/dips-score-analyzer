@@ -13,6 +13,7 @@ if (-not (Test-Path "$venv\Scripts\python.exe")) { python -m venv $venv }
 if ($LASTEXITCODE) { throw "pip install failed" }
 
 & "$venv\Scripts\pyinstaller.exe" --noconfirm --clean --windowed --name dips-score `
+    --add-data "..srcdips_scoreIonts;dips_scoreIonts" `
     --paths src --distpath build\pyinstaller --workpath build\pyinstaller-work --specpath build `
     dips-score.pyw
 if ($LASTEXITCODE) { throw "PyInstaller failed" }

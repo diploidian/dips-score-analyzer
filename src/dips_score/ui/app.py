@@ -12,7 +12,7 @@ import traceback
 from pathlib import Path
 
 from PyQt6.QtCore import QFileSystemWatcher, Qt, QTimer
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QGuiApplication
 from PyQt6.QtWidgets import (QApplication, QHBoxLayout, QMainWindow, QPushButton, QScrollArea, QSplitter,
                              QStackedWidget, QTabWidget, QToolButton, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
                              QWidget)
@@ -446,7 +446,9 @@ class Window(QMainWindow):
 
 def apply_look(paths: Paths, settings: dict):
     """theme, then the dips-Core texture, then the style for both"""
-    theme.apply(settings["theme"])
+    theme.load_fonts()
+    os_dark = QGuiApplication.styleHints().colorScheme() == Qt.ColorScheme.Dark
+    theme.apply(settings["theme"], settings["mode"], os_dark)
     on, alpha, _ = app_settings.texture_choice(paths, settings)
     theme.set_texture(texture.tile(paths, alpha) if on else None)
     QApplication.instance().setStyleSheet(theme.stylesheet())
