@@ -2,22 +2,24 @@
 fix on the plate, the main measures and where the points went; on the right, the run's fights as a grid with the ones to
 review circled in highlighter.
 
-Sizes follow docs/design/mockups/debrief.html (CSS px). Each part paints itself, and the same pass measures its
-height for a width, so text wraps the way it is drawn.
+Sizes follow docs/design/mockups/debrief.html (CSS px). The shared parts (hero, plate, bar rows, drawer, hand marks)
+come from kit.py; each paints itself, and the same pass measures its height for a width, so text wraps the way it is
+drawn.
 """
 import math
 
-from PyQt6.QtCore import QEasingCurve, QEvent, QPointF, QRectF, QSize, Qt, QVariantAnimation, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen, QPolygonF, QTextLayout
-from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QToolTip,
-                             QVBoxLayout, QWidget)
+from PyQt6.QtCore import QEasingCurve, QPointF, QRectF, Qt, QVariantAnimation, pyqtSignal
+from PyQt6.QtGui import QFontMetricsF, QPainter, QPainterPath, QPen
+from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QVBoxLayout,
+                             QWidget)
 
-from ..debrief import (DebriefView, FightCell, bar_fraction, circle_fraction, display_name, note_alpha, route_alpha,
-                       ticker)
+from ..debrief import (DebriefView, FightCell, bar_fraction, breakdown_title, circle_fraction, display_name, note_alpha,
+                       route_alpha)
 from . import theme
+from .kit import (MINUS, BarRow, BarRows, Drawer, Hero, Part, Plate, adv, baseline, box, draw_hand_circle,
+                  draw_hand_note, draw_label_tab, elide, font, halo_text, hand_font, line, rule, text_at, wrapped)
 from .theme import tok
 
-MINUS = "−"
 NARROW = 1420        # the mock-up's breakpoint (window width): a smaller hero below it
 HEAD_H = 71          # title, meta line and the gold rule under them
 FIGHTS_W = 460       # the right-hand column
@@ -27,110 +29,7 @@ ENTRANCE_MS = 900     # the one entrance: ticker, bars, circles, note; p runs 0.
 PREVIEW = ("Rotation", "Pacing")   # measures still being worked out
 
 
-# ---------------------------------------------------------------------------- painting helpers
-def font(px: int, weight: int = 400, num: bool = False, spacing: float = 0) -> QFont:
-    """Barlow (num: Barlow Condensed) at px pixels; spacing in em, like the mock-up's letter-spacing"""
-    f = QFont(theme.NUM_FONT if num else theme.FONT)
-    f.setPixelSize(px)
-    f.setWeight(QFont.Weight(weight))
-    if spacing:
-        f.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, spacing * px)
-    return f
-
-
-def adv(f: QFont, s: str) -> float:
-    return QFontMetricsF(f).horizontalAdvance(s)
-
-
-def baseline(f: QFont, top: float, lh: float) -> float:
-    """where a CSS line box of height lh starting at top puts the baseline"""
-    fm = QFontMetricsF(f)
-    return top + (lh + fm.ascent() - fm.descent()) / 2
-
-
-def text_at(p: QPainter | None, f: QFont, color: QColor, x: float, base: float, s: str) -> float:
-    """s on the baseline; returns its width"""
-    if p:
-        p.setFont(f)
-        p.setPen(color)
-        p.drawText(QPointF(x, base), s)
-    return adv(f, s)
-
-
-def line(p, f, color, x, top, lh, s) -> float:
-    return text_at(p, f, color, x, baseline(f, top, lh), s)
-
-
-def elide(f: QFont, s: str, width: float) -> str:
-    return QFontMetricsF(f).elidedText(s, Qt.TextElideMode.ElideRight, width)
-
-
-def wrapped(p, f, color, x, top, width, lh, s) -> float:
-    """s word-wrapped to width, lines lh apart; returns its height"""
-    tl = QTextLayout(s, f)
-    tl.beginLayout()
-    fm, n = QFontMetricsF(f), 0
-    while (ln := tl.createLine()).isValid():
-        ln.setLineWidth(width)
-        ln.setPosition(QPointF(0, n * lh + (lh - fm.ascent() - fm.descent()) / 2))
-        n += 1
-    tl.endLayout()
-    if p:
-        p.setPen(color)
-        tl.draw(p, QPointF(x, top))
-    return n * lh
-
-
-def flow(p, items, x, top, width, gap, row_gap) -> float:
-    """(text, font, color) items on a shared baseline, wrapping like flex-wrap; returns the height"""
-    rows, cur, used = [], [], 0.0
-    for s, f, c in items:
-        w = adv(f, s)
-        if cur and used + gap + w > width:
-            rows.append(cur)
-            cur, used = [], 0.0
-        used += (gap if cur else 0) + w
-        cur.append((s, f, c, w))
-    if cur:
-        rows.append(cur)
-    y = top
-    for k, row in enumerate(rows):
-        y += row_gap if k else 0
-        asc = max(QFontMetricsF(f).ascent() for _, f, _, _ in row)
-        desc = max(QFontMetricsF(f).descent() for _, f, _, _ in row)
-        bx = x
-        for s, f, c, w in row:
-            text_at(p, f, c, bx, y + asc, s)
-            bx += w + gap
-        y += asc + desc
-    return y - top
-
-
-def rule(p, x, y, w, color, h=1):
-    p.fillRect(QRectF(x, round(y), w, h), color)
-
-
-def box(p, r: QRectF, edge: QColor, fill: QColor | None = None, width: int = 1):
-    """a square frame, drawn as filled edges so it stays crisp"""
-    r = QRectF(round(r.x()), round(r.y()), round(r.width()), round(r.height()))
-    if fill is not None:
-        p.fillRect(r, fill)
-    for e in (QRectF(r.x(), r.y(), r.width(), width), QRectF(r.x(), r.bottom() - width, r.width(), width),
-              QRectF(r.x(), r.y(), width, r.height()), QRectF(r.right() - width, r.y(), width, r.height())):
-        p.fillRect(e, edge)
-
-
-def label_tab(p, x, y, s) -> QRectF:
-    """the boxed module label: Barlow Condensed 700 11px, .16em, capitals, a 1px ln frame on panel"""
-    f, s = font(11, 700, num=True, spacing=0.16), s.upper()
-    r = QRectF(x, y, adv(f, s) + 22, 25)
-    if p:
-        box(p, r, tok("ln"), tok("panel"))
-        line(p, f, tok("tx"), x + 11, y + 7, 11, s)
-    return r
-
-
-def tag(p, x, mid, s):
+def preview_tag(p, x, mid, s):
     """the small gold-framed tag ("preview"), centred on mid"""
     f, s = font(11, 600, spacing=0.1), s.upper()
     h = 11 * 1.2 + 6
@@ -139,156 +38,23 @@ def tag(p, x, mid, s):
     line(p, f, tok("gold"), x + 7, r.y() + 3, 11 * 1.2, s)
 
 
-# ---------------------------------------------------------------------------- the parts
-class _Part(QWidget):
-    """a part of the debrief: draw(None, w) measures its height for a width, draw(p, w) paints it"""
+# ---------------------------------------------------------------------------- the debrief's own parts
+class MeasureBars(Part):
+    """Effectiveness: the main measures as bars, with the 90 target marked"""
 
     def __init__(self):
         super().__init__()
         self.view = DebriefView()
-        self.narrow = False
-        self.p = 1.0           # the entrance's progress; 1 draws the settled page
-        sp = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
-        sp.setHeightForWidth(True)
-        self.setSizePolicy(sp)
 
-    def set_view(self, view: DebriefView, narrow: bool):
-        self.view, self.narrow = view, narrow
-        self.updateGeometry()
-        self.update()
-
-    def hasHeightForWidth(self) -> bool:
-        return True
-
-    def heightForWidth(self, w: int) -> int:
-        return math.ceil(self.draw(None, w))
-
-    def sizeHint(self) -> QSize:
-        return QSize(300, self.heightForWidth(300))
-
-    def paintEvent(self, _ev):
-        self.draw(QPainter(self), self.width())
-
-    def draw(self, p: QPainter | None, w: float) -> float:
-        raise NotImplementedError
-
-
-class Hero(_Part):
-    """the score, its boxed grade and the verdict: the fixed-width column left of the plate"""
-
-    def draw(self, p, w):
-        v = self.view
-        px = 126 if self.narrow else 150
-        f = font(px, 700, num=True, spacing=-0.02)
-        top, lh = 8, px * 0.8
-        # "-": nothing judgeable, so no grade to box; the "–" placeholder is muted so it reads as a dash, not a block
-        x = adv(f, v.total)      # the final width, so the grade's box doesn't move while the number ticks
-        if p:
-            text_at(p, f, tok("tx") if v.grade != "-" else tok("mu"), 0, baseline(f, top, lh), ticker(v.total, self.p))
-        if v.grade != "-":
-            gpx, pv, ph = (46, 4, 10) if self.narrow else (56, 5, 12)
-            g = font(gpx, 700, num=True)
-            r = QRectF(x + 10, top + 6, adv(g, v.grade) + 2 * ph + 4, gpx + 2 * pv + 4)
-            if p:
-                p.setOpacity(min(1.0, self.p / 0.78))      # the grade appears as the number lands
-                box(p, r, tok("gold"), width=2)
-            text_at(p, g, theme.grade_color(v.grade), r.x() + 2 + ph, baseline(g, r.y() + 2 + pv, gpx), v.grade)
-            if p:
-                p.setOpacity(1)
-        y = top + lh + 16
-        return y + wrapped(p, font(15), tok("tx2"), 0, y, w, 21, v.verdict or v.note)
-
-
-class FixPlate(_Part):
-    """the one solid plate: the fix worth the most points, its price, Show me, and the next two fixes"""
-
-    def __init__(self):
-        super().__init__()
-        self.button = QPushButton("Show me on the timeline", self)
-        self.button.setObjectName("showme")
-        self.button.hide()
-        self.can_show = False      # set by the page: a fix, and a fight to zoom to
-        self.wrap = True           # the next fixes wrap; the page sets False when that wouldn't fit its height
-        self.button_y = self.next_y = 0.0
-
-    def set_view(self, view, narrow):
-        super().set_view(view, narrow)
-        self._place()
-
-    def resizeEvent(self, ev):
-        self._place()
-        super().resizeEvent(ev)
-
-    def _place(self):
-        self.button.adjustSize()
-        self.draw(None, self.width())       # finds button_y
-        self.button.move(18, round(self.button_y))
-        self.button.setVisible(self.can_show)
-
-    def event(self, ev):
-        """when the next fixes are cut to one line each, hovering them shows them whole"""
-        if (ev.type() == QEvent.Type.ToolTip and not self.wrap and self.view.next_fixes
-                and ev.pos().y() >= self.next_y):
-            QToolTip.showText(ev.globalPos(), "\n".join(nx.title for nx in self.view.next_fixes), self)
-            return True
-        return super().event(ev)
-
-    def paintEvent(self, _ev):
-        p = QPainter(self)
-        h = self.draw(None, self.width())
-        p.fillRect(QRectF(0, 12, self.width(), h - 12), tok("plate"))
-        self.draw(p, self.width())
-        label_tab(p, 14, 0, "Fix this first")    # straddles the plate's top edge
-
-    def draw(self, p, w, wrap: bool | None = None):
-        v, fix, n = self.view, self.view.fix, self.narrow
-        wrap = self.wrap if wrap is None else wrap
-        x, cw = 18, w - 36
-        y = 12 + 22
-        tpx = 21 if n else 23
-        y += wrapped(p, font(tpx, 600, num=True), tok("plate-tx"), x, y, cw, tpx * 1.15,
-                     fix.title if fix else "Nothing to fix this run.") + 8
-        if fix is None:
-            return y + 14
-        price = [(f"{MINUS}{fix.points:.1f} points", font(32, 700, num=True), tok("plate-ac")),
-                 (display_name(fix.category), font(13), tok("plate-mu"))]
-        if fix.damage:
-            price.append((fix.damage, font(13), tok("plate-mu")))
-        y += flow(p, price, x, y, cw, 12 if n else 18, 2)
-        if self.can_show:
-            self.button_y = y + 10
-            y = self.button_y + self.button.sizeHint().height()
-        if v.next_fixes:
-            y += 10
-            if p:
-                rule(p, x, y, cw, tok("plate-ln"))
-            y += 1 + 7
-            self.next_y = y
-            nf, bf, lh = font(12 if n else 13), font(14, 600, num=True), (12 if n else 13) * 1.4
-            for k, nx in enumerate(v.next_fixes):
-                y += 4 if k else 0
-                cost = f"{MINUS}{nx.points:.1f} {display_name(nx.category)}"
-                cost_w = adv(bf, cost)
-                tw = max(0.0, cw - cost_w - 10)
-                if p:
-                    line(p, bf, tok("plate-ac"), x + cw - cost_w, y, lh, cost)
-                if wrap:
-                    y += wrapped(p, nf, tok("plate-tx"), x, y, tw, lh, nx.title)
-                else:
-                    if p:
-                        line(p, nf, tok("plate-tx"), x, y, lh, elide(nf, nx.title, tw))
-                    y += lh
-        return y + 14
-
-
-class MeasureBars(_Part):
-    """Effectiveness: the main measures as bars, with the 90 target marked"""
+    def set_view(self, view: DebriefView):
+        self.view = view
+        self.changed()
 
     def draw(self, p, w):
         if p:
             rule(p, 0, 0, w, tok("ln"))
         y = 1 + 12
-        label_tab(p, 0, y, "Effectiveness")
+        draw_label_tab(p, 0, y, "Effectiveness")
         y += 25 + 8
         bx, bw = 174, max(0, w - 298)   # columns: 160 name, 14 gap, the bar, 14 gap, 110 value
         nf, vf, rf, sf = font(14, 500), font(30, 700, num=True), font(11), font(11, 500)
@@ -302,7 +68,7 @@ class MeasureBars(_Part):
             if p:
                 nw = line(p, nf, tok("tx"), 0, y, r1, m.name)
                 if m.name in PREVIEW:
-                    tag(p, nw + 8, y + r1 / 2, "preview")
+                    preview_tag(p, nw + 8, y + r1 / 2, "preview")
                 by = y + (r1 - 10) / 2
                 p.fillRect(QRectF(bx, by, bw, 10), tok("track"))
                 p.fillRect(QRectF(bx, by, bw * max(0.0, min(100.0, m.score or 0)) / 100 * bar_fraction(self.p, k), 10),
@@ -318,63 +84,29 @@ class MeasureBars(_Part):
         return y + 12
 
 
-class DrawerToggle(QWidget):
-    """the All categories header: a drawn chevron and its label. Click it, or Tab to it and press Space or Enter"""
-    toggled = pyqtSignal(bool)
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.open, self.label = False, ""
-        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)     # the focus ring is for the keyboard, like :focus-visible
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-    def set_label(self, s: str):
-        self.label = s.upper()
-        self.setAccessibleName(s)
-        self.setFixedSize(math.ceil(adv(font(12, 600, num=True, spacing=0.08), self.label)) + 28, 25)
-        self.update()
-
-    def mousePressEvent(self, _ev):
-        self.flip()
-
-    def keyPressEvent(self, ev):
-        if ev.key() in (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter):
-            self.flip()
-        else:
-            super().keyPressEvent(ev)
-
-    def flip(self):
-        self.open = not self.open
-        self.update()
-        self.toggled.emit(self.open)
-
-    def paintEvent(self, _ev):
-        p = QPainter(self)
-        if self.hasFocus():
-            box(p, QRectF(self.rect()), tok("hl"), width=2)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.setPen(QPen(tok("tx"), 1.6))
-        c = QPointF(12, self.height() / 2)
-        pts = ((-4, -2), (0, 2), (4, -2)) if self.open else ((-2, -4), (2, 0), (-2, 4))   # down, or right
-        p.drawPolyline(QPolygonF([c + QPointF(dx, dy) for dx, dy in pts]))
-        line(p, font(12, 600, num=True, spacing=0.08), tok("tx"), 22, 0, self.height(), self.label)
-
-
-class Breakdown(_Part):
+class Breakdown(BarRows):
     """Where your points went: a bar per category, as long as the points it lost, then the points earned.
     Its All categories drawer (every category of the card, and the hybrid bonus) opens under Earned."""
 
     def __init__(self):
         super().__init__()
-        self.whose = "your"
+        self.view = DebriefView()
         self.open = False
-        self.toggle = DrawerToggle(self)        # on the tab's line, so the shut drawer takes no height
+        self.toggle = Drawer("All categories", parent=self)    # on the tab's line, so the shut drawer takes no height
         self.toggle.toggled.connect(self._open)
 
-    def set_view(self, view, narrow):
-        super().set_view(view, narrow)
-        self.toggle.set_label(f"All categories ({len(view.categories)})")
+    def set_view(self, view: DebriefView, whose: str):
+        """whose: "your", or "Anna's" """
+        self.view = view
+        most = max((lost.points for lost in view.lost), default=0) or 1
+        rows = [BarRow(display_name(lost.name), f"{MINUS}{lost.points:.1f}", lost.points / most, lost.ink)
+                for lost in view.lost]
+        if view.bonus > 0:          # so the rows add up to Earned
+            rows.append(BarRow("Hybrid bonus", f"+{view.bonus:.1f}", 0, "tx"))
+        self.title = breakdown_title(view.earned, rows, whose)
+        self.toggle.set_count(len(view.categories))
         self.toggle.setVisible(bool(view.categories))
+        self.set(rows, (f"Earned · {view.earned} of 100", str(view.earned)))
         self._place()
 
     def resizeEvent(self, ev):
@@ -387,56 +119,17 @@ class Breakdown(_Part):
 
     def _open(self, open_: bool):
         self.open = open_
-        self.updateGeometry()
-        self.update()
+        self.changed()
 
     def draw(self, p, w, open_: bool | None = None):
-        v = self.view
         open_ = self.open if open_ is None else open_
-        if p:
-            rule(p, 0, 0, w, tok("ln"))
-        y = 1 + 12
-        if not v.measures:       # nothing judged: only the drawer, so every category and why is still there
-            y += 25
+        if not self.view.measures:       # nothing judged: only the drawer, so every category and why is still there
+            if p:
+                rule(p, 0, 0, w, tok("ln"))
+            y = 1 + 12 + 25
             return (self._drawer(p, w, y + 8) if open_ else y) + 12
-        label_tab(p, 0, y, f"Where {self.whose} {100 - v.earned} points went")
-        y += 25 + 8
-        most = max((lost.points for lost in v.lost), default=0) or 1
-        nf, vf = font(15), font(15, 700, num=True)
-        for k, lost in enumerate(v.lost):
-            if k:
-                if p:
-                    rule(p, 0, y, w, tok("ln"))
-                y += 1
-            if p:
-                line(p, nf, tok("tx"), 0, y + 3, 18, display_name(lost.name))
-                p.fillRect(QRectF(120, y + 3 + 4, 220 * lost.points / most * bar_fraction(self.p, k), 10), tok(lost.ink))
-                s = f"{MINUS}{lost.points:.1f}"
-                line(p, vf, tok("tx"), w - adv(vf, s), y + 3, 18, s)
-            y += 3 + 18 + 3
-        if v.bonus > 0:          # so the rows add up to Earned
-            if v.lost:
-                if p:
-                    rule(p, 0, y, w, tok("ln"))
-                y += 1
-            if p:
-                line(p, nf, tok("tx"), 0, y + 3, 18, "Hybrid bonus")
-                s = f"+{v.bonus:.1f}"
-                line(p, vf, tok("tx"), w - adv(vf, s), y + 3, 18, s)
-            y += 3 + 18 + 3
-        if p:
-            rule(p, 0, y, w, tok("tx"), 2)
-        y += 2 + 6
-        if p:
-            ef, sf = font(20, 700, num=True), font(14, 500, num=True, spacing=0.04)
-            base = baseline(ef, y, 22)
-            ew = text_at(p, ef, tok("tx"), 0, base, "Earned")
-            text_at(p, sf, tok("mu"), ew + 6, base, f"· {v.earned} of 100")
-            text_at(p, ef, tok("tx"), w - adv(ef, str(v.earned)), base, str(v.earned))
-        y += 22 + 3
-        if open_:
-            y = self._drawer(p, w, y + 12)
-        return y + 12
+        y = super().draw(p, w)
+        return self._drawer(p, w, y) + 12 if open_ else y
 
     def _drawer(self, p, w, y) -> float:
         """one ruled row per category in the card's order (name, score, weight or why it's info only), then
@@ -466,16 +159,6 @@ NOTE_H = 34          # the band above the grid for the hand-written note
 PAD = 6              # either side of the grid: room for the circles on its edge columns
 GRID_VIEW = 608      # past 8 rows the grid scrolls, in a view this tall
 RX, RY = 31, 26      # a circle's radii
-
-
-def halo_text(p: QPainter, f: QFont, color: QColor, x: float, base: float, s: str) -> float:
-    """s on the baseline with a 3px panel halo, so it reads through the highlighter; returns its width"""
-    path = QPainterPath()
-    path.addText(x, base, f, s)
-    p.strokePath(path, QPen(tok("panel"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap,
-                            Qt.PenJoinStyle.RoundJoin))
-    p.fillPath(path, color)
-    return adv(f, s)
 
 
 class FightGrid(QWidget):
@@ -557,22 +240,9 @@ class FightGrid(QWidget):
         p.setBrush(Qt.BrushStyle.NoBrush)
         ks = [k for k, c in enumerate(self.cells) if c.index in self.review]
         cs = [self.circle_at(k) for k in ks]
-        p.setOpacity(0.8)
-        p.setPen(QPen(hl, 5, cap=Qt.PenCapStyle.RoundCap, join=Qt.PenJoinStyle.RoundJoin))
         for j, c in enumerate(cs):
-            f = circle_fraction(self.p, j)
-            if f <= 0:
-                continue
-            p.save()
-            p.translate(c)
-            p.rotate(-5 if j % 2 == 0 else 4)
-            if f >= 1:
-                p.drawEllipse(QPointF(0, 0), RX, RY)
-            else:       # drawn on: the ellipse's outline up to f of its length
-                ring = QPainterPath()
-                ring.addEllipse(QPointF(0, 0), RX, RY)
-                p.drawPolyline(QPolygonF([ring.pointAtPercent(f * i / 48) for i in range(49)]))
-            p.restore()
+            draw_hand_circle(p, QRectF(c.x() - RX, c.y() - RY, 2 * RX, 2 * RY), hl, -5 if j % 2 == 0 else 4,
+                             circle_fraction(self.p, j))
         late = route_alpha(self.p)
         p.setOpacity(0.6 * late)
         p.setPen(QPen(hl, 1.6, cap=Qt.PenCapStyle.RoundCap))
@@ -621,34 +291,13 @@ class FightGrid(QWidget):
             s = "every fight 90+"
         else:
             return
-        f = QFont(theme.HAND_FONT)
-        f.setPixelSize(27)
-        f.setWeight(QFont.Weight(600))
-        tw, base = adv(f, s), NOTE_H - 12
+        tw, base = adv(hand_font(), s), NOTE_H - 12
         cx = first.x() if first else PAD + 297     # no circle: where the mock-up's first one is
         side = 1 if cx - 61 - tw >= PAD else -1     # the note left of the circle, or right of it near the left edge
         x = min(max(cx - 61 - tw if side > 0 else cx + 61, PAD), PAD + COLS * CELL_W - tw)
-        p.save()
         p.setOpacity(note_alpha(self.p))
-        p.translate(x, base)
-        p.rotate(-3)
-        text_at(p, f, tok("hl-note"), 0, 0, s)
-        p.restore()
-        if first is None:
-            return
-        p.setOpacity(note_alpha(self.p))
-        start = QPointF(x + tw if side > 0 else x, base - 4)
-        end = QPointF(first.x() - 7 * side, first.y() - RY - 6)
-        ctrl = QPointF(end.x() - 18 * side, start.y() + 4)
-        arrow = QPainterPath(start)
-        arrow.quadTo(ctrl, end)
-        u = (end - ctrl) / math.hypot((end - ctrl).x(), (end - ctrl).y())
-        for a in (0.5, -0.5):       # the head: two barbs either side of the way in
-            arrow.moveTo(end - QPointF(u.x() * math.cos(a) - u.y() * math.sin(a),
-                                       u.x() * math.sin(a) + u.y() * math.cos(a)) * 9)
-            arrow.lineTo(end)
-        p.setPen(QPen(tok("hl"), 1.8, cap=Qt.PenCapStyle.RoundCap, join=Qt.PenJoinStyle.RoundJoin))
-        p.drawPath(arrow)
+        to = None if first is None else QPointF(first.x() - 7 * side, first.y() - RY - 6)
+        draw_hand_note(p, s, QPointF(x, base), to)
         p.setOpacity(1)
 
 
@@ -712,8 +361,10 @@ class DebriefPage(QWidget):
         self.entrance = QVariantAnimation(self, startValue=0.0, endValue=1.0, duration=ENTRANCE_MS,
                                           easingCurve=QEasingCurve.Type.OutQuart)
         self.entrance.valueChanged.connect(self.set_progress)
-        self.hero, self.plate, self.measures, self.breakdown = Hero(), FixPlate(), MeasureBars(), Breakdown()
-        self.plate.button.clicked.connect(lambda: self.show_me and self.zoom.emit(*self.show_me))
+        self.view, self.whose = DebriefView(), "your"
+        self.hero, self.plate = Hero(), Plate("Fix this first")
+        self.measures, self.breakdown = MeasureBars(), Breakdown()
+        self.plate.clicked.connect(lambda: self.show_me and self.zoom.emit(*self.show_me))
         self.top = QWidget()
         self.top.setFixedHeight(HEAD_H)
         self.top.setContentsMargins(0, 0, EDGE, 0)
@@ -755,12 +406,10 @@ class DebriefPage(QWidget):
         one_fight: the view is one fight's, so offer the way back to the whole run"""
         self.title, self.sub = title, sub
         self.whole.setVisible(one_fight)
+        self.view, self.whose = view, whose
         self.show_me = show_me if view.fix else None
-        self.plate.can_show = self.show_me is not None
-        self.breakdown.whose = whose
         self.fights.set_cells(view.fights, view.review)
-        for part in (self.hero, self.plate, self.measures, self.breakdown):
-            part.set_view(view, self.narrow)
+        self._fill()
         self.plate.setVisible(view.grade != "-")          # nothing judged (or no run): nothing to fix either
         self.measures.setVisible(bool(view.measures))    # an empty or unjudgeable card: nothing to measure
         self.breakdown.setVisible(bool(view.categories))  # but its categories stay listed
@@ -774,6 +423,20 @@ class DebriefPage(QWidget):
             self.set_progress(0.0 if motion else 1.0)
             if motion:
                 self.entrance.start()
+
+    def _fill(self):
+        """the view into the parts, at the page's size"""
+        v, fix = self.view, self.view.fix
+        for part in (self.hero, self.plate, self.measures, self.breakdown):
+            part.narrow = self.narrow
+        self.hero.set(v.total, None if v.grade == "-" else v.grade, None, None, v.verdict or v.note)
+        self.plate.set(fix.title if fix else "Nothing to fix this run.",
+                       f"{MINUS}{fix.points:.1f} points" if fix else None,
+                       " · ".join(filter(None, (display_name(fix.category), fix.damage))) if fix else None,
+                       "Show me on the timeline" if self.show_me else None,
+                       [(nx.title, f"{MINUS}{nx.points:.1f} {display_name(nx.category)}") for nx in v.next_fixes])
+        self.measures.set_view(v)
+        self.breakdown.set_view(v, self.whose)
 
     def set_progress(self, p: float):
         """the entrance's p (1: settled) to the parts that animate"""
@@ -798,7 +461,7 @@ class DebriefPage(QWidget):
         wrap = need <= (self.parentWidget() or self).height()
         if wrap != self.plate.wrap:
             self.plate.wrap = wrap
-            self.plate.set_view(self.plate.view, self.narrow)
+            self.plate.changed()
 
     def _fit(self):
         """the mock-up's narrow hero below a 1420px window"""
@@ -808,8 +471,7 @@ class DebriefPage(QWidget):
         self.narrow = narrow
         self.hero.setFixedWidth(214 if narrow else 260)
         self.hero_row.setSpacing(22 if narrow else 28)
-        for part in (self.hero, self.plate, self.measures, self.breakdown):
-            part.set_view(part.view, narrow)
+        self._fill()
 
     def paintEvent(self, _ev):
         p = QPainter(self)

@@ -7,8 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from types import SimpleNamespace as NS  # noqa: E402
 
-from dips_score.debrief import (FightCell, bar_fraction, build_view, circle_fraction, display_name, fight_cells,  # noqa: E402
-                                fight_of, note_alpha, ticker, worst_fight)
+from dips_score.debrief import (FightCell, bar_fraction, breakdown_title, build_view, circle_fraction,  # noqa: E402
+                                display_name, fight_cells, fight_of, note_alpha, ticker, worst_fight)
 from dips_score.scoring.score import Category, Scorecard, _card  # noqa: E402
 
 
@@ -224,6 +224,13 @@ class ViewTests(unittest.TestCase):
         self.assertEqual((ticker("75", 0), ticker("75", 0.78), ticker("75", 1)), ("0", "75", "75"))
         self.assertEqual([ticker("–", p) for p in (0, 0.4, 1)], ["–"] * 3)
         self.assertEqual(ticker("100", 0.39), "50")
+
+    def test_breakdown_title_capped(self):
+        rows = ["Survival", "Hybrid bonus"]       # a healer's card capped at 100: points lost, made up by the bonus
+        self.assertEqual(breakdown_title(100, rows, "your"), "Where the points went")
+        self.assertEqual(breakdown_title(75, rows, "your"), "Where your 25 points went")
+        self.assertEqual(breakdown_title(75, rows, "Anna's"), "Where Anna's 25 points went")
+        self.assertEqual(breakdown_title(100, [], "your"), "Where your 0 points went")   # nothing to list: unchanged
 
     def test_motion_is_on_by_default(self):
         from dips_score.ui.settings_store import DEFAULTS

@@ -97,6 +97,13 @@ def display_name(category: str) -> str:
     return "Abilities on time" if category == "Cooldowns" else category
 
 
+def breakdown_title(earned: int, rows: list, whose: str) -> str:
+    """the breakdown's heading; a card capped at 100 by a hybrid bonus lost points yet "lost" none, so no count"""
+    if 100 - earned == 0 and rows:
+        return "Where the points went"
+    return f"Where {whose} {100 - earned} points went"
+
+
 def _fix(cat, points: float) -> Fix:
     title = re.split(r" \(|\. ", cat.tip, maxsplit=1)[0].rstrip(".")
     m = re.search(r"~[\d,]+ damage", cat.tip)
