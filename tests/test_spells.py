@@ -147,23 +147,49 @@ class SpellsPageTests(unittest.TestCase):
                       "Wed 18 Nov 22:27 · 69:45 long")
         self.assertEqual(lit, [(None, None)])              # a refill clears the timeline's highlight
         self.assertEqual((tab.buffs_drawer.label, tab.all_drawer.label),
-                         ("BUFFS, SEALS AND BLESSINGS (12)", "ALL SPELLS (21)"))
+                         ("SEALS, BLESSINGS AND OTHER SPELLS (12)", "ALL SPELLS (21)"))
         self.assertTrue(tab.buffs_drawer.body.isHidden() and tab.all_drawer.body.isHidden())     # both start shut
         self.assertEqual((tab.buffs.rowCount(), tab.every.rowCount()), (12, 21))
-        self.assertEqual([tab.every.item(0, c).text() for c in range(5)], ["Melee", "–", "–", "52,475", "–"])
+        self.assertEqual([tab.every.item(0, c).text() for c in range(7)],
+                         ["Melee", "–", "–", "–", "9%", "52,475", "–"])
+        self.assertEqual([tab.every.item(1, c).text() for c in (3, 4)], ["6.9", "11%"])     # Seal of Command
         tab.plate.button.click()                            # Show on the timeline: Consecration's worst fight
         self.assertEqual(shown, [(382.3, 478.1, "me", "Consecration")])
         self.assertFalse(tab.grab().isNull())
+
+        def picked():
+            """what looks picked: the lifted rows, and each drawer table's selected row"""
+            return (tab.damage.sel, tab.healing.sel, *([i.row() for i in t.selectionModel().selectedRows()]
+                                                       for t in (tab.buffs, tab.every)))
         top, bottom, name = tab.damage.hits[1]              # a damage row clicked: lit, the tab stays
-        QTest.mouseClick(tab.damage, Qt.MouseButton.LeftButton, pos=QPoint(10, round((top + bottom) / 2)))
+        row = QPoint(10, round((top + bottom) / 2))
+        QTest.mouseClick(tab.damage, Qt.MouseButton.LeftButton, pos=row)
         self.assertEqual((name, lit[-1]), ("Seal of Command", ("me", "Seal of Command")))
-        QTest.mouseClick(tab.damage, Qt.MouseButton.LeftButton, pos=QPoint(10, round((top + bottom) / 2)))
-        self.assertEqual(lit[-1], (None, None))             # clicked again: unlit
+        QTest.mouseClick(tab.damage, Qt.MouseButton.LeftButton, pos=row)
+        self.assertEqual((lit[-1], picked()), ((None, None), (None, None, [], [])))     # clicked again: unlit
+        tab.buffs_drawer.flip()
         tab.all_drawer.flip()
-        tab.every.selectRow(3)                              # a drawer row picked
-        self.assertEqual(lit[-1], ("me", "Holy Strike"))
-        self.assertFalse(tab.grab().isNull())
-        tab.show_view(spells_view([], 0.0), "Nothing", "")  # nothing at all: no crash
+        self.assertFalse(tab.grab().isNull())               # laid out, so the tables' rows have places
+        QTest.mouseClick(tab.damage, Qt.MouseButton.LeftButton, pos=row)
+        tab.every.selectRow(3)                              # a drawer row picked: only it looks picked
+        self.assertEqual((lit[-1], picked()), (("me", "Holy Strike"), (None, None, [], [3])))
+        tab.buffs.selectRow(0)                              # the other drawer's: the first one lets go
+        self.assertEqual((lit[-1], picked()), (("me", "Seal of the Crusader"), (None, None, [0], [])))
+        QTest.mouseClick(tab.buffs.viewport(), Qt.MouseButton.LeftButton,
+                         pos=tab.buffs.visualRect(tab.buffs.model().index(0, 1)).center())   # the picked row again
+        self.assertEqual((lit[-1], picked()), ((None, None), (None, None, [], [])))
+        tab.every.selectRow(2)
+        QTest.mouseClick(tab.damage, Qt.MouseButton.LeftButton, pos=row)    # a ruled row: the table lets go
+        self.assertEqual((lit[-1], picked()),
+                         (("me", "Seal of Command"), ("Seal of Command", "Seal of Command", [], [])))
+        tab.every.selectRow(2)
+        self.assertEqual(picked(), (None, None, [], [2]))
+        QTest.keyClick(tab.every, Qt.Key.Key_Escape)       # Esc in a drawer table: unpicked
+        self.assertEqual((lit[-1], picked()), ((None, None), (None, None, [], [])))
+        tab.show_view(spells_view([], 0.0), "Nothing", "")  # nothing at all: no crash, and the plate emptied
+        self.assertEqual((tab.plate.title, tab.plate.price, tab.plate.rows, tab.plate.has_button),
+                         ("", None, [], False))
+        self.assertTrue(tab.plate.isHidden())
         self.assertFalse(tab.grab().isNull())
 
 

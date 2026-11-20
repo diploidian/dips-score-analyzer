@@ -6,12 +6,12 @@ Sizes follow docs/design/mockups/spells.html (CSS px). The shared parts come fro
 """
 from dataclasses import dataclass
 
-from PyQt6.QtCore import QRectF, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QPainter
 from PyQt6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
 
 from ..spells_view import REFUSED, SpellsView, build_spells
-from . import assets
+from . import assets, theme
 from .debrief import NARROW
 from .kit import (HEAD_H, Drawer, Hero, Part, Plate, Sheet, adv, baseline, draw_hand_circle, draw_label_tab, elide,
                   font, line, rule, text_at)
@@ -164,8 +164,12 @@ class Side(QWidget):
 
 
 def _body(t) -> QWidget:
-    """a drawer's table, with the mock-up's 12px under it"""
+    """a drawer's table, with the mock-up's 12px under it; its head in small tracked-caps type, as the mock-up's, so
+    the columns leave the names room in the side column"""
     t.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    # on the header itself, not only its sections: the header measures its sections in its own font
+    t.horizontalHeader().setStyleSheet(f'QHeaderView {{ font-family: "{theme.NUM_FONT}"; font-size: 11px; '
+                                       'font-weight: 600; } QHeaderView::section { padding: 4px 4px; }')
     w = QWidget()
     lay = QVBoxLayout(w)
     lay.setContentsMargins(0, 0, 0, 12)
@@ -204,12 +208,14 @@ class SpellsTab(QScrollArea):
         self.healing = Ruled("Healing", ["healed", "overheal"])
         for part in (self.damage, self.healing):
             part.clicked.connect(self._pick)
-        self.buffs = table(["Spell", "Casts", "Refused"], stretch=0)
-        self.every = table(["Spell", "Casts", "Refused", "Damage", "Healing"], stretch=0)
-        self.buffs_drawer = Drawer("Buffs, seals and blessings", _body(self.buffs))
+        self.buffs = table(["SPELL", "CASTS", "REFUSED"], stretch=0)
+        self.every = table(["SPELL", "CASTS", "REFUSED", "PER MIN", "CRIT", "DAMAGE", "HEALING"], stretch=0)
+        self.buffs_drawer = Drawer("Seals, blessings and other spells", _body(self.buffs))
         self.all_drawer = Drawer("All spells", _body(self.every))
         for t in (self.buffs, self.every):
             t.itemSelectionChanged.connect(lambda t=t: self._picked_in(t))
+            t.installEventFilter(self)              # Esc: unpicked
+            t.viewport().installEventFilter(self)   # the picked row clicked again: unpicked
 
         self.hero_row = QHBoxLayout()
         self.hero_row.setContentsMargins(0, 14, 0, 18)
@@ -278,9 +284,9 @@ class SpellsTab(QScrollArea):
                           None, view.verdict)
         else:
             self.hero.set("–", None, "no damage logged", None, view.verdict)
-        if view.fix:
-            title, price, caption = view.fix
-            self.plate.set(title, price, caption, "Show on the timeline" if view.show else None, view.next_rows)
+        title, price, caption = view.fix or ("", None, None)
+        self.plate.set(title, price, caption, "Show on the timeline" if view.show else None,
+                       view.next_rows if view.fix else [])
         self.plate.setVisible(bool(view.fix))      # cooldowns are measured for you only
         most = max((r.damage for r in view.damage_rows), default=0) or 1
         ring = next(((k, 2) for k, r in enumerate(view.damage_rows) if r.name == view.refused_most), None)
@@ -297,9 +303,9 @@ class SpellsTab(QScrollArea):
         self.buffs_drawer.set_count(len(view.buff_rows))
         self.all_drawer.set_count(len(view.all_rows))
         _fill_table(self.buffs, [(r.name, _casts(r), _refusals(r)) for r in view.buff_rows])
-        _fill_table(self.every, [(r.name, _casts(r), _refusals(r),
-                                  f"{r.damage:,}" if r.damage else NA, f"{r.healing:,}" if r.healing else NA)
-                                 for r in view.all_rows])
+        _fill_table(self.every, [(r.name, _casts(r), _refusals(r), NA if r.per_min is None else f"{r.per_min:.1f}",
+                                  NA if r.crit is None else f"{r.crit:.0%}", f"{r.damage:,}" if r.damage else NA,
+                                  f"{r.healing:,}" if r.healing else NA) for r in view.all_rows])
         for part in (self.damage, self.healing):
             part.sel = None
         self.page.update()
@@ -310,17 +316,33 @@ class SpellsTab(QScrollArea):
             start, end, spell = self.view.show
             self.show_me.emit(start, end, self.who.currentData(), spell)
 
-    def _pick(self, spell: str | None):
-        """a spell picked (None: unpicked): lit up on the timeline, which readies in the background"""
+    def _pick(self, spell: str | None, source=None):
+        """a spell picked (None: unpicked) in a ruled part, or in the drawer table source: lit up on the timeline,
+        which readies in the background; whatever else looked picked lets go"""
         for part in (self.damage, self.healing):
-            part.sel = spell
+            part.sel = spell if source is None else None
             part.update()
+        for t in (self.buffs, self.every):
+            if spell is None or t is not source:
+                t.clearSelection()      # its itemSelectionChanged finds nothing selected, so it picks nothing
         self.highlight.emit(self.who.currentData() if spell else None, spell)
 
     def _picked_in(self, t):
         rows = t.selectionModel().selectedRows()
         if rows:
-            self._pick(t.item(rows[0].row(), 0).data(Qt.ItemDataRole.UserRole))
+            self._pick(t.item(rows[0].row(), 0).data(Qt.ItemDataRole.UserRole), t)
+
+    def eventFilter(self, obj, ev):
+        """in a drawer table, Esc or a click on its picked row: unpicked"""
+        for t in (self.buffs, self.every):
+            if not t.selectionModel().hasSelection():
+                continue
+            if (obj is t and ev.type() == QEvent.Type.KeyPress and ev.key() == Qt.Key.Key_Escape
+                    or obj is t.viewport() and ev.type() == QEvent.Type.MouseButtonPress
+                    and t.selectionModel().isRowSelected(t.indexAt(ev.position().toPoint()).row())):
+                self._pick(None)
+                return True
+        return super().eventFilter(obj, ev)     # QScrollArea filters its page's resizes
 
     def resizeEvent(self, ev):
         self._fit()
