@@ -70,8 +70,8 @@ ROLE_NAME = {"dps": "DPS"}
 
 class ScoreTab(QWidget):
     """the Debrief tab: a player's debrief for the whole run, or for the fight picked. You get your full
-    scorecard; anyone else is scored from the combat log alone (as on the Summary tab)."""
-    zoom = pyqtSignal(float, float)
+    scorecard; anyone else is scored from the combat log alone (as on the Group tab)."""
+    zoom = pyqtSignal(float, float)     # Show me, or a fight picked: where the timeline should show
 
     def __init__(self):
         super().__init__()
@@ -82,7 +82,7 @@ class ScoreTab(QWidget):
         self.deaths: list = []             # the picked player's
         self.page = DebriefPage()
         self.page.zoom.connect(self.zoom)
-        self.page.picked.connect(self.show_fight)
+        self.page.picked.connect(self._pick)
         self.who = QComboBox()
         self.who.setMinimumWidth(220)
         self.who.currentIndexChanged.connect(self._who_changed)
@@ -177,8 +177,15 @@ class ScoreTab(QWidget):
         self._show(pl.card if pl else player_card(a, p.guid), None, len(self.deaths), f"{p.name} - {rd.run.zone}",
                    sub, None)
 
+    def _pick(self, i: int):
+        """a fight picked (or Whole run): its debrief, and the Timeline tab zoomed to the fight; a rescore redraws
+        with show_fight, so it stays on the tab it's on"""
+        self.show_fight(i)
+        if self.fight >= 0:
+            self.zoom.emit(*self._window(self.fight))
+
     def show_fight(self, i: int):
-        """one fight's debrief (-1: the whole run), and the timeline zoomed to it"""
+        """one fight's debrief (-1: the whole run)"""
         a = self.a
         if not a or not self._guid() or not 0 <= i < len(a.fights):
             self.show_whole()
@@ -192,7 +199,6 @@ class ScoreTab(QWidget):
         deaths = len(fight_of(self.deaths, a.data.fights).get(i, []))
         self._show(self.cards[i], fr.damage[1] if me and fr.damage else None, deaths, f"{f.label}{kill}",
                    f"{who}{a.data.run.zone} · at {fmt_time(f.start)} · {f.duration:.0f}s", i)
-        self.zoom.emit(*self._window(i))
 
 
 # ============================================================================ Group

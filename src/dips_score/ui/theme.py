@@ -135,7 +135,8 @@ QLabel#title {{ font-size: 15pt; font-weight: 600; color: {tx}; }}
 #rail {{ background: {T["rail"].name()}; color: {T["rail-tx"].name()}; }}
 #rail QLabel {{ color: {T["rail-tx"].name()}; }}
 #rail QLabel#dim {{ color: {T["rail-mu"].name()}; }}
-#rail QLabel#look {{ color: {T["rail-mu"].name()}; font-family: "{NUM_FONT}"; font-size: 11px; font-weight: 600; }}
+#rail QLabel#look {{ color: {T["rail-mu"].name()}; font-family: "{NUM_FONT}"; font-size: 11px; font-weight: 600;
+    margin-top: 14px; }}
 #rail QPushButton {{ background: {T["rail"].name()}; color: {T["rail-tx"].name()};
     border: 1px solid {T["rail-mu"].name()}; padding: 5px 10px; font-weight: 500; }}
 #rail QPushButton:hover {{ background: {T["rail-on"].name()}; }}
@@ -144,9 +145,11 @@ QLabel#title {{ font-size: 15pt; font-weight: 600; color: {tx}; }}
 #rail QPushButton[seg="1"] {{ border-right-width: 0; }}
 #rail QPushButton[seg="1"][last="1"] {{ border-right-width: 1px; }}
 #rail QPushButton[seg="1"]:checked {{ border-right-width: 1px; }}
-#rail QToolButton {{ background: {T["rail"].name()}; color: {T["rail-tx"].name()};
-    border: 1px solid {T["rail-mu"].name()}; font-size: 14pt; padding: 1px 8px; }}
-#rail QToolButton:hover {{ background: {T["rail-on"].name()}; }}
+#rail QPushButton[nav="1"] {{ border: 0; text-align: left; padding: 9px 20px; font-size: 15px; font-weight: 400; }}
+#rail QPushButton[nav="1"]:checked {{ font-weight: 600; }}
+#rail QPushButton#link {{ background: transparent; border: 0; padding: 0; color: {T["rail-mu"].name()};
+    font-size: 13px; font-weight: 400; }}
+#rail QPushButton#link:hover, #rail QPushButton#link:focus {{ text-decoration: underline; }}
 QSplitter::handle {{ background: {ln}; }}
 QScrollBar:vertical {{ background: {T["panel"].name()}; width: 10px; }}
 QScrollBar::handle:vertical {{ background: {ln}; min-height: 20px; }}

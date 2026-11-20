@@ -21,6 +21,7 @@ ap.add_argument("--look", default="timeless,day", help="<theme>,<mode>")
 ap.add_argument("--click-look", help="<theme>,<mode>: click the rail's Look buttons after the window is up")
 ap.add_argument("--replay", action="store_true", help="sum up the game's old combat logs into the temp history (Fights page)")
 ap.add_argument("--hover", action="store_true", help="after the run opens, show the timeline and put the mouse over it")
+ap.add_argument("--click", choices=["show-me"], help="show-me: press the Debrief's \"Show me on the timeline\"")
 ap.add_argument("--overlay", action="store_true", help="save the after-fight card (a real fight from the history) instead of the window")
 ap.add_argument("--size", default="1500x950")
 ap.add_argument("--out", required=True)
@@ -66,7 +67,7 @@ w.resize(width, height)
 w.show()
 PAGES = {"dungeons": w.mode_dungeons, "fights": w.mode_fights, "habits": w.mode_habits}
 TABS = {w.tabs.tabText(i).lower(): i for i in range(w.tabs.count())}
-want = {"score": "debrief"}.get(args.tab.lower(), args.tab.lower())   # Score is the old name
+want = {"score": "debrief", "summary": "group"}.get(args.tab.lower(), args.tab.lower())   # the old names
 if want not in PAGES and want not in TABS:
     sys.exit(f"unknown --tab {args.tab!r}; valid: " + ", ".join(w.tabs.tabText(i) for i in range(w.tabs.count()))
              + ", " + ", ".join(k.title() for k in PAGES))
@@ -80,12 +81,14 @@ if args.click_look:
         w.look_buttons[key].click()
 if want in TABS:
     w.tabs.setCurrentIndex(TABS[want])     # the redraw keeps it, but be sure
+if args.click == "show-me":
+    w.score.page.plate.button.click()
 
 
 if args.hover:
     from PyQt6.QtCore import QPoint
     from PyQt6.QtTest import QTest
-    w.timeline_pane.show()
+    w.show_on_timeline(w.timeline.v0, w.timeline.v1)
     QTimer.singleShot(150, lambda: QTest.mouseMove(w.timeline, QPoint(w.timeline.width() // 2, w.timeline.height() // 2)))
 
 

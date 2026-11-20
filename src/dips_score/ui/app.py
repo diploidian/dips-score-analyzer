@@ -1,9 +1,9 @@
 """The window.
 
-Left: dungeons, each opening into its visits. Right: picking a dungeon shows its page (your score
-on every visit); picking a visit shows its tabs (Debrief, Group, Pulls, Spells, Summary) above the
-timeline (hidden under the Debrief until its "Show me"). The window watches the add-on's saved file
-and reloads when the game saves (/reload, logout); a new visit opens by itself.
+Left, the rail: Dungeons, Fights and Habits, then the dungeons, each opening into its visits. Right: picking a
+dungeon shows its page (your score on every visit); picking a visit shows its tabs (Debrief, Timeline, Pulls,
+Spells, Group). The window watches the add-on's saved file and reloads when the game saves (/reload, logout);
+a new visit opens by itself.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pathlib import Path
 from PyQt6.QtCore import QFileSystemWatcher, Qt, QTimer
 from PyQt6.QtGui import QFont, QGuiApplication
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QMainWindow, QPushButton,
-                             QScrollArea, QSplitter, QStackedWidget, QTabWidget, QToolButton, QTreeWidget,
+                             QScrollArea, QSplitter, QStackedWidget, QTabWidget, QTreeWidget,
                              QTreeWidgetItem, QVBoxLayout, QWidget)
 
 from .. import analysis
@@ -61,44 +61,31 @@ class Window(QMainWindow):
         self.tree.currentItemChanged.connect(self._picked)
         left = QWidget()
         left.setObjectName("rail")
-        ll = QVBoxLayout(left)
-        ll.setContentsMargins(8, 8, 0, 8)
-        modes = QHBoxLayout()
+        nav = QVBoxLayout(left)                 # the nav list runs edge to edge; the rest sits inside `ll`
+        nav.setContentsMargins(0, 14, 0, 14)
+        nav.setSpacing(0)
         self.mode_dungeons = QPushButton("Dungeons")
         self.mode_fights = QPushButton("Fights")
         self.mode_habits = QPushButton("Habits")
         for b in (self.mode_dungeons, self.mode_fights, self.mode_habits):
             b.setCheckable(True)
-            modes.addWidget(b)
+            b.setProperty("nav", "1")           # flat text items, themed in theme.stylesheet
+            nav.addWidget(b)
         self.mode_dungeons.setChecked(True)
         self.mode_dungeons.clicked.connect(lambda: self._mode("dungeons"))
         self.mode_fights.clicked.connect(lambda: self._mode("fights"))
         self.mode_habits.clicked.connect(lambda: self._mode("habits"))
-        ll.addLayout(modes)
+        ll = QVBoxLayout()
+        ll.setContentsMargins(8, 12, 8, 0)
+        nav.addLayout(ll, 1)
         self.fight_list = FightList()
         self.left_stack = QStackedWidget()
         self.left_stack.addWidget(self.tree)
         self.left_stack.addWidget(self.fight_list)
         ll.addWidget(self.left_stack, 1)
-        self.status = dim_label()
+        self.status = dim_label()               # what's loaded, then the log delay (see _status)
+        self.status_text = ""
         ll.addWidget(self.status)
-        self.lag = dim_label()
-        self.lag.setToolTip("How long the game takes to write a fight to its log file. The app cannot shorten it.")
-        self.lag.hide()
-        ll.addWidget(self.lag)
-        weights_btn = QPushButton("Scoring weights...")
-        weights_btn.clicked.connect(self._open_weights)
-        ll.addWidget(weights_btn)
-        row = QHBoxLayout()
-        reload_btn = QPushButton("Reload")
-        reload_btn.clicked.connect(self.reload)
-        row.addWidget(reload_btn, 1)
-        cog = QToolButton()
-        cog.setText("\u2699")            # the settings cog
-        cog.setToolTip("Settings: the game folder, the game art and the overlay")
-        cog.clicked.connect(self._open_settings)
-        row.addWidget(cog)
-        ll.addLayout(row)
         look = QLabel("LOOK")
         look.setObjectName("look")      # themed in theme.stylesheet (Barlow Condensed 600)
         ll.addWidget(look)
@@ -122,6 +109,18 @@ class Window(QMainWindow):
                 b.setProperty("last", "1" if k == keys[-1] else "0")
                 r.addWidget(b)
             ll.addLayout(r)
+        links = QHBoxLayout()
+        links.setContentsMargins(0, 8, 0, 0)
+        links.setSpacing(16)
+        for text, slot in (("Settings", self._open_settings), ("Reload", self.reload)):
+            b = QPushButton(text)
+            b.setObjectName("link")             # quiet text links, themed in theme.stylesheet
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.setFocusPolicy(Qt.FocusPolicy.TabFocus)    # a click doesn't leave it underlined
+            b.clicked.connect(slot)
+            links.addWidget(b)
+        links.addStretch(1)
+        ll.addLayout(links)
         self.weights: WeightsDialog | None = None
         self.settings_dialog: SettingsDialog | None = None
         # opened from the tray: share the controller's settings, so changes here reach the overlay
@@ -132,44 +131,44 @@ class Window(QMainWindow):
         self.rescore_timer = QTimer(singleShot=True, interval=120)   # sliders move fast: score once they pause
         self.rescore_timer.timeout.connect(self._rescore)
 
-        # ---- right: the dungeon page, or a run's tabs above the timeline
+        # ---- right: the dungeon page, or a run's tabs
         self.dungeon = DungeonPage()
         self.dungeon.open_run.connect(self._open_run_id)
         self.score, self.group, self.pulls = ScoreTab(), GroupTab(), PullsTab()
         self.score.page.settings = self.settings
         self.spells, self.summary = SpellsTab(), SummaryTab()
-        self.tabs = QTabWidget()
-        for w, name in ((self.score, "Debrief"), (self.group, "Group"), (self.pulls, "Pulls"),
-                        (self.spells, "Spells"), (self.summary, "Summary")):
-            self.tabs.addTab(w, name)
         self.timeline = Timeline()
-        self.score.zoom.connect(self.timeline.set_view)
-        # the debrief brings the hidden timeline back only when asked: Show me, or picking a fight (not a rescore)
-        self.score.page.zoom.connect(lambda *_: self.timeline_pane.show())
-        self.score.page.picked.connect(lambda i: self.timeline_pane.show() if i >= 0 else None)
-        self.pulls.zoom.connect(self.timeline.set_view)
-        self.spells.highlight.connect(self.timeline.highlight)
-        self.group.changed.connect(self._group_changed)
-        self.tabs.currentChanged.connect(self._tab_changed)
-        self.group.forget.connect(self._forget_picks)
         scroll = QScrollArea()
         scroll.setWidget(self.timeline)
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        tl = self.timeline_pane = QWidget()
-        tl.hide()                 # the Debrief shows first, and has the room to itself
-        tll = QVBoxLayout(tl)
+        self.timeline_tab = QWidget()
+        tll = QVBoxLayout(self.timeline_tab)
         tll.setContentsMargins(0, 0, 0, 0)
-        tll.addWidget(dim_label("Timeline - wheel to zoom, drag to pan, double-click for the whole run, hover for "
-                                "details (shift+wheel scrolls down to everyone's rows)"))
+        tll.addWidget(dim_label("Wheel to zoom, drag to pan, double-click for the whole run, hover for details "
+                                "(shift+wheel scrolls down to everyone's rows)"))
         tll.addWidget(scroll, 1)
-        run_page = QSplitter(Qt.Orientation.Vertical)
-        run_page.addWidget(self.tabs)
-        run_page.addWidget(tl)
-        run_page.setSizes([430, 520])
+        # shortcut: the old standings with the roster table under them, until the new Group page's "Edit roles" drawer
+        group_page = QWidget()
+        gl = QVBoxLayout(group_page)
+        gl.setContentsMargins(0, 0, 0, 0)
+        gl.addWidget(self.summary, 1)
+        gl.addWidget(self.group)
+        self.tabs = QTabWidget()
+        for w, name in ((self.score, "Debrief"), (self.timeline_tab, "Timeline"), (self.pulls, "Pulls"),
+                        (self.spells, "Spells"), (group_page, "Group")):
+            self.tabs.addTab(w, name)
+        self.score.zoom.connect(self.show_on_timeline)        # Show me, and picking a fight
+        self.pulls.zoom.connect(self.show_on_timeline)        # picking a pull
+        # picking a spell lights it up on the timeline; a refill only clears it, staying where it is
+        self.spells.highlight.connect(lambda guid, spell: self.show_on_timeline(
+            self.timeline.v0, self.timeline.v1, guid, spell) if guid else self.timeline.highlight(None, None))
+        self.group.changed.connect(self._group_changed)
+        self.tabs.currentChanged.connect(self._tab_changed)
+        self.group.forget.connect(self._forget_picks)
         self.stack = QStackedWidget()
         self.stack.addWidget(self.dungeon)
-        self.stack.addWidget(run_page)
+        self.stack.addWidget(self.tabs)
         self.fight_detail = FightDetail()
         self.stack.addWidget(self.fight_detail)          # 2
         self.habits_page = HabitsPage()
@@ -199,14 +198,18 @@ class Window(QMainWindow):
         self.live = live or LiveController(paths, self.settings)
         self.live.fight.connect(self.fight_list.add_fight)
         self.live.fight.connect(lambda _f: self._show_habits() if self.stack.currentIndex() == 3 else None)
-        self.live.fight.connect(self._show_lag)
+        self.live.fight.connect(lambda _f: self._status())
         self.fight_list.set_fights(self.live.history.fights)
 
-    def _show_lag(self, *_):
-        lag = self.live.live.lag
-        self.lag.setVisible(lag is not None)
-        if lag is not None:
-            self.lag.setText(f"log delay {lag:.1f} s")
+    def _status(self, text: str | None = None):
+        """the rail's quiet line: what's loaded (when given), then the log delay once a fight has measured it"""
+        if text is not None:
+            self.status_text = text
+        lag = self.live.live.lag if hasattr(self, "live") else None    # the first reload runs before the controller
+        self.status.setText(self.status_text + ("" if lag is None else f" · log delay {lag:.1f} s"))
+        self.status.setToolTip("" if lag is None else
+                               "Log delay: how long the game takes to write a fight to its log file. "
+                               "The app cannot shorten it.")
 
     # ------------------------------------------------------------------ loading
     def _changed(self, *_):
@@ -233,7 +236,7 @@ class Window(QMainWindow):
         try:
             self.saved, self.runs = analysis.load_saved(self.paths)
         except Exception as e:  # a half-written file while the game is saving: try again shortly
-            self.status.setText(f"Couldn't read the saved file yet ({e}); retrying.")
+            self._status(f"Couldn't read the saved file yet ({e}); retrying.")
             self.debounce.start()
             return
         if hasattr(self, "live"):      # the first reload runs before the controller exists; it loads them itself
@@ -261,11 +264,11 @@ class Window(QMainWindow):
             top.setExpanded(True)
         self.tree.blockSignals(False)
         if not self.runs:
-            self.status.setText(f"No runs yet. Looking in {self.paths.accounts}" if self.paths.found() else
-                                f"Game folder not found: {self.paths.wow}. Pick it in Settings (⚙).")
+            self._status(f"No runs yet. Looking in {self.paths.accounts}" if self.paths.found() else
+                         f"Game folder not found: {self.paths.wow}. Pick it in Settings.")
             return
         who = self.paths.character_of(self.saved) if self.saved else "?"
-        self.status.setText(f"{who} · {len(self.runs)} visits · updates when the game saves")
+        self._status(f"{who} · {len(self.runs)} visits · updates when the game saves")
         if select is None:  # the newest visit
             top = self.tree.topLevelItem(0)
             select = top.child(0) if top and top.childCount() else top
@@ -338,10 +341,15 @@ class Window(QMainWindow):
         self._refresh_labels()
 
     def _tab_changed(self, i: int):
-        w = self.tabs.widget(i)
-        if w is not self.spells:          # its highlight only makes sense while it's showing
+        if self.tabs.widget(i) not in (self.spells, self.timeline_tab):   # a spell's highlight lasts while it's in view
             self.timeline.highlight(None, None)
-        self.timeline_pane.setVisible(w is not self.score)   # the debrief needs the height; "Show me" brings it back
+
+    def show_on_timeline(self, start: float, end: float, guid: str | None = None, spell: str | None = None):
+        """the Timeline tab, zoomed to start..end, and with a player's spell lit up when given"""
+        self.tabs.setCurrentWidget(self.timeline_tab)
+        self.timeline.set_view(start, end)
+        if guid:
+            self.timeline.highlight(guid, spell)
 
     def _mode(self, which: str):
         self.mode_dungeons.setChecked(which == "dungeons")
@@ -419,7 +427,6 @@ class Window(QMainWindow):
         """re-show what's open, so widgets that set their own colors pick up the theme"""
         tab = self.tabs.currentIndex()
         view = (self.timeline.v0, self.timeline.v1)
-        tl_shown = self.timeline_pane.isVisible()
         self.fight_list.set_fights(self.live.history.fights)
         if self.stack.currentIndex() == 3:
             self._show_habits()
@@ -430,7 +437,6 @@ class Window(QMainWindow):
             self._show_run(self.current.data.run)
             self.tabs.setCurrentIndex(tab)
             self.timeline.set_view(*view)
-            self.timeline_pane.setVisible(tl_shown)
         else:
             self._picked(self.tree.currentItem())
         self._refresh_labels()

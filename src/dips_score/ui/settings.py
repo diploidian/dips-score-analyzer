@@ -1,4 +1,4 @@
-"""Settings (theme) saved in settings.json, and the settings window behind the cog."""
+"""Settings (theme) saved in settings.json, and the settings window behind the rail's Settings link."""
 from __future__ import annotations
 
 from pathlib import Path
