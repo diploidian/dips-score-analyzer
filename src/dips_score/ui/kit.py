@@ -1,6 +1,6 @@
-"""The painted parts every page is built from, so they all draw the same way: the boxed label tab, the hero
-figure, the one solid plate, ruled bar rows, key figures, the "All … (n)" drawer, kind tags and the highlighter's
-hand marks.
+"""The painted parts every page is built from, so they all draw the same way: the page's head, the boxed label tab,
+the hero figure, the one solid plate, ruled bar rows, key figures, the "All … (n)" drawer, kind tags and the
+highlighter's hand marks.
 
 Sizes follow docs/design/mockups/*.html (CSS px). A Part paints itself, and the same pass measures its height for a
 width, so text wraps the way it is drawn. Colours come from theme.tok() when painting, so a theme switch needs
@@ -9,7 +9,7 @@ nothing more than a repaint.
 import math
 from dataclasses import dataclass
 
-from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen, QPolygonF, QTextLayout
 from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QToolTip, QWidget
 
@@ -19,6 +19,7 @@ from .theme import tok
 
 MINUS = "−"
 GRADES = ("S", "A", "B", "C", "D", "F")
+HEAD_H = 71          # a page's head: the title, the meta line and the gold rule under them
 
 
 # ---------------------------------------------------------------------------- painting helpers
@@ -132,6 +133,21 @@ def draw_label_tab(p, x, y, text) -> QRectF:
     return r
 
 
+def draw_page_head(p, x, top, right, title, sub, text_right=None):
+    """a page's head: the title, then the meta line (its part before the first " · " in tx, the rest in tx2), cut
+    short of text_right (default right), over the gold rule from x to right"""
+    text_right = right if text_right is None else text_right
+    tf = font(30, 700, num=True)
+    line(p, tf, tok("tx"), x, top, 31.5, elide(tf, title, text_right - x))
+    head, sep, rest = sub.partition(" · ")
+    mf, bf = font(13), font(13, 600)
+    mt = top + 31.5 + 4
+    hw = line(p, bf, tok("tx"), x, mt, 13 * 1.4, elide(bf, head, text_right - x))
+    if sep:
+        line(p, mf, tok("tx2"), x + hw, mt, 13 * 1.4, elide(mf, sep + rest, text_right - x - hw))
+    rule(p, x, top + HEAD_H - 1, right - x, tok("gold"))
+
+
 def halo_text(p: QPainter, f: QFont, color: QColor, x: float, base: float, s: str) -> float:
     """s on the baseline with a 3px panel halo, so it reads through the highlighter; returns its width"""
     path = QPainterPath()
@@ -195,6 +211,26 @@ def draw_hand_note(p: QPainter, text: str, anchor: QPointF, target: QPointF | No
 
 
 # ---------------------------------------------------------------------------- the parts
+class Sheet(QWidget):
+    """a page under its parts: the ground, and its head (draw_page_head) at the layout's margins. head: the widget
+    across the top holding the page's picks, which the title stops short of (None: no picks)"""
+
+    def __init__(self, head: QWidget | None = None):
+        super().__init__()
+        self.title = self.sub = ""
+        self.head = head
+
+    def paintEvent(self, _ev):
+        p = QPainter(self)
+        if not theme.TEXTURE:
+            p.fillRect(self.rect(), tok("bg"))
+        m = self.layout().contentsMargins()
+        right = self.width() - m.right()
+        picks = self.head.childrenRect() if self.head else QRect()
+        draw_page_head(p, m.left(), m.top(), right, self.title, self.sub,
+                       self.head.x() + picks.left() - 16 if picks.isValid() else right)
+
+
 class Part(QWidget):
     """a painted part: draw(None, w) measures its height for a width, draw(p, w) paints it. narrow: the
     mock-ups' smaller sizes (below a 1420px window); p: the entrance's progress, 1 draws it settled"""

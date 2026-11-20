@@ -16,12 +16,12 @@ from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QPushButton, QScrollArea, QSiz
 from ..debrief import (DebriefView, FightCell, bar_fraction, breakdown_title, circle_fraction, display_name, note_alpha,
                        route_alpha)
 from . import theme
-from .kit import (MINUS, BarRow, BarRows, Drawer, Hero, Part, Plate, adv, baseline, box, draw_hand_circle,
-                  draw_hand_note, draw_label_tab, elide, font, halo_text, hand_font, line, rule, text_at, wrapped)
+from .kit import (HEAD_H, MINUS, BarRow, BarRows, Drawer, Hero, Part, Plate, adv, baseline, box, draw_hand_circle,
+                  draw_hand_note, draw_label_tab, draw_page_head, elide, font, halo_text, hand_font, line, rule,
+                  text_at, wrapped)
 from .theme import tok
 
 NARROW = 1420        # the mock-up's breakpoint (window width): a smaller hero below it
-HEAD_H = 71          # title, meta line and the gold rule under them
 FIGHTS_W = 460       # the right-hand column
 EDGE = 16            # the page's right margin, lent to the fights column for edge circles and the grid's scroll bar
 LEFT_MIN = 480       # the left column never gets narrower (the page scrolls sideways instead)
@@ -481,12 +481,4 @@ class DebriefPage(QWidget):
         x, top = m.left(), m.top()
         picker = self.top.childrenRect()
         right = self.top.x() + picker.left() - 16 if picker.isValid() else self.width() - EDGE
-        tf = font(30, 700, num=True)
-        line(p, tf, tok("tx"), x, top, 31.5, elide(tf, self.title, right - x))
-        head, sep, rest = self.sub.partition(" · ")      # the date in tx, the rest in tx2
-        mf, bf = font(13), font(13, 600)
-        mt = top + 31.5 + 4
-        hw = line(p, bf, tok("tx"), x, mt, 13 * 1.4, elide(bf, head, right - x))
-        if sep:
-            line(p, mf, tok("tx2"), x + hw, mt, 13 * 1.4, elide(mf, sep + rest, right - x - hw))
-        rule(p, x, top + HEAD_H - 1, self.width() - m.left() - EDGE, tok("gold"))
+        draw_page_head(p, x, top, self.width() - EDGE, self.title, self.sub, right)

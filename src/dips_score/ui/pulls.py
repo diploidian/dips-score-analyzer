@@ -14,11 +14,11 @@ from PyQt6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QHeaderView, QLa
 
 from ..debrief import fmt_time
 from ..pulls_view import BREAK_S, LOW, PullsView, build_pulls, fix_plate, pct, safety_figures, slide_note, slide_rows
-from . import assets, theme
-from .debrief import HEAD_H, NARROW, preview_tag
-from .kit import (Drawer, Hero, KeyFigures, Part, Plate, adv, baseline, box, draw_hand_circle, draw_hand_note,
-                  draw_label_tab, elide, font, hand_font, line, rule, text_at)
-from .pages import ROLE_NAME, dim_label, item, table
+from . import assets
+from .debrief import NARROW, preview_tag
+from .kit import (HEAD_H, Drawer, Hero, KeyFigures, Part, Plate, Sheet, adv, baseline, box, draw_hand_circle,
+                  draw_hand_note, draw_label_tab, font, hand_font, line, rule, text_at)
+from .pages import dim_label, item, run_meta, table
 from .theme import tok
 
 PLATE_W = 408        # the plate's column
@@ -383,30 +383,6 @@ class DrawerRow(QWidget):
         rule(p, 0, self.height() - 1, self.width(), tok("ln"))
 
 
-class Sheet(QWidget):
-    """the page under the parts: its ground, the title and meta line over a gold rule"""
-
-    def __init__(self):
-        super().__init__()
-        self.title = self.sub = ""
-
-    def paintEvent(self, _ev):
-        p = QPainter(self)
-        if not theme.TEXTURE:
-            p.fillRect(self.rect(), tok("bg"))
-        m = self.layout().contentsMargins()
-        x, top, right = m.left(), m.top(), self.width() - m.right()
-        tf = font(30, 700, num=True)
-        line(p, tf, tok("tx"), x, top, 31.5, elide(tf, self.title, right - x))
-        head, sep, rest = self.sub.partition(" · ")      # the date in tx, the rest in tx2
-        mf, bf = font(13), font(13, 600)
-        mt = top + 31.5 + 4
-        hw = line(p, bf, tok("tx"), x, mt, 13 * 1.4, elide(bf, head, right - x))
-        if sep:
-            line(p, mf, tok("tx2"), x + hw, mt, 13 * 1.4, elide(mf, sep + rest, right - x - hw))
-        rule(p, x, top + HEAD_H - 1, right - x, tok("gold"))
-
-
 class PullsTab(QScrollArea):
     """the Pulls tab: the page, scrolling when the window is small or the drawer is open"""
     zoom = pyqtSignal(float, float)       # a pull picked in the drawer: the timeline readies there, the tab stays
@@ -481,13 +457,7 @@ class PullsTab(QScrollArea):
         if not a:
             self.show_view(PullsView(), "No run selected", "", 0.0)
             return
-        rd = a.data
-        parts = f" ({len(rd.run.parts)} pieces)" if len(rd.run.parts) > 1 else ""
-        sub = (f"{rd.run.start_time:%a %d %b %H:%M}{parts} · {fmt_time(rd.duration)} long · "
-               f"{fmt_time(a.metrics.combat_time)} in combat · {len(rd.fights)} fights")
-        if not a.card.empty:
-            sub += f" · as {ROLE_NAME.get(a.card.role, a.card.role)}"
-        self.show_view(build_pulls(a), rd.run.zone, sub, rd.duration)
+        self.show_view(build_pulls(a), a.data.run.zone, run_meta(a), a.data.duration)
 
     def show_view(self, view: PullsView, title: str, sub: str, duration: float):
         self.view = view

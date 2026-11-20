@@ -50,6 +50,11 @@ class ShellTests(unittest.TestCase):
             w.pulls.show_me.emit(1092.4, 1207.9)          # Show this pull: the Timeline tab
             self.assertIs(tabs.currentWidget(), w.timeline_tab)
             self.assertEqual((w.timeline.v0, w.timeline.v1), (1092.4, 1207.9))
+            tabs.setCurrentWidget(w.spells)
+            w.spells.show_me.emit(382.5, 478.1, "guid-1", "Consecration")   # Show on the timeline: there, lit
+            self.assertIs(tabs.currentWidget(), w.timeline_tab)
+            self.assertEqual((w.timeline.v0, w.timeline.v1), (382.5, 478.1))
+            self.assertEqual((w.timeline.hl_guid, w.timeline.hl_spell), ("guid-1", "Consecration"))
             w.live.timer.stop()
 
 

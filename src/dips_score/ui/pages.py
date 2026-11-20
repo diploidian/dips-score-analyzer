@@ -1,21 +1,20 @@
-"""The run's tabs (Debrief, Group, Spells) and the dungeon page; Pulls is pulls.py."""
+"""The run's tabs (Debrief, Group) and the dungeon page; Pulls is pulls.py, Spells is spells.py."""
 from __future__ import annotations
 
 from PyQt6.QtCore import QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QIcon, QPainter
+from PyQt6.QtGui import QColor, QFont, QPainter
 from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
                              QPushButton, QScrollArea, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget)
 
 from ..analysis import Analysis
 from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, worst_fight  # fmt_time: summary.py
-from ..model.casts import spell_table
 from ..model.roster import CLASSES, ROLES
 from ..scoring.group import ordinal, player_card
 from ..scoring.score import Scorecard
 from ..sources.savedvars import Run
 from . import assets, theme
 from .debrief import DebriefPage
-from .timeline import text_color, spell_color
+from .timeline import text_color
 
 
 def fmt_num(n: float) -> str:
@@ -62,6 +61,15 @@ def dim_label(text: str = "") -> QLabel:
 
 # ============================================================================ Debrief
 ROLE_NAME = {"dps": "DPS"}
+
+
+def run_meta(a: Analysis) -> str:
+    """a run page's meta line: when, how long, in combat, fights, and the role you were scored as"""
+    rd = a.data
+    parts = f" ({len(rd.run.parts)} pieces)" if len(rd.run.parts) > 1 else ""
+    sub = (f"{rd.run.start_time:%a %d %b %H:%M}{parts} · {fmt_time(rd.duration)} long · "
+           f"{fmt_time(a.metrics.combat_time)} in combat · {len(rd.fights)} fights")
+    return sub if a.card.empty else f"{sub} · as {ROLE_NAME.get(a.card.role, a.card.role)}"
 
 
 class ScoreTab(QWidget):
@@ -265,104 +273,6 @@ class GroupTab(QWidget):
             for col, v in enumerate([fmt_num(st.damage), fmt_num(st.healing), fmt_num(st.taken), st.deaths,
                                      st.interrupts, st.dispels], 5):
                 self.t.setItem(r, col, item(v, theme.DEATH if col == 8 and v else None, align_right=True))
-
-
-# ============================================================================ Spells
-class SpellsTab(QWidget):
-    highlight = pyqtSignal(object, object)   # guid, spell name (None, None: clear)
-
-    def __init__(self):
-        super().__init__()
-        self.a: Analysis | None = None
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 6, 0, 0)
-        row = QHBoxLayout()
-        row.addWidget(dim_label("Player"))
-        self.who = QComboBox()
-        self.who.currentIndexChanged.connect(self._fill)
-        row.addWidget(self.who)
-        row.addWidget(dim_label("Fights"))
-        self.scope = QComboBox()
-        for label, key in (("Whole run", "all"), ("Bosses", "boss"), ("Trash", "trash")):
-            self.scope.addItem(label, key)
-        self.scope.currentIndexChanged.connect(self._fill)
-        row.addWidget(self.scope)
-        clear = QPushButton("Clear highlight")
-        clear.clicked.connect(lambda: (self.t.clearSelection(), self.highlight.emit(None, None)))
-        row.addWidget(clear)
-        row.addStretch(1)
-        self.total = dim_label()
-        row.addWidget(self.total)
-        lay.addLayout(row)
-        self.t = table(["", "Spell", "Casts", "Per min", "Failed", "Damage", "Healing", "Overheal", "Crit", "Share"],
-                       stretch=1)
-        self.t.itemSelectionChanged.connect(self._pick)
-        lay.addWidget(self.t)
-        lay.addWidget(dim_label("Click a spell to light up its casts in that player's row on the timeline."))
-
-    def set_analysis(self, a: Analysis | None):
-        self.a = a
-        self.who.blockSignals(True)
-        self.who.clear()
-        if a:
-            players = sorted(a.roster.values(), key=lambda p: (not p.is_me, p.name))
-            for p in players:
-                self.who.addItem(p.name + (" (you)" if p.is_me else ""), p.guid)
-                if (ic := assets.icon(assets.class_icon_name(p.cls) or "")) is not None:
-                    self.who.setItemIcon(self.who.count() - 1, ic)
-                self.who.setItemData(self.who.count() - 1, text_color(p), Qt.ItemDataRole.ForegroundRole)
-        self.who.blockSignals(False)
-        self._fill()
-
-    def _windows(self):
-        a, key = self.a, self.scope.currentData()
-        if key == "all":
-            return None
-        return [(f.start - 2, f.end + 2) for f in a.data.fights if (f.boss is not None) == (key == "boss")]
-
-    def _fill(self):
-        self.t.blockSignals(True)
-        self.t.setRowCount(0)
-        a, guid = self.a, self.who.currentData()
-        if a and guid:
-            windows = self._windows()
-            rows = spell_table(a.data, guid, windows, a.pets.get(guid))
-            combat = sum(b - c for c, b in windows) if windows else a.metrics.combat_time or 1
-            total = sum(r.damage + r.healing for r in rows) or 1
-            self.total.setText(f"{fmt_num(sum(r.damage for r in rows))} damage · {fmt_num(sum(r.healing for r in rows))} "
-                               f"healing · {sum(r.casts for r in rows)} casts")
-            for r in rows:
-                if not (r.casts or r.damage or r.healing or r.failed):
-                    continue
-                i = self.t.rowCount()
-                self.t.insertRow(i)
-                share = (r.damage + r.healing) / total
-                vals = ["■", r.spell, r.casts or "", f"{r.casts * 60 / combat:.1f}" if r.casts else "",
-                        r.failed or "", fmt_num(r.damage) if r.damage else "", fmt_num(r.healing) if r.healing else "",
-                        f"{r.overheal_share:.0%}" if r.healing or r.overheal else "", f"{r.crit_share:.0%}" if r.hits else "",
-                        f"{share:.0%}" if share >= 0.005 else ""]
-                sid = r.spell_id if r.spell_id and 0 < r.spell_id < 10_000_000 else None
-                spell_pm = assets.spell_pixmap(sid)
-                if spell_pm is not None:
-                    vals[0] = ""
-                for col, v in enumerate(vals):
-                    it = item(v, spell_color(r.spell.replace(" (pet)", "")) if col == 0 else
-                              theme.FAIL if col == 4 else None,
-                              align_right=col >= 2, data=r.spell if col == 1 else None)
-                    if col == 0 and spell_pm is not None:
-                        it.setIcon(QIcon(spell_pm))
-                    self.t.setItem(i, col, it)
-        else:
-            self.total.setText("")
-        self.t.blockSignals(False)
-        self.highlight.emit(None, None)
-
-    def _pick(self):
-        rows = self.t.selectionModel().selectedRows()
-        if not rows:
-            return
-        spell = self.t.item(rows[0].row(), 1).data(Qt.ItemDataRole.UserRole)
-        self.highlight.emit(self.who.currentData(), spell)
 
 
 # ============================================================================ Dungeon page
