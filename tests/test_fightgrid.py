@@ -75,5 +75,40 @@ class FightGridTests(unittest.TestCase):
         self.assertTrue(col.scroll.isHidden())
 
 
+@unittest.skipUnless(HAVE_QT, "needs PyQt6")
+class EntranceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        cls.app = QApplication.instance() or QApplication([])
+
+    def show(self, page, title="Run", sub="d", view=None):
+        from dips_score.debrief import DebriefView
+        page.show_view(view or DebriefView(total="75", grade="B"), title, sub)
+
+    def test_runs_for_a_new_view_only(self):
+        from dips_score.ui.debrief import DebriefPage
+        page = DebriefPage()
+        self.show(page)
+        self.assertEqual(page.entrance.state().name, "Running")
+        page.entrance.stop()
+        page.set_progress(1.0)
+        self.show(page)                       # a redraw (theme switch, rescore): the same view
+        self.assertNotEqual(page.entrance.state().name, "Running")
+        self.assertEqual(page.hero.p, 1.0)
+        self.show(page, title="Other run")
+        self.assertEqual(page.entrance.state().name, "Running")
+        page.entrance.stop()
+
+    def test_motion_off_settles_at_once(self):
+        from dips_score.ui.debrief import DebriefPage
+        page = DebriefPage()
+        page.settings = {"motion": False}
+        self.show(page)
+        self.assertNotEqual(page.entrance.state().name, "Running")
+        self.assertEqual((page.hero.p, page.measures.p, page.fights.grid.p), (1.0, 1.0, 1.0))
+
+
 if __name__ == "__main__":
     unittest.main()

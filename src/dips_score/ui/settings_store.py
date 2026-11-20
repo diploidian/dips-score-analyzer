@@ -7,6 +7,7 @@ from ..config import Paths
 from . import tokens
 
 DEFAULTS = {"theme": "timeless",
+            "motion": True,           # the debrief's short entrance (number ticks, bars grow, circles draw on)
             "mode": "auto",           # day | night | auto (follow the OS)
             "overlay": True,          # the card after each fight
             "overlay_seconds": 12,

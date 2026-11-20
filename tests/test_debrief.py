@@ -7,7 +7,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from types import SimpleNamespace as NS  # noqa: E402
 
-from dips_score.debrief import FightCell, build_view, display_name, fight_cells, fight_of, worst_fight  # noqa: E402
+from dips_score.debrief import (FightCell, bar_fraction, build_view, circle_fraction, display_name, fight_cells,  # noqa: E402
+                                fight_of, note_alpha, ticker, worst_fight)
 from dips_score.scoring.score import Category, Scorecard, _card  # noqa: E402
 
 
@@ -203,6 +204,24 @@ class ViewTests(unittest.TestCase):
         self.assertEqual(worst_fight([cd(90), cd(40), cd(40), Scorecard(0, "-")], "Cooldowns"), 1)
         self.assertIsNone(worst_fight([cd(100), Scorecard(0, "-")], "Cooldowns"))
         self.assertIsNone(worst_fight([], "Cooldowns"))
+
+    def test_entrance_timing(self):
+        self.assertEqual((bar_fraction(0, 0), bar_fraction(1, 0), bar_fraction(1, 9)), (0, 1, 1))
+        self.assertAlmostEqual(bar_fraction(0.3, 0), 0.5)
+        self.assertAlmostEqual(bar_fraction(0.36, 1), 0.5)          # bar 1 is 0.06 behind
+        self.assertEqual(bar_fraction(0.05, 1), 0)
+        self.assertEqual((circle_fraction(0.55, 0), circle_fraction(1, 3)), (0, 1))   # the last still lands by 1
+        self.assertGreater(circle_fraction(0.7, 0), circle_fraction(0.7, 1))
+        self.assertEqual((note_alpha(0.8), note_alpha(1)), (0, 1))
+
+    def test_ticker_ends_on_the_total_and_dashes_do_not_tick(self):
+        self.assertEqual((ticker("75", 0), ticker("75", 0.78), ticker("75", 1)), ("0", "75", "75"))
+        self.assertEqual([ticker("–", p) for p in (0, 0.4, 1)], ["–"] * 3)
+        self.assertEqual(ticker("100", 0.39), "50")
+
+    def test_motion_is_on_by_default(self):
+        from dips_score.ui.settings_store import DEFAULTS
+        self.assertIs(DEFAULTS["motion"], True)
 
 
 if __name__ == "__main__":

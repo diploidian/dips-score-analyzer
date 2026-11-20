@@ -136,6 +136,7 @@ class Window(QMainWindow):
         self.dungeon = DungeonPage()
         self.dungeon.open_run.connect(self._open_run_id)
         self.score, self.group, self.pulls = ScoreTab(), GroupTab(), PullsTab()
+        self.score.page.settings = self.settings
         self.spells, self.summary = SpellsTab(), SummaryTab()
         self.tabs = QTabWidget()
         for w, name in ((self.score, "Debrief"), (self.group, "Group"), (self.pulls, "Pulls"),

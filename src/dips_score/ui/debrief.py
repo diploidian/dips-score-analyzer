@@ -7,12 +7,13 @@ height for a width, so text wraps the way it is drawn.
 """
 import math
 
-from PyQt6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QEasingCurve, QEvent, QPointF, QRectF, QSize, Qt, QVariantAnimation, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen, QPolygonF, QTextLayout
 from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QPushButton, QScrollArea, QSizePolicy, QSpacerItem, QToolTip,
                              QVBoxLayout, QWidget)
 
-from ..debrief import DebriefView, FightCell, display_name
+from ..debrief import (DebriefView, FightCell, bar_fraction, circle_fraction, display_name, note_alpha, route_alpha,
+                       ticker)
 from . import theme
 from .theme import tok
 
@@ -22,6 +23,7 @@ HEAD_H = 71          # title, meta line and the gold rule under them
 FIGHTS_W = 460       # the right-hand column
 EDGE = 16            # the page's right margin, lent to the fights column for edge circles and the grid's scroll bar
 LEFT_MIN = 480       # the left column never gets narrower (the page scrolls sideways instead)
+ENTRANCE_MS = 900     # the one entrance: ticker, bars, circles, note; p runs 0..1, 1 is the settled page
 PREVIEW = ("Rotation", "Pacing")   # measures still being worked out
 
 
@@ -145,6 +147,7 @@ class _Part(QWidget):
         super().__init__()
         self.view = DebriefView()
         self.narrow = False
+        self.p = 1.0           # the entrance's progress; 1 draws the settled page
         sp = QSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
         sp.setHeightForWidth(True)
         self.setSizePolicy(sp)
@@ -179,14 +182,19 @@ class Hero(_Part):
         f = font(px, 700, num=True, spacing=-0.02)
         top, lh = 8, px * 0.8
         # "-": nothing judgeable, so no grade to box; the "–" placeholder is muted so it reads as a dash, not a block
-        x = text_at(p, f, tok("tx") if v.grade != "-" else tok("mu"), 0, baseline(f, top, lh), v.total)
+        x = adv(f, v.total)      # the final width, so the grade's box doesn't move while the number ticks
+        if p:
+            text_at(p, f, tok("tx") if v.grade != "-" else tok("mu"), 0, baseline(f, top, lh), ticker(v.total, self.p))
         if v.grade != "-":
             gpx, pv, ph = (46, 4, 10) if self.narrow else (56, 5, 12)
             g = font(gpx, 700, num=True)
             r = QRectF(x + 10, top + 6, adv(g, v.grade) + 2 * ph + 4, gpx + 2 * pv + 4)
             if p:
+                p.setOpacity(min(1.0, self.p / 0.78))      # the grade appears as the number lands
                 box(p, r, tok("gold"), width=2)
             text_at(p, g, theme.grade_color(v.grade), r.x() + 2 + ph, baseline(g, r.y() + 2 + pv, gpx), v.grade)
+            if p:
+                p.setOpacity(1)
         y = top + lh + 16
         return y + wrapped(p, font(15), tok("tx2"), 0, y, w, 21, v.verdict or v.note)
 
@@ -297,7 +305,8 @@ class MeasureBars(_Part):
                     tag(p, nw + 8, y + r1 / 2, "preview")
                 by = y + (r1 - 10) / 2
                 p.fillRect(QRectF(bx, by, bw, 10), tok("track"))
-                p.fillRect(QRectF(bx, by, bw * max(0.0, min(100.0, m.score or 0)) / 100, 10), tok(m.ink))
+                p.fillRect(QRectF(bx, by, bw * max(0.0, min(100.0, m.score or 0)) / 100 * bar_fraction(self.p, k), 10),
+                           tok(m.ink))
                 p.fillRect(QRectF(bx + bw * 0.9, by - 4, 2, 18), tok("tx"))
                 line(p, rf, tok("mu"), bx, y + r1 - 2, 11 * 1.4, elide(rf, m.reason, bw))
                 score = "–" if m.score is None else f"{m.score:.0f}"
@@ -401,7 +410,7 @@ class Breakdown(_Part):
                 y += 1
             if p:
                 line(p, nf, tok("tx"), 0, y + 3, 18, display_name(lost.name))
-                p.fillRect(QRectF(120, y + 3 + 4, 220 * lost.points / most, 10), tok(lost.ink))
+                p.fillRect(QRectF(120, y + 3 + 4, 220 * lost.points / most * bar_fraction(self.p, k), 10), tok(lost.ink))
                 s = f"{MINUS}{lost.points:.1f}"
                 line(p, vf, tok("tx"), w - adv(vf, s), y + 3, 18, s)
             y += 3 + 18 + 3
@@ -480,6 +489,7 @@ class FightGrid(QWidget):
         self.cells: list[FightCell] = []
         self.review: list[int] = []
         self.focus = 0                  # the cell the keyboard is on
+        self.p = 1.0                    # the entrance's progress (circles, then the note)
         self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
@@ -548,14 +558,23 @@ class FightGrid(QWidget):
         ks = [k for k, c in enumerate(self.cells) if c.index in self.review]
         cs = [self.circle_at(k) for k in ks]
         p.setOpacity(0.8)
-        p.setPen(QPen(hl, 5, cap=Qt.PenCapStyle.RoundCap))
+        p.setPen(QPen(hl, 5, cap=Qt.PenCapStyle.RoundCap, join=Qt.PenJoinStyle.RoundJoin))
         for j, c in enumerate(cs):
+            f = circle_fraction(self.p, j)
+            if f <= 0:
+                continue
             p.save()
             p.translate(c)
             p.rotate(-5 if j % 2 == 0 else 4)
-            p.drawEllipse(QPointF(0, 0), RX, RY)
+            if f >= 1:
+                p.drawEllipse(QPointF(0, 0), RX, RY)
+            else:       # drawn on: the ellipse's outline up to f of its length
+                ring = QPainterPath()
+                ring.addEllipse(QPointF(0, 0), RX, RY)
+                p.drawPolyline(QPolygonF([ring.pointAtPercent(f * i / 48) for i in range(49)]))
             p.restore()
-        p.setOpacity(0.6)
+        late = route_alpha(self.p)
+        p.setOpacity(0.6 * late)
         p.setPen(QPen(hl, 1.6, cap=Qt.PenCapStyle.RoundCap))
         for j, (a, b) in enumerate(zip(cs, cs[1:])):
             d = b - a
@@ -566,13 +585,14 @@ class FightGrid(QWidget):
             route = QPainterPath(s)
             route.quadTo((s + e) / 2 + QPointF(-d.y(), d.x()) * (0.18 if j % 2 else -0.18), e)   # bowed, alternately
             p.drawPath(route)
-        p.setOpacity(1)
+        p.setOpacity(late)
         p.setPen(QPen(hl, 2.4, cap=Qt.PenCapStyle.RoundCap))
         for k, c in zip(ks, cs):
             if self.cells[k].died:
                 x, y = c.x() - 24, c.y() + 14
                 p.drawLine(QPointF(x, y), QPointF(x + 8, y + 8))
                 p.drawLine(QPointF(x + 8, y), QPointF(x, y + 8))
+        p.setOpacity(1)
         self._note(p, cs[0] if cs else None)
         # 3. the cells' text, each run haloed in panel
         nf, sf, gf = font(11, 500, num=True), font(21, 700, num=True), font(14, 700, num=True)
@@ -609,12 +629,14 @@ class FightGrid(QWidget):
         side = 1 if cx - 61 - tw >= PAD else -1     # the note left of the circle, or right of it near the left edge
         x = min(max(cx - 61 - tw if side > 0 else cx + 61, PAD), PAD + COLS * CELL_W - tw)
         p.save()
+        p.setOpacity(note_alpha(self.p))
         p.translate(x, base)
         p.rotate(-3)
         text_at(p, f, tok("hl-note"), 0, 0, s)
         p.restore()
         if first is None:
             return
+        p.setOpacity(note_alpha(self.p))
         start = QPointF(x + tw if side > 0 else x, base - 4)
         end = QPointF(first.x() - 7 * side, first.y() - RY - 6)
         ctrl = QPointF(end.x() - 18 * side, start.y() + 4)
@@ -627,6 +649,7 @@ class FightGrid(QWidget):
             arrow.lineTo(end)
         p.setPen(QPen(tok("hl"), 1.8, cap=Qt.PenCapStyle.RoundCap, join=Qt.PenJoinStyle.RoundJoin))
         p.drawPath(arrow)
+        p.setOpacity(1)
 
 
 class FightsColumn(QWidget):
@@ -684,6 +707,11 @@ class DebriefPage(QWidget):
         self.title = self.sub = ""
         self.show_me: tuple[float, float] | None = None
         self.narrow = None
+        self.settings: dict = {}        # the app's (shared), for "motion"
+        self.shown = None               # what the entrance last ran for
+        self.entrance = QVariantAnimation(self, startValue=0.0, endValue=1.0, duration=ENTRANCE_MS,
+                                          easingCurve=QEasingCurve.Type.OutQuart)
+        self.entrance.valueChanged.connect(self.set_progress)
         self.hero, self.plate, self.measures, self.breakdown = Hero(), FixPlate(), MeasureBars(), Breakdown()
         self.plate.button.clicked.connect(lambda: self.show_me and self.zoom.emit(*self.show_me))
         self.top = QWidget()
@@ -738,6 +766,20 @@ class DebriefPage(QWidget):
         self.breakdown.setVisible(bool(view.categories))  # but its categories stay listed
         self._wrap_next()
         self.update()
+        key = (title, sub, whose, one_fight)      # a new run, fight or player; not a redraw of the same one
+        if key != self.shown:
+            self.shown = key
+            self.entrance.stop()
+            motion = bool(self.settings.get("motion", True))
+            self.set_progress(0.0 if motion else 1.0)
+            if motion:
+                self.entrance.start()
+
+    def set_progress(self, p: float):
+        """the entrance's p (1: settled) to the parts that animate"""
+        for part in (self.hero, self.measures, self.breakdown, self.fights.grid):
+            part.p = p
+            part.update()
 
     def resizeEvent(self, ev):
         self._fit()

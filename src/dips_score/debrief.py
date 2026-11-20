@@ -62,6 +62,37 @@ class DebriefView:
     bonus_note: str = ""
 
 
+def _clamp(x: float) -> float:
+    return max(0.0, min(1.0, round(x, 9)))      # rounded so p = 1 lands on exactly 1.0
+
+
+def bar_fraction(p: float, i: int) -> float:
+    """the entrance (p, 0..1): how much of bar i is drawn, each bar 0.06 behind the one above
+    (from the 7th on they share its start, so p = 1 always finishes every bar)"""
+    return _clamp((p - min(i, 6) * 0.06) / 0.6)
+
+
+def ticker(total: str, p: float) -> str:
+    """the hero number climbing to total over the first 0.78 of p; the last frame is total itself, and a
+    non-number ("-") never ticks"""
+    t = _clamp(p / 0.78)
+    return str(round(int(total) * t)) if t < 1 and total.isdigit() else total
+
+
+def circle_fraction(p: float, j: int) -> float:
+    """how much of review circle j is drawn: in order from p = 0.55, each starting 0.07 after the last"""
+    return _clamp((p - 0.55 - j * 0.07) / 0.2)
+
+
+def route_alpha(p: float) -> float:
+    """the route and the death crosses, once the circles are down"""
+    return _clamp((p - 0.9) / 0.1)
+
+
+def note_alpha(p: float) -> float:
+    return _clamp((p - 0.8) / 0.2)
+
+
 def display_name(category: str) -> str:
     return "Abilities on time" if category == "Cooldowns" else category
 

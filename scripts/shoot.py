@@ -36,7 +36,7 @@ wow = config.paths().wow     # --wow is not offered: DIPS_WOW or the default
 (Path(tmp) / "dips-score").mkdir()
 # wow_folder pre-seeded so the first-run folder picker never opens a modal dialog offscreen
 (Path(tmp) / "dips-score" / "settings.json").write_text(
-    json.dumps({"theme": theme_name, "mode": mode, "wow_folder": str(wow)}), encoding="utf-8")
+    json.dumps({"theme": theme_name, "mode": mode, "wow_folder": str(wow), "motion": False}), encoding="utf-8")
 
 if args.saved:
     _load = analysis.load_saved
