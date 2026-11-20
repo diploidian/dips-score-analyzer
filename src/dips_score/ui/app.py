@@ -2,8 +2,8 @@
 
 Left: dungeons, each opening into its visits. Right: picking a dungeon shows its page (your score
 on every visit); picking a visit shows its tabs (Debrief, Group, Pulls, Spells, Summary) above the
-timeline. The window watches the add-on's saved file and reloads when the game saves (/reload,
-logout); a new visit opens by itself.
+timeline (hidden under the Debrief until its "Show me"). The window watches the add-on's saved file
+and reloads when the game saves (/reload, logout); a new visit opens by itself.
 """
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QM
 from .. import analysis
 from ..analysis import Analysis
 from ..config import Paths
+from ..debrief import DebriefView
 from ..model.roster import Overrides
 from ..scoring.classes import load_upkeep
 from ..scoring.score import load_weights
@@ -142,18 +143,18 @@ class Window(QMainWindow):
             self.tabs.addTab(w, name)
         self.timeline = Timeline()
         self.score.zoom.connect(self.timeline.set_view)
+        self.score.zoom.connect(lambda *_: self.timeline_pane.show())
         self.pulls.zoom.connect(self.timeline.set_view)
         self.spells.highlight.connect(self.timeline.highlight)
         self.group.changed.connect(self._group_changed)
-        # the Spells tab's highlight only makes sense while it's showing
-        self.tabs.currentChanged.connect(lambda i: None if self.tabs.widget(i) is self.spells
-                                         else self.timeline.highlight(None, None))
+        self.tabs.currentChanged.connect(self._tab_changed)
         self.group.forget.connect(self._forget_picks)
         scroll = QScrollArea()
         scroll.setWidget(self.timeline)
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        tl = QWidget()
+        tl = self.timeline_pane = QWidget()
+        tl.hide()                 # the Debrief shows first, and has the room to itself
         tll = QVBoxLayout(tl)
         tll.setContentsMargins(0, 0, 0, 0)
         tll.addWidget(dim_label("Timeline - wheel to zoom, drag to pan, double-click for the whole run, hover for "
@@ -323,7 +324,7 @@ class Window(QMainWindow):
         except Exception:
             traceback.print_exc()
             self.current = None
-            self.score.card.show_card(run.zone, "Couldn't analyze this run - see the terminal.", None, None)
+            self.score.page.show_view(DebriefView(), run.zone, "Couldn't analyze this run - see the terminal.")
             self.stack.setCurrentIndex(1)
             return
         a = self.current
@@ -332,6 +333,12 @@ class Window(QMainWindow):
         self.timeline.set_analysis(a)
         self.stack.setCurrentIndex(1)
         self._refresh_labels()
+
+    def _tab_changed(self, i: int):
+        w = self.tabs.widget(i)
+        if w is not self.spells:          # its highlight only makes sense while it's showing
+            self.timeline.highlight(None, None)
+        self.timeline_pane.setVisible(w is not self.score)   # the debrief needs the height; "Show me" brings it back
 
     def _mode(self, which: str):
         self.mode_dungeons.setChecked(which == "dungeons")
@@ -434,10 +441,10 @@ class Window(QMainWindow):
             analysis.rescore(a)
         self._refresh_labels()
         if self.stack.currentIndex() == 1 and self.current:
-            rows = self.score.fights.selectionModel().selectedRows()
+            fight = self.score.fight
             self.score.set_analysis(self.current)
-            if rows:
-                self.score.fights.selectRow(rows[0].row())
+            if fight >= 0:
+                self.score.show_fight(fight)
         else:
             self._picked(self.tree.currentItem())
 

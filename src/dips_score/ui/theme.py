@@ -168,6 +168,7 @@ QPushButton, QToolButton {{ background: {T["btn"].name()}; color: {T["btn-tx"].n
     border: 1px solid {btn_ln}; padding: 5px 12px; }}
 QPushButton:hover, QToolButton:hover {{ border-color: {hl}; }}
 QPushButton:checked {{ border-color: {hl}; }}
+QPushButton#showme {{ border-color: {T["plate-ln"].name()}; font-size: 13px; font-weight: 600; padding: 10px 16px; }}
 QToolTip {{ background: {T["panel"].name()}; color: {tx}; border: 1px solid {ln}; padding: 4px; }}
 QLineEdit, QSpinBox {{ background: {T["panel"].name()}; border: 1px solid {ln}; selection-background-color: {hl};
     selection-color: {T["bg"].name()}; }}

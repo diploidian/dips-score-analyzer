@@ -103,7 +103,7 @@ def build_view(card: Scorecard, fights: list[FightCell], damage_share: float | N
         earned=round(card.total), fights=fights, review=_review(fights))
 
 
-def _fmt_time(s: float) -> str:
+def fmt_time(s: float) -> str:
     s = int(max(0, s))
     return f"{s // 60}:{s % 60:02d}"
 
@@ -119,12 +119,22 @@ def fight_of(deaths, fights) -> dict[int, list]:
     return out
 
 
-def fight_cells(a) -> list[FightCell]:
-    mine = fight_of([d for d in a.deaths if d.guid == a.data.player_guid], a.data.fights)
+def worst_fight(cards: list[Scorecard], category: str) -> int | None:
+    """the fight whose own card lost the most points in `category` (the earliest on a tie; None: none lost any)"""
+    lost = [next((p for c, p in card.points_lost() if c.name == category), 0.0) for card in cards]
+    i = max(range(len(lost)), key=lost.__getitem__, default=None)
+    return i if i is not None and lost[i] > 0 else None
+
+
+def fight_cells(a, guid: str | None = None, cards: list[Scorecard] | None = None) -> list[FightCell]:
+    """a cell per fight, scored from `cards` (default: your own) with `guid`'s deaths (default: yours)"""
+    guid = guid or a.data.player_guid
+    cards = cards if cards is not None else [fr.card for fr in a.fights]
+    mine = fight_of([d for d in a.deaths if d.guid == guid], a.data.fights)
     cells = []
-    for i, fr in enumerate(a.fights):
-        f, c = fr.fight, fr.card
+    for i, (fr, c) in enumerate(zip(a.fights, cards)):
+        f = fr.fight
         none = c.empty or c.grade == "-"
-        cells.append(FightCell(i, _fmt_time(f.start), f.label, None if none else round(c.total),
+        cells.append(FightCell(i, fmt_time(f.start), f.label, None if none else round(c.total),
                                "-" if none else c.grade, f.boss is not None, i in mine, f.start, f.end))
     return cells

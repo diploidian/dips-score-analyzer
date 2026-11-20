@@ -1,31 +1,25 @@
-"""The run's tabs (Score, Group, Pulls, Spells, Summary) and the dungeon page."""
+"""The run's tabs (Debrief, Group, Pulls, Spells, Summary) and the dungeon page."""
 from __future__ import annotations
 
 from PyQt6.QtCore import QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QIcon, QPainter
-from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel,
+from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QHeaderView, QLabel,
                              QPushButton, QScrollArea, QSplitter, QTableWidget, QTableWidgetItem, QTreeWidget, QTreeWidgetItem,
                              QVBoxLayout, QWidget)
 
 from ..analysis import Analysis
+from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, worst_fight  # fmt_time: summary.py
 from ..model.casts import spell_table
 from ..model.roster import CLASSES, ROLES
 from ..scoring.group import ordinal, player_card
-from ..scoring.metrics import Metrics
 from ..scoring.score import Scorecard
 from ..sources.savedvars import Run
 from . import assets, theme
-from ..scoring.radar import average
-from .radar import RadarChart
-from .timeline import player_color, text_color, pull_text, spell_color
+from .debrief import DebriefPage
+from .timeline import text_color, spell_color
 
 MARKER_COLORS = {"Skull": "#f0f0f0", "Cross": "#ff4040", "Square": "#40a0ff", "Moon": "#c0d0ff",
                  "Triangle": "#40ff60", "Diamond": "#c040ff", "Circle": "#ff9020", "Star": "#ffe040"}
-
-
-def fmt_time(s: float) -> str:
-    s = int(max(0, s))
-    return f"{s // 60}:{s % 60:02d}"
 
 
 def fmt_num(n: float) -> str:
@@ -70,173 +64,38 @@ def dim_label(text: str = "") -> QLabel:
     return lbl
 
 
-# ============================================================================ Score
-class Bar(QWidget):
-    def __init__(self):
-        super().__init__()
-        self.value = 0.0
-        self.setFixedHeight(10)
-        self.setMinimumWidth(120)
-
-    def set(self, v: float, dim: bool = False):
-        self.value, self.dim = v, dim
-        self.update()
-
-    def paintEvent(self, ev):
-        p = QPainter(self)
-        r = QRectF(0, 0, self.width(), self.height())
-        p.fillRect(r, theme.LANE)
-        color = QColor(95, 95, 105) if getattr(self, "dim", False) else theme.score_color(self.value)
-        p.fillRect(QRectF(0, 0, r.width() * self.value / 100, r.height()), color)
-
-
-class ScorePanel(QWidget):
-    def __init__(self):
-        super().__init__()
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 0, 0, 0)
-        top = QHBoxLayout()
-        head = QVBoxLayout()
-        self.title = QLabel("No run selected")
-        self.title.setObjectName("title")
-        self.sub = dim_label()
-        head.addWidget(self.title)
-        head.addWidget(self.sub)
-        top.addLayout(head, 1)
-        self.radar = RadarChart(170)
-        self.radar.setVisible(False)
-        top.addWidget(self.radar)
-        self.grade = QLabel("")
-        self.grade.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        top.addWidget(self.grade)
-        lay.addLayout(top)
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(12)
-        grid.setVerticalSpacing(6)
-        self.rows = []
-        for i in range(6):
-            name, bar, num, summary = QLabel(), Bar(), QLabel(), dim_label()
-            num.setFixedWidth(30)
-            for col, w in enumerate((name, bar, num, summary)):
-                grid.addWidget(w, i, col)
-            self.rows.append((name, bar, num, summary))
-        # the hybrid bonus, under the categories
-        self.bonus_name, self.bonus_num, self.bonus_note = QLabel("Hybrid bonus"), QLabel(), dim_label()
-        self.bonus_num.setStyleSheet(f"color: {theme.ACCENT.name()}; font-weight: 600;")
-        grid.addWidget(self.bonus_name, 6, 0)
-        grid.addWidget(self.bonus_num, 6, 1, 1, 2)
-        grid.addWidget(self.bonus_note, 6, 3)
-        grid.setColumnStretch(3, 1)
-        lay.addLayout(grid)
-        self.output = dim_label()
-        lay.addWidget(self.output)
-        self.tips = QLabel("")
-        self.tips.setWordWrap(True)
-        self.tips.setTextFormat(Qt.TextFormat.RichText)
-        lay.addWidget(self.tips)
-        lay.addStretch(1)
-
-    def show_card(self, title: str, sub: str, card: Scorecard | None, m: Metrics | None):
-        self.title.setText(title)
-        self.sub.setText(sub)
-        empty = not card or card.empty
-        for row in self.rows + [(self.bonus_name, self.bonus_num, self.bonus_note)]:
-            for w in row:
-                w.setVisible(False)
-        if card and card.note:
-            self.sub.setText(sub + " · " + card.note)
-        if empty:
-            self.grade.setText("")
-            self.output.setText("")
-            self.tips.setText("")
-            return
-        c = theme.grade_color(card.grade).name()
-        total = "-" if card.grade == "-" else f"{card.total:.0f}"   # "-": nothing counted could be judged
-        self.grade.setText(f'<span style="font-size:30pt;font-weight:700;color:{c}">{total}</span>'
-                           f'<span style="font-size:18pt;color:{c}">&nbsp;{card.grade}</span>'
-                           f'<br><span style="color:{theme.DIM.name()}">as {card.role}</span>')
-        for (name, bar, num, summary), cat in zip(self.rows, card.categories):
-            for w in (name, bar, num, summary):
-                w.setVisible(True)
-            name.setText(cat.name)
-            name.setStyleSheet(f"color: {theme.DIM.name()};" if cat.info_only else "")
-            name.setToolTip(cat.unavailable or "info only: weighted 0, doesn't count toward the total" if cat.info_only
-                            else f"weight {cat.weight:g}")
-            bar.set(cat.score, dim=cat.info_only)
-            num.setText("-" if cat.unavailable else f"{cat.score:.0f}")
-            summary.setText(cat.unavailable or ("info only · " if cat.info_only else "") + cat.summary)
-        show_bonus = card.bonus > 0
-        for w in (self.bonus_name, self.bonus_num, self.bonus_note):
-            w.setVisible(show_bonus)
-        if show_bonus:
-            self.bonus_num.setText(f"+{card.bonus:.1f}")
-            self.bonus_note.setText(card.bonus_note)
-        out = []
-        if m is None:
-            pass
-        elif m.has_log:
-            out.append(f"{m.damage:,} damage ({m.dps:.0f}/s) · {m.healing:,} healing ({m.hps:.0f}/s, "
-                       f"{m.overheal_share:.0%} overheal incl. passive) · {m.kills} killing blows · "
-                       f"{m.damage_taken:,} taken")
-        if m is not None and m.median_first_press is not None:
-            out.append(f"first press after a pull: median {m.median_first_press:.2f}s")
-        self.output.setText("  ·  ".join(out))
-        if card.tips:
-            items = "".join(f"<li>{t}</li>" for t in card.tips)
-            self.tips.setText(f'<b style="color:{theme.ACCENT.name()}">Work on</b><ul style="margin-left:-20px">{items}</ul>')
-        else:
-            self.tips.setText(f'<b style="color:{theme.ACCENT.name()}">Nothing stands out - nice run.</b>')
-
-
-FIGHT_COLUMNS = {
-    "healer": ["At", "Fight", "Length", "Score", "Response", "Missed", "Died"],
-    "dps": ["At", "Fight", "Length", "Score", "Busy", "Refused", "Presses/cast"],
-    "tank": ["At", "Fight", "Length", "Score", "Pickup", "Missed", "Died"],
-    "other": ["At", "Fight", "Length", "Score", "Damage", "Taken", "Died"],   # anyone but you
-}
+# ============================================================================ Debrief
+ROLE_NAME = {"dps": "DPS"}
 
 
 class ScoreTab(QWidget):
-    """a player's scorecard (whole run, or the fight picked on the right) and the fights. You get your full
+    """the Debrief tab: a player's debrief for the whole run, or for the fight picked. You get your full
     scorecard; anyone else is scored from the combat log alone (as on the Summary tab)."""
     zoom = pyqtSignal(float, float)
 
     def __init__(self):
         super().__init__()
         self.a: Analysis | None = None
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 6, 0, 0)
-        pick = QHBoxLayout()
-        pick.addWidget(dim_label("Player"))
+        self.fight = -1                    # the fight showing; -1: the whole run
+        self.cards: list[Scorecard] = []   # the picked player's card for each fight
+        self.cells: list = []
+        self.deaths: list = []             # the picked player's
+        self.page = DebriefPage()
+        self.page.zoom.connect(self.zoom)
+        self.page.picked.connect(self.show_fight)
         self.who = QComboBox()
         self.who.setMinimumWidth(220)
         self.who.currentIndexChanged.connect(self._who_changed)
-        pick.addWidget(self.who)
-        self.who_note = dim_label()
-        pick.addWidget(self.who_note, 1)
-        outer.addLayout(pick)
-        lay = QHBoxLayout()
-        outer.addLayout(lay, 1)
-        self.card = ScorePanel()
-        card_scroll = QScrollArea()          # the card's text wraps; let it scroll instead of squeezing
-        card_scroll.setWidget(self.card)
-        card_scroll.setWidgetResizable(True)
-        card_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        card_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        lay.addWidget(card_scroll, 5)
-        right = QVBoxLayout()
-        head = QHBoxLayout()
-        head.addWidget(dim_label("Fights - click one to score just that fight"), 1)
-        self.whole = QPushButton("Whole run")
-        self.whole.clicked.connect(self.show_whole)
-        head.addWidget(self.whole)
-        right.addLayout(head)
-        self.fights = table(FIGHT_COLUMNS["healer"], stretch=1)
-        self.fights.setMinimumWidth(520)
-        self.fights.itemSelectionChanged.connect(self._pick)
-        right.addWidget(self.fights)
-        lay.addLayout(right, 4)
-        self._fight_cards: list = []
+        self.page.head.addWidget(dim_label("Player"), 0, Qt.AlignmentFlag.AlignTop)
+        self.page.head.addWidget(self.who, 0, Qt.AlignmentFlag.AlignTop)
+        scroll = QScrollArea()          # small windows: scroll rather than squeeze
+        scroll.setWidget(self.page)
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(scroll)
 
     # ------------------------------------------------------------------ who
     def _guid(self) -> str | None:
@@ -267,110 +126,73 @@ class ScoreTab(QWidget):
 
     def _who_changed(self):
         a, guid = self.a, self._guid()
-        self.fights.blockSignals(True)
-        self.fights.setRowCount(0)
-        self._fight_cards = []
+        self.cards, self.cells, self.deaths = [], [], []
         if a and guid:
             p = a.roster[guid]
             me = self._is_me()
-            cols = FIGHT_COLUMNS[a.role] if me else FIGHT_COLUMNS["other"]
-            self.fights.setHorizontalHeaderLabels(cols)
-            self.who_note.setText(
+            self.who.setToolTip(
                 "your full scorecard, from the add-on and the combat log" if me else
                 f"scored from the combat log as {(p.role or 'DPS').lower() if p.role != 'DPS' else 'a damage dealer'} "
                 f"(the add-on only records your own presses and movement)")
-            dead_in: dict[int, list] = {}
-            for d in a.deaths:
-                for i, f in enumerate(a.data.fights):
-                    if f.start - 2 <= d.t <= f.end + 5:
-                        dead_in.setdefault(i, []).append(d)
-                        break
-            g = a.group
-            for i, fr in enumerate(a.fights):
-                f = fr.fight
-                if me:
-                    m, h, c = fr.metrics, fr.healer, fr.card
-                else:
-                    c = player_card(a, guid, [(f.start, f.end)])
-                self._fight_cards.append(c)
-                kill = "" if f.killed is None else (" (killed)" if f.killed else " (wipe)")
-                died = ", ".join(d.name.split(" ")[0] for d in dead_in.get(i, [])) or "-"
-                score = f"{c.total:.0f} {c.grade}" if not c.empty else "-"
-                vals = [fmt_time(f.start), f.label + kill, f"{f.duration:.0f}s", score]
-                if not me:
-                    w = [(f.start, f.end)]
-                    vals += [fmt_num(_sum_window(g.damage[guid], w)), fmt_num(_sum_window(g.taken[guid], w)), died]
-                elif a.role == "healer":
-                    resp = f"{h.median_response:.1f}s" if h.median_response is not None else "-"
-                    vals += [resp, f"{h.missed}/{len(h.judged)}" if h.judged else "-", died]
-                elif a.role == "tank" and fr.tank:
-                    t = fr.tank
-                    pick = f"{t.median_pickup:.1f}s" if t.median_pickup is not None else "-"
-                    vals += [pick, f"{t.missed}/{len(t.judged)}" if t.judged else "-", died]
-                else:
-                    vals += [f"{m.uptime:.0%}", str(m.failed), f"{m.presses_per_cast:.1f}"]
-                r = self.fights.rowCount()
-                self.fights.insertRow(r)
-                for col, v in enumerate(vals):
-                    color = theme.grade_color(c.grade) if col == 3 and not c.empty else \
-                        theme.DEATH if col == 6 and v != "-" and cols[6] == "Died" else None
-                    self.fights.setItem(r, col, item(v, color, align_right=col in (4, 5) and not me))
-        self.fights.blockSignals(False)
+            self.cards = [fr.card if me else player_card(a, guid, [(fr.fight.start, fr.fight.end)]) for fr in a.fights]
+            self.cells = fight_cells(a, guid, self.cards)
+            self.deaths = [d for d in a.deaths if d.guid == guid]
         self.show_whole()
 
     # ------------------------------------------------------------------ showing
+    def _window(self, i: int) -> tuple[float, float]:
+        f = self.a.fights[i].fight
+        pad = max(3.0, f.duration * 0.08)
+        return f.start - pad, f.end + pad
+
+    def _show(self, card: Scorecard, share: float | None, deaths: int, title: str, sub: str, fight: int | None):
+        """fight: where "Show me" zooms (None: the fight whose card lost the most in the fix's category)"""
+        view = build_view(card, self.cells, share, deaths)
+        if view.fix and fight is None:
+            fight = worst_fight(self.cards, view.fix.category)
+        role = ROLE_NAME.get(card.role, card.role)
+        self.page.show_view(view, title, sub if card.empty else f"{sub} · as {role}",
+                            self._window(fight) if view.fix and fight is not None else None)
+
     def show_whole(self):
         a = self.a
-        self.fights.clearSelection()
+        self.fight = -1
         if not a or not self._guid():
-            self.card.show_card("No run selected", "", None, None)
+            self.page.show_view(DebriefView(), "No run selected", "")
             return
         rd = a.data
         parts = f" ({len(rd.run.parts)} pieces)" if len(rd.run.parts) > 1 else ""
-        when = (f"{rd.run.start_time:%A %d %B, %H:%M}{parts} · {fmt_time(rd.duration)} long, "
-                f"{fmt_time(a.metrics.combat_time)} in combat over {len(rd.fights)} fights")
+        when = (f"{rd.run.start_time:%a %d %b %H:%M}{parts} · {fmt_time(rd.duration)} long · "
+                f"{fmt_time(a.metrics.combat_time)} in combat · {len(rd.fights)} fights")
         if self._is_me():
             sync = "; ".join(s.describe() for s in rd.sync if s.anchors) or "no clock anchors"
             if rd.has_combat_log and not rd.has_advanced:
                 sync += " · advanced logging: off"
-            self.card.show_card(rd.run.zone, f"{when} · sync: {sync}", a.card, a.metrics)
-            self._show_radar()
+            self._show(a.card, a.damage[1] if a.damage else None, len(self.deaths), rd.run.zone,
+                       f"{when} · sync: {sync}", None)
             return
         pl = next((x for x in a.ranking if x.guid == self._guid()), None)
         p = a.roster[self._guid()]
-        title = f"{p.name} - {rd.run.zone}"
         sub = when + (f" · placed {ordinal(pl.rank)} of {len(a.ranking)}" if pl else "")
-        self.card.show_card(title, sub, pl.card if pl else player_card(a, p.guid), None)
-        self._show_radar()
+        self._show(pl.card if pl else player_card(a, p.guid), None, len(self.deaths), f"{p.name} - {rd.run.zone}",
+                   sub, None)
 
-    def _show_radar(self):
-        """the selected player's radar (for the whole run) next to their grade"""
-        a, guid = self.a, self._guid()
-        r = a.radars.get(guid) if a and guid else None
-        self.card.radar.setVisible(r is not None)
-        if r is not None:
-            p = a.roster[guid]
-            self.card.radar.set_data(r, player_color(p), p.name, average(a.radars))
-
-    def _pick(self):
+    def show_fight(self, i: int):
+        """one fight's debrief (-1: the whole run), and the timeline zoomed to it"""
         a = self.a
-        rows = self.fights.selectionModel().selectedRows()
-        if not a or not rows:
+        if not a or not self._guid() or not 0 <= i < len(a.fights):
+            self.show_whole()
             return
-        i = rows[0].row()
+        self.fight = i
         fr = a.fights[i]
         f = fr.fight
+        me = self._is_me()
         kill = "" if f.killed is None else (" - killed" if f.killed else " - wipe")
-        who = "" if self._is_me() else f"{a.roster[self._guid()].name} · "
-        card = fr.card if self._is_me() else self._fight_cards[i]
-        self.card.show_card(f"{f.label}{kill}", f"{who}{a.data.run.zone} · at {fmt_time(f.start)} · {f.duration:.0f}s",
-                            card, fr.metrics if self._is_me() else None)
-        pad = max(3.0, f.duration * 0.08)
-        self.zoom.emit(f.start - pad, f.end + pad)
-
-
-def _sum_window(series, windows) -> int:
-    return sum(v for t, v in series if any(a <= t <= b for a, b in windows))
+        who = "" if me else f"{a.roster[self._guid()].name} · "
+        deaths = len(fight_of(self.deaths, a.data.fights).get(i, []))
+        self._show(self.cards[i], fr.damage[1] if me and fr.damage else None, deaths, f"{f.label}{kill}",
+                   f"{who}{a.data.run.zone} · at {fmt_time(f.start)} · {f.duration:.0f}s", i)
+        self.zoom.emit(*self._window(i))
 
 
 # ============================================================================ Group

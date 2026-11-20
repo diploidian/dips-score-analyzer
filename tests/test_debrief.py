@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from types import SimpleNamespace as NS  # noqa: E402
 
-from dips_score.debrief import FightCell, build_view, display_name, fight_cells, fight_of  # noqa: E402
+from dips_score.debrief import FightCell, build_view, display_name, fight_cells, fight_of, worst_fight  # noqa: E402
 from dips_score.scoring.score import Category, Scorecard, _card  # noqa: E402
 
 
@@ -175,6 +175,15 @@ class ViewTests(unittest.TestCase):
         self.assertEqual((c0.boss, c0.died, c0.score, c0.at), (True, True, 95, "0:00"))
         self.assertEqual((c1.boss, c1.died, c1.score, c1.grade, c1.at), (False, False, None, "-", "0:40"))
         self.assertEqual(build_view(good, [c0, c1], None, 0).review, [])
+        # someone else: their own cards and deaths
+        self.assertEqual([(c.score, c.died) for c in fight_cells(a, "other", [bad, good])], [(None, False), (95, True)])
+
+    def test_worst_fight(self):
+        def cd(s): return _card([Category("Cooldowns", s, 10, "x"), Category("Damage", 100, 10, "y")], "dps")
+        # most points lost in the category; ties go to the earliest; empty cards lose nothing
+        self.assertEqual(worst_fight([cd(90), cd(40), cd(40), Scorecard(0, "-")], "Cooldowns"), 1)
+        self.assertIsNone(worst_fight([cd(100), Scorecard(0, "-")], "Cooldowns"))
+        self.assertIsNone(worst_fight([], "Cooldowns"))
 
 
 if __name__ == "__main__":
