@@ -344,6 +344,7 @@ class Plate(Part):
         self.has_button = False
         self.wrap = True           # the rows wrap; the page sets False when that wouldn't fit its height
         self.price_px = 32         # the price's size (the fight page's is 46)
+        self.title_px = None       # the title's size (None: 23, narrow 21; the history plate's is 34)
         self.price_words = False   # True: only the price's figure big, its words muted, the caption on its own line
         self.button_y = self.next_y = 0.0
 
@@ -387,7 +388,7 @@ class Plate(Part):
         wrap = self.wrap if wrap is None else wrap
         x, cw = 18, w - 36
         y = 12 + 22
-        tpx = 21 if n else 23
+        tpx = self.title_px or (21 if n else 23)
         y += wrapped(p, font(tpx, 600, num=True), tok("plate-tx"), x, y, cw, tpx * 1.15, self.title) + 8
         if self.body:
             y += wrapped(p, font(14), tok("plate-mu"), x, y, cw, 14 * 1.45, self.body) + 4

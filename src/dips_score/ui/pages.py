@@ -1,18 +1,22 @@
-"""The Debrief tab and the dungeon page; Pulls is pulls.py, Spells is spells.py, Group is group.py."""
+"""The Debrief tab and the dungeon page (its History tab is historytab.py); Pulls is pulls.py, Spells is spells.py,
+Group is group.py."""
 from __future__ import annotations
 
-from PyQt6.QtCore import QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont, QPainter
+from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHeaderView, QLabel, QScrollArea, QTableWidget,
-                             QTableWidgetItem, QVBoxLayout, QWidget)
+                             QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget)
 
 from ..analysis import Analysis
 from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, worst_fight
+from ..dungeon_view import build_history, history_meta, visits
 from ..scoring.group import ordinal, player_card
 from ..scoring.score import Scorecard
 from ..sources.savedvars import Run
-from . import assets, theme
+from . import assets
 from .debrief import DebriefPage
+from .historytab import HistoryTab
+from .kit import HEAD_H, Sheet
 from .timeline import text_color
 
 
@@ -204,92 +208,34 @@ class ScoreTab(QWidget):
 
 
 # ============================================================================ Dungeon page
-class ScoreChart(QWidget):
-    """a bar per visit, oldest to newest, colored by grade"""
-
-    def __init__(self):
-        super().__init__()
-        self.points: list[tuple[str, float | None, str]] = []   # label, score, grade
-        self.setMinimumHeight(170)
-
-    def set_points(self, pts):
-        self.points = pts
-        self.update()
-
-    def paintEvent(self, ev):
-        p = QPainter(self)
-        r = QRectF(40, 10, self.width() - 50, self.height() - 34)
-        p.setFont(QFont(theme.FONT, 8))
-        for v in (0, 50, 100):
-            y = r.bottom() - v / 100 * r.height()
-            p.setPen(theme.GRID)
-            p.drawLine(int(r.left()), int(y), int(r.right()), int(y))
-            p.setPen(theme.DIM)
-            p.drawText(QRectF(0, y - 8, 34, 16), Qt.AlignmentFlag.AlignRight, str(v))
-        n = len(self.points)
-        if not n:
-            return
-        w = min(60.0, r.width() / n)
-        for i, (label, score, grade) in enumerate(self.points):
-            x = r.left() + i * w + w * 0.15
-            if score is not None:
-                h = score / 100 * r.height()
-                p.fillRect(QRectF(x, r.bottom() - h, w * 0.7, h), theme.grade_color(grade))
-                p.setPen(theme.TEXT)
-                p.drawText(QRectF(x - 5, r.bottom() - h - 16, w * 0.7 + 10, 14), Qt.AlignmentFlag.AlignCenter,
-                           f"{score:.0f}")
-            p.setPen(theme.DIM)
-            p.drawText(QRectF(x - 10, r.bottom() + 4, w * 0.7 + 20, 14), Qt.AlignmentFlag.AlignCenter, label)
-
-
-class DungeonPage(QWidget):
+class DungeonPage(QTabWidget):
+    """a dungeon's page, in text tabs like a run's: History (your score on every visit; historytab.py), Bosses and
+    Records"""
     open_run = pyqtSignal(str)   # run id
 
     def __init__(self):
         super().__init__()
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(8, 8, 8, 8)
-        self.head = QLabel("")
-        self.head.setObjectName("title")
-        self.sub = dim_label()
-        lay.addWidget(self.head)
-        lay.addWidget(self.sub)
-        lay.addWidget(dim_label("Your score on each visit, oldest to newest"))
-        self.chart = ScoreChart()
-        lay.addWidget(self.chart)
-        self.t = table(["When", "Length", "In combat", "Score", "Bosses", "Deaths", "Wipes", "Pieces"], stretch=0)
-        self.t.itemDoubleClicked.connect(self._open)
-        lay.addWidget(self.t, 1)
-        lay.addWidget(dim_label("Double-click a visit to open it."))
+        self.pairs: list[tuple[Run, Analysis | None]] = []     # each visit, newest first, and its analysis
+        self.history = HistoryTab()
+        self.history.open_run.connect(self.open_run)
+        self.addTab(self.history, "History")
+        self.soon: list[Sheet] = []
+        for name in ("Bosses", "Records"):      # shortcut: placeholders until Task 10 builds them
+            s = Sheet()
+            lay = QVBoxLayout(s)
+            lay.setContentsMargins(16, 4, 16, 16)
+            lay.addSpacing(HEAD_H + 14)
+            lay.addWidget(dim_label(f"{name}: coming in the next commit."))
+            lay.addStretch(1)
+            self.soon.append(s)
+            self.addTab(s, name)
 
     def show_dungeon(self, zone: str, runs: list[Run], analyses: dict[str, Analysis]):
-        self.head.setText(zone)
-        self.sub.setText(f"{len(runs)} visit{'s' if len(runs) != 1 else ''}")
-        self.t.setRowCount(0)
-        pts = []
-        for run in runs:
-            a = analyses.get(run.id)
-            r = self.t.rowCount()
-            self.t.insertRow(r)
-            if a:
-                card = a.card
-                score = f"{card.total:.0f} {card.grade}" if not card.empty else "-"
-                s = a.summary
-                vals = [f"{run.start_time:%a %d %b %H:%M}", fmt_time(a.data.duration), fmt_time(a.metrics.combat_time),
-                        score, f"{s.bosses_killed}/{s.bosses}" if s else "-", len(a.deaths), len(a.wipes) or "",
-                        len(run.parts)]
-            else:
-                vals = [f"{run.start_time:%a %d %b %H:%M}", "", "", "...", "", "", "", len(run.parts)]
-            for col, v in enumerate(vals):
-                color = theme.grade_color(a.card.grade) if a and col == 3 and not a.card.empty else None
-                self.t.setItem(r, col, item(v, color, data=run.id if col == 0 else None))
-        for run in reversed(runs):
-            a = analyses.get(run.id)
-            ok = a and not a.card.empty
-            pts.append((f"{run.start_time:%d %b}", a.card.total if ok else None, a.card.grade if ok else "-"))
-        self.chart.set_points(pts)
-
-    def _open(self, it):
-        rid = self.t.item(it.row(), 0).data(Qt.ItemDataRole.UserRole)
-        if rid:
-            self.open_run.emit(rid)
+        """runs: the dungeon's visits; analyses: theirs by run id (one that couldn't be analysed is missing)"""
+        self.pairs = [(r, analyses.get(r.id)) for r in runs]
+        view = build_history(visits(self.pairs))
+        meta = history_meta(view)
+        self.history.show_view(zone, meta, view)
+        for s in self.soon:
+            s.title, s.sub = zone, meta
+            s.update()

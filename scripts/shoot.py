@@ -18,7 +18,8 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("--saved")
 ap.add_argument("--run", type=int)
-ap.add_argument("--tab", default="Debrief")
+ap.add_argument("--tab", default="Debrief", help="a run tab, a rail page (Dungeons, Fights, Habits), or a dungeon tab "
+                                                "(History, Bosses, Records: the page of --run's dungeon)")
 ap.add_argument("--look", default="timeless,day", help="<theme>,<mode>")
 ap.add_argument("--click-look", help="<theme>,<mode>: click the rail's Look buttons after the window is up")
 ap.add_argument("--replay", action="store_true", help="sum up the game's old combat logs into the temp history (Fights page)")
@@ -84,11 +85,18 @@ w.resize(width, height)
 w.show()
 PAGES = {"dungeons": w.mode_dungeons, "fights": w.mode_fights, "habits": w.mode_habits}
 TABS = {w.tabs.tabText(i).lower(): i for i in range(w.tabs.count())}
+DUNGEON = {w.dungeon.tabText(i).lower(): i for i in range(w.dungeon.count())}    # the page of --run's dungeon
 want = {"score": "debrief", "summary": "group"}.get(args.tab.lower(), args.tab.lower())   # the old names
-if want not in PAGES and want not in TABS:
+if want not in PAGES and want not in TABS and want not in DUNGEON:
     sys.exit(f"unknown --tab {args.tab!r}; valid: " + ", ".join(w.tabs.tabText(i) for i in range(w.tabs.count()))
-             + ", " + ", ".join(k.title() for k in PAGES))
-if want in PAGES:
+             + ", " + ", ".join(k.title() for k in PAGES) + ", " + ", ".join(k.title() for k in DUNGEON))
+if want in DUNGEON:
+    r = w.runs[(args.run or 1) - 1]
+    key = "zone:" + ("Open world" if r.kind == "world" else r.zone)
+    w.tree.setCurrentItem(next(it for i in range(w.tree.topLevelItemCount())
+                               if (it := w.tree.topLevelItem(i)).data(0, ui.RUN_ROLE) == key))
+    w.dungeon.setCurrentIndex(DUNGEON[want])
+elif want in PAGES:
     if want == "fights" and args.run:
         w._open_run_id(w.runs[args.run - 1].id)
     PAGES[want].click()
