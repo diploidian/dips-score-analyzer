@@ -32,6 +32,7 @@ class PullRow:
     you_died: bool
     hp: float | None                # yours as you went in, 0..1; None: not in the log
     mana: float | None
+    died: list[str] = field(default_factory=list)     # first names of everyone who died in it
 
 
 @dataclass
@@ -83,6 +84,7 @@ def pull_rows(a) -> list[PullRow]:
     rd, me = a.data, a.data.player_guid
     mine = [e for e in rd.events if e.info and e.info.guid == me]     # one pass, not one per pull
     my_deaths = [d.t for d in a.deaths if d.guid == me]
+    deaths = [(d.t, a.roster[d.guid].name.split(" ")[0]) for d in a.deaths if d.guid in a.roster]
     rows, prev_end = [], None
     for p in a.pulls:
         f = p.fight
@@ -94,7 +96,8 @@ def pull_rows(a) -> list[PullRow]:
             pulled_by=a.roster[pullers[0]].name if pullers and pullers[0] in a.roster else None,
             you_pulled=bool(pullers) and pullers[0] == me, how=p.packs[0].how if p.packs else "",
             length_s=round(f.duration), gap_before_s=None if prev_end is None else round(p.start - prev_end),
-            you_died=any(f.start - 2 <= t <= f.end + 5 for t in my_deaths), hp=hp, mana=mana))
+            you_died=any(f.start - 2 <= t <= f.end + 5 for t in my_deaths), hp=hp, mana=mana,
+            died=[who for t, who in deaths if f.start - 2 <= t <= f.end + 5]))
         prev_end = f.end
     return rows
 

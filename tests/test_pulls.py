@@ -151,6 +151,7 @@ class PullsViewTests(unittest.TestCase):
                           for r in v.rows],
                          [("0:10", None, None, "Bao Kahn", True, 0, False, None),
                           ("1:00", None, None, "Anaruz", False, 1, True, 20)])
+        self.assertEqual([r.died for r in v.rows], [["Anaruz"], ["Bao"]])   # everyone, by first name
         self.assertEqual((v.fix.at, v.lowest_hp, v.under_half_mana, v.slide), ("1:00", None, [], None))
         self.assertEqual(v.verdict, "The 1:00 pull — one pack joined mid-fight — is where you died.")
         self.assertEqual(fix_plate(v.fix), ("1:00 · 35 s · 2 packs, 1 joined mid-fight", None, "you died", None))
@@ -175,6 +176,7 @@ class PullsPageTests(unittest.TestCase):
         tab.show_view(v, "Blackfathom Deeps", "Wed 18 Nov 22:27 · 69:45 long", 4185.0)
         self.assertEqual(tab.drawer.label, "ALL PULLS (64)")
         self.assertEqual(tab.table.rowCount(), 64)
+        self.assertEqual((tab.table.horizontalHeaderItem(10).text(), tab.table.item(0, 10).text()), ("Died", "—"))
         self.assertTrue(tab.drawer.body.isHidden())         # the drawer starts shut
         shown, zoomed = [], []
         tab.show_me.connect(lambda a, b: shown.append((a, b)))

@@ -427,7 +427,7 @@ class PullsTab(QScrollArea):
             KeyFigures(), PulledBy()
         # the drawer: every pull, and the picked pull's mobs under them
         self.table = table(["#", "At", "Fight", "Mobs", "Packs", "Pulled by", "Your health", "Your mana",
-                            "Gap before", "Length"], stretch=2)
+                            "Gap before", "Length", "Died"], stretch=2)
         self.table.setItemDelegate(Runs(self.table))
         self.table.itemSelectionChanged.connect(self._pick)
         mobs = QWidget()
@@ -521,7 +521,8 @@ class PullsTab(QScrollArea):
             cells = [(r.n, None), (r.at, None), (" ".join(s for s, _ in fight), fight), (r.mobs or "—", None),
                      (" ".join(s for s, _ in packs), packs), (r.pulled_by or "unknown", who),
                      ("—" if r.hp is None else pct(r.hp), None), ("—" if r.mana is None else pct(r.mana), None),
-                     ("—" if r.gap_before_s is None else fmt_time(r.gap_before_s), None), (f"{r.length_s} s", None)]
+                     ("—" if r.gap_before_s is None else fmt_time(r.gap_before_s), None), (f"{r.length_s} s", None),
+                     (", ".join(r.died) or "—", None)]
             for col, (text, runs) in enumerate(cells):
                 it = item(text, align_right=col in (0, 1, 3, 6, 7, 8, 9), data=k if col == 0 else None)
                 if runs:
