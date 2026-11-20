@@ -160,8 +160,8 @@ class ScoreLine(Part):
 
 
 class Measures(Part):
-    """Each measure, visit by visit: a cell per counted measure (its name; its last score, big in its ink; its score on
-    every scored visit, on a shared 0–100 scale, over the 90 target dashed) and a cell saying how to read them"""
+    """Each measure, visit by visit: a cell per counted measure (its name; its last score, big; its score on every
+    scored visit in its ink, on a shared 0–100 scale, over the 90 target dashed) and a cell saying how to read them"""
     COLS, CELL_H = 4, 144
 
     def __init__(self):
@@ -198,7 +198,8 @@ class Measures(Part):
         nf = font(12, 600, num=True, spacing=0.12)
         line(p, nf, tok("tx2"), x0, y, 16, elide(nf, display_name(name).upper(), iw))
         last, m = vals[-1], len(vals)
-        line(p, font(44, 700, num=True), tok("mu") if last is None else ink, x0, y + 18, 44,
+        # in tx, as the Debrief's measure scores: some inks miss 4.5:1 on panel (Upkeep by day, 4.42)
+        line(p, font(44, 700, num=True), tok("mu" if last is None else "tx"), x0, y + 18, 44,
              "–" if last is None else f"{last:.0f}")
         sy = y + 18 + 44 + 4        # the sparkline: the mock-up's 200 x 60, x stretched to the cell
 
