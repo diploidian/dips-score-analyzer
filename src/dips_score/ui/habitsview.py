@@ -1,6 +1,7 @@
 """The Habits page: what you keep doing right or wrong across many fights, painted from a HabitsView (see
 dips_score/habits_view.py): your efficiency over the last 20 fights against the ones before, the habit to fix on the
-plate, this sitting's key figures, the efficiency of every fight, and the habits grouped Fix · Build · Keep.
+plate and the efficiency of every fight in one row, this sitting's key figures under them, and the habits in three
+cards, Fix · Build · Keep.
 
 Sizes follow docs/design/mockups/habits.html (CSS px). The shared parts come from kit.py.
 """
@@ -14,14 +15,15 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout
 
 from ..habits_view import NO_FIGHTS, RECENT, HabitsView, build_habits
 from .debrief import NARROW
-from .kit import (HEAD_H, Hero, KeyFigures, Part, Plate, Sheet, Side, adv, baseline, draw_hand_circle,
+from .kit import (HEAD_H, Hero, KeyFigures, Part, Plate, Sheet, adv, baseline, box, draw_hand_circle,
                   draw_hand_note, draw_label_tab, draw_tag, elide, font, halo_text, hand_font, line, rule, text_at,
                   wrapped)
 from .pages import dim_label
 from .theme import tok
 
 HERO_W = (280, 236)      # the hero's column (narrow)
-SIDE_W = 470             # the Habits column, its 28px gutter included
+PLATE_W = (340, 300)     # the plate's column (narrow)
+CARD_PAD = 16            # inside a habit card
 SQUARE = {"Fix": "gD", "Build": "m-cast", "Keep": "m-dmg"}      # each group's 8px square
 PLATE_TAG = "habit to fix"
 
@@ -157,47 +159,59 @@ class TrendChart(Part):
             draw_hand_note(p, note, anchor, to, 25)
 
 
-class HabitList(Part):
-    """Habits: a group each (Fix, Build, Keep) under its 8px square and count, its habits in a ruled list, title over
-    detail; the plate's one tagged "habit to fix\""""
+class HabitCard(Part):
+    """one group of habits (Fix, Build or Keep) in a framed card, as tall as its row: the group's 8px square and
+    count, its habits in a ruled list, title over detail; the plate's one tagged "habit to fix\""""
 
-    def __init__(self):
+    def __init__(self, name: str):
         super().__init__()
-        self.groups: list[tuple[str, list[tuple[str, str, bool]]]] = []
+        self.name = name
+        self.set([])
 
-    def set(self, groups):
-        self.groups = groups
+    def set(self, rows):
+        self.rows = rows
+        self.setAccessibleName(f"{self.name}: {len(rows)} habits")
         self.changed()
 
     def draw(self, p, w):
-        draw_label_tab(p, 0, 0, "Habits")
-        y = 25 + 2
+        if p:
+            box(p, QRectF(0, 0, w, self.height()), tok("ln"), tok("panel"))
+            p.save()
+            p.translate(CARD_PAD, CARD_PAD)
+        w -= 2 * CARD_PAD
+        y = 0.0
         gf, tf, df = font(12, 700, num=True, spacing=0.14), font(15, 500), font(13)
         tag_w = draw_tag(None, 0, 0, PLATE_TAG) + 8
-        for name, rows in self.groups:
-            y += 14
+        if p:
+            p.fillRect(QRectF(0, 2, 8, 8), tok(SQUARE[self.name]))
+            line(p, gf, tok("tx"), 16, 0, 12, f"{self.name} · {len(self.rows)}".upper())
+        y += 12 + 7
+        if not self.rows:
             if p:
-                p.fillRect(QRectF(0, y + 2, 8, 8), tok(SQUARE[name]))
-                line(p, gf, tok("tx"), 16, y, 12, f"{name} · {len(rows)}".upper())
-            y += 12 + 7
-            for title, detail, plate in rows:
-                if p:
-                    rule(p, 0, y, w, tok("ln"))
-                y += 1 + 6
-                if p:
-                    tw = line(p, tf, tok("tx"), 0, y, 19.5, elide(tf, title, w - (tag_w if plate else 0)))
-                    if plate:
-                        draw_tag(p, tw + 8, y + 19.5 / 2, PLATE_TAG)
-                y += 19.5
-                y += wrapped(p, df, tok("tx2"), 0, y, w, 13 * 1.35, detail) + 7
+                line(p, df, tok("mu"), 0, y, 13 * 1.35, "Nothing here yet.")
+            y += 13 * 1.35
+        for title, detail, plate in self.rows:
+            if p:
+                rule(p, 0, y, w, tok("ln"))
+            y += 1 + 6
+            if p:
+                tw = line(p, tf, tok("tx"), 0, y, 19.5, elide(tf, title, w - (tag_w if plate else 0)))
+                if plate:
+                    draw_tag(p, tw + 8, y + 19.5 / 2, PLATE_TAG)
+            y += 19.5
+            y += wrapped(p, df, tok("tx2"), 0, y, w, 13 * 1.35, detail) + 7
+        if self.rows:
             if p:
                 rule(p, 0, y, w, tok("ln"))
             y += 1
-        return y + 12
+        if p:
+            p.restore()
+        return y + 2 * CARD_PAD
 
 
 class HabitsPage(QScrollArea):
-    """the Habits page, scrolling when the window is small"""
+    """the Habits page, scrolling when the window is small: hero, plate and chart in a row, the key figures, then
+    the Fix, Build and Keep cards side by side"""
     open_fights = pyqtSignal()      # the plate's "Open Fights" (R8): the rail's Fights mode, its list unfiltered
 
     def __init__(self):
@@ -207,38 +221,31 @@ class HabitsPage(QScrollArea):
         self.hero, self.plate = Hero(), Plate("Habit to fix")
         self.plate.price_words, self.plate.price_px = True, 36
         self.plate.clicked.connect(self.open_fights)
-        self.figures, self.chart, self.habits = HabitFigures(), TrendChart(), HabitList()
+        self.figures, self.chart = HabitFigures(), TrendChart()
+        self.chart.setMinimumWidth(360)
+        self.cards = [HabitCard(name) for name in ("Fix", "Build", "Keep")]
         self.empty = dim_label(NO_FIGHTS)
         self.empty.setContentsMargins(0, 14, 0, 0)
 
-        self.hero_row = QHBoxLayout()
+        self.hero_row = QHBoxLayout()       # the spacing sits between the shown widgets only
         self.hero_row.setContentsMargins(0, 14, 0, 18)
         self.hero_row.addWidget(self.hero, 0, Qt.AlignmentFlag.AlignTop)
-        self.hero_row.addWidget(self.plate, 1, Qt.AlignmentFlag.AlignTop)
-        self.hero_row.addStretch(0)      # the plate hidden: the hero keeps its column on the left
-        left = QVBoxLayout()
-        left.setContentsMargins(0, 0, 28, 0)
-        left.setSpacing(0)
-        left.addWidget(self.empty)
-        left.addLayout(self.hero_row)
-        left.addWidget(self.figures)
-        left.addWidget(self.chart)
-        left.addStretch(1)
-        self.side = Side()
-        self.side.setFixedWidth(SIDE_W)
-        sl = QVBoxLayout(self.side)
-        sl.setContentsMargins(28, 16, 0, 0)
-        sl.addWidget(self.habits)
-        sl.addStretch(1)
-        cols = QHBoxLayout()
-        cols.setSpacing(0)
-        cols.addLayout(left, 1)
-        cols.addWidget(self.side)
+        self.hero_row.addWidget(self.plate, 0, Qt.AlignmentFlag.AlignTop)
+        self.hero_row.addWidget(self.chart, 1, Qt.AlignmentFlag.AlignTop)
+        cards = QHBoxLayout()
+        cards.setContentsMargins(0, 22, 0, 0)
+        cards.setSpacing(20)
+        for card in self.cards:
+            cards.addWidget(card, 1)
         lay = QVBoxLayout(self.page)
         lay.setContentsMargins(16, 4, 16, 16)
         lay.setSpacing(0)
         lay.addSpacing(HEAD_H)
-        lay.addLayout(cols, 1)
+        lay.addWidget(self.empty)
+        lay.addLayout(self.hero_row)
+        lay.addWidget(self.figures)
+        lay.addLayout(cards)
+        lay.addStretch(1)
         self.setWidget(self.page)
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -251,7 +258,7 @@ class HabitsPage(QScrollArea):
         self.page.title, self.page.sub = v.title, v.meta
         some = bool(h.get("fights"))
         self.empty.setVisible(not some)
-        for wd in (self.hero, self.plate, self.figures, self.chart, self.side):
+        for wd in (self.hero, self.plate, self.figures, self.chart, *self.cards):
             wd.setVisible(some)
         if some:
             self.hero.set("–" if v.recent is None else f"{v.recent:.0f}", None if v.recent is None else "%",
@@ -262,8 +269,9 @@ class HabitsPage(QScrollArea):
             self.figures.set(v.figures)
             self.chart.set_view(v)
             self.chart.setVisible(bool(v.trend))
-            self.habits.set(v.groups)
-            self.side.setVisible(bool(v.groups))
+            groups = dict(v.groups)
+            for card in self.cards:
+                card.set(groups.get(card.name, []))
         self.page.update()
 
     def resizeEvent(self, ev):
@@ -277,7 +285,8 @@ class HabitsPage(QScrollArea):
             return
         self.narrow, k = narrow, int(narrow)
         self.hero.setFixedWidth(HERO_W[k])
+        self.plate.setFixedWidth(PLATE_W[k])
         self.hero_row.setSpacing(22 if narrow else 28)
-        for part in (self.hero, self.plate, self.figures):
+        for part in (self.hero, self.plate, self.figures, *self.cards):
             part.narrow = narrow
             part.changed()

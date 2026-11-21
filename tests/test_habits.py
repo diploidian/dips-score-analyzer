@@ -279,7 +279,23 @@ class HabitsPageTests(unittest.TestCase):
         self.assertFalse(page.grab().isNull())
         page.show_habits(habits([]))
         self.assertFalse(page.empty.isHidden())
-        self.assertTrue(page.hero.isHidden() and page.side.isHidden())
+        self.assertTrue(page.hero.isHidden() and all(c.isHidden() for c in page.cards))
+        self.assertFalse(page.grab().isNull())
+
+    def test_three_habit_cards(self):
+        from dips_score.ui.habitsview import HabitsPage
+        page = HabitsPage()
+        page.resize(1200, 900)
+        self.assertFalse(hasattr(page, "side"))
+        page.show_habits(REAL)
+        v = build_habits(REAL)
+        self.assertEqual([(c.name, c.rows) for c in page.cards], list(v.groups))
+        self.assertEqual([c.accessibleName() for c in page.cards], ["Fix: 6 habits", "Build: 4 habits", "Keep: 1 habits"])
+        self.assertEqual([t for t, _, plate in page.cards[0].rows if plate], ["Consecration left unused"])
+        page.show_habits(dict(REAL, cards=[c for c in REAL["cards"] if c["kind"] != "keep"]))
+        keep = page.cards[2]
+        self.assertEqual((keep.name, keep.rows, keep.isHidden()), ("Keep", [], False))
+        self.assertGreater(keep.heightForWidth(300), 0)
         self.assertFalse(page.grab().isNull())
 
 
