@@ -96,6 +96,39 @@ class ShellTests(unittest.TestCase):
             w._mode("fights")
             self.assertFalse(w.fight_detail.plate.has_button)
 
+    def test_new_weights_redraw_group_and_timeline(self):
+        """a weights change scores the run showing again on the Debrief, Group and Timeline, and keeps the tab, the
+        Timeline's view, the Debrief's fight and a spell lit from Spells"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            a = SimpleNamespace(data=SimpleNamespace(run=SimpleNamespace(id="r6")))
+            w.current, w.cache = a, {("r6",): a}
+            w.stack.setCurrentIndex(1)
+            w.tabs.setCurrentWidget(w.spells)
+            w.timeline.set_view(400.0, 425.0)
+            w.timeline.highlight("me", "Judgement")
+            w.score.fight = 2
+            # the lanes' own set_analysis starts over: the whole run, nothing lit
+            with mock.patch("dips_score.analysis.rescore") as rescore, \
+                    mock.patch.object(w.score, "set_analysis"), mock.patch.object(w.score, "show_fight") as fight, \
+                    mock.patch.object(w.group, "set_analysis") as group, \
+                    mock.patch.object(w.timeline_tab, "set_analysis",
+                                      side_effect=lambda _a: w.timeline.set_data(None)) as timeline:
+                w._rescore()
+            rescore.assert_called_once_with(a)
+            group.assert_called_once_with(a)
+            timeline.assert_called_once_with(a)
+            fight.assert_called_once_with(2)
+            self.assertIs(w.tabs.currentWidget(), w.spells)
+            self.assertEqual((w.timeline.v0, w.timeline.v1), (400.0, 425.0))
+            self.assertEqual((w.timeline.hl_guid, w.timeline.hl_spell), ("me", "Judgement"))
+
     def test_habit_to_fix_opens_fights(self):
         """R8: the Habits plate's Open Fights switches the rail to Fights mode"""
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")

@@ -472,15 +472,20 @@ class Window(QMainWindow):
         self.weights.raise_()
 
     def _rescore(self):
-        """new weights: score every analyzed visit again and redraw what's showing"""
+        """new weights: score every analyzed visit again and redraw what's showing (the pages with scores on them),
+        keeping the Debrief's fight, the Timeline's view and a spell lit from Spells"""
         for a in self.cache.values():
             analysis.rescore(a)
         self._refresh_labels()
         if self.stack.currentIndex() == 1 and self.current:
             fight = self.score.fight
-            self.score.set_analysis(self.current)
+            view, lit = (self.timeline.v0, self.timeline.v1), (self.timeline.hl_guid, self.timeline.hl_spell)
+            for page in (self.score, self.group, self.timeline_tab):    # the Timeline keeps its scope (same run)
+                page.set_analysis(self.current)
             if fight >= 0:
                 self.score.show_fight(fight)
+            self.timeline.set_view(*view)
+            self.timeline.highlight(*lit)
         else:
             self._picked(self.tree.currentItem())
 
