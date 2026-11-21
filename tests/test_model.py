@@ -283,6 +283,17 @@ class Activity(unittest.TestCase):
         self.assertLess(casting(0).score, 100)
 
 
+class SpellTable(unittest.TestCase):
+    def test_damage_counts_enemies_only(self):
+        """as the Group and the summary count damage: a hit on a friend or a neutral creature isn't yours"""
+        from dips_score.model.casts import spell_table
+        neutral = "Creature-0-1-1-1-100-9"          # no flags: not hostile
+        rd = rundata([ev(10, "SPELL_DAMAGE", ME, MOB1, "Consecration", 100),
+                      ev(11, "SPELL_DAMAGE", ME, TANK, "Consecration", 30),
+                      ev(12, "SPELL_DAMAGE", ME, neutral, "Consecration", 50)], [])
+        self.assertEqual([(r.spell, r.damage, r.hits) for r in spell_table(rd, ME)], [("Consecration", 100, 1)])
+
+
 class DpsDamage(unittest.TestCase):
     def test_share_of_even(self):
         from dips_score.scoring.group import GroupData, damage_share
