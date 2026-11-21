@@ -79,6 +79,19 @@ class Analysis:
         return self.roster.get(g) if g else None
 
 
+# A run reads the log from its start to its end (plus 10 s). A log written to this long after the run ended already
+# holds all of that on disk, so the game's later writes to it can't change the run.
+SETTLED_S = 120
+
+
+def run_key(run: Run, logs: list[Path], picks: float) -> tuple:
+    """what a run's analysis depends on: the run as saved, the combat logs (each by its last write, until the run's
+    part of it is final) and your role picks"""
+    done = run.end_estimate + SETTLED_S
+    files = tuple((p.name, t if (t := p.stat().st_mtime) <= done else "settled") for p in logs)
+    return (run.id, run.line_count, files, picks)
+
+
 def merge_visits(runs: list[Run]) -> list[Run]:
     """Pieces of the same visit, joined. Oldest first."""
     out: list[Run] = []

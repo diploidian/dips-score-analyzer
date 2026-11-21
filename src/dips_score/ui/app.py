@@ -246,7 +246,7 @@ class Window(QMainWindow):
         self.tree.clear()
         bold = QFont()
         bold.setBold(True)
-        select = None
+        select = fresh = None
         for zone, visits in analysis.dungeons(self.runs).items():
             top = QTreeWidgetItem([f"{zone}   ({len(visits)})"])
             top.setFont(0, bold)
@@ -256,12 +256,15 @@ class Window(QMainWindow):
                 child = QTreeWidgetItem([self._run_label(r)])
                 child.setData(0, RUN_ROLE, r.id)
                 top.addChild(child)
-                if r.id == keep or (had and r.id not in had and select is None):
+                if r.id == keep:
                     select = child
+                if had and r.id not in had and fresh is None:    # a visit the game just saved
+                    fresh = child
             if top.data(0, RUN_ROLE) == keep:
                 select = select or top
             top.setExpanded(True)
         self.tree.blockSignals(False)
+        select = fresh or select        # a new visit opens by itself, over the one you were on
         if not self.runs:
             self._status(f"No runs yet. Looking in {self.paths.accounts}" if self.paths.found() else
                          f"Game folder not found: {self.paths.wow}. Pick it in Settings.")
@@ -284,9 +287,8 @@ class Window(QMainWindow):
         return f"{r.start_time:%a %d %b  %H:%M}{score}"
 
     def _key(self, run: Run) -> tuple:
-        logs = tuple((p.name, p.stat().st_mtime) for p in sorted(self.paths.logs.glob("WoWCombatLog*.txt")))
         picks = self.paths.roster_file.stat().st_mtime if self.paths.roster_file.exists() else 0
-        return (run.id, run.line_count, logs, picks)
+        return analysis.run_key(run, sorted(self.paths.logs.glob("WoWCombatLog*.txt")), picks)
 
     def _cached(self, run: Run) -> Analysis | None:
         return self.cache.get(self._key(run))
@@ -296,9 +298,12 @@ class Window(QMainWindow):
         if key not in self.cache:
             QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
             try:
-                self.cache[key] = analysis.analyze(run, self.paths)
+                a = analysis.analyze(run, self.paths)
             finally:
                 QApplication.restoreOverrideCursor()
+            for old in [k for k in self.cache if k[0] == run.id]:    # one analysis per run, the newest
+                del self.cache[old]
+            self.cache[key] = a
         return self.cache[key]
 
     # ------------------------------------------------------------------ showing

@@ -159,7 +159,7 @@ class ShellTests(unittest.TestCase):
 
         def run(rid, start, length):
             return SimpleNamespace(id=rid, zone="Kalimdor", kind="world", started=start.timestamp(), start_time=start,
-                                   line_count=9, parts=[rid], length=length)
+                                   line_count=9, parts=[rid], length=length, end_estimate=start.timestamp() + length)
 
         def analysed(_self, r):
             return SimpleNamespace(data=SimpleNamespace(run=r, start=r.start_time, duration=r.length),
@@ -190,6 +190,45 @@ class ShellTests(unittest.TestCase):
                 self.assertEqual((w.current.data.run.id, w.stack.currentIndex()), ("r8", 2))
                 self.assertFalse(w.fight_detail.plate.has_button)     # the fight was before it
             self.assertTrue(w.mode_fights.isChecked())
+
+    def test_a_new_visit_opens_by_itself(self):
+        """a reload that brings a visit the game just saved opens it, even over another visit you had open; a
+        reload with nothing new keeps your pick; a run's key changing keeps only its newest analysis"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        start = datetime(2026, 11, 18, 22, 0)
+
+        def run(rid, minute):
+            at = start.replace(minute=minute)
+            return SimpleNamespace(id=rid, zone="Blackfathom Deeps", kind="party", started=at.timestamp(),
+                                   start_time=at, line_count=9, parts=[rid], end_estimate=at.timestamp() + 600)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            shown = []
+            w._show_run = lambda r: shown.append(r.id)
+            r6, r7 = run("r6", 10), run("r7", 20)
+            with mock.patch("dips_score.analysis.load_saved", return_value=(None, [r6, r7])) as load:
+                w.reload()
+                pick = next(w.tree.topLevelItem(0).child(i) for i in range(2)
+                            if w.tree.topLevelItem(0).child(i).data(0, Qt.ItemDataRole.UserRole) == "r6")
+                w.tree.setCurrentItem(pick)                 # an older visit open
+                load.return_value = (None, [r6, r7])
+                w.reload()                                  # nothing new: it stays
+                self.assertEqual(shown[-1], "r6")
+                load.return_value = (None, [r6, r7, run("r8", 40)])
+                w.reload()                                  # the game saved a new visit: it opens
+                self.assertEqual(shown[-1], "r8")
+            keys = iter([("r6", 1), ("r6", 2)])
+            with mock.patch.object(Window, "_key", lambda _s, _r: next(keys)), \
+                    mock.patch("dips_score.analysis.analyze", side_effect=lambda r, _p: object()):
+                w._analysis(r6)
+                w._analysis(r6)                             # the log changed under it: analysed again
+            self.assertEqual([k for k in w.cache if k[0] == "r6"], [("r6", 2)])
 
     def test_new_weights_redraw_group_and_timeline(self):
         """a weights change scores the run showing again on the Debrief, Group and Timeline, and keeps the tab, the
