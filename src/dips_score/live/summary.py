@@ -284,13 +284,14 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         return None                    # a one-hit "fight": nothing to judge
 
     # ---- who it was against
-    foes = list(f.foes.values())
-    main = max(foes, key=lambda fo: dmg_by_foe.get(fo.guid, 0)) if foes else None
-    target = f.boss or (clean_name(main.name) if main and main.player else (main.name if main else "?"))
+    # players first (a fight with one in it is named for them), then most damaged
+    foes = sorted(f.foes.values(), key=lambda fo: (not fo.player, -dmg_by_foe.get(fo.guid, 0)))
+    main = foes[0] if foes else None
+    target = clean_name(main.name) if main and main.player else (f.boss or (main.name if main else "?"))
     extra = len({fo.name for fo in foes}) - 1
-    # every enemy, most damaged first, as [name, how many]
+    # every enemy, in that order, as [name, how many]
     foe_names = Counter()
-    for fo in sorted(foes, key=lambda fo: -dmg_by_foe.get(fo.guid, 0)):
+    for fo in foes:
         foe_names[clean_name(fo.name) if fo.player else fo.name] += 1
     pvp = any(fo.player for fo in foes)
     # an instance id means a dungeon (some report difficulty 0, like the open world does)
