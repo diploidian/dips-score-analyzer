@@ -498,7 +498,10 @@ class PullsTab(QScrollArea):
         """a dot clicked: open the drawer on its row (the selection then fills the mobs and readies the timeline)"""
         if not self.drawer.open:
             self.drawer.flip()
-        self.table.selectRow(k)
+        if self.table.currentRow() == k:
+            self._pick()            # already selected: no selection change would fire, so ready the timeline again
+        else:
+            self.table.selectRow(k)
         QTimer.singleShot(0, lambda: self.ensureWidgetVisible(self.table))   # after the drawer is laid out
 
     def _pick(self):

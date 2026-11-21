@@ -213,6 +213,8 @@ class PullsPageTests(unittest.TestCase):
         self.assertEqual(tab.table.currentRow(), 5)
         self.assertEqual(zoomed, [(r.start - 3, r.end + 3)])
         self.assertEqual(tr.sel, 5)
+        tr.picked.emit(5)       # the same bubble again (the timeline may have moved): readied again
+        self.assertEqual(zoomed, [(r.start - 3, r.end + 3)] * 2)
         tab.show_view(v, "Blackfathom Deeps", "", 4185.0)
         self.assertIsNone(tr.sel)
 
