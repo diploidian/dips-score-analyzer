@@ -26,7 +26,7 @@ FIGHTS_W = 460       # the right-hand column
 EDGE = 16            # the page's right margin, lent to the fights column for edge circles and the grid's scroll bar
 LEFT_MIN = 480       # the left column never gets narrower (the page scrolls sideways instead)
 ENTRANCE_MS = 900     # the one entrance: ticker, bars, circles, note; p runs 0..1, 1 is the settled page
-PREVIEW = ("Rotation", "Pacing")   # measures still being worked out
+PREVIEW = ("Rotation",)   # measures still being worked out
 
 
 # ---------------------------------------------------------------------------- the debrief's own parts

@@ -28,6 +28,8 @@ HELP = {
     "Resource": "time spent at full rage or energy, so power was wasted (needs Advanced Combat Logging)",
     "Positioning": "melee: swings from behind your target; others: hits taken far from the tank (needs Advanced "
                    "Combat Logging)",
+    "Pacing": "share of pulls you went into safely (health 50%+, mana 30%+ for mana users) and on time (first press "
+              "within 3 s of your combat beginning)",
     BONUS: "most points added for the damage you also did, scaled by how well you healed",
 }
 

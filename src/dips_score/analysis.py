@@ -22,6 +22,7 @@ from .scoring.radar import radars
 from .scoring.healer import HealerMetrics, healer_base, measure_healer
 from .scoring.interrupts import InterruptMetrics, interrupt_base, measure_interrupts
 from .scoring.metrics import Metrics, measure
+from .scoring.pacing import PacingMetrics, measure_pacing
 from .scoring.positioning import PositionMetrics, measure_positioning, position_base
 from .scoring.score import Scorecard, score
 from .scoring.upkeep import UpkeepMetrics, measure_upkeep, upkeep_base
@@ -72,6 +73,7 @@ class Analysis:
     cooldowns: CooldownMetrics | None = None      # dps/tank
     upkeep: UpkeepMetrics | None = None           # dps/tank
     positioning: PositionMetrics | None = None
+    pacing: PacingMetrics | None = None
 
     @property
     def me(self) -> Player | None:
@@ -126,8 +128,9 @@ def load_saved(paths: Paths, saved: Path | None = None, merge: bool = True) -> t
 
 def rescore(a: Analysis):
     """Score again with the weights in use now (after they were changed): the measuring stays."""
-    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts, a.cooldowns, a.upkeep, a.positioning)
-    for fr in a.fights:
+    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts, a.cooldowns, a.upkeep, a.positioning,
+                   a.pacing)
+    for fr in a.fights:   # no Pacing: one pull per fight would score only 0 or 100
         fr.card = score(fr.metrics, a.role, fr.healer, fr.tank, fr.damage, fr.interrupts, fr.cooldowns, fr.upkeep, fr.positioning)
     if a.group is not None:
         a.ranking = rank_group(a)
@@ -195,6 +198,7 @@ def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
         a.positioning = measure_positioning(rd, base=pb)
         for fr in fights:
             fr.positioning = measure_positioning(rd, [(fr.fight.start, fr.fight.end)], pb)
+        a.pacing = measure_pacing(rd, pulls, me)
     rescore(a)   # with the extras (also ranks the group)
     a.radars = radars(a)
     return a

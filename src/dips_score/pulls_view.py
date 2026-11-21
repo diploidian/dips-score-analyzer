@@ -5,11 +5,11 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 
 from .debrief import fmt_time
+from .scoring.pacing import LEAD, resource_at
 
 BREAK_S = 300       # a gap this long between pulls is a break
 QUICK_S = 30        # pulls closer than this follow each other with no time to rest
 LOW = 0.5           # entering under half health or mana is risky
-LEAD = 0.5          # health and mana are read this long before a pull starts
 WORDS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine")
 
 
@@ -61,22 +61,6 @@ def count(n: int) -> str:
 
 def _s(n: int) -> str:
     return "" if n == 1 else "s"
-
-
-def resource_at(events, guid, t) -> tuple[float | None, float | None]:
-    """(health, mana) fractions from guid's last samples at or before t (events in time order, t on their clock);
-    None where there is none. Mana counts only from a mana bar (power type 0)."""
-    hp = mana = None
-    for e in events:
-        if e.ts > t:
-            break
-        i = e.info
-        if i is None or i.guid != guid or not i.max_hp:
-            continue
-        hp = i.hp_pct
-        if i.power_type == 0 and i.max_power > 0:
-            mana = i.power / i.max_power
-    return hp, mana
 
 
 def pull_rows(a) -> list[PullRow]:
