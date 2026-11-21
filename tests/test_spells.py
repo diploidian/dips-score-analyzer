@@ -126,6 +126,29 @@ class SpellsViewTests(unittest.TestCase):
         self.assertEqual((empty.total_damage, empty.dps, empty.fix, empty.all_rows), (0, 0.0, None, []))
         self.assertEqual(empty.verdict, "No damage or healing logged.")
         self.assertNotIn("0%", empty.verdict)
+        # a healer who also did damage: scored as a healer, the healing leads; as DPS, the damage
+        both = heals + rows([("Smite", 20, 0, 9000, 0, 0, 20, 2)])
+        healer = spells_view(both, 600.0, None, role="healer")
+        self.assertEqual((healer.healer, healer.total_healing, healer.hps), (True, 54000, 90.0))
+        self.assertEqual(healer.verdict, "Renew and Flash Heal did 93% of your healing.")
+        self.assertEqual([r.name for r in healer.damage_rows], ["Smite"])      # the damage rows still show
+        dps = spells_view(both, 600.0, None)
+        self.assertEqual((dps.healer, dps.verdict), (False, "Smite did 100% of your damage."))
+
+    def test_build_spells_takes_the_scored_role(self):
+        """yours from the analysis (as the Debrief scores you); anyone else's from the roster (as the Group does)"""
+        from unittest import mock
+        from dips_score import spells_view as sv
+        both = rows([("Flash Heal", 40, 0, 0, 20000, 5000, 40, 4), ("Smite", 20, 0, 9000, 0, 0, 20, 2)])
+        a = SimpleNamespace(data=SimpleNamespace(player_guid="me", fights=[]), pets={}, cooldowns=None, fights=[],
+                            metrics=SimpleNamespace(combat_time=600.0), role="healer",
+                            roster={"me": SimpleNamespace(name="Bao Kahn", role="DPS"),
+                                    "heal": SimpleNamespace(name="Shizuka Tsuruta", role="HEALER"),
+                                    "dps": SimpleNamespace(name="Anna", role=None)})
+        with mock.patch.object(sv, "spell_table", return_value=both):
+            self.assertEqual([sv.build_spells(a, g).healer for g in ("me", "heal", "dps")], [True, True, False])
+            a.role = "dps"
+            self.assertFalse(sv.build_spells(a, "me").healer)
 
 
 @unittest.skipUnless(HAVE_QT, "needs PyQt6")
@@ -190,6 +213,13 @@ class SpellsPageTests(unittest.TestCase):
         self.assertEqual((tab.plate.title, tab.plate.price, tab.plate.rows, tab.plate.has_button),
                          ("", None, [], False))
         self.assertTrue(tab.plate.isHidden())
+        self.assertFalse(tab.grab().isNull())
+        healer = rows([("Flash Heal", 40, 0, 0, 20000, 5000, 40, 4), ("Renew", 30, 0, 0, 30000, 10000, 120, 12),
+                       ("Smite", 20, 0, 9000, 0, 0, 20, 2)])
+        tab.show_view(spells_view(healer, 600.0, None, role="healer"), "Blackfathom Deeps", "")
+        self.assertEqual((tab.hero.big, tab.hero.suffix, tab.hero.caption),
+                         ("50", "K", "50,000 healed · 83/s in combat"))     # a healer's hero: the healing
+        self.assertFalse(tab.damage.isHidden())                             # the damage rows still show
         self.assertFalse(tab.grab().isNull())
 
 

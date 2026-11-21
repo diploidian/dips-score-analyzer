@@ -277,13 +277,14 @@ class SpellsTab(QScrollArea):
         """whose: "your", or "Anna's"; a refill clears the timeline's highlight"""
         self.view = view
         self.page.title, self.page.sub = title, sub
-        if view.total_damage:
-            s = fmt_num(view.total_damage)
+        total, what, rate = ((view.total_healing, "healed", view.hps) if view.healer else
+                             (view.total_damage, "damage", view.dps))       # a healer's hero: the healing
+        if total:
+            s = fmt_num(total)
             big = s.rstrip("KM")
-            self.hero.set(big, s[len(big):] or None, f"{view.total_damage:,} damage · {view.dps:.0f}/s in combat",
-                          None, view.verdict)
+            self.hero.set(big, s[len(big):] or None, f"{total:,} {what} · {rate:.0f}/s in combat", None, view.verdict)
         else:
-            self.hero.set("–", None, "no damage logged", None, view.verdict)
+            self.hero.set("–", None, f"no {'healing' if view.healer else 'damage'} logged", None, view.verdict)
         title, price, caption = view.fix or ("", None, None)
         self.plate.set(title, price, caption, "Show on the timeline" if view.show else None,
                        view.next_rows if view.fix else [])
@@ -297,7 +298,7 @@ class SpellsTab(QScrollArea):
                          for r in view.damage_rows], ring)
         heal = view.healing_rows
         self.healing.set([Row(r.name, [[(f"{r.healing:,}", "s")], [(f"{r.overheal_share:.0%}", "v")]]) for r in heal],
-                         None, f"{sum(r.healing for r in heal):,} healed in all")
+                         None, f"{view.total_healing:,} healed in all")
         self.damage.setVisible(bool(view.damage_rows))
         self.healing.setVisible(bool(heal))
         self.buffs_drawer.set_count(len(view.buff_rows))

@@ -1,5 +1,6 @@
 """What the Spells page shows, as plain data (no Qt): a player's abilities merged by name, ranked by damage and by
-healing, the cooldown that cost you most, the damage abilities the game refused, and the verdict."""
+healing, the cooldown that cost you most, the damage abilities the game refused, and the verdict (led by the healing
+for a healer, else by the damage)."""
 from dataclasses import dataclass, field
 
 from .model.casts import SpellRow, spell_table
@@ -33,6 +34,9 @@ class AbilityRow:
 class SpellsView:
     total_damage: int = 0
     dps: float = 0.0
+    total_healing: int = 0
+    hps: float = 0.0
+    healer: bool = False                                 # scored as a healer: the healing leads
     verdict: str = ""
     fix: tuple[str, str, str] | None = None             # (title, price, caption)
     next_rows: list[tuple[str, str]] = field(default_factory=list)
@@ -77,9 +81,10 @@ def _casts(n: float) -> str:
 
 
 def spells_view(rows: list[SpellRow], combat_s: float, cooldowns=None, who: str | None = None,
-                where: dict[str, tuple[float, float]] | None = None) -> SpellsView:
+                where: dict[str, tuple[float, float]] | None = None, role: str = "dps") -> SpellsView:
     """rows: spell_table's; cooldowns: your CooldownRows (name, free, missed, lost), None when not measured;
-    who: another player's name (None: you); where: the (start, end) of the fight each cooldown cost most in"""
+    who: another player's name (None: you); where: the (start, end) of the fight each cooldown cost most in;
+    role: what they're scored as ("healer", "tank", "dps")"""
     merged = [r for r in merge_by_name(rows) if r.casts or r.failed or r.damage or r.healing]
     total = sum(r.damage for r in merged)
     minutes = combat_s / 60
@@ -89,7 +94,9 @@ def spells_view(rows: list[SpellRow], combat_s: float, cooldowns=None, who: str 
         damage=r.damage, share=r.damage / total if total else 0.0,
         per_min=r.casts / minutes if r.casts and minutes else None, crit=r.crits / r.hits if r.hits else None,
         healing=r.healing, overheal_share=r.overheal_share) for r in merged]
-    v = SpellsView(total_damage=total, dps=total / combat_s if combat_s else 0.0)
+    healed = sum(r.healing for r in merged)
+    v = SpellsView(total_damage=total, dps=total / combat_s if combat_s else 0.0, total_healing=healed,
+                   hps=healed / combat_s if combat_s else 0.0, healer=role == "healer")
     v.all_rows = sorted(abilities, key=lambda r: (r.damage, r.healing, r.casts), reverse=True)
     v.damage_rows = sorted((r for r in abilities if r.damage), key=lambda r: r.damage, reverse=True)
     v.healing_rows = sorted((r for r in abilities if r.healing), key=lambda r: r.healing, reverse=True)
@@ -114,15 +121,14 @@ def spells_view(rows: list[SpellRow], combat_s: float, cooldowns=None, who: str 
 
 
 def _verdict(v: SpellsView, refused: AbilityRow | None, fix, whose: str) -> str:
-    """the top two abilities' share (damage, else healing), then the worst refusal and the cooldown to fix"""
-    if v.damage_rows:
-        top, what, total = v.damage_rows[:2], "damage", v.total_damage
-        part = sum(r.damage for r in top)
-    elif v.healing_rows:
-        top, what, total = v.healing_rows[:2], "healing", sum(r.healing for r in v.healing_rows)
-        part = sum(r.healing for r in top)
-    else:
+    """the top two abilities' share (a healer's healing, else the damage; the other when there's none), then the
+    worst refusal and the cooldown to fix"""
+    lead = {"damage": v.damage_rows, "healing": v.healing_rows}
+    what = next((w for w in (("healing", "damage") if v.healer else ("damage", "healing")) if lead[w]), None)
+    if what is None:
         return "No damage or healing logged."
+    top = lead[what][:2]
+    part, total = (sum(getattr(r, what) for r in rs) for rs in (top, lead[what]))
     out = [f"{_and([r.name for r in top])} did {part / total:.0%} of {whose} {what}."]
     bits = ([f"{refused.name} was refused on {refused.refused} of {refused.casts + refused.refused} presses"]
             if refused else []) + ([f"{fix.name} sat ready for {fix.free:.0f} s"] if fix else [])
@@ -152,4 +158,5 @@ def build_spells(a, guid: str, scope: str = "all") -> SpellsView:
     combat = sum(b - c for c, b in windows) if windows else a.metrics.combat_time or 0.0
     me = guid == a.data.player_guid
     cds, where = _cooldowns(fr for fr in a.fights if kept(fr.fight)) if me and a.cooldowns else (None, None)
-    return spells_view(rows, combat, cds, None if me else a.roster[guid].name, where)
+    role = a.role if me else (a.roster[guid].role or "dps").lower()     # as the Debrief and Group score them
+    return spells_view(rows, combat, cds, None if me else a.roster[guid].name, where, role)
