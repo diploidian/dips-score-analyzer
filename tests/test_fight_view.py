@@ -71,6 +71,10 @@ ORACLE = {
     "resource": {"start": 0.9260476581758422, "end": 1.0, "start_hp": 1.0, "type": 0}, "level": 23,
     "interrupts": 0, "dispels": 1,
 }
+DANGER = {"t": 75.758, "hp": 0.2393617021276596, "unused": ["Divine Protection", "Lay on Hands"],
+          "hits": [{"who": "Aku'mai", "spell": "Melee", "amount": 1160},
+                   {"who": "Murkshallow Snapclaw", "spell": "Rend", "amount": 77},
+                   {"who": "Aku'mai", "spell": "Melee", "amount": 155}]}
 BARE = {"start": "2026-11-18T22:22:52.938000", "duration": 20.4, "damage": 0, "dps": 0.0, "taken": 120,
         "healing": 0, "result": "they got away", "kind": "Dungeon", "target": "Aku'mai"}
 
@@ -104,6 +108,8 @@ class FightViewTests(unittest.TestCase):
         v = build_fight(BARE)
         self.assertEqual((v.rows, v.gap, v.group, v.group_line, v.left_on_table), ([], None, None, None, None))
         self.assertEqual((v.went_well, v.also, v.zone, v.verdict), ([], [], "", ""))
+        self.assertEqual((v.pull, v.danger), ([], []))
+        self.assertEqual((build_fight(ORACLE).pull, build_fight(ORACLE).danger), ([], []))   # no pull, foes or danger
         self.assertEqual((v.name, v.duration, v.efficiency, v.big), ("Aku'mai", "0:20", None, "–"))
         self.assertEqual(v.caption, "no damage done this fight")
         old = dict(ORACLE, cooldowns=[{"name": "Judgement", "cd": 8.0, "used": 2, "lost": 600.0}])
@@ -125,24 +131,38 @@ class FightViewTests(unittest.TestCase):
         v = build_fight(heal)
         self.assertEqual((v.big, v.unit, v.caption), ("4,200", None, "healed · mostly healing this fight"))
 
-    def test_close_call_tops_also(self):
-        """danger: one line at the top of Also, in place of summary's own "Dropped to" line; the detail stays in the
-        drawer"""
-        danger = {"t": 75.758, "hp": 0.2393617021276596, "unused": ["Divine Protection"],
-                  "hits": [{"who": "Aku'mai", "spell": "Melee", "amount": 160}]}
-        f = dict(ORACLE, danger=danger,
+    def test_danger_leaves_also(self):
+        """danger, lived or died: the Danger section says it, so Also has no close call and none of summary's "Dropped
+        to" lines; without danger Also is d["improve"] less the rows"""
+        f = dict(ORACLE, danger=DANGER,
                  improve=ORACLE["improve"] + ["Dropped to 24% health with Divine Protection ready"])
-        v = build_fight(f)
-        self.assertEqual(v.also, ["Close call: down to 24% health at 1:15 — Divine Protection was ready",
-                                  "Holy Strike: Out of range ×2"])
-        two = build_fight(dict(f, danger=dict(danger, unused=["Divine Protection", "Lay on Hands"])))
-        self.assertEqual(two.also[0], "Close call: down to 24% health at 1:15 — Divine Protection and Lay on Hands "
-                                      "were ready")
-        bare = build_fight(dict(f, danger=dict(danger, unused=[])))
-        self.assertEqual(bare.also[0], "Close call: down to 24% health at 1:15")
-        died = dict(ORACLE, result="you died", danger=dict(danger, hp=0.0, unused=[]),
+        self.assertEqual(build_fight(f).also, ["Holy Strike: Out of range ×2"])
+        died = dict(ORACLE, result="you died", danger=dict(DANGER, hp=0.0, unused=[]),
                     improve=["Dropped to 0% health (Aku'mai: Melee for 160)"])
-        self.assertEqual(build_fight(died).also, ["Dropped to 0% health (Aku'mai: Melee for 160)"])  # not a close call
+        self.assertEqual(build_fight(died).also, [])
+        calm = dict(ORACLE, improve=ORACLE["improve"] + ["Dropped to 40% health"])
+        self.assertEqual(build_fight(calm).also, ["Holy Strike: Out of range ×2", "Dropped to 40% health"])
+
+    def test_the_pull(self):
+        """the time since the last fight, every enemy (none named for a lone one), the buffs at pull (eight at most)"""
+        f = dict(ORACLE, pull={"since_last": 14.6, "buffs": [f"Buff {k}" for k in range(10)], "own": [], "rest": False},
+                 foes=[["Blackfathom Oracle", 1], ["Blackfathom Tide Priestess", 2], ["Murkshallow Snapclaw", 1]])
+        self.assertEqual(build_fight(f).pull, [
+            ("Since the last fight", "15 s"),
+            ("Enemies", "Blackfathom Oracle, Blackfathom Tide Priestess ×2, Murkshallow Snapclaw"),
+            ("Buffs", ", ".join(f"Buff {k}" for k in range(8)))])
+        first = dict(ORACLE, pull={"since_last": None, "buffs": []}, foes=[["Aku'mai", 1]])
+        self.assertEqual(build_fight(first).pull, [("Since the last fight", "first fight since the log started")])
+        no_pull = dict(ORACLE, foes=[["Aku'mai", 1], ["Ghamoo-ra", 1]])     # no pull kept: nothing said about it
+        self.assertEqual(build_fight(no_pull).pull, [("Enemies", "Aku'mai, Ghamoo-ra")])
+
+    def test_danger(self):
+        """your lowest health and when, a row of hits per attacker (the label on the first only), what sat ready"""
+        self.assertEqual(build_fight(dict(ORACLE, danger=DANGER)).danger, [
+            ("Lowest health", "24% at 1:15"), ("Hits", "Aku'mai: Melee 1,160, Melee 155"),
+            ("", "Murkshallow Snapclaw: Rend 77"), ("Ready, not used", "Divine Protection, Lay on Hands")])
+        bare = build_fight(dict(ORACLE, danger=dict(DANGER, unused=[], hits=DANGER["hits"][:1]))).danger
+        self.assertEqual(bare, [("Lowest health", "24% at 1:15"), ("Hits", "Aku'mai: Melee 1,160")])
 
     def test_nothing_left_on_the_table(self):
         """under 1 left (or a potential under the damage): no total, as the old page's >= 1"""
@@ -216,7 +236,7 @@ class FightPageTests(unittest.TestCase):
         self.assertEqual(page.plate.button.text(), "Show on the timeline")
         page.plate.button.click()
         self.assertEqual(shown, [(106.8, 225.3)])
-        self.assertEqual(page.drawer.label, "ALL THE DETAILS (7)")   # its sections: Abilities, Cooldowns, ... Pull
+        self.assertEqual(page.drawer.label, "ALL THE DETAILS (6)")   # its sections: Abilities, Cooldowns, ... Resource
         self.assertTrue(page.drawer.body.isHidden())
         self.assertEqual([r.ink for r in page.where.rows], ["m-act", "m-cd", "m-cd", "m-cd"])
         self.assertEqual(page.where.total, ("Left on the table · estimate — only time you were free to act",
@@ -227,15 +247,42 @@ class FightPageTests(unittest.TestCase):
         page.show_fight(ORACLE, None)              # outside the loaded run: no button
         self.assertFalse(page.plate.has_button)
         page.show_fight(BARE)                      # nothing to fix, nobody with you
-        self.assertEqual(page.drawer.label, "ALL THE DETAILS (3)")   # idle time, resource and the pull
+        self.assertEqual(page.drawer.label, "ALL THE DETAILS (2)")   # idle time and resource
         self.assertTrue(page.plate.isHidden())
         self.assertTrue(page.where.isHidden())
         self.assertTrue(page.share.isHidden())
+        self.assertTrue(page.pull.isHidden())
+        self.assertTrue(page.danger.isHidden())
         self.assertFalse(page.grab().isNull())
         page.show_fight(None)
         self.assertFalse(page.empty.isHidden())
         self.assertTrue(page.hero.isHidden())
         self.assertFalse(page.grab().isNull())
+
+    def test_pull_and_danger_in_the_side(self):
+        """the pull and danger: out of the drawer, into the right-hand column when the fight has them"""
+        from PyQt6.QtGui import QImage, QPainter
+        from dips_score.ui.fightsview import FightDetail, _details
+        f = dict(ORACLE, pull={"since_last": 14.6, "buffs": ["Blessing of Might"]}, danger=DANGER,
+                 foes=[["Blackfathom Oracle", 1], ["Blackfathom Tide Priestess", 3]])
+        self.assertFalse({"Pull", "Enemies", "Danger"} & {title for title, _ in _details(f)})
+        page = FightDetail()
+        page.resize(1200, 900)
+        page.show_fight(f)
+        v = build_fight(f)
+        self.assertEqual((page.pull.title, page.pull.rows), ("The pull", v.pull))
+        self.assertEqual((page.danger.title, page.danger.rows), ("Danger", v.danger))
+        self.assertFalse(page.pull.isHidden())
+        self.assertFalse(page.danger.isHidden())
+        self.assertFalse(page.grab().isNull())
+        for w in (420, 260):         # the height it measures is the height it paints, a wrapped row included
+            img = QImage(w, 600, QImage.Format.Format_ARGB32)
+            p = QPainter(img)
+            self.assertEqual(page.danger.draw(None, w), page.danger.draw(p, w))
+            p.end()
+        page.show_fight(ORACLE)
+        self.assertTrue(page.pull.isHidden())
+        self.assertTrue(page.danger.isHidden())
 
     def test_grade_inks_read_on_the_rail(self):
         """the fight list's efficiency inks (gS, gD) are lifted toward rail-tx until they read at 4.5:1 on the rail and

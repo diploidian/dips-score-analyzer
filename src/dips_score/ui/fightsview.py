@@ -1,8 +1,8 @@
 """The Fights page: every fight summed up after it ended (open world and dungeons), newest first in the rail, and one
 fight on its page, painted from a FightView (see dips_score/fight_view.py): how much of the damage you could have done
-you did, the biggest gap on the plate, the key figures, where the rest went, what went well and the group; and the
-fight's whole detail (abilities, cooldowns, buffs, failed casts, idle time, resource, the pull) in the All the details
-drawer.
+you did, the biggest gap on the plate, the key figures, where the rest went, what went well, the pull, the danger and
+the group; and the fight's whole detail (abilities, cooldowns, auto attacks, buffs, failed casts, idle time, resource)
+in the All the details drawer.
 
 Sizes follow docs/design/mockups/fight.html (CSS px). The shared parts come from kit.py.
 """
@@ -14,8 +14,7 @@ from PyQt6.QtWidgets import (QAbstractItemView, QApplication, QFrame, QHBoxLayou
                              QListWidgetItem, QScrollArea, QStyle, QStyledItemDelegate, QStyleOptionViewItem,
                              QVBoxLayout, QWidget)
 
-from ..debrief import fmt_time
-from ..fight_view import build_fight, list_row
+from ..fight_view import _foes, build_fight, list_row
 from . import theme
 from .debrief import NARROW
 from .kit import (HEAD_H, BarRow, BarRows, Drawer, Fold, Hero, KeyFigures, Part, Plate, SectionHead, Sheet, Side, adv,
@@ -29,6 +28,7 @@ NAME_W = (260, 240)      # Where the damage went: the names' column, then the va
 VALUE_W = (84, 80)
 PRICE_PX = (46, 40)      # the plate's price
 GROUP_COLS = ((140, 54), (128, 50))     # Group: the names' widest, and the damage and healing columns (narrow)
+FACT_W = 136             # The pull and Danger: the labels' column, its widest ("SINCE THE LAST FIGHT") ~117
 ROW = Qt.ItemDataRole.UserRole + 1
 LEFT = "Left on the table · estimate — only time you were free to act"
 NO_FIGHTS = ("No fights yet. Turn on the combat log in game (/combatlog) and fight something: each fight shows up here "
@@ -40,14 +40,6 @@ COUNTED = ("Cooldowns that sat ready while you were free (not moving for cast-ti
 
 def _n(v) -> str:
     return f"{v:,.0f}"
-
-
-def _foes(f: dict) -> str:
-    """every enemy in the fight, most damaged first ("" for a lone enemy or an older fight)"""
-    foes = f.get("foes") or []
-    if sum(c for _, c in foes) < 2:
-        return ""
-    return ", ".join(n + (f" ×{c}" if c > 1 else "") for n, c in foes)
 
 
 def _words(text: str, f, bf, ink, bink) -> list:
@@ -216,6 +208,40 @@ class WentWell(Part):
         return y + 1
 
 
+class Facts(Part):
+    """a section of facts (The pull, Danger): each row's label in small capitals on the left, its text beside it, the
+    figures bold; a row with no label carries on the one above"""
+
+    def __init__(self):
+        super().__init__()
+        self.title = ""
+        self.rows: list[tuple[str, str]] = []
+
+    def set(self, title: str, rows: list[tuple[str, str]]):
+        self.title, self.rows = title, rows
+        self.changed()
+
+    def draw(self, p, w):
+        y = 14
+        draw_label_tab(p, 0, y, self.title)
+        y += 25 + 8
+        f, bf, lf = font(15), font(15, 600), font(11, 600, num=True, spacing=0.14)
+        x = FACT_W
+        for k, (label, s) in enumerate(self.rows):
+            if k:
+                if p:
+                    rule(p, 0 if label else x, y, w - (0 if label else x), tok("ln"))   # under one label: its column
+                y += 1
+            h = flow(p, _words(s, f, bf, tok("tx"), tok("tx")), x, y + 7, w - x, adv(f, " "), 2)
+            if p and label:
+                text_at(p, lf, tok("mu"), 0, y + 7 + QFontMetricsF(f).ascent(), label.upper())     # on flow's baseline
+            y += 7 + h + 7
+        y += 14
+        if p:
+            rule(p, 0, y, w, tok("ln"))
+        return y + 1
+
+
 class GroupShare(Part):
     """Group: your shares in a sentence, then everyone, most damage first, with a bar for their damage (yours in m-dmg)
     and their healing muted beside it"""
@@ -290,7 +316,8 @@ def _text(s: str) -> QLabel:
 
 
 def _details(f: dict) -> list[tuple[str, list[QWidget]]]:
-    """the drawer's sections, (title, widgets): everything the fight's old page listed"""
+    """the drawer's sections, (title, widgets): everything the fight's old page listed but the pull, the enemies and
+    the danger, which are in the right-hand column"""
     out = []
     if f.get("abilities"):
         out.append(("Abilities", [_table(["Ability", "Casts", "Hits", "Crits", "Miss", "Damage", "Avg", "Share"],
@@ -340,20 +367,6 @@ def _details(f: dict) -> list[tuple[str, list[QWidget]]]:
         ([f"started at {res['start_hp']:.0%} health"] if res.get("start_hp") is not None else [])
     out.append(("Resource", [_text(", ".join(parts) + "." if parts else
                                    "Not known (needs Advanced Combat Logging).")]))
-    pull = f.get("pull") or {}
-    since = pull.get("since_last")
-    txt = f"{since:.0f} s since the last fight" if since is not None else "First fight since the log started"
-    if pull.get("buffs"):
-        txt += ". Buffs at pull: " + ", ".join(pull["buffs"][:8])
-    out.append(("Pull", [_text(txt + ".")]))
-    if _foes(f):
-        out.append(("Enemies", [_text(_foes(f))]))
-    if f.get("danger"):
-        d = f["danger"]
-        lines = [f"Lowest health {d['hp']:.0%}, at {fmt_time(d['t'])}."]
-        lines += [f"{h['who']}: {h['spell']} for {_n(h['amount'])}" for h in d["hits"]]
-        lines += [f"Ready and unused: {', '.join(d['unused'])}"] if d.get("unused") else []
-        out.append(("Danger", [_text("\n".join(lines))]))
     if f.get("best_before"):
         out.append(("Your best on this target", [_text(f"{f['best_before']:.0f} DPS before "
                                                        f"({f['dps'] - f['best_before']:+.0f} now)")]))
@@ -380,7 +393,7 @@ class FightDetail(QScrollArea):
         self.details_lay.setSpacing(0)
         self.drawer = Drawer("All the details", self.details)
         self.fold = Fold(self.drawer, last=True)
-        self.well, self.share = WentWell(), GroupShare()
+        self.well, self.pull, self.danger, self.share = WentWell(), Facts(), Facts(), GroupShare()
         self.empty = dim_label(NO_FIGHTS)
         self.empty.setContentsMargins(0, 14, 0, 0)
 
@@ -401,8 +414,8 @@ class FightDetail(QScrollArea):
         sl = QVBoxLayout(self.side)
         sl.setContentsMargins(28, 4, 0, 0)
         sl.setSpacing(0)
-        sl.addWidget(self.well)
-        sl.addWidget(self.share)
+        for wd in (self.well, self.pull, self.danger, self.share):
+            sl.addWidget(wd)
         sl.addStretch(1)
         cols = QHBoxLayout()
         cols.setSpacing(0)
@@ -455,6 +468,9 @@ class FightDetail(QScrollArea):
                 self.details_lay.addWidget(wd)
         self.well.set(v.went_well, v.also)
         self.well.setVisible(bool(v.went_well or v.also))
+        for part, title_, rows in ((self.pull, "The pull", v.pull), (self.danger, "Danger", v.danger)):
+            part.set(title_, rows)
+            part.setVisible(bool(rows))
         self.share.set(v.group or [], v.group_line or "")
         self.share.setVisible(v.group is not None)
         self.page.update()
@@ -474,6 +490,6 @@ class FightDetail(QScrollArea):
         self.side.setFixedWidth(SIDE_W[k] + 28)
         self.plate.price_px = PRICE_PX[k]
         self.where.name_w, self.where.value_w = NAME_W[k], VALUE_W[k]
-        for part in (self.hero, self.plate, self.where, self.share):
+        for part in (self.hero, self.plate, self.where, self.pull, self.danger, self.share):
             part.narrow = narrow
             part.changed()

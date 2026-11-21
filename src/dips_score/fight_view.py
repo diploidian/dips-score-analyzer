@@ -1,6 +1,7 @@
 """What the Fight page shows, as plain data (no Qt), from a live fight (live/summary.py's dict): how much of the damage
-you could have done you did, the biggest gap and where the rest went, what went well, your share of the group's; and
-the fight list's row. Old saved fights lack some keys (free, auto, group, potential): their parts are empty."""
+you could have done you did, the biggest gap and where the rest went, what went well, the pull, the danger, your share
+of the group's; and the fight list's row. Old saved fights lack some keys (free, auto, group, potential, pull, foes):
+their parts are empty."""
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -29,13 +30,23 @@ class FightView:
     rows: list[tuple[str, str, float]] = field(default_factory=list)    # (label, detail, damage), most first
     left_on_table: float | None = None
     went_well: list[str] = field(default_factory=list)
-    also: list[str] = field(default_factory=list)       # a close call, then what to improve that isn't a row
+    also: list[str] = field(default_factory=list)       # what to improve that isn't a row
+    pull: list[tuple[str, str]] = field(default_factory=list)       # (label, text)
+    danger: list[tuple[str, str]] = field(default_factory=list)     # (label, text); "" carries on the label above
     group: list[tuple[str, int, int, bool]] | None = None   # (name, damage, healing, is you), most damage first
     group_line: str | None = None
 
 
 def _n(v: float) -> str:
     return f"{v:,.0f}"
+
+
+def _foes(f: dict) -> str:
+    """every enemy in the fight, most damaged first ("" for a lone enemy or an older fight)"""
+    foes = f.get("foes") or []
+    if sum(c for _, c in foes) < 2:
+        return ""
+    return ", ".join(n + (f" ×{c}" if c > 1 else "") for n, c in foes)
 
 
 def _losses(d: dict) -> tuple[list[tuple[str, str, float, str]], tuple[str, ...]]:
@@ -83,16 +94,39 @@ def _group(d: dict) -> tuple[list[tuple[str, int, int, bool]] | None, str | None
 
 
 def _also(d: dict, own: tuple[str, ...]) -> list[str]:
-    """d["improve"] less the lines that are rows already; a close call (danger you lived through) on top, in place of
-    summary's own "Dropped to" line"""
+    """d["improve"] less the lines that are rows already, and less summary's "Dropped to" lines when there was danger:
+    the Danger section says it"""
     lines = [s for s in d.get("improve") or [] if not s.startswith(own)]
+    return [s for s in lines if not s.startswith("Dropped to ")] if d.get("danger") else lines
+
+
+def _pull(d: dict) -> list[tuple[str, str]]:
+    """the time since the last fight, every enemy, the buffs you pulled with; none of it said when not kept"""
+    pull, out = d.get("pull"), []
+    if pull is not None:
+        since = pull.get("since_last")
+        out.append(("Since the last fight", "first fight since the log started" if since is None else f"{since:.0f} s"))
+    if foes := _foes(d):
+        out.append(("Enemies", foes))
+    if buffs := (pull or {}).get("buffs"):
+        out.append(("Buffs", ", ".join(buffs[:8])))
+    return out
+
+
+def _danger(d: dict) -> list[tuple[str, str]]:
+    """your lowest health and when, the hits that put you there (a row per attacker, in summary's order), the
+    defensives that sat ready; none without danger"""
     danger = d.get("danger")
-    if not danger or d.get("result") == "you died":
-        return lines
-    close = f"Close call: down to {danger['hp']:.0%} health at {fmt_time(danger['t'])}"
+    if not danger:
+        return []
+    by: dict[str, list[str]] = {}
+    for h in danger.get("hits") or []:
+        by.setdefault(h["who"], []).append(f"{h['spell']} {_n(h['amount'])}")
+    out = [("Lowest health", f"{danger['hp']:.0%} at {fmt_time(danger['t'])}")]
+    out += [("" if k else "Hits", f"{who}: {', '.join(hits)}") for k, (who, hits) in enumerate(by.items())]
     if unused := danger.get("unused"):
-        close += f" — {' and '.join(unused[:2])} {'was' if len(unused) == 1 else 'were'} ready"
-    return [close] + [s for s in lines if not s.startswith("Dropped to ")]
+        out.append(("Ready, not used", ", ".join(unused)))
+    return out
 
 
 def _hero(d: dict, eff: float | None) -> tuple[str, str | None, str]:
@@ -121,7 +155,7 @@ def build_fight(d: dict) -> FightView:
                  (_n(d["healing"]), "healing")],
         rows=[(label, detail, dmg) for label, detail, dmg, _ in losses],
         went_well=list(d.get("good") or []),
-        also=_also(d, own))
+        also=_also(d, own), pull=_pull(d), danger=_danger(d))
     v.big, v.unit, v.caption = _hero(d, eff)
     if losses:
         v.gap = (losses[0][3], f"≈ {_n(losses[0][2])}")
