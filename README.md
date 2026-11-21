@@ -1,6 +1,7 @@
 # dips-score
 
-Scores a WoW dungeon run. New here? Read the [guide](docs/GUIDE.md) for setup, what it tracks and
+Scores a WoW dungeon run. New here? Start with [what the app does for you](docs/APP-GUIDE.md), then
+the [guide](docs/GUIDE.md) for setup, what it tracks and
 how the grade works, or [First run](docs/FIRST-RUN.md) once it's installed. It merges two data sources:
 
 - **dips-Score** (the addon: its source is in `addon/dips-Score` here; copy that folder into

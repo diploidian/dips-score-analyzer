@@ -1,7 +1,6 @@
-"""Settings (theme) saved in settings.json, and the settings window behind the cog."""
+"""Settings (theme) saved in settings.json, and the settings window behind the rail's Settings link."""
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from PyQt6.QtCore import QUrl, pyqtSignal
@@ -11,32 +10,9 @@ from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QFileDialog, QGri
                              QLabel, QLineEdit, QMessageBox, QPushButton, QRadioButton, QSlider, QVBoxLayout)
 
 from ..config import Paths, game_folder
-from . import assets, texture, theme
+from . import assets, texture, theme, tokens
+from .settings_store import DEFAULTS, load, save  # noqa: F401  (re-exported: app.py and live_ui.py use them from here)
 from .pages import dim_label
-
-DEFAULTS = {"theme": "wow",
-            "overlay": True,          # the card after each fight
-            "overlay_seconds": 12,
-            "overlay_keep": False,    # stay up, updated after each fight, instead of fading out
-            "overlay_side": "right",
-            "overlay_spot": None,     # [x, y] where it was dragged (fractions of the WoW window); None: overlay_side
-            "texture": None,          # None: follow dips-Core's own setting; True/False: your pick here
-            "texture_alpha": None,
-            "wow_folder": None,       # None: --wow, DIPS_WOW or the default (config.paths reads these two)
-            "logs_folder": None}      # None: <wow folder>\Logs
-
-
-def load(paths: Paths) -> dict:
-    out = dict(DEFAULTS)
-    f = paths.data_dir / "settings.json"
-    if f.exists():
-        try:
-            saved = json.loads(f.read_text(encoding="utf-8"))
-            if isinstance(saved, dict):
-                out.update({k: v for k, v in saved.items() if k in DEFAULTS})
-        except (ValueError, OSError):
-            pass
-    return out
 
 
 def texture_choice(paths: Paths, settings: dict) -> tuple[bool, float, bool]:
@@ -46,11 +22,6 @@ def texture_choice(paths: Paths, settings: dict) -> tuple[bool, float, bool]:
     on = core_on if following else bool(settings["texture"])
     alpha = core_alpha if settings.get("texture_alpha") is None else float(settings["texture_alpha"])
     return on, alpha, following
-
-
-def save(paths: Paths, settings: dict):
-    paths.data_dir.mkdir(parents=True, exist_ok=True)
-    (paths.data_dir / "settings.json").write_text(json.dumps(settings, indent=1), encoding="utf-8")
 
 
 def pick_wow(parent, start: Path) -> Path | None:
@@ -78,6 +49,13 @@ class SettingsDialog(QDialog):
     folders_changed = pyqtSignal()
     overlay_changed = pyqtSignal()
     move_overlay = pyqtSignal(bool)
+
+    def set_theme(self, key: str):
+        """show the look chosen elsewhere (the rail), without echoing it back"""
+        for b, k in zip(self.choice.buttons(), tokens.THEMES):
+            b.blockSignals(True)
+            b.setChecked(k == key)
+            b.blockSignals(False)
 
     def __init__(self, paths: Paths, current: str, parent=None, settings: dict | None = None):
         super().__init__(parent)
@@ -110,14 +88,16 @@ class SettingsDialog(QDialog):
         box = QGroupBox("Look")
         bl = QVBoxLayout(box)
         self.choice = QButtonGroup(self)
-        for key, label in theme.THEMES.items():
+        for key, label in tokens.THEMES.items():
             rb = QRadioButton(label)
             rb.setChecked(key == current)
             rb.toggled.connect(lambda on, k=key: on and self.theme_changed.emit(k))
             self.choice.addButton(rb)
             bl.addWidget(rb)
-        bl.addWidget(dim_label("Azeroth uses the game's own font, frames and icons when they're in the assets folder "
-                               "(below), and draws a look-alike when they aren't."))
+        self.motion = QCheckBox("Animate the debrief when it opens")
+        self.motion.setChecked(bool(self.settings.get("motion", True)))
+        self.motion.toggled.connect(lambda on: self._set("motion", on))
+        bl.addWidget(self.motion)
         lay.addWidget(box)
 
         box = QGroupBox("Texture")

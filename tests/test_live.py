@@ -63,6 +63,21 @@ class Live(unittest.TestCase):
         self.assertEqual(later["best_before"], s["dps"])
         self.assertTrue({"own", "rest"} <= set(s["pull"]) and "level" in s)
 
+    def test_a_player_names_the_fight(self):
+        rogue = 'Player-2-B,"Jonaallday-Oneshot-PvP-US",0x548,0x80000000'
+        log = [
+            dmg(0, ME, MOB, 8092, "Mind Blast", 600),
+            dmg(1, rogue, ME, 8676, "Ambush", 300),
+            dmg(2, ME, rogue, 589, "Shadow Word: Pain", 40),     # the wolf took far more, but the rogue names it
+            dmg(3, ME, MOB, 8092, "Mind Blast", 600),
+            line(4, f"UNIT_DIED,{NONE},{MOB},0"),
+            line(20, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF"),
+        ]
+        tr = Tracker()
+        s = summarize(tr.feed_lines(log)[0], tr.me, tr.me_name, {}, [])
+        self.assertEqual((s["target"], s["more"], s["kind"]), ("Jonaallday Oneshot", 1, "PvP"))
+        self.assertEqual([n for n, _ in s["foes"]], ["Jonaallday Oneshot", "Wolf"])
+
 
     def test_rest_counts_first_aid_not_the_bandage_debuff(self):
         log = [

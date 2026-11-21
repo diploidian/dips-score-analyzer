@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Group · Blackfathom Deeps</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.mod { margin-top: 26px; }
+.mod-h { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.mod-h .note { font-size: 13px; color: var(--mu); display: flex; align-items: center; gap: 6px; }
+.mod-h .note svg { width: 22px; height: 8px; margin-left: 10px; }
+.mod-h .note path { stroke: var(--mu); stroke-width: 1.4; stroke-dasharray: 4 3; }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 28px; align-items: start; padding-top: 8px; }
+.place { display: flex; align-items: flex-end; gap: 22px; padding-top: 14px; }
+.place .big { font: 700 150px/.82 "Barlow Condensed", sans-serif; color: var(--tx); }
+.place .big sup { font-size: 56px; vertical-align: top; position: relative; top: 8px; margin-left: 2px; }
+.place .of { font: 600 21px/1.15 "Barlow Condensed", sans-serif; letter-spacing: .04em; text-transform: uppercase; }
+.place p { margin-top: 8px; font-size: 15px; color: var(--tx2); max-width: 46ch; line-height: 1.45; }
+.plate { position: relative; margin-top: 12px; background: var(--plate); color: var(--plate-tx); padding: 24px 20px 16px; display: flex; flex-direction: column; align-items: flex-start; }
+.plate .tab { position: absolute; top: -12px; left: 14px; }
+.plate .ph { font: 600 23px/1.15 "Barlow Condensed", sans-serif; }
+.plate p { margin-top: 8px; font-size: 14px; line-height: 1.45; color: var(--plate-mu); }
+.plate p b { font-weight: 600; color: var(--plate-ac); white-space: nowrap; }
+.plate .btn { margin-top: 14px; }
+
+.podium { display: grid; grid-template-columns: repeat(3, 190px); gap: 12px; align-items: end; border-bottom: 1px solid var(--tx); width: max-content; }
+.pcol { background: var(--panel); border: 1px solid var(--ln); border-bottom: 0; padding: 12px 14px; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
+.pcol.me { border: 3px solid var(--hl); border-bottom: 0; padding: 10px 12px 12px; }
+.pcol .rk { font: 700 34px/1 "Barlow Condensed", sans-serif; }
+.pcol .nm { font-weight: 600; font-size: 15px; }
+.pcol .ro { font-size: 12px; color: var(--mu); }
+.pcol .pt { font: 700 26px/1 "Barlow Condensed", sans-serif; }
+.pcol .pt small { font: 600 11px "Barlow Condensed"; letter-spacing: .12em; color: var(--mu); margin-left: 4px; text-transform: uppercase; }
+.mvp { display: inline-block; border: 1px solid var(--gold); color: var(--tx); font: 700 11px/1 "Barlow Condensed", sans-serif; letter-spacing: .16em; padding: 3px 6px; }
+.pcol .mvp { position: absolute; top: 12px; right: 12px; }
+
+/* player cards: rank | who and why | map | placing points */
+.cards { list-style: none; }
+.card { display: grid; grid-template-columns: 80px minmax(0, 1fr) 208px 96px; gap: 0 24px; padding: 16px 20px; background: var(--panel); border: 1px solid var(--ln); }
+.card + .card { margin-top: 10px; }
+.card.me { border: 3px solid var(--hl); padding: 14px 18px; }
+.card .rk { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.card .rk .c { font: 700 40px/.9 "Barlow Condensed", sans-serif; }
+.card .nm { font-size: 17px; font-weight: 600; color: var(--tx); display: flex; align-items: baseline; gap: 10px; }
+.card .nm .ro { font-size: 14px; font-weight: 400; color: var(--mu); }
+.card .nm .tag { align-self: center; }
+.card .why { margin-top: 3px; font-size: 14px; color: var(--tx2); }
+.ev { list-style: none; margin-top: 10px; border-top: 1px solid var(--ln); }
+.ev li { display: grid; grid-template-columns: 10px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--ln); font-size: 14px; color: var(--tx2); }
+.ev li b { font-weight: 600; color: var(--tx); }
+.pm { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 2; }
+.ev li .pm { position: relative; top: 1px; }
+.ev .s .pm { color: var(--m-dmg); }
+.ev .w .pm { color: var(--gD); }
+.aws { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.aw { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--gold); padding: 3px 8px; font-size: 12px; font-weight: 600; color: var(--tx); cursor: help; }
+.aw.ro { border-color: var(--gD); }
+.aw.ro .pm { width: 8px; height: 8px; color: var(--gD); }
+.map { width: 208px; height: 184px; align-self: center; overflow: visible; }
+.map .ring, .map .sp { fill: none; stroke: var(--ln); stroke-width: 1; }
+.map .ring.o { stroke: var(--mu); stroke-opacity: .45; }
+.map .pl { fill: var(--m-cast); fill-opacity: .18; stroke: var(--m-cast); stroke-width: 1.8; stroke-linejoin: round; }
+.card.me .map .pl { fill: var(--hl); stroke: var(--hl); stroke-width: 2.4; }
+.map .avg { fill: none; stroke: var(--mu); stroke-width: 1.4; stroke-dasharray: 4 3; stroke-linejoin: round; }
+.map text { font: 600 11px "Barlow Condensed", sans-serif; letter-spacing: .08em; fill: var(--mu); cursor: help; }
+.pts { display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.pts > b { font: 700 48px/.85 "Barlow Condensed", sans-serif; }
+.pts small { margin-top: 6px; font: 600 11px/1 "Barlow Condensed", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--mu); }
+.pts .sc { margin-top: 14px; font-size: 13px; color: var(--mu); white-space: nowrap; }
+.pts .sc b { font-size: 16px; font-weight: 700; margin-left: 2px; }
+
+.awl { border-top: 1px solid var(--tx); }
+.awl div { display: grid; grid-template-columns: 220px minmax(0, 1fr) 340px; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--ln); align-items: center; }
+.awl .t { font: 700 17px/1.1 "Barlow Condensed", sans-serif; letter-spacing: .03em; justify-self: start; color: var(--tx); }
+.awl .t.gd { box-shadow: inset 0 -2px 0 var(--gold); }
+.awl .t.ro { box-shadow: inset 0 -2px 0 var(--gD); }
+.awl .t small { margin-left: 8px; font: 600 11px Barlow, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: var(--mu); }
+.awl span { color: var(--tx2); }
+.awl .h { color: var(--tx); font-weight: 500; }
+.awl .h i { font-style: normal; color: var(--mu); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html">Dungeons</a>
+      <a href="fight.html">Fights</a>
+      <a href="habits.html">Habits</a>
+    </nav>
+    <div class="rl">Recent runs</div>
+    <a class="run" href="debrief.html" aria-current="page"><span>Blackfathom Deeps</span><b>75 B</b></a>
+    <a class="run" href="#"><span>Kalimdor (open world)</span><b>23:37</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:17</b></a>
+    <a class="run" href="#"><span>Blackfathom Deeps</span><b>22:16</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:09</b></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+    <div class="rlinks"><a href="#">Settings</a><a href="#">Reload</a></div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>Blackfathom Deeps</h1><div class="meta"><b>Wed 18 Nov 22:27</b> · 69:45 long · 32:57 in combat · 64 fights · as DPS</div></div>
+      <nav class="tabs" aria-label="Run views"><a href="debrief.html">Debrief</a><a href="timeline.html">Timeline</a><a href="pulls.html">Pulls</a><a href="spells.html">Spells</a><a href="group.html" aria-current="page">Group</a></nav>
+    </header>
+
+    <section class="hero" aria-label="Your placing">
+      <div class="place">
+        <div class="big c">3<sup>rd</sup></div>
+        <div>
+          <div class="of">of 5 · 0.4 points behind 2nd · 35 behind the MVP</div>
+          <p>67 as a damage dealer, −2 from awards — strongest at damage, held back by survival.</p>
+        </div>
+      </div>
+      <section class="plate" aria-labelledby="moveh">
+        <h2 class="tab" id="moveh">To move up</h2>
+        <p class="ph">You took 15,059 damage — 3× the other damage dealers.</p>
+        <p>That cost you the Punching Bag roast <b>(−2)</b> and most of your Survival points; one place is <b>0.4 points</b> away.</p>
+        <a class="btn" href="timeline.html">Show where it hit you</a>
+      </section>
+    </section>
+
+    <section class="mod" aria-label="Podium">
+      <div class="mod-h"><span class="tab">Podium</span><span class="note">Placing points = score + 2 per award (max +6) − 2 per roast</span></div>
+      <div class="podium">
+<div class="pcol" style="height:128px"><div><div class="rk">2nd</div><div class="nm">Anaruz Lightborne</div><div class="ro">Tank</div></div><div class="pt"><span data-count="66">66</span><small>points</small></div></div><div class="pcol" style="height:156px"><span class="mvp">MVP</span><div><div class="rk">1st</div><div class="nm">Piraña Segundo</div><div class="ro">DPS</div></div><div class="pt"><span data-count="101">101</span><small>points</small></div></div><div class="pcol me" style="height:120px"><div><div class="rk">3rd</div><div class="nm">Bao Kahn <span class="tag">you</span></div><div class="ro">DPS</div></div><div class="pt"><span data-count="65">65</span><small>points</small></div></div>
+      </div>
+    </section>
+
+    <section class="mod" aria-label="Standings">
+      <div class="mod-h"><span class="tab">Standings</span><span class="note">Every member scored from the combat log only. Map: rings at 25, 50, 75, 100 <svg viewBox="0 0 22 8" aria-hidden="true"><path d="M0 4h22"/></svg> group average</span></div>
+      <ol class="cards">
+<li class="card"><div class="rk"><span class="c">1st</span><span class="mvp">MVP</span></div><div class="bd"><div class="nm">Piraña Segundo<span class="ro">DPS</span></div><p class="why">95 as a damage dealer, +6 from awards — strongest at damage</p><ul class="ev"><li class="s"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1v8M1 5h8"/></svg><span><b>Damage:</b> 102,728 damage (123% of an even share, 52/s)</span></li><li class="s"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1v8M1 5h8"/></svg><span><b>Survival:</b> 0 deaths; took 4,958 damage (1.0× the damage dealers&#x27; middle)</span></li></ul><div class="aws"><span class="aw" title="Award, +2: Most damage done. 111K damage (56/s)">Wrecking Ball</span><span class="aw" title="Award, +2: Most damage to trash. 98K on trash">Janitor</span><span class="aw" title="Award, +2: Most interrupts. 34 interrupts">Shush</span><span class="aw" title="Award, +2: Most killing blows. 50 killing blows">Last Word</span></div></div><svg class="map" viewBox="0 0 208 184" role="img" aria-label="Map: Damage 100 (110.9K damage); Healing 3 (1.6K healing); Tanking 8 (8.0K taken, 4 of 161 mobs went for them first); Utility 100 (34 interrupts, 2 dispels); Kills 100 (50 killing blows); Survival 100 (0 deaths)"><polygon class="ring" points="104.0,77.0 117.0,84.5 117.0,99.5 104.0,107.0 91.0,99.5 91.0,84.5"/><polygon class="ring" points="104.0,62.0 130.0,77.0 130.0,107.0 104.0,122.0 78.0,107.0 78.0,77.0"/><polygon class="ring" points="104.0,47.0 143.0,69.5 143.0,114.5 104.0,137.0 65.0,114.5 65.0,69.5"/><polygon class="ring o" points="104.0,32.0 156.0,62.0 156.0,122.0 104.0,152.0 52.0,122.0 52.0,62.0"/><line class="sp" x1="104" y1="92" x2="104.0" y2="32.0"/><line class="sp" x1="104" y1="92" x2="156.0" y2="62.0"/><line class="sp" x1="104" y1="92" x2="156.0" y2="122.0"/><line class="sp" x1="104" y1="92" x2="104.0" y2="152.0"/><line class="sp" x1="104" y1="92" x2="52.0" y2="122.0"/><line class="sp" x1="104" y1="92" x2="52.0" y2="62.0"/><polygon class="pl" points="104.0,32.0 105.5,91.2 108.4,94.5 104.0,152.0 52.0,122.0 52.0,62.0"/><polygon class="avg" points="104.0,44.2 116.6,84.7 118.7,100.5 104.0,105.0 68.5,112.5 68.7,71.6"/><text x="104.0" y="24.0" text-anchor="middle"><title>Damage 100: 110.9K damage</title>DMG</text><text x="162.0" y="62.5" text-anchor="start"><title>Healing 3: 1.6K healing</title>HEAL</text><text x="162.0" y="129.5" text-anchor="start"><title>Tanking 8: 8.0K taken, 4 of 161 mobs went for them first</title>TANK</text><text x="104.0" y="168.0" text-anchor="middle"><title>Utility 100: 34 interrupts, 2 dispels</title>UTIL</text><text x="46.0" y="129.5" text-anchor="end"><title>Kills 100: 50 killing blows</title>KB</text><text x="46.0" y="62.5" text-anchor="end"><title>Survival 100: 0 deaths</title>SURV</text></svg><div class="pts"><b class="c">101</b><small>points</small><span class="sc">score 95 <b class="c g-S">S</b></span></div></li>
+<li class="card"><div class="rk"><span class="c">2nd</span></div><div class="bd"><div class="nm">Anaruz Lightborne<span class="ro">Tank</span></div><p class="why">62 as a tank, +4 from awards — strongest at holding mobs, held back by pickups</p><ul class="ev"><li class="s"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1v8M1 5h8"/></svg><span><b>Holding mobs:</b> 130 of 161 mobs went for them first (81%)</span></li><li class="s"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1v8M1 5h8"/></svg><span><b>Damage:</b> 80,379 damage (96% of an even share)</span></li><li class="w"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg><span><b>Pickups:</b> 64 times a mob left them: median 6.0s to get it back, 38 not back within 6s</span></li></ul><div class="aws"><span class="aw" title="Award, +2: Most healing by someone who isn&#x27;t the healer. 6.1K healing">Patch Kit</span><span class="aw" title="Award, +2: Most dispels. 3 dispels">Scrubber</span></div></div><svg class="map" viewBox="0 0 208 184" role="img" aria-label="Map: Damage 82 (90.5K damage); Healing 10 (6.1K healing); Tanking 100 (58.4K taken, 130 of 161 mobs went for them first); Utility 8 (0 interrupts, 3 dispels); Kills 60 (30 killing blows); Survival 60 (1 death)"><polygon class="ring" points="104.0,77.0 117.0,84.5 117.0,99.5 104.0,107.0 91.0,99.5 91.0,84.5"/><polygon class="ring" points="104.0,62.0 130.0,77.0 130.0,107.0 104.0,122.0 78.0,107.0 78.0,77.0"/><polygon class="ring" points="104.0,47.0 143.0,69.5 143.0,114.5 104.0,137.0 65.0,114.5 65.0,69.5"/><polygon class="ring o" points="104.0,32.0 156.0,62.0 156.0,122.0 104.0,152.0 52.0,122.0 52.0,62.0"/><line class="sp" x1="104" y1="92" x2="104.0" y2="32.0"/><line class="sp" x1="104" y1="92" x2="156.0" y2="62.0"/><line class="sp" x1="104" y1="92" x2="156.0" y2="122.0"/><line class="sp" x1="104" y1="92" x2="104.0" y2="152.0"/><line class="sp" x1="104" y1="92" x2="52.0" y2="122.0"/><line class="sp" x1="104" y1="92" x2="52.0" y2="62.0"/><polygon class="pl" points="104.0,43.0 109.4,88.9 156.0,122.0 104.0,97.0 72.8,110.0 72.8,74.0"/><polygon class="avg" points="104.0,44.2 116.6,84.7 118.7,100.5 104.0,105.0 68.5,112.5 68.7,71.6"/><text x="104.0" y="24.0" text-anchor="middle"><title>Damage 82: 90.5K damage</title>DMG</text><text x="162.0" y="62.5" text-anchor="start"><title>Healing 10: 6.1K healing</title>HEAL</text><text x="162.0" y="129.5" text-anchor="start"><title>Tanking 100: 58.4K taken, 130 of 161 mobs went for them first</title>TANK</text><text x="104.0" y="168.0" text-anchor="middle"><title>Utility 8: 0 interrupts, 3 dispels</title>UTIL</text><text x="46.0" y="129.5" text-anchor="end"><title>Kills 60: 30 killing blows</title>KB</text><text x="46.0" y="62.5" text-anchor="end"><title>Survival 60: 1 death</title>SURV</text></svg><div class="pts"><b class="c">66</b><small>points</small><span class="sc">score 62 <b class="c g-C">C</b></span></div></li>
+<li class="card me"><div class="rk"><span class="c">3rd</span></div><div class="bd"><div class="nm">Bao Kahn<span class="ro">DPS</span><span class="tag">you</span></div><p class="why">67 as a damage dealer, −2 from awards — strongest at damage, held back by survival</p><ul class="ev"><li class="s"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1v8M1 5h8"/></svg><span><b>Damage:</b> 106,991 damage (128% of an even share, 54/s)</span></li><li class="w"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg><span><b>Survival:</b> 1 death; took 15,059 damage (3.0× the damage dealers&#x27; middle)</span></li><li class="w"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg><span><b>Utility:</b> 0 interrupts and dispels (0.0 per 10 min)</span></li></ul><div class="aws"><span class="aw" title="Award, +2: Most damage to bosses. 14K on bosses">Boss Bane</span><span class="aw ro" title="Roast, −2: Took the most hits without being the tank. 16K damage taken"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg><span class="sr">roast: </span>Punching Bag</span><span class="aw ro" title="Roast, −2: Started the most pulls without being the tank. 8 pulls started"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg><span class="sr">roast: </span>Eager Beaver</span></div></div><svg class="map" viewBox="0 0 208 184" role="img" aria-label="Map: Damage 96 (107.0K damage); Healing 8 (4.6K healing); Tanking 19 (15.7K taken, 14 of 161 mobs went for them first); Utility 0 (0 interrupts, 0 dispels); Kills 62 (31 killing blows); Survival 60 (1 death)"><polygon class="ring" points="104.0,77.0 117.0,84.5 117.0,99.5 104.0,107.0 91.0,99.5 91.0,84.5"/><polygon class="ring" points="104.0,62.0 130.0,77.0 130.0,107.0 104.0,122.0 78.0,107.0 78.0,77.0"/><polygon class="ring" points="104.0,47.0 143.0,69.5 143.0,114.5 104.0,137.0 65.0,114.5 65.0,69.5"/><polygon class="ring o" points="104.0,32.0 156.0,62.0 156.0,122.0 104.0,152.0 52.0,122.0 52.0,62.0"/><line class="sp" x1="104" y1="92" x2="104.0" y2="32.0"/><line class="sp" x1="104" y1="92" x2="156.0" y2="62.0"/><line class="sp" x1="104" y1="92" x2="156.0" y2="122.0"/><line class="sp" x1="104" y1="92" x2="104.0" y2="152.0"/><line class="sp" x1="104" y1="92" x2="52.0" y2="122.0"/><line class="sp" x1="104" y1="92" x2="52.0" y2="62.0"/><polygon class="pl" points="104.0,34.1 108.1,89.7 113.8,97.6 104.0,92.0 71.8,110.6 72.8,74.0"/><polygon class="avg" points="104.0,44.2 116.6,84.7 118.7,100.5 104.0,105.0 68.5,112.5 68.7,71.6"/><text x="104.0" y="24.0" text-anchor="middle"><title>Damage 96: 107.0K damage</title>DMG</text><text x="162.0" y="62.5" text-anchor="start"><title>Healing 8: 4.6K healing</title>HEAL</text><text x="162.0" y="129.5" text-anchor="start"><title>Tanking 19: 15.7K taken, 14 of 161 mobs went for them first</title>TANK</text><text x="104.0" y="168.0" text-anchor="middle"><title>Utility 0: 0 interrupts, 0 dispels</title>UTIL</text><text x="46.0" y="129.5" text-anchor="end"><title>Kills 62: 31 killing blows</title>KB</text><text x="46.0" y="62.5" text-anchor="end"><title>Survival 60: 1 death</title>SURV</text></svg><div class="pts"><b class="c">65</b><small>points</small><span class="sc">score 67 <b class="c g-C">C</b></span></div></li>
+<li class="card"><div class="rk"><span class="c">4th</span></div><div class="bd"><div class="nm">Evilguy Verybad<span class="ro">DPS</span></div><p class="why">61 as a damage dealer, +2 from awards</p><div class="aws"><span class="aw" title="Award, +2: Damage dealer who took the fewest hits. only 4.7K damage taken">Untouchable</span></div></div><svg class="map" viewBox="0 0 208 184" role="img" aria-label="Map: Damage 77 (85.4K damage); Healing 0 (0 healing); Tanking 8 (4.7K taken, 9 of 161 mobs went for them first); Utility 0 (0 interrupts, 0 dispels); Kills 64 (32 killing blows); Survival 60 (1 death)"><polygon class="ring" points="104.0,77.0 117.0,84.5 117.0,99.5 104.0,107.0 91.0,99.5 91.0,84.5"/><polygon class="ring" points="104.0,62.0 130.0,77.0 130.0,107.0 104.0,122.0 78.0,107.0 78.0,77.0"/><polygon class="ring" points="104.0,47.0 143.0,69.5 143.0,114.5 104.0,137.0 65.0,114.5 65.0,69.5"/><polygon class="ring o" points="104.0,32.0 156.0,62.0 156.0,122.0 104.0,152.0 52.0,122.0 52.0,62.0"/><line class="sp" x1="104" y1="92" x2="104.0" y2="32.0"/><line class="sp" x1="104" y1="92" x2="156.0" y2="62.0"/><line class="sp" x1="104" y1="92" x2="156.0" y2="122.0"/><line class="sp" x1="104" y1="92" x2="104.0" y2="152.0"/><line class="sp" x1="104" y1="92" x2="52.0" y2="122.0"/><line class="sp" x1="104" y1="92" x2="52.0" y2="62.0"/><polygon class="pl" points="104.0,45.8 104.0,92.0 107.9,94.2 104.0,92.0 70.7,111.2 72.8,74.0"/><polygon class="avg" points="104.0,44.2 116.6,84.7 118.7,100.5 104.0,105.0 68.5,112.5 68.7,71.6"/><text x="104.0" y="24.0" text-anchor="middle"><title>Damage 77: 85.4K damage</title>DMG</text><text x="162.0" y="62.5" text-anchor="start"><title>Healing 0: 0 healing</title>HEAL</text><text x="162.0" y="129.5" text-anchor="start"><title>Tanking 8: 4.7K taken, 9 of 161 mobs went for them first</title>TANK</text><text x="104.0" y="168.0" text-anchor="middle"><title>Utility 0: 0 interrupts, 0 dispels</title>UTIL</text><text x="46.0" y="129.5" text-anchor="end"><title>Kills 64: 32 killing blows</title>KB</text><text x="46.0" y="62.5" text-anchor="end"><title>Survival 60: 1 death</title>SURV</text></svg><div class="pts"><b class="c">63</b><small>points</small><span class="sc">score 61 <b class="c g-C">C</b></span></div></li>
+<li class="card"><div class="rk"><span class="c">5th</span></div><div class="bd"><div class="nm">Shizuka Tsuruta<span class="ro">Healer</span></div><p class="why">49 as a healer, −2 from awards — strongest at efficiency, held back by group health</p><ul class="ev"><li class="s"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1v8M1 5h8"/></svg><span><b>Efficiency:</b> 45,993 cast healing, 3% overheal; 357 passive; lowest mana 0%, 0 refused for mana</span></li><li class="w"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg><span><b>Group health:</b> 4 deaths (Anaruz Lightborne, Shizuka Tsuruta, Bao Kahn, Evilguy Verybad); someone under 35% for 77s (4% of combat)</span></li></ul><div class="aws"><span class="aw" title="Award, +2: Healer who still found time to hurt things. 48K damage on top of 59K healing">Spare Hands</span><span class="aw ro" title="Roast, −2: Spent the most time lying down. 1 death"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg><span class="sr">roast: </span>Carpet Sampler</span><span class="aw ro" title="Roast, −2: Most overhealing. 11% of their healing"><svg class="pm" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8"/></svg><span class="sr">roast: </span>Overflowing Cup</span></div></div><svg class="map" viewBox="0 0 208 184" role="img" aria-label="Map: Damage 43 (47.8K damage); Healing 100 (58.8K healing); Tanking 6 (5.7K taken, 4 of 161 mobs went for them first); Utility 0 (0 interrupts, 0 dispels); Kills 56 (28 killing blows); Survival 60 (1 death)"><polygon class="ring" points="104.0,77.0 117.0,84.5 117.0,99.5 104.0,107.0 91.0,99.5 91.0,84.5"/><polygon class="ring" points="104.0,62.0 130.0,77.0 130.0,107.0 104.0,122.0 78.0,107.0 78.0,77.0"/><polygon class="ring" points="104.0,47.0 143.0,69.5 143.0,114.5 104.0,137.0 65.0,114.5 65.0,69.5"/><polygon class="ring o" points="104.0,32.0 156.0,62.0 156.0,122.0 104.0,152.0 52.0,122.0 52.0,62.0"/><line class="sp" x1="104" y1="92" x2="104.0" y2="32.0"/><line class="sp" x1="104" y1="92" x2="156.0" y2="62.0"/><line class="sp" x1="104" y1="92" x2="156.0" y2="122.0"/><line class="sp" x1="104" y1="92" x2="104.0" y2="152.0"/><line class="sp" x1="104" y1="92" x2="52.0" y2="122.0"/><line class="sp" x1="104" y1="92" x2="52.0" y2="62.0"/><polygon class="pl" points="104.0,66.1 156.0,62.0 107.3,93.9 104.0,92.0 74.9,108.8 72.8,74.0"/><polygon class="avg" points="104.0,44.2 116.6,84.7 118.7,100.5 104.0,105.0 68.5,112.5 68.7,71.6"/><text x="104.0" y="24.0" text-anchor="middle"><title>Damage 43: 47.8K damage</title>DMG</text><text x="162.0" y="62.5" text-anchor="start"><title>Healing 100: 58.8K healing</title>HEAL</text><text x="162.0" y="129.5" text-anchor="start"><title>Tanking 6: 5.7K taken, 4 of 161 mobs went for them first</title>TANK</text><text x="104.0" y="168.0" text-anchor="middle"><title>Utility 0: 0 interrupts, 0 dispels</title>UTIL</text><text x="46.0" y="129.5" text-anchor="end"><title>Kills 56: 28 killing blows</title>KB</text><text x="46.0" y="62.5" text-anchor="end"><title>Survival 60: 1 death</title>SURV</text></svg><div class="pts"><b class="c">47</b><small>points</small><span class="sc">score 49 <b class="c g-D">D</b></span></div></li>
+      </ol>
+    </section>
+
+    <section class="mod" aria-label="Awards this run">
+      <div class="mod-h"><span class="tab">Awards this run</span><span class="note">+2 for each award (max +6), −2 for each roast</span></div>
+      <div class="awl">
+<div><span class="t gd">Wrecking Ball</span><span>Most damage done</span><span class="h">Piraña Segundo · 111K damage (56/s)</span></div>
+<div><span class="t gd">Boss Bane</span><span>Most damage to bosses</span><span class="h">Bao Kahn <i>(you)</i> · 14K on bosses</span></div>
+<div><span class="t gd">Janitor</span><span>Most damage to trash</span><span class="h">Piraña Segundo · 98K on trash</span></div>
+<div><span class="t gd">Patch Kit</span><span>Most healing by someone who isn&#x27;t the healer</span><span class="h">Anaruz Lightborne · 6.1K healing</span></div>
+<div><span class="t gd">Shush</span><span>Most interrupts</span><span class="h">Piraña Segundo · 34 interrupts</span></div>
+<div><span class="t gd">Scrubber</span><span>Most dispels</span><span class="h">Anaruz Lightborne · 3 dispels</span></div>
+<div><span class="t gd">Last Word</span><span>Most killing blows</span><span class="h">Piraña Segundo · 50 killing blows</span></div>
+<div><span class="t gd">Untouchable</span><span>Damage dealer who took the fewest hits</span><span class="h">Evilguy Verybad · only 4.7K damage taken</span></div>
+<div><span class="t gd">Spare Hands</span><span>Healer who still found time to hurt things</span><span class="h">Shizuka Tsuruta · 48K damage on top of 59K healing</span></div>
+<div><span class="t ro">Punching Bag<small>roast</small></span><span>Took the most hits without being the tank</span><span class="h">Bao Kahn <i>(you)</i> · 16K damage taken</span></div>
+<div><span class="t ro">Carpet Sampler<small>roast</small></span><span>Spent the most time lying down</span><span class="h">Shizuka Tsuruta · 1 death</span></div>
+<div><span class="t ro">Eager Beaver<small>roast</small></span><span>Started the most pulls without being the tank</span><span class="h">Bao Kahn <i>(you)</i> · 8 pulls started</span></div>
+<div><span class="t ro">Overflowing Cup<small>roast</small></span><span>Most overhealing</span><span class="h">Shizuka Tsuruta · 11% of their healing</span></div>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

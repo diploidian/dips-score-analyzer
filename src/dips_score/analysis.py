@@ -22,6 +22,7 @@ from .scoring.radar import radars
 from .scoring.healer import HealerMetrics, healer_base, measure_healer
 from .scoring.interrupts import InterruptMetrics, interrupt_base, measure_interrupts
 from .scoring.metrics import Metrics, measure
+from .scoring.pacing import PacingMetrics, measure_pacing
 from .scoring.positioning import PositionMetrics, measure_positioning, position_base
 from .scoring.score import Scorecard, score
 from .scoring.upkeep import UpkeepMetrics, measure_upkeep, upkeep_base
@@ -72,11 +73,25 @@ class Analysis:
     cooldowns: CooldownMetrics | None = None      # dps/tank
     upkeep: UpkeepMetrics | None = None           # dps/tank
     positioning: PositionMetrics | None = None
+    pacing: PacingMetrics | None = None
 
     @property
     def me(self) -> Player | None:
         g = self.data.player_guid
         return self.roster.get(g) if g else None
+
+
+# A run reads the log from its start to its end (plus 10 s). A log written to this long after the run ended already
+# holds all of that on disk, so the game's later writes to it can't change the run.
+SETTLED_S = 120
+
+
+def run_key(run: Run, logs: list[Path], picks: float) -> tuple:
+    """what a run's analysis depends on: the run as saved, the combat logs (each by its last write, until the run's
+    part of it is final) and your role picks"""
+    done = run.end_estimate + SETTLED_S
+    files = tuple((p.name, t if (t := p.stat().st_mtime) <= done else "settled") for p in logs)
+    return (run.id, run.line_count, files, picks)
 
 
 def merge_visits(runs: list[Run]) -> list[Run]:
@@ -113,8 +128,9 @@ def load_saved(paths: Paths, saved: Path | None = None, merge: bool = True) -> t
 
 def rescore(a: Analysis):
     """Score again with the weights in use now (after they were changed): the measuring stays."""
-    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts, a.cooldowns, a.upkeep, a.positioning)
-    for fr in a.fights:
+    a.card = score(a.metrics, a.role, a.healer, a.tank, a.damage, a.interrupts, a.cooldowns, a.upkeep, a.positioning,
+                   a.pacing)
+    for fr in a.fights:   # no Pacing: one pull per fight would score only 0 or 100
         fr.card = score(fr.metrics, a.role, fr.healer, fr.tank, fr.damage, fr.interrupts, fr.cooldowns, fr.upkeep, fr.positioning)
     if a.group is not None:
         a.ranking = rank_group(a)
@@ -182,6 +198,7 @@ def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
         a.positioning = measure_positioning(rd, base=pb)
         for fr in fights:
             fr.positioning = measure_positioning(rd, [(fr.fight.start, fr.fight.end)], pb)
+        a.pacing = measure_pacing(rd, pulls, me)
     rescore(a)   # with the extras (also ranks the group)
     a.radars = radars(a)
     return a

@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Run pulls</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+.top{margin-bottom:0;border-bottom-color:var(--gold)}
+.rlinks{display:flex;gap:16px;padding:14px 20px 0;font-size:13px}
+.rlinks a{color:var(--rail-mu);text-decoration:none}.rlinks a:hover{text-decoration:underline}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) 408px;gap:28px;padding:14px 0 16px;border-bottom:1px solid var(--ln)}
+.sc{font:700 150px/.8 "Barlow Condensed",sans-serif;letter-spacing:-.02em;display:flex;align-items:flex-start;margin-top:8px}
+.sc em{font:600 48px/1 "Barlow Condensed",sans-serif;font-style:normal;letter-spacing:.01em;color:var(--tx2);margin:6px 0 0 12px}
+.vd{font-size:16px;line-height:1.45;margin-top:16px;color:var(--tx2);max-width:36em;text-wrap:pretty}
+.fix{position:relative;margin-top:12px;background:var(--plate);color:var(--plate-tx);padding:22px 18px 14px;display:flex;flex-direction:column;align-self:start}
+.fix .tab{position:absolute;top:-12px;left:14px}
+.fix .fix-h{font:600 23px/1.15 "Barlow Condensed",sans-serif;margin:0 0 8px}
+.fix .m{display:flex;flex-wrap:wrap;column-gap:18px;row-gap:2px;align-items:baseline}.fix .m b,.fix .m span{white-space:nowrap}
+.fix .m b{font:700 32px "Barlow Condensed",sans-serif;color:var(--plate-ac)}
+.fix .m span{font-size:13px;color:var(--plate-mu)}
+.fix .btn{margin-top:10px;align-self:flex-start}
+.nx{margin-top:12px;border-top:1px solid var(--plate-ln);padding-top:8px;font-size:13px}
+.sec{padding:12px 0;border-bottom:1px solid var(--ln)}
+.sh{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:6px}
+.sh .tag{margin-left:8px}
+.key{display:flex;gap:20px;align-items:center;font:600 12px "Barlow Condensed",sans-serif;letter-spacing:.04em;color:var(--mu)}
+.key span{display:inline-flex;align-items:center;gap:6px}
+.key svg{overflow:visible}
+.key .dt,.trk .dt{fill:var(--m-pace);stroke:var(--m-pace);stroke-width:1}
+.key .nd,.trk .nd{fill:var(--bg);stroke:var(--mu);stroke-dasharray:2 2}
+.trk{display:block;width:100%;height:auto;overflow:visible}
+.trk text{font:500 11px "Barlow Condensed",sans-serif;fill:var(--mu);letter-spacing:.02em}
+.trk .rl{font-weight:600;letter-spacing:.14em}
+.trk .tk{stroke:var(--mu);stroke-width:1}
+.trk .fs line{stroke:var(--mu);stroke-width:3}
+.trk .brk{stroke:var(--mu);stroke-width:2;stroke-dasharray:0 6;stroke-linecap:round}
+.trk .bl{font-size:12px;font-weight:600;fill:var(--tx2)}
+.trk .gd{stroke:var(--mu);stroke-dasharray:1 3;opacity:.6}
+.trk .hb{fill:var(--bg)}
+.trk .yt{stroke:var(--tx);stroke-width:1.2}
+.trk .yl{fill:var(--tx);font-weight:600}
+.trk .ax{stroke:var(--mu)}.trk .g50{stroke:var(--mu);stroke-dasharray:3 3;opacity:.55}
+.trk .ml{fill:none;stroke:var(--m-pace);stroke-width:1.6;stroke-linejoin:round}
+.trk .dsh{stroke-dasharray:2 4}
+.trk .mp{fill:var(--m-pace)}
+.trk .an{fill:var(--tx2);font-size:12px}
+.trk .hn{font:600 22px Caveat,cursive;fill:var(--hl-note);letter-spacing:0}
+.kf{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+.kf div{padding:2px 18px 4px;border-left:1px solid var(--ln)}.kf div:first-child{padding-left:0;border-left:0}
+.kf b{display:block;font:700 40px/1 "Barlow Condensed",sans-serif}
+.kf span{display:block;font-size:14px;color:var(--tx2);margin-top:2px}
+.kf small{display:block;font-size:12px;color:var(--mu);margin-top:1px}
+.pb{display:flex;flex-wrap:wrap;align-items:center;gap:6px 20px;margin-top:10px;padding-top:8px;border-top:1px solid var(--ln);font-size:13px;color:var(--tx)}
+.pb .lb{font:600 11px "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--mu)}
+.pb i,.pt .who i{display:inline-block;width:8px;height:8px;background:var(--tx2);margin-right:6px}
+.pb b{font:600 15px "Barlow Condensed",sans-serif;margin-left:6px}
+.pb small{color:var(--mu);font-size:12px}
+.unk{color:var(--mu)}
+.dr summary{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--ln);cursor:pointer;list-style:none;font:600 15px "Barlow Condensed",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+.dr summary::-webkit-details-marker{display:none}
+.dr summary i{font-style:normal;color:var(--mu)}
+.dr .chev{width:16px;height:16px;fill:none;stroke:var(--tx);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.dr[open] .chev{transform:rotate(180deg)}
+.dr summary:hover .chev{stroke:var(--hl)}
+.pt{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+.pt th{font:600 11px "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--mu);text-align:left;padding:8px 8px 6px;border-bottom:1px solid var(--tx)}
+.pt td{padding:4px 8px;border-bottom:1px solid var(--ln)}
+.pt .r{text-align:right}.pt th.r{text-align:right}
+.pt small{color:var(--mu);font-size:12px;margin-left:4px}
+.pt em{font-style:normal;font-weight:600;margin-left:6px}
+.kt{display:inline-block;padding:1px 5px;border:1px solid var(--ln);color:var(--mu);font:600 11px/1.3 Barlow,sans-serif;letter-spacing:.12em;text-transform:uppercase;vertical-align:1px}
+@media (max-width:1419px){.sc{font-size:126px}.sc em{font-size:42px}.kf div{padding:2px 14px 4px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html">Dungeons</a>
+      <a href="fight-card.html">Fights</a>
+      <a href="#">Habits</a>
+    </nav>
+    <div class="rl">Recent runs</div>
+    <a class="run" href="debrief.html" aria-current="page"><span>Blackfathom Deeps</span><b>75 B</b></a>
+    <a class="run" href="#"><span>Kalimdor (open world)</span><b>23:37</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:17</b></a>
+    <a class="run" href="#"><span>Blackfathom Deeps</span><b>22:16</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:09</b></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+    <div class="rlinks"><a href="#">Settings</a><a href="#">Reload</a></div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>Blackfathom Deeps</h1><div class="meta"><b>Wed 18 Nov 22:27</b> · 69:45 long · 32:57 in combat · 64 fights · as DPS</div></div>
+      <nav class="tabs" aria-label="Run views"><a href="debrief.html">Debrief</a><a href="timeline.html">Timeline</a><a href="pulls.html" aria-current="page">Pulls</a><a href="spells.html">Spells</a><a href="group.html">Group</a></nav>
+    </header>
+    <div class="hero">
+      <div>
+        <div class="sc c"><span data-count="64">64</span><em>pulls</em></div>
+        <p class="vd">You never entered a pull under 50% health. Mana slid from 65% to 44% over five quick pulls, and the 18:15 pull — three packs joined mid-fight — is where you died.</p>
+      </div>
+      <section class="fix" aria-labelledby="fixh">
+        <h2 class="tab" id="fixh">Pull to fix</h2>
+        <p class="fix-h">18:15 · 105 s · 4 packs, 3 joined mid-fight</p>
+        <div class="m"><b>44% mana</b><span>when you entered</span><span>you died</span></div>
+        <a class="btn" href="timeline.html">Show this pull</a>
+        <p class="nx">Rest when mana is under 50% before the next pull</p>
+      </section>
+    </div>
+    <section class="sec" aria-labelledby="trkh">
+      <div class="sh"><h2 class="tab" id="trkh">The run, pull by pull</h2>
+        <div class="key" aria-hidden="true">
+          <span>size = mobs <svg width="44" height="14" viewBox="0 0 44 14"><circle class="dt" cx="4" cy="7" r="2.8" fill-opacity=".12"/><circle class="dt" cx="17" cy="7" r="5.6" fill-opacity=".12"/><circle class="dt" cx="33" cy="7" r="7.4" fill-opacity=".12"/></svg> 1 · 4 · 7</span>
+          <span>mana at pull 100% <svg width="58" height="12" viewBox="0 0 58 12"><circle class="dt" cx="5" cy="6" r="4.5" fill-opacity=".12"/><circle class="dt" cx="21" cy="6" r="4.5" fill-opacity=".41"/><circle class="dt" cx="37" cy="6" r="4.5" fill-opacity=".71"/><circle class="dt" cx="53" cy="6" r="4.5" fill-opacity="1"/></svg> 40%</span>
+          <span><svg width="10" height="10" viewBox="0 0 10 10"><circle class="nd" cx="5" cy="5" r="3.6"/></svg> no pack data</span>
+        </div>
+      </div>
+<svg class="trk" viewBox="0 0 1184 224" role="img" aria-label="Each of the 64 pulls on the run's 69:45 timeline, sized by mobs and shaded by your mana at pull start, with your mana line below. Mana slid from 65% to 44% between 15:54 and 18:15; you died in the 18:15 pull, then took an 8-minute break."><text x="96.0" y="216" text-anchor="start">0:00</text>
+<text x="250.3" y="216" text-anchor="middle">10:00</text>
+<text x="404.5" y="216" text-anchor="middle">20:00</text>
+<text x="558.8" y="216" text-anchor="middle">30:00</text>
+<text x="713.1" y="216" text-anchor="middle">40:00</text>
+<text x="867.3" y="216" text-anchor="middle">50:00</text>
+<text x="1021.6" y="216" text-anchor="middle">60:00</text>
+<text x="1172" y="216" text-anchor="end">69:45</text>
+<text class="rl" x="0" y="62">PULLS</text><text class="rl" x="0" y="122">MANA</text>
+<line class="tk" x1="96" y1="58" x2="405.8" y2="58"/>
+<line class="tk" x1="532.1" y1="58" x2="1172" y2="58"/>
+<line class="brk" x1="408.8" y1="58" x2="529.1" y2="58"/>
+<g class="fs"><line x1="105.3" y1="58" x2="115.3" y2="58"/><line x1="122.6" y1="58" x2="126.1" y2="58"/><line x1="135.2" y1="58" x2="143.0" y2="58"/><line x1="144.9" y1="58" x2="149.6" y2="58"/><line x1="154.4" y1="58" x2="162.4" y2="58"/><line x1="167.6" y1="58" x2="182.6" y2="58"/><line x1="195.1" y1="58" x2="218.2" y2="58"/><line x1="230.9" y1="58" x2="246.7" y2="58"/><line x1="249.5" y1="58" x2="255.5" y2="58"/><line x1="256.1" y1="58" x2="259.0" y2="58"/><line x1="259.4" y1="58" x2="262.8" y2="58"/><line x1="264.5" y1="58" x2="270.3" y2="58"/><line x1="271.6" y1="58" x2="278.1" y2="58"/><line x1="288.2" y1="58" x2="290.7" y2="58"/><line x1="298.3" y1="58" x2="301.6" y2="58"/><line x1="314.1" y1="58" x2="319.8" y2="58"/><line x1="320.5" y1="58" x2="331.5" y2="58"/><line x1="333.8" y1="58" x2="339.6" y2="58"/><line x1="341.5" y1="58" x2="344.0" y2="58"/><line x1="345.3" y1="58" x2="358.5" y2="58"/><line x1="360.9" y1="58" x2="369.2" y2="58"/><line x1="370.1" y1="58" x2="374.0" y2="58"/><line x1="377.6" y1="58" x2="405.8" y2="58"/><line x1="532.1" y1="58" x2="538.7" y2="58"/><line x1="546.1" y1="58" x2="560.5" y2="58"/><line x1="565.0" y1="58" x2="578.1" y2="58"/><line x1="594.7" y1="58" x2="606.7" y2="58"/><line x1="615.0" y1="58" x2="622.5" y2="58"/><line x1="625.6" y1="58" x2="632.2" y2="58"/><line x1="634.7" y1="58" x2="639.7" y2="58"/><line x1="643.2" y1="58" x2="650.8" y2="58"/><line x1="657.6" y1="58" x2="667.3" y2="58"/><line x1="668.6" y1="58" x2="674.9" y2="58"/><line x1="675.8" y1="58" x2="683.7" y2="58"/><line x1="691.2" y1="58" x2="702.8" y2="58"/><line x1="714.8" y1="58" x2="724.8" y2="58"/><line x1="729.1" y1="58" x2="738.9" y2="58"/><line x1="745.6" y1="58" x2="751.9" y2="58"/><line x1="756.0" y1="58" x2="761.6" y2="58"/><line x1="762.6" y1="58" x2="771.4" y2="58"/><line x1="773.4" y1="58" x2="777.2" y2="58"/><line x1="780.0" y1="58" x2="788.9" y2="58"/><line x1="792.7" y1="58" x2="800.2" y2="58"/><line x1="802.5" y1="58" x2="823.4" y2="58"/><line x1="834.2" y1="58" x2="841.3" y2="58"/><line x1="845.3" y1="58" x2="849.7" y2="58"/><line x1="850.3" y1="58" x2="860.3" y2="58"/><line x1="887.2" y1="58" x2="894.4" y2="58"/><line x1="899.7" y1="58" x2="914.8" y2="58"/><line x1="928.8" y1="58" x2="934.7" y2="58"/><line x1="936.3" y1="58" x2="943.0" y2="58"/><line x1="945.2" y1="58" x2="949.3" y2="58"/><line x1="950.7" y1="58" x2="962.5" y2="58"/><line x1="970.6" y1="58" x2="991.7" y2="58"/><line x1="997.8" y1="58" x2="1006.0" y2="58"/><line x1="1019.6" y1="58" x2="1024.0" y2="58"/><line x1="1027.2" y1="58" x2="1035.1" y2="58"/><line x1="1039.1" y1="58" x2="1043.8" y2="58"/><line x1="1045.7" y1="58" x2="1059.1" y2="58"/><line x1="1075.0" y1="58" x2="1084.9" y2="58"/><line x1="1087.5" y1="58" x2="1092.1" y2="58"/><line x1="1094.9" y1="58" x2="1100.0" y2="58"/><line x1="1137.2" y1="58" x2="1142.8" y2="58"/><line x1="1167.7" y1="58" x2="1172.1" y2="58"/></g>
+<text class="bl" x="468.9" y="82" text-anchor="middle">break 8 min</text>
+<text x="468.9" y="95" text-anchor="middle">back at 100% mana</text>
+<line class="gd" x1="377.6" y1="70" x2="377.6" y2="158.8"/>
+<g><circle class="hb" cx="105.3" cy="58" r="6.9"/><circle class="dt" cx="105.3" cy="58" r="5.6" fill-opacity="0.12"><title>0:36 · 4 mobs · 100% mana</title></circle><circle class="hb" cx="122.6" cy="58" r="4.1"/><circle class="dt" cx="122.6" cy="58" r="2.8" fill-opacity="0.12"><title>1:43 · 1 mobs · 100% mana</title></circle><circle class="hb" cx="135.2" cy="58" r="6.1"/><circle class="dt" cx="135.2" cy="58" r="4.8" fill-opacity="0.12"><title>2:32 · 3 mobs · 100% mana</title></circle><circle class="hb" cx="144.9" cy="58" r="5.3"/><circle class="dt" cx="144.9" cy="58" r="4.0" fill-opacity="0.19"><title>3:10 · 2 mobs · 95% mana</title></circle><circle class="hb" cx="154.4" cy="58" r="4.1"/><circle class="dt" cx="154.4" cy="58" r="2.8" fill-opacity="0.12"><title>3:46 · 1 mobs · 100% mana</title></circle><circle class="hb" cx="167.6" cy="58" r="6.9"/><circle class="dt" cx="167.6" cy="58" r="5.6" fill-opacity="0.19"><title>4:38 · 4 mobs · 95% mana</title></circle><circle class="hb" cx="195.1" cy="58" r="8.2"/><circle class="dt" cx="195.1" cy="58" r="6.9" fill-opacity="0.12"><title>6:25 · 6 mobs · 100% mana</title></circle><circle class="hb" cx="230.9" cy="58" r="6.9"/><circle class="dt" cx="230.9" cy="58" r="5.6" fill-opacity="0.22"><title>8:44 · 4 mobs · 93% mana</title></circle><circle class="hb" cx="249.5" cy="58" r="5.3"/><circle class="dt" cx="249.5" cy="58" r="4.0" fill-opacity="0.13"><title>9:56 · 2 mobs · 99% mana</title></circle><circle class="hb" cx="256.1" cy="58" r="4.1"/><circle class="dt" cx="256.1" cy="58" r="2.8" fill-opacity="0.28"><title>10:22 · 1 mobs · 89% mana</title></circle><circle class="hb" cx="259.4" cy="58" r="4.1"/><circle class="dt" cx="259.4" cy="58" r="2.8" fill-opacity="0.15"><title>10:35 · 1 mobs · 98% mana</title></circle><circle class="hb" cx="264.5" cy="58" r="5.3"/><circle class="dt" cx="264.5" cy="58" r="4.0" fill-opacity="0.25"><title>10:55 · 2 mobs · 91% mana</title></circle><circle class="hb" cx="271.6" cy="58" r="4.1"/><circle class="dt" cx="271.6" cy="58" r="2.8" fill-opacity="0.13"><title>11:22 · 1 mobs · 99% mana</title></circle><circle class="hb" cx="288.2" cy="58" r="4.1"/><circle class="dt" cx="288.2" cy="58" r="2.8" fill-opacity="0.12"><title>12:27 · 1 mobs · 100% mana</title></circle><circle class="hb" cx="298.3" cy="58" r="4.1"/><circle class="dt" cx="298.3" cy="58" r="2.8" fill-opacity="0.33"><title>13:06 · 1 mobs · 86% mana</title></circle><circle class="hb" cx="314.1" cy="58" r="5.3"/><circle class="dt" cx="314.1" cy="58" r="4.0" fill-opacity="0.12"><title>14:08 · 2 mobs · 100% mana</title></circle><circle class="hb" cx="320.5" cy="58" r="6.9"/><circle class="dt" cx="320.5" cy="58" r="5.6" fill-opacity="0.27"><title>14:32 · 4 mobs · 90% mana</title></circle><circle class="hb" cx="333.8" cy="58" r="5.3"/><circle class="dt" cx="333.8" cy="58" r="4.0" fill-opacity="0.27"><title>15:24 · 2 mobs · 90% mana</title></circle><circle class="hb" cx="341.5" cy="58" r="4.1"/><circle class="dt" cx="341.5" cy="58" r="2.8" fill-opacity="0.63"><title>15:54 · 1 mobs · 65% mana</title></circle><circle class="hb" cx="345.3" cy="58" r="6.9"/><circle class="dt" cx="345.3" cy="58" r="5.6" fill-opacity="0.72"><title>16:09 · 4 mobs · 59% mana</title></circle><circle class="hb" cx="360.9" cy="58" r="6.1"/><circle class="dt" cx="360.9" cy="58" r="4.8" fill-opacity="0.94"><title>17:10 · 3 mobs · 44% mana</title></circle><circle class="hb" cx="370.1" cy="58" r="4.1"/><circle class="dt" cx="370.1" cy="58" r="2.8" fill-opacity="0.82"><title>17:45 · 1 mobs · 52% mana</title></circle><circle class="hb" cx="377.6" cy="58" r="8.7"/><circle class="dt" cx="377.6" cy="58" r="7.4" fill-opacity="0.94"><title>18:15 · 7 mobs · 44% mana</title></circle><circle class="hb" cx="532.1" cy="58" r="5.3"/><circle class="dt" cx="532.1" cy="58" r="4.0" fill-opacity="0.12"><title>28:16 · 2 mobs · 100% mana</title></circle><circle class="hb" cx="546.1" cy="58" r="4.1"/><circle class="dt" cx="546.1" cy="58" r="2.8" fill-opacity="0.27"><title>29:10 · 1 mobs · 90% mana</title></circle><circle class="hb" cx="565.0" cy="58" r="6.1"/><circle class="dt" cx="565.0" cy="58" r="4.8" fill-opacity="0.19"><title>30:24 · 3 mobs · 95% mana</title></circle><circle class="hb" cx="594.7" cy="58" r="6.9"/><circle class="dt" cx="594.7" cy="58" r="5.6" fill-opacity="0.24"><title>32:19 · 4 mobs · 92% mana</title></circle><circle class="hb" cx="615.0" cy="58" r="5.3"/><circle class="dt" cx="615.0" cy="58" r="4.0" fill-opacity="0.22"><title>33:38 · 2 mobs · 93% mana</title></circle><circle class="hb" cx="625.6" cy="58" r="5.3"/><circle class="dt" cx="625.6" cy="58" r="4.0" fill-opacity="0.33"><title>34:19 · 2 mobs · 86% mana</title></circle><circle class="hb" cx="634.7" cy="58" r="5.3"/><circle class="dt" cx="634.7" cy="58" r="4.0" fill-opacity="0.16"><title>34:55 · 2 mobs · 97% mana</title></circle><circle class="hb" cx="643.2" cy="58" r="6.1"/><circle class="dt" cx="643.2" cy="58" r="4.8" fill-opacity="0.13"><title>35:28 · 3 mobs · 99% mana</title></circle><circle class="hb" cx="657.6" cy="58" r="6.1"/><circle class="dt" cx="657.6" cy="58" r="4.8" fill-opacity="0.12"><title>36:24 · 3 mobs · 100% mana</title></circle><circle class="hb" cx="668.6" cy="58" r="5.3"/><circle class="dt" cx="668.6" cy="58" r="4.0" fill-opacity="0.34"><title>37:07 · 2 mobs · 85% mana</title></circle><circle class="hb" cx="675.8" cy="58" r="5.3"/><circle class="dt" cx="675.8" cy="58" r="4.0" fill-opacity="0.33"><title>37:35 · 2 mobs · 86% mana</title></circle><circle class="hb" cx="691.2" cy="58" r="6.9"/><circle class="dt" cx="691.2" cy="58" r="5.6" fill-opacity="0.22"><title>38:34 · 4 mobs · 93% mana</title></circle><circle class="hb" cx="714.8" cy="58" r="6.1"/><circle class="dt" cx="714.8" cy="58" r="4.8" fill-opacity="0.12"><title>40:06 · 3 mobs · 100% mana</title></circle><circle class="hb" cx="729.1" cy="58" r="6.1"/><circle class="dt" cx="729.1" cy="58" r="4.8" fill-opacity="0.12"><title>41:02 · 3 mobs · 100% mana</title></circle><circle class="hb" cx="745.6" cy="58" r="5.3"/><circle class="dt" cx="745.6" cy="58" r="4.0" fill-opacity="0.12"><title>42:06 · 2 mobs · 100% mana</title></circle><circle class="hb" cx="756.0" cy="58" r="5.3"/><circle class="dt" cx="756.0" cy="58" r="4.0" fill-opacity="0.18"><title>42:46 · 2 mobs · 96% mana</title></circle><circle class="hb" cx="762.6" cy="58" r="6.1"/><circle class="dt" cx="762.6" cy="58" r="4.8" fill-opacity="0.12"><title>43:12 · 3 mobs · 100% mana</title></circle><circle class="hb" cx="773.4" cy="58" r="4.1"/><circle class="dt" cx="773.4" cy="58" r="2.8" fill-opacity="0.12"><title>43:54 · 1 mobs · 100% mana</title></circle><circle class="hb" cx="780.0" cy="58" r="6.1"/><circle class="dt" cx="780.0" cy="58" r="4.8" fill-opacity="0.24"><title>44:20 · 3 mobs · 92% mana</title></circle><circle class="hb" cx="792.7" cy="58" r="6.1"/><circle class="dt" cx="792.7" cy="58" r="4.8" fill-opacity="0.12"><title>45:09 · 3 mobs · 100% mana</title></circle><circle class="hb" cx="802.5" cy="58" r="8.2"/><circle class="dt" cx="802.5" cy="58" r="6.9" fill-opacity="0.31"><title>45:47 · 6 mobs · 87% mana</title></circle><circle class="hb" cx="834.2" cy="58" r="5.3"/><circle class="dt" cx="834.2" cy="58" r="4.0" fill-opacity="0.12"><title>47:51 · 2 mobs · 100% mana</title></circle><circle class="hb" cx="845.3" cy="58" r="5.3"/><circle class="dt" cx="845.3" cy="58" r="4.0" fill-opacity="0.34"><title>48:34 · 2 mobs · 85% mana</title></circle><circle class="hb" cx="850.3" cy="58" r="5.3"/><circle class="dt" cx="850.3" cy="58" r="4.0" fill-opacity="0.12"><title>48:53 · 2 mobs · 100% mana</title></circle><circle class="hb" cx="887.2" cy="58" r="5.3"/><circle class="dt" cx="887.2" cy="58" r="4.0" fill-opacity="0.12"><title>51:17 · 2 mobs · 100% mana</title></circle><circle class="hb" cx="899.7" cy="58" r="6.9"/><circle class="dt" cx="899.7" cy="58" r="5.6" fill-opacity="0.31"><title>52:05 · 4 mobs · 87% mana</title></circle><circle class="hb" cx="928.8" cy="58" r="4.1"/><circle class="dt" cx="928.8" cy="58" r="2.8" fill-opacity="0.12"><title>53:59 · 1 mobs · 100% mana</title></circle><circle class="hb" cx="936.3" cy="58" r="5.3"/><circle class="dt" cx="936.3" cy="58" r="4.0" fill-opacity="0.55"><title>54:28 · 2 mobs · 71% mana</title></circle><circle class="hb" cx="945.2" cy="58" r="4.1"/><circle class="dt" cx="945.2" cy="58" r="2.8" fill-opacity="0.25"><title>55:02 · 1 mobs · 91% mana</title></circle><circle class="hb" cx="950.7" cy="58" r="5.3"/><circle class="dt" cx="950.7" cy="58" r="4.0" fill-opacity="0.19"><title>55:24 · 2 mobs · 95% mana</title></circle><circle class="hb" cx="970.6" cy="58" r="8.7"/><circle class="dt" cx="970.6" cy="58" r="7.4" fill-opacity="0.18"><title>56:41 · 7 mobs · 96% mana</title></circle><circle class="hb" cx="997.8" cy="58" r="5.3"/><circle class="dt" cx="997.8" cy="58" r="4.0" fill-opacity="0.12"><title>58:27 · 2 mobs · 100% mana</title></circle><circle class="hb" cx="1019.6" cy="58" r="10.2"/><circle class="dt" cx="1019.6" cy="58" r="8.9" fill-opacity="0.12"><title>59:52 · 10 mobs · 100% mana</title></circle><circle class="hb" cx="1027.2" cy="58" r="5.3"/><circle class="dt" cx="1027.2" cy="58" r="4.0" fill-opacity="0.24"><title>60:21 · 2 mobs · 92% mana</title></circle><circle class="hb" cx="1039.1" cy="58" r="4.1"/><circle class="dt" cx="1039.1" cy="58" r="2.8" fill-opacity="0.25"><title>61:08 · 1 mobs · 91% mana</title></circle><circle class="hb" cx="1045.7" cy="58" r="4.1"/><circle class="dt" cx="1045.7" cy="58" r="2.8" fill-opacity="0.12"><title>61:33 · 1 mobs · 100% mana</title></circle><circle class="hb" cx="1075.0" cy="58" r="5.3"/><circle class="dt" cx="1075.0" cy="58" r="4.0" fill-opacity="0.12"><title>63:27 · 2 mobs · 100% mana</title></circle><circle class="hb" cx="1087.5" cy="58" r="4.1"/><circle class="dt" cx="1087.5" cy="58" r="2.8" fill-opacity="0.24"><title>64:16 · 1 mobs · 92% mana</title></circle><circle class="hb" cx="1094.9" cy="58" r="4.1"/><circle class="dt" cx="1094.9" cy="58" r="2.8" fill-opacity="0.12"><title>64:45 · 1 mobs · 100% mana</title></circle><circle class="hb" cx="1137.2" cy="58" r="5.3"/><circle class="dt" cx="1137.2" cy="58" r="4.0" fill-opacity="0.12"><title>67:29 · 2 mobs · 100% mana</title></circle><circle class="nd" cx="1167.7" cy="58" r="3.6"><title>69:28: no pack data</title></circle></g>
+<line class="yt" x1="288.2" y1="35" x2="288.2" y2="52.2"/><text class="yl" x="288.2" y="31" text-anchor="middle">you</text>
+<line class="yt" x1="341.5" y1="35" x2="341.5" y2="52.2"/><text class="yl" x="341.5" y="31" text-anchor="middle">you</text>
+<line class="yt" x1="532.1" y1="35" x2="532.1" y2="51.0"/><text class="yl" x="532.1" y="31" text-anchor="middle">you</text>
+<line class="yt" x1="675.8" y1="35" x2="675.8" y2="51.0"/><text class="yl" x="675.8" y="31" text-anchor="middle">you</text>
+<line class="yt" x1="762.6" y1="35" x2="762.6" y2="50.2"/><text class="yl" x="762.6" y="31" text-anchor="middle">you</text>
+<line class="yt" x1="945.2" y1="35" x2="945.2" y2="52.2"/><text class="yl" x="945.2" y="31" text-anchor="middle">you</text>
+<line class="ax" x1="96" y1="198" x2="1172" y2="198"/><line class="g50" x1="96" y1="158.0" x2="1172" y2="158.0"/>
+<text x="88" y="122" text-anchor="end">100%</text><text x="88" y="162.0" text-anchor="end">50%</text><text x="88" y="202" text-anchor="end">0</text>
+<polyline class="ml" points="105.3,118.0 122.6,118.0 135.2,118.0 144.9,122.0 154.4,118.0 167.6,122.0 195.1,118.0 230.9,123.6 249.5,118.8 256.1,126.8 259.4,119.6 264.5,125.2 271.6,118.8 288.2,118.0 298.3,129.2 314.1,118.0 320.5,126.0 333.8,126.0 341.5,146.0 345.3,150.8 360.9,162.8 370.1,156.4 377.6,162.8"/><polyline class="ml" points="532.1,118.0 546.1,126.0 565.0,122.0 594.7,124.4 615.0,123.6 625.6,129.2 634.7,120.4 643.2,118.8 657.6,118.0 668.6,130.0 675.8,129.2 691.2,123.6 714.8,118.0 729.1,118.0 745.6,118.0 756.0,121.2 762.6,118.0 773.4,118.0 780.0,124.4 792.7,118.0 802.5,128.4 834.2,118.0 845.3,130.0 850.3,118.0 887.2,118.0 899.7,128.4 928.8,118.0 936.3,141.2 945.2,125.2 950.7,122.0 970.6,121.2 997.8,118.0 1019.6,118.0 1027.2,124.4 1039.1,125.2 1045.7,118.0 1075.0,118.0 1087.5,124.4 1094.9,118.0 1137.2,118.0 1167.7,118.0"/>
+<line class="ml dsh" x1="377.6" y1="162.8" x2="532.1" y2="118.0"/>
+<circle class="mp" cx="341.5" cy="146.0" r="2.6"/><circle class="mp" cx="345.3" cy="150.8" r="2.6"/><circle class="mp" cx="360.9" cy="162.8" r="2.6"/><circle class="mp" cx="370.1" cy="156.4" r="2.6"/><circle class="mp" cx="377.6" cy="162.8" r="2.6"/>
+<text class="an" x="389.6" y="184.8">15:54 to 18:15: five pulls, gaps of 4–14 s, mana 65% to 44%</text>
+<ellipse class="hl-stroke" data-draw style="--len:122;--i:0" cx="388.0" cy="58" rx="24" ry="14" transform="rotate(-5 388.0 58)" stroke-width="3.5" stroke-linecap="round" opacity=".85"/>
+<g data-fade style="--i:0"><path class="hl-stroke" stroke-width="1.6" stroke-linecap="round" d="M418.0 28 Q402.0 28 398.0 42"/><text class="hn" x="422.0" y="34">died here</text></g></svg>
+    </section>
+    <section class="sec" aria-labelledby="safeh">
+      <div class="sh"><span><h2 class="tab" id="safeh">Pull safety</h2><span class="tag">preview</span></span></div>
+      <div class="kf">
+        <div><b class="c">0</b><span>entered under 50% health</span><small>lowest was 57%, at 63:27</small></div>
+        <div><b class="c">2</b><span>entered under 50% mana</span><small>17:10 and 18:15, both at 44%</small></div>
+        <div><b class="c">22</b><span>pulls had packs join mid-fight</span><small>3 joined the 18:15 pull</small></div>
+        <div><b class="c">6</b><span>you pulled</span><small>12:27, 15:54, 28:16, 37:35, 43:12, 55:02</small></div>
+      </div>
+      <div class="pb"><span class="lb">Pulled by</span>
+<span><i></i>Anaruz Lightborne<b class="c">51</b></span>
+<span><i></i>Bao Kahn <small>(you)</small><b class="c">6</b></span>
+<span><i></i>Shizuka Tsuruta<b class="c">3</b></span>
+<span><i></i>Evilguy Verybad<b class="c">2</b></span>
+<span><i></i>Piraña Segundo<b class="c">1</b></span>
+<span class="unk">unknown<b class="c">1</b></span>
+      </div>
+    </section>
+    <details class="dr">
+      <summary><span>All pulls <i>(64)</i></span><svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4"/></svg></summary>
+      <table class="pt">
+        <thead><tr><th class="r">#</th><th class="r">At</th><th>Fight</th><th class="r">Mobs</th><th>Packs</th><th>Pulled by</th><th class="r">Your health</th><th class="r">Your mana</th><th class="r">Gap before</th><th class="r">Length</th></tr></thead>
+        <tbody>
+<tr><td class="r">1</td><td class="r">0:36</td><td><span class="kt">Trash</span></td><td class="r">4</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">—</td><td class="r">33 s</td></tr>
+<tr><td class="r">2</td><td class="r">1:43</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:28</td><td class="r">12 s</td></tr>
+<tr><td class="r">3</td><td class="r">2:32</td><td><span class="kt">Trash</span></td><td class="r">3</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:36</td><td class="r">29 s</td></tr>
+<tr><td class="r">4</td><td class="r">3:10</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">97%</td><td class="r">95%</td><td class="r">0:07</td><td class="r">15 s</td></tr>
+<tr><td class="r">5</td><td class="r">3:46</td><td>Ghamoo-ra <span class="kt">Boss</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:18</td><td class="r">31 s</td></tr>
+<tr><td class="r">6</td><td class="r">4:38</td><td><span class="kt">Trash</span></td><td class="r">4</td><td>3 <small>2 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">96%</td><td class="r">95%</td><td class="r">0:20</td><td class="r">49 s</td></tr>
+<tr><td class="r">7</td><td class="r">6:25</td><td><span class="kt">Trash</span></td><td class="r">6</td><td>4 <small>3 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:49</td><td class="r">90 s</td></tr>
+<tr><td class="r">8</td><td class="r">8:44</td><td><span class="kt">Trash</span></td><td class="r">4</td><td>3 <small>2 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">93%</td><td class="r">0:50</td><td class="r">60 s</td></tr>
+<tr><td class="r">9</td><td class="r">9:56</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">99%</td><td class="r">0:11</td><td class="r">22 s</td></tr>
+<tr><td class="r">10</td><td class="r">10:22</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Piraña Segundo</td><td class="r">99%</td><td class="r">89%</td><td class="r">0:02</td><td class="r">9 s</td></tr>
+<tr><td class="r">11</td><td class="r">10:35</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">93%</td><td class="r">98%</td><td class="r">0:02</td><td class="r">13 s</td></tr>
+<tr><td class="r">12</td><td class="r">10:55</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">91%</td><td class="r">0:06</td><td class="r">20 s</td></tr>
+<tr><td class="r">13</td><td class="r">11:22</td><td>Lady Sarevess <span class="kt">Boss</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">99%</td><td class="r">99%</td><td class="r">0:05</td><td class="r">24 s</td></tr>
+<tr><td class="r">14</td><td class="r">12:27</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Bao Kahn</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:39</td><td class="r">9 s</td></tr>
+<tr><td class="r">15</td><td class="r">13:06</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">98%</td><td class="r">86%</td><td class="r">0:30</td><td class="r">11 s</td></tr>
+<tr><td class="r">16</td><td class="r">14:08</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:48</td><td class="r">21 s</td></tr>
+<tr><td class="r">17</td><td class="r">14:32</td><td><span class="kt">Trash</span></td><td class="r">4</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">90%</td><td class="r">0:02</td><td class="r">40 s</td></tr>
+<tr><td class="r">18</td><td class="r">15:24</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">96%</td><td class="r">90%</td><td class="r">0:09</td><td class="r">22 s</td></tr>
+<tr><td class="r">19</td><td class="r">15:54</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Bao Kahn</td><td class="r">100%</td><td class="r">65%</td><td class="r">0:07</td><td class="r">10 s</td></tr>
+<tr><td class="r">20</td><td class="r">16:09</td><td><span class="kt">Trash</span></td><td class="r">4</td><td>3 <small>2 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">59%</td><td class="r">0:05</td><td class="r">50 s</td></tr>
+<tr><td class="r">21</td><td class="r">17:10</td><td><span class="kt">Trash</span></td><td class="r">3</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">90%</td><td class="r"><b>44%</b></td><td class="r">0:10</td><td class="r">27 s</td></tr>
+<tr><td class="r">22</td><td class="r">17:45</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Evilguy Verybad</td><td class="r">100%</td><td class="r">52%</td><td class="r">0:04</td><td class="r">11 s</td></tr>
+<tr><td class="r">23</td><td class="r">18:15</td><td><span class="kt">Trash</span> <em>you died</em></td><td class="r">7</td><td>4 <small>3 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r"><b>44%</b></td><td class="r">0:14</td><td class="r">105 s</td></tr>
+<tr><td class="r">24</td><td class="r">28:16</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Bao Kahn</td><td class="r">100%</td><td class="r">100%</td><td class="r">8:11</td><td class="r">26 s</td></tr>
+<tr><td class="r">25</td><td class="r">29:10</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Shizuka Tsuruta</td><td class="r">100%</td><td class="r">90%</td><td class="r">0:29</td><td class="r">56 s</td></tr>
+<tr><td class="r">26</td><td class="r">30:24</td><td>Geilhast <span class="kt">Boss</span></td><td class="r">3</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">99%</td><td class="r">95%</td><td class="r">0:17</td><td class="r">51 s</td></tr>
+<tr><td class="r">27</td><td class="r">32:19</td><td><span class="kt">Trash</span></td><td class="r">4</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">92%</td><td class="r">1:04</td><td class="r">41 s</td></tr>
+<tr><td class="r">28</td><td class="r">33:38</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">93%</td><td class="r">0:32</td><td class="r">26 s</td></tr>
+<tr><td class="r">29</td><td class="r">34:19</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">86%</td><td class="r">0:12</td><td class="r">23 s</td></tr>
+<tr><td class="r">30</td><td class="r">34:55</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">97%</td><td class="r">0:10</td><td class="r">17 s</td></tr>
+<tr><td class="r">31</td><td class="r">35:28</td><td><span class="kt">Trash</span></td><td class="r">3</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">97%</td><td class="r">99%</td><td class="r">0:13</td><td class="r">27 s</td></tr>
+<tr><td class="r">32</td><td class="r">36:24</td><td><span class="kt">Trash</span></td><td class="r">3</td><td>1</td><td class="who"><i></i>Evilguy Verybad</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:26</td><td class="r">35 s</td></tr>
+<tr><td class="r">33</td><td class="r">37:07</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">85%</td><td class="r">0:05</td><td class="r">24 s</td></tr>
+<tr><td class="r">34</td><td class="r">37:35</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Bao Kahn</td><td class="r">97%</td><td class="r">86%</td><td class="r">0:04</td><td class="r">31 s</td></tr>
+<tr><td class="r">35</td><td class="r">38:34</td><td><span class="kt">Trash</span></td><td class="r">4</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">93%</td><td class="r">0:29</td><td class="r">33 s</td></tr>
+<tr><td class="r">36</td><td class="r">40:06</td><td><span class="kt">Trash</span></td><td class="r">3</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:47</td><td class="r">34 s</td></tr>
+<tr><td class="r">37</td><td class="r">41:02</td><td><span class="kt">Trash</span></td><td class="r">3</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:17</td><td class="r">35 s</td></tr>
+<tr><td class="r">38</td><td class="r">42:06</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:26</td><td class="r">22 s</td></tr>
+<tr><td class="r">39</td><td class="r">42:46</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">96%</td><td class="r">0:16</td><td class="r">21 s</td></tr>
+<tr><td class="r">40</td><td class="r">43:12</td><td><span class="kt">Trash</span></td><td class="r">3</td><td>1</td><td class="who"><i></i>Bao Kahn</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:04</td><td class="r">34 s</td></tr>
+<tr><td class="r">41</td><td class="r">43:54</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">96%</td><td class="r">100%</td><td class="r">0:08</td><td class="r">12 s</td></tr>
+<tr><td class="r">42</td><td class="r">44:20</td><td><span class="kt">Trash</span></td><td class="r">3</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">92%</td><td class="r">0:11</td><td class="r">32 s</td></tr>
+<tr><td class="r">43</td><td class="r">45:09</td><td><span class="kt">Trash</span></td><td class="r">3</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:15</td><td class="r">29 s</td></tr>
+<tr><td class="r">44</td><td class="r">45:47</td><td><span class="kt">Trash</span></td><td class="r">6</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">92%</td><td class="r">87%</td><td class="r">0:09</td><td class="r">81 s</td></tr>
+<tr><td class="r">45</td><td class="r">47:51</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:42</td><td class="r">26 s</td></tr>
+<tr><td class="r">46</td><td class="r">48:34</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">97%</td><td class="r">85%</td><td class="r">0:15</td><td class="r">16 s</td></tr>
+<tr><td class="r">47</td><td class="r">48:53</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Shizuka Tsuruta</td><td class="r">91%</td><td class="r">100%</td><td class="r">0:02</td><td class="r">39 s</td></tr>
+<tr><td class="r">48</td><td class="r">51:17</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">1:44</td><td class="r">27 s</td></tr>
+<tr><td class="r">49</td><td class="r">52:05</td><td><span class="kt">Trash</span></td><td class="r">4</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Shizuka Tsuruta</td><td class="r">100%</td><td class="r">87%</td><td class="r">0:21</td><td class="r">59 s</td></tr>
+<tr><td class="r">50</td><td class="r">53:59</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:54</td><td class="r">22 s</td></tr>
+<tr><td class="r">51</td><td class="r">54:28</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">71%</td><td class="r">0:06</td><td class="r">26 s</td></tr>
+<tr><td class="r">52</td><td class="r">55:02</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Bao Kahn</td><td class="r">100%</td><td class="r">91%</td><td class="r">0:09</td><td class="r">16 s</td></tr>
+<tr><td class="r">53</td><td class="r">55:24</td><td>Twilight Lord Kelris <span class="kt">Boss</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">95%</td><td class="r">0:06</td><td class="r">44 s</td></tr>
+<tr><td class="r">54</td><td class="r">56:41</td><td><span class="kt">Trash</span></td><td class="r">7</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">96%</td><td class="r">0:32</td><td class="r">79 s</td></tr>
+<tr><td class="r">55</td><td class="r">58:27</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">97%</td><td class="r">100%</td><td class="r">0:24</td><td class="r">28 s</td></tr>
+<tr><td class="r">56</td><td class="r">59:52</td><td><span class="kt">Trash</span></td><td class="r">10</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:53</td><td class="r">16 s</td></tr>
+<tr><td class="r">57</td><td class="r">60:21</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">92%</td><td class="r">0:13</td><td class="r">31 s</td></tr>
+<tr><td class="r">58</td><td class="r">61:08</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">91%</td><td class="r">0:15</td><td class="r">18 s</td></tr>
+<tr><td class="r">59</td><td class="r">61:33</td><td>Aku'mai <span class="kt">Boss</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:07</td><td class="r">50 s</td></tr>
+<tr><td class="r">60</td><td class="r">63:27</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>2 <small>1 joined</small></td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">57%</td><td class="r">100%</td><td class="r">1:02</td><td class="r">26 s</td></tr>
+<tr><td class="r">61</td><td class="r">64:16</td><td><span class="kt">Trash</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">93%</td><td class="r">92%</td><td class="r">0:10</td><td class="r">7 s</td></tr>
+<tr><td class="r">62</td><td class="r">64:45</td><td>Old Serra'kis <span class="kt">Boss</span></td><td class="r">1</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">0:11</td><td class="r">20 s</td></tr>
+<tr><td class="r">63</td><td class="r">67:29</td><td><span class="kt">Trash</span></td><td class="r">2</td><td>1</td><td class="who"><i></i>Anaruz Lightborne</td><td class="r">100%</td><td class="r">100%</td><td class="r">2:25</td><td class="r">7 s</td></tr>
+<tr><td class="r">64</td><td class="r">69:28</td><td><span class="kt">Trash</span></td><td class="r">—</td><td>—</td><td class="who"><span class="unk">unknown</span></td><td class="r">100%</td><td class="r">100%</td><td class="r">1:37</td><td class="r">17 s</td></tr>
+        </tbody>
+      </table>
+    </details>
+  </main>
+</div>
+</body>
+</html>

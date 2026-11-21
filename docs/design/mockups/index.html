@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dips score mock-ups</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+  .lead { max-width: 68ch; color: var(--tx2); font-size: 15px; margin-bottom: 26px; }
+  .pages { border-top: 1px solid var(--tx); }
+  .pages a { display: grid; grid-template-columns: 220px 1fr 140px; gap: 24px; align-items: baseline; padding: 18px 0; border-bottom: 1px solid var(--ln); text-decoration: none; }
+  .pages a:hover h2 { text-decoration: underline; text-underline-offset: 4px; }
+  .pages h2 { font: 700 26px/1.1 "Barlow Condensed", sans-serif; }
+  .pages p { color: var(--tx2); font-size: 15px; max-width: 62ch; }
+  .pages .open { justify-self: end; font: 600 14px Barlow, sans-serif; color: var(--tx); }
+  .notes { margin-top: 30px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; }
+  .notes p { margin-top: 12px; } .notes p b { color: var(--tx); font-weight: 600; }
+  .notes p { color: var(--tx2); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html">Dungeons</a>
+      <a href="fight.html">Fights</a>
+      <a href="habits.html">Habits</a>
+    </nav>
+    <div class="rl">Recent runs</div>
+    <a class="run" href="debrief.html"><span>Blackfathom Deeps</span><b>75 B</b></a>
+    <a class="run" href="#"><span>Kalimdor (open world)</span><b>23:37</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:17</b></a>
+    <a class="run" href="#"><span>Blackfathom Deeps</span><b>22:16</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:09</b></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+    <div class="rlinks"><a href="#">Settings</a><a href="#">Reload</a></div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>Redesign mock-ups</h1><div class="meta"><b>Split Sheet, circled</b> · two themes, each day and night · real data from Blackfathom Deeps, 18 Nov</div></div>
+    </header>
+    <p class="lead">Every screen of the redesign. The debrief is built in the app; the rest are mock-ups to agree on before building. Switch the theme and day or night in the left rail; the choice carries across pages. Numbers come from your real run unless a page marks them illustrative.</p>
+    <div class="pages">
+      <a href="debrief.html"><h2>Run debrief</h2><p>After a dungeon: the grade, the one fix and what it cost, four measures, where the points went, and the fights to review, circled. Built.</p><span class="open">Open</span></a>
+      <a href="timeline.html"><h2>Timeline</h2><p>Its own tab now, zoomed to the worst fight: your idle gaps highlighted and ranked, health on calm lines, no black bands.</p><span class="open">Open</span></a>
+      <a href="pulls.html"><h2>Pulls</h2><p>Were your pulls safe and paced? The run as a track of pulls, your mana at each pull, the pull where you died circled.</p><span class="open">Open</span></a>
+      <a href="spells.html"><h2>Spells</h2><p>Are you using your abilities well? One row per ability ranked by damage share, refused presses called out, buffs folded away.</p><span class="open">Open</span></a>
+      <a href="group.html"><h2>Group</h2><p>How you stacked up, on the real standings: your placing, a flat podium, a card per player with strengths, weaknesses, awards and their map. Replaces Summary.</p><span class="open">Open</span></a>
+      <a href="fight.html"><h2>Fight</h2><p>One fight, from the Fights list: how efficient it was, the biggest gap, and where the damage went.</p><span class="open">Open</span></a>
+      <a href="habits.html"><h2>Habits</h2><p>The last 40 fights: the habit costing you most, the efficiency trend with the drop marked, and the rest as Fix, Build and Keep.</p><span class="open">Open</span></a>
+      <a href="history.html"><h2>Dungeon history</h2><p>Am I getting better here: score per visit over the grade bands, the fix that keeps coming back, each measure visit by visit.</p><span class="open">Open</span></a>
+      <a href="bosses.html"><h2>Bosses</h2><p>Which boss you are weakest on: the dungeon route with each boss graded, your weakest circled, and each boss across visits.</p><span class="open">Open</span></a>
+      <a href="records.html"><h2>Records</h2><p>Your bests here and the one within reach: best score 82 A, and today's Consecration fix alone would beat it.</p><span class="open">Open</span></a>
+      <a href="fight-card.html"><h2>After-fight card</h2><p>Over the game, two seconds after each fight: efficiency and the biggest gap, in every state.</p><span class="open">Open</span></a>
+    </div>
+    <div class="notes">
+      <div><h2 class="tab">What is real</h2><p><b>Your Blackfathom run.</b> Score 75 B, the categories and points lost, 64 fights with times and scores, the death at 43:57, group names and roles, your 3rd place.</p></div>
+      <div><h2 class="tab">What is illustrative</h2><p><b>Labelled on each page.</b> Rotation and Pacing (not scored yet), earlier visits, other players' scores and awards, per-fight efficiency on the cards.</p></div>
+      <div><h2 class="tab">Not decided yet</h2><p><b>How it ships.</b> Redraw this in the PyQt app, or embed a web view. Also Rotation and Pacing scoring and their default weights.</p></div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

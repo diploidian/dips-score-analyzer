@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spells · Blackfathom Deeps</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Caveat:wght@600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+.main{display:flex;flex-direction:column}
+.top{margin-bottom:0;border-bottom-color:var(--gold)}
+.picks{display:flex;gap:14px}
+.picks label{display:flex;align-items:center;gap:6px;font:600 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
+.picks select{font:500 13px/1.2 Barlow,sans-serif;letter-spacing:0;text-transform:none;color:var(--tx);background:var(--panel);border:1px solid var(--ln);padding:4px 6px;cursor:pointer}
+.rail .links{display:flex;gap:16px;padding:16px 20px 0;font-size:13px}
+.rail .links a{color:var(--rail-mu);text-decoration:none}.rail .links a:hover{text-decoration:underline}
+.sp{display:grid;grid-template-columns:minmax(0,1fr) 380px;flex:1}
+.lcol{padding-right:28px;border-right:1px solid var(--ln);min-width:0}
+.rcol{padding-left:28px;min-width:0}
+.hero{display:grid;grid-template-columns:290px minmax(0,1fr);gap:28px;padding:14px 0 18px;border-bottom:1px solid var(--ln)}
+.big{font:700 150px/.8 "Barlow Condensed",sans-serif;letter-spacing:-.02em;display:flex;align-items:flex-start;margin-top:8px}
+.big small{font-size:64px;line-height:1;margin:2px 0 0 6px}
+.cap{margin-top:16px;font-size:14px;color:var(--mu)}
+.vd{font-size:15px;line-height:1.4;margin-top:8px;color:var(--tx2)}
+.fix{position:relative;margin-top:12px;background:var(--plate);color:var(--plate-tx);padding:22px 18px 14px;display:flex;flex-direction:column;align-self:start}
+.fix .tab{position:absolute;top:-12px;left:14px}
+.fix .fix-h{font:600 23px/1.15 "Barlow Condensed",sans-serif;margin:0 0 6px}
+.fix .m{display:flex;flex-wrap:wrap;column-gap:16px;row-gap:2px;align-items:baseline}
+.fix .m b{font:700 32px "Barlow Condensed",sans-serif;color:var(--plate-ac);white-space:nowrap}
+.fix .m span{font-size:13px;color:var(--plate-mu);white-space:nowrap}
+.fix .btn{margin-top:10px;align-self:flex-start}
+.nx{margin-top:12px;border-top:1px solid var(--plate-ln);padding-top:7px;display:grid;gap:4px;font-size:13px}
+.nx div{display:flex;justify-content:space-between;gap:10px}
+.nx b{font:600 14px "Barlow Condensed",sans-serif;color:var(--plate-ac);white-space:nowrap}
+.sec{padding:14px 0 6px}
+.sec .tab{margin-bottom:10px}
+.rcol .sec{padding-top:14px}
+table{width:100%;border-collapse:collapse}
+th{font:600 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--mu);text-align:right;padding:0 0 6px 14px;white-space:nowrap}
+td{padding:5px 0 5px 14px;border-top:1px solid var(--ln);text-align:right;font-size:13px;color:var(--mu);white-space:nowrap;vertical-align:middle}
+th:first-child,td:first-child{padding-left:0;text-align:left}
+tr:last-child td{border-bottom:1px solid var(--ln)}
+td.n{font-size:15px;color:var(--tx);font-weight:500}
+td.s{font:700 18px/1 "Barlow Condensed",sans-serif;color:var(--tx)}
+.na{color:var(--mu)}
+.dmg td.b{width:254px;text-align:left}
+.dmg td.b i{display:block;height:10px;background:var(--m-dmg)}
+.dmg td.b small{display:block;font-size:12px;color:var(--mu);margin-top:3px}
+.dmg em{font-style:normal;font-weight:600}
+.ring{position:relative;display:inline-block}
+.ring svg{position:absolute;left:-14px;top:-9px;width:calc(100% + 28px);height:calc(100% + 18px);overflow:visible;stroke-width:2.4;stroke-linecap:round;opacity:.9}
+.foot{margin-top:8px;font-size:13px;color:var(--mu)}
+.drs{margin-top:22px}
+.dr{border-top:1px solid var(--ln)}.dr:last-child{border-bottom:1px solid var(--ln)}
+.dr summary{list-style:none;display:flex;align-items:center;gap:9px;padding:11px 0;cursor:pointer;font-size:14px;font-weight:500}
+.dr summary::-webkit-details-marker{display:none}
+.dr summary span{color:var(--mu);font-weight:400}
+.dr summary svg{width:10px;height:10px;flex:none;fill:none;stroke:var(--tx2);stroke-width:1.6}
+.dr[open] summary svg{transform:rotate(90deg)}
+.dr table{margin-bottom:12px}
+.dr th,.dr td{padding-left:10px}.dr th{letter-spacing:.08em}.dr td{color:var(--tx2)}.dr td.n{font-size:13px;font-weight:400}
+@media (max-width:1419px){.hero{grid-template-columns:250px minmax(0,1fr);gap:22px}.big{font-size:128px}.big small{font-size:54px}.fix .fix-h{font-size:21px}.nx{font-size:12px}.sp{grid-template-columns:minmax(0,1fr) 360px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="logo">dips <span>score</span></div>
+    <nav aria-label="Sections">
+      <a href="history.html">Dungeons</a>
+      <a href="fight-card.html">Fights</a>
+      <a href="#">Habits</a>
+    </nav>
+    <div class="rl">Recent runs</div>
+    <a class="run" href="debrief.html" aria-current="page"><span>Blackfathom Deeps</span><b>75 B</b></a>
+    <a class="run" href="#"><span>Kalimdor (open world)</span><b>23:37</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:17</b></a>
+    <a class="run" href="#"><span>Blackfathom Deeps</span><b>22:16</b></a>
+    <a class="run" href="#"><span>Kalimdor</span><b>22:09</b></a>
+    <div class="rl">Look</div>
+    <div style="padding:0 20px;display:grid;gap:8px">
+      <div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div>
+      <div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button><button data-set-mode="auto">Auto</button></div>
+    </div>
+    <div class="rlinks"><a href="#">Settings</a><a href="#">Reload</a></div>
+  </aside>
+  <main class="main">
+    <header class="top">
+      <div><h1>Blackfathom Deeps</h1><div class="meta"><b>Wed 18 Nov 22:27</b> · 69:45 long · 32:57 in combat · 64 fights · as DPS</div></div>
+      <div class="controls">
+        <nav class="tabs" aria-label="Run views"><a href="debrief.html">Debrief</a><a href="timeline.html">Timeline</a><a href="pulls.html">Pulls</a><a href="spells.html" aria-current="page">Spells</a><a href="group.html">Group</a></nav>
+        <div class="picks">
+          <label>Player <select><option>Bao Kahn (you)</option><option>Shizuka Tsuruta</option><option>Piraña Segundo</option><option>Anaruz Lightborne</option><option>Evilguy Verybad</option></select></label>
+          <label>Fights <select><option>Whole run</option><option>Ghamoo-ra · 3:46</option><option>Lady Sarevess · 11:22</option><option>Geilhast · 30:24</option><option>Twilight Lord Kelris · 55:24</option><option>Aku'mai · 61:33</option><option>Old Serra'kis · 64:45</option></select></label>
+        </div>
+      </div>
+    </header>
+    <div class="sp">
+      <div class="lcol">
+        <div class="hero">
+          <div>
+            <div class="big c"><span data-count="110">110</span><small>K</small></div>
+            <p class="cap">109,850 damage · 56/s in combat</p>
+            <p class="vd">Melee and Seal of Command did 63% of your damage. Holy Strike was refused on 109 of 288 presses, and Consecration sat ready for 75 s.</p>
+          </div>
+          <section class="fix" aria-labelledby="fixh">
+            <h2 class="tab" id="fixh">Ability to fix</h2>
+            <p class="fix-h">Consecration sat ready 75 s</p>
+            <div class="m"><b>~1,177 damage</b><span>about 8 more casts</span></div>
+            <a class="btn" href="timeline.html">Show on the timeline</a>
+            <div class="nx"><div><span>Holy Strike refused on 109 of 288 presses</span><b>38% refused</b></div><div><span>Judgement sat ready 20 s</span><b>~167 damage</b></div></div>
+          </section>
+        </div>
+        <section class="sec" aria-labelledby="dmgh"><h2 class="tab" id="dmgh">Where your damage came from</h2>
+          <table class="dmg">
+            <thead><tr><th></th><th></th><th>share</th><th>casts</th><th>refused</th><th>per min</th><th>crit</th></tr></thead>
+            <tbody>
+<tr><td class="n">Melee</td><td class="b"><i data-grow style="--i:0;width:240.0px"></i></td><td class="s c">48%</td><td><span class="na">–</span></td><td><span class="na">–</span></td><td><span class="na">–</span></td><td>9%</td></tr>
+<tr><td class="n">Seal of Command</td><td class="b"><i data-grow style="--i:1;width:74.7px"></i></td><td class="s c">15%</td><td>229</td><td>32 · 12%</td><td>6.9</td><td>11%</td></tr>
+<tr><td class="n">Judgement</td><td class="b"><i data-grow style="--i:2;width:59.3px"></i><small>damage from Judgement of Command</small></td><td class="s c">12%</td><td>206</td><td>39 · 16%</td><td>6.3</td><td>5%</td></tr>
+<tr><td class="n">Holy Strike</td><td class="b"><i data-grow style="--i:3;width:52.1px"></i></td><td class="s c">10%</td><td>179</td><td><span class="ring">109 · <em class="g-D">38%</em><svg viewBox="0 0 96 34" aria-hidden="true"><ellipse class="hl-stroke" data-draw style="--len:215;--i:0" cx="48" cy="17" rx="45" ry="14" transform="rotate(-3 48 17)"/></svg></span></td><td>5.4</td><td>9%</td></tr>
+<tr><td class="n">Consecration</td><td class="b"><i data-grow style="--i:4;width:47.0px"></i></td><td class="s c">9%</td><td>90</td><td>16 · 15%</td><td>2.7</td><td>7%</td></tr>
+<tr><td class="n">Touch of the Grave</td><td class="b"><i data-grow style="--i:5;width:29.4px"></i></td><td class="s c">6%</td><td><span class="na">–</span></td><td><span class="na">–</span></td><td><span class="na">–</span></td><td>0%</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+      <div class="rcol">
+        <section class="sec" aria-labelledby="healh"><h2 class="tab" id="healh">Healing</h2>
+          <table class="heal">
+            <thead><tr><th></th><th>healed</th><th>overheal</th></tr></thead>
+            <tbody>
+<tr><td class="n">Touch of the Grave</td><td class="s c">2,683</td><td>49%</td></tr>
+<tr><td class="n">Holy Light</td><td class="s c">1,833</td><td>15%</td></tr>
+<tr><td class="n">Cannibalize</td><td class="s c">100</td><td>0%</td></tr>
+            </tbody>
+          </table>
+          <p class="foot">4,616 healed in all</p>
+        </section>
+        <div class="drs">
+          <details class="dr"><summary><svg viewBox="0 0 10 10" aria-hidden="true"><polyline points="3,1 7,5 3,9"/></svg>Buffs, seals and blessings <span>(6)</span></summary>
+            <table><thead><tr><th></th><th>casts</th><th>refused</th></tr></thead><tbody>
+<tr><td class="n">Seal of the Crusader</td><td>61</td><td>1</td></tr>
+<tr><td class="n">Blessing of Freedom</td><td>12</td><td>1</td></tr>
+<tr><td class="n">Blessing of Might</td><td>10</td><td>0</td></tr>
+<tr><td class="n">Blessing of Wisdom</td><td>4</td><td>0</td></tr>
+<tr><td class="n">Blessing of Kings</td><td>1</td><td>0</td></tr>
+<tr><td class="n">Retribution Aura</td><td>1</td><td>0</td></tr>
+            </tbody></table>
+          </details>
+          <details class="dr"><summary><svg viewBox="0 0 10 10" aria-hidden="true"><polyline points="3,1 7,5 3,9"/></svg>All spells <span>(21)</span></summary>
+            <table><thead><tr><th></th><th>casts</th><th>refused</th><th>damage</th><th>healing</th></tr></thead><tbody>
+<tr><td class="n">Melee</td><td><span class="na">–</span></td><td><span class="na">–</span></td><td>52,475</td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Seal of Command</td><td>229</td><td>32</td><td>16,332</td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Judgement</td><td>206</td><td>39</td><td>12,967</td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Holy Strike</td><td>179</td><td>109</td><td>11,386</td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Consecration</td><td>90</td><td>16</td><td>10,272</td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Touch of the Grave</td><td><span class="na">–</span></td><td><span class="na">–</span></td><td>6,418</td><td>2,683</td></tr>
+<tr><td class="n">Holy Light</td><td>7</td><td>5</td><td><span class="na">–</span></td><td>1,833</td></tr>
+<tr><td class="n">Cannibalize</td><td>1</td><td>0</td><td><span class="na">–</span></td><td>100</td></tr>
+<tr><td class="n">Seal of the Crusader</td><td>61</td><td>1</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Blessing of Freedom</td><td>12</td><td>1</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Blessing of Might</td><td>10</td><td>0</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Blessing of Wisdom</td><td>4</td><td>0</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Blessing of Kings</td><td>1</td><td>0</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Restore Mana</td><td>1</td><td>0</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Divine Protection</td><td>1</td><td>0</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Hammer of Justice</td><td>1</td><td>0</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Redemption</td><td>1</td><td>0</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Retribution Aura</td><td>1</td><td>0</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Sharpen Blade II</td><td>1</td><td>0</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Will of the Forsaken</td><td>1</td><td>0</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+<tr><td class="n">Exorcism</td><td>0</td><td>1</td><td><span class="na">–</span></td><td><span class="na">–</span></td></tr>
+            </tbody></table>
+          </details>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

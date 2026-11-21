@@ -16,6 +16,7 @@ from .summary import MASHING, gear_level
 
 WINDOW = 40                  # fights looked at; the trend compares the last 20 with the 20 before
 TREND_MIN = 5                # fights needed in each half of the trend
+MOVE = 3                     # efficiency points between the trend's halves that count as dropping or improving
 SESSION_GAP = 30 * 60        # seconds between fights that still count as one sitting
 ORDER = {"fix": 0, "build": 1, "keep": 2}
 UNUSED_SHOWN = 3             # spells named in the "you know ... but never cast" card
@@ -69,16 +70,18 @@ def _damage_cards(win: list[dict]) -> list[tuple]:
     if len(eff) >= TREND_MIN:
         cur, prev = eff[-20:], eff[-40:-20]
         a = _mean(cur) * 100
+        p = _mean(prev) * 100 if len(prev) >= TREND_MIN else None
         msg = f"Last {len(cur)} fights {a:.1f}% efficiency"
-        if len(prev) >= TREND_MIN:
-            p = _mean(prev) * 100
+        trend = {"recent": a, "before": p}       # in percent; before None when there's nothing to compare
+        if p is not None:
             msg += f" vs {p:.1f}% in the {len(prev)} before"
-            if a - p <= -3:
-                out.append(("fix", "Efficiency is dropping", msg))
-            elif a - p >= 3:
-                out.append(("keep", "Efficiency is improving", msg))
+            if a - p <= -MOVE:
+                out.append(("fix", "Efficiency is dropping", msg, trend))
+            elif a - p >= MOVE:
+                out.append(("keep", "Efficiency is improving", msg, trend))
         if not out:
-            out.append(("keep", "Efficiency is steady", msg) if a >= 75 else ("fix", "Efficiency is stuck low", msg))
+            out.append(("keep", "Efficiency is steady", msg, trend) if a >= 75 else
+                       ("fix", "Efficiency is stuck low", msg, trend))
     lost, seen, missed, rows = Counter(), Counter(), Counter(), False
     for f in dmg:
         for c in f.get("cooldowns") or []:
@@ -89,7 +92,8 @@ def _damage_cards(win: list[dict]) -> list[tuple]:
     if lost and lost.most_common(1)[0][1] >= 1:
         name, total = lost.most_common(1)[0]
         casts = f", {missed[name]} casts missed" if missed[name] else ""
-        out.append(("fix", f"{name} left unused", f"About {total:,.0f} damage lost{casts} in {seen[name]} fights"))
+        out.append(("fix", f"{name} left unused", f"About {total:,.0f} damage lost{casts} in {seen[name]} fights",
+                    {"cost": total, "fights": seen[name], "missed": missed[name]}))     # the one card with a cost
     elif rows:
         out.append(("keep", "Cooldowns used on time", f"No damage lost to idle cooldowns in {len(dmg)} fights"))
     auto = [f["auto"] for f in dmg if f.get("auto")]
@@ -126,7 +130,8 @@ def _skill_card(dmg: list[dict]) -> list[tuple]:
               f"{e1:.0%}), the rest ({rest:+.0%}) from gear, level and what you fought"
               + (f" ({', '.join(known)})" if known else "") + ".")
     kind = "keep" if play >= 0 else ("fix" if play <= -0.03 else "build")
-    return [(kind, f"DPS {'up' if dps > 0 else 'down'} {abs(dps):.0%}", detail)]
+    return [(kind, f"DPS {'up' if dps > 0 else 'down'} {abs(dps):.0%}", detail,
+             {"dps_change": dps, "play": play, "rest": rest})]
 
 
 def _habit_cards(win: list[dict]) -> list[tuple]:
@@ -223,4 +228,7 @@ def habits(fights: list[dict], char: dict | None = None, book: dict | None = Non
             "trend": trend,
             "session": _session(mine), "char": char and {
                 "class": char.get("class"), "race": char.get("race"), "level": char.get("level"),
-                "spec": char.get("spec"), "gear": gear_level(char)}, "cards": [{"kind": k, "title": t, "detail": d} for k, t, d in cards]}
+                "spec": char.get("spec"), "gear": gear_level(char)},
+            # a card's figures beside its words: cost on every card (None without one), the rest on their own card
+            "cards": [{"kind": k, "title": t, "detail": d, "cost": None, **(more[0] if more else {})}
+                      for k, t, d, *more in cards]}

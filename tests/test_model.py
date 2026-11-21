@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dips_score.analysis import merge_visits  # noqa: E402
+from dips_score.analysis import merge_visits, run_key  # noqa: E402
 from dips_score.model.deaths import find_deaths  # noqa: E402
 from dips_score.model.pulls import build_pulls  # noqa: E402
 from dips_score.model.roster import Overrides, Player, build_roster, clean_name  # noqa: E402
@@ -80,6 +80,32 @@ class Visits(unittest.TestCase):
         out = merge_visits([run(1, 1000, ended=1100), run(2, 1200, ended=1300), run(3, 9000), run(4, 9100, "SM", 2)])
         self.assertEqual([r.parts for r in out], [["1", "2"], ["3"], ["4"]])
         self.assertEqual(len(out[0].segments), 2)
+
+    def test_run_key_ignores_writes_after_the_run_is_on_disk(self):
+        """the game writing its log after a run is over doesn't make the run look new (nor drop its rail score);
+        a write while the run's part of the log may still be arriving does"""
+        import os
+        import tempfile
+        run = Run("1", "x", "Krol", "party", 1, 3039, 1_000_000, 1_000_600)          # ended at 1,000,600
+        with tempfile.TemporaryDirectory() as tmp:
+            log, old = Path(tmp) / "WoWCombatLog.txt", Path(tmp) / "WoWCombatLog-old.txt"
+            log.write_text("x")
+            old.write_text("x")
+            os.utime(old, (900_000, 900_000))                       # finished long before the run
+            key = lambda: run_key(run, [old, log], 0)              # noqa: E731
+            os.utime(log, (1_000_650, 1_000_650))                   # 50 s after the end: may still be arriving
+            first = key()
+            os.utime(log, (1_000_700, 1_000_700))
+            self.assertNotEqual(key(), first)
+            os.utime(log, (1_000_900, 1_000_900))                   # past the settle time: the run's part is final
+            settled = key()
+            os.utime(log, (1_005_000, 1_005_000))                   # the game keeps writing
+            self.assertEqual(key(), settled)
+            self.assertEqual(settled[2][0], ("WoWCombatLog-old.txt", 900_000))
+            self.assertNotEqual(run_key(run, [old, log], 5.0), settled)       # a role pick still counts
+            grown = Run("1", "x", "Krol", "party", 1, 3039, 1_000_000, 1_000_600,
+                        [Segment(0, [], [Line(60000, "X", [])])])
+            self.assertNotEqual(run_key(grown, [old, log], 0), settled)        # the game saved more of the run
 
 
 class Deaths(unittest.TestCase):
@@ -281,6 +307,17 @@ class Activity(unittest.TestCase):
         self.assertEqual(energy.score, 100)
         self.assertIn("Not enough energy x5", energy.summary)
         self.assertLess(casting(0).score, 100)
+
+
+class SpellTable(unittest.TestCase):
+    def test_damage_counts_enemies_only(self):
+        """as the Group and the summary count damage: a hit on a friend or a neutral creature isn't yours"""
+        from dips_score.model.casts import spell_table
+        neutral = "Creature-0-1-1-1-100-9"          # no flags: not hostile
+        rd = rundata([ev(10, "SPELL_DAMAGE", ME, MOB1, "Consecration", 100),
+                      ev(11, "SPELL_DAMAGE", ME, TANK, "Consecration", 30),
+                      ev(12, "SPELL_DAMAGE", ME, neutral, "Consecration", 50)], [])
+        self.assertEqual([(r.spell, r.damage, r.hits) for r in spell_table(rd, ME)], [("Consecration", 100, 1)])
 
 
 class DpsDamage(unittest.TestCase):

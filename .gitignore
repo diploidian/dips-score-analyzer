@@ -7,3 +7,4 @@ dist/
 assets/*
 !assets/README.txt
 .shots/
+.superpowers/

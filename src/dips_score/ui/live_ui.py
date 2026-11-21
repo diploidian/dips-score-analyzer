@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from PyQt6.QtCore import QObject, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPixmap
+from PyQt6.QtGui import QAction, QFont, QGuiApplication, QIcon, QPainter, QPixmap
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from ..config import Paths
@@ -100,8 +100,8 @@ def tray_icon() -> QIcon:
     pm.fill(Qt.GlobalColor.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-    p.setBrush(QColor(60, 40, 12))
-    p.setPen(QColor(255, 209, 0))
+    p.setBrush(theme.tok("rail"))       # the rail's mark: called after apply_look, so it is in the look in use
+    p.setPen(theme.tok("rail-ac"))
     p.drawEllipse(4, 4, 56, 56)
     f = QFont("Segoe UI", 28)
     f.setBold(True)
@@ -123,6 +123,9 @@ def run_tray(paths: Paths) -> int:
     load_weights(paths.weights_file)
     load_upkeep(paths.classes_file)
     ctl = LiveController(paths, settings)
+    # follow Windows' light/dark switch while no window is open to do it (the window does it when open)
+    QGuiApplication.styleHints().colorSchemeChanged.connect(
+        lambda *_: apply_look(paths, settings) if settings["mode"] == "auto" else None)
     holder: dict = {}
 
     def open_window():

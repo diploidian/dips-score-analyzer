@@ -2,12 +2,12 @@
 most worth working on. Each role has its own categories and weights (defaults below; you can
 change them in the window, saved in weights.json):
 
-    healer   Group health 35, Response 35, Efficiency 20, Casting 10, Movement 0, Input 0
+    healer   Group health 35, Response 35, Efficiency 20, Casting 10, Pacing 5, Movement 0, Input 0
              + a hybrid bonus of up to 10 for the damage you also did
     dps      Damage 20, Activity 15, Cooldowns 10, Interrupts 10, Casting 10, Movement 10, Survival 10,
-             Upkeep 5, Input 5, Resource 5
+             Upkeep 5, Input 5, Resource 5, Pacing 5
     tank     Holding mobs 25, Pickups 25, Survival 20, Activity 10, Upkeep 10, Casting 5, Input 5,
-             Movement 0, Interrupts 0, Cooldowns 0, Resource 0
+             Pacing 5, Movement 0, Interrupts 0, Cooldowns 0, Resource 0
 
 A category weighted 0 is info only: still shown with its numbers, but it doesn't count toward the
 total and gives no tips. For a healer, mashing and casts cut by moving are info only by default,
@@ -31,6 +31,10 @@ were up, for the ones you applied this run (upkeep.py). Nothing applied, no row.
 Positioning (every role, info only by default): melee players by how often you stood behind your target,
 everyone else by how often you took hits far from the tank (positioning.py). Needs Advanced Combat Logging.
 
+Pacing (every role, run card only): the share of pulls you went into safely (health 50%+, and mana 30%+ for
+mana users) and on time (first press within 3 s of your combat beginning, or you pulled it) (pacing.py). Needs
+Advanced Combat Logging.
+
 Hybrid bonus (healer): your damage, as a share of an even split of the group's damage (damage
 done while everyone was above 80% health counts fully, the rest half), times how well you healed
 (Group health x Response). So damage only adds to your score when the healing held up.
@@ -49,6 +53,7 @@ from .healer import DIP_HP, RESPONSE_CAP, SAFE_HP, HealerMetrics
 from .cooldowns import CooldownMetrics
 from .interrupts import InterruptMetrics
 from .metrics import Metrics
+from .pacing import PacingMetrics
 from .positioning import FAR, PositionMetrics
 from .tank import PICKUP_CAP, TankMetrics
 from .upkeep import UpkeepMetrics
@@ -98,18 +103,21 @@ TUNING = {
     "upkeep_zero": 0.40, "upkeep_full": 0.90,
     # positioning: share of swings from behind (melee), share of hits taken far from the tank (others)
     "behind_zero": 0.2, "behind_full": 0.8, "far_zero": 0.5, "far_full": 0.05, "min_judged": 10,
+    # pacing: a pull is safe with health and (mana users) mana at least this, on time with your first press
+    # within pace_late_s of your combat beginning; then the share of pulls that were both
+    "pace_hp": 0.5, "pace_mana": 0.3, "pace_late_s": 3.0, "pace_zero": 0.5, "pace_full": 0.95,
 }
 POWER_WORD = {1: "rage", 3: "energy"}   # Metrics.power_type
 
 BONUS = "Hybrid bonus"   # not a category: its "weight" is the most points it can add
 DEFAULT_WEIGHTS = {
     "healer": {"Group health": 35, "Response": 35, "Efficiency": 20, "Casting": 10, "Movement": 0, "Input": 0,
-               "Positioning": 0, BONUS: 10},
+               "Positioning": 0, "Pacing": 5, BONUS: 10},
     "dps": {"Damage": 20, "Activity": 15, "Cooldowns": 10, "Interrupts": 10, "Casting": 10, "Movement": 10,
-            "Survival": 10, "Upkeep": 5, "Input": 5, "Resource": 5, "Positioning": 0},
+            "Survival": 10, "Upkeep": 5, "Input": 5, "Resource": 5, "Positioning": 0, "Pacing": 5},
     "tank": {"Holding mobs": 25, "Pickups": 25, "Survival": 20, "Activity": 10, "Upkeep": 10, "Casting": 5,
              "Input": 5, "Movement": 0, "Interrupts": 0, "Cooldowns": 0, "Resource": 0,
-             "Positioning": 0},
+             "Positioning": 0, "Pacing": 5},
 }
 WEIGHTS = {role: dict(w) for role, w in DEFAULT_WEIGHTS.items()}   # in use (load_weights fills it)
 
@@ -181,10 +189,17 @@ class Scorecard:
         """no combat: nothing was scored"""
         return not self.categories
 
+    def points_lost(self) -> list[tuple[Category, float]]:
+        """counted categories' share of the points missing from 100, largest first (bonus not netted)"""
+        counted = [c for c in self.categories if not c.info_only]
+        weight = sum(c.weight for c in counted)
+        lost = [(c, c.weight * (100 - c.score) / weight) for c in counted] if weight else []
+        return sorted(((c, p) for c, p in lost if round(p, 1) != 0), key=lambda cp: -cp[1])
+
     @property
     def tips(self) -> list[str]:
-        worst = sorted((c for c in self.categories if c.tip and not c.info_only), key=lambda c: c.score)
-        return [c.tip for c in worst[:3] if c.score < 85]
+        worst = [c for c, _ in self.points_lost() if c.tip and c.score < 85]
+        return [c.tip for c in worst[:3]]
 
 
 def grade(total: float) -> str:
@@ -342,6 +357,32 @@ def _positioning(pm: PositionMetrics, m: Metrics, w: int) -> Category:
     return Category("Positioning", s, w, summary, tip)
 
 
+def _pacing(pc: PacingMetrics | None, w: int) -> Category | None:
+    """pulls you went into safely and on time; None when there were no pulls to judge"""
+    T = TUNING
+    if pc is None or not pc.pulls:
+        return None
+    if not pc.judged:
+        need = "needs Advanced Combat Logging"
+        return Category("Pacing", 0.0, w, need, unavailable=need)
+    s = ramp(pc.good / pc.judged, T["pace_zero"], T["pace_full"])
+    hp = sum(1 for _, why in pc.unsafe if why == "health")
+    mana, late = len(pc.unsafe) - hp, len(pc.late)
+    hp_s, mana_s = f"under {T['pace_hp']:.0%} health", f"under {T['pace_mana']:.0%} mana"
+
+    def pulls(n):
+        return f"{n} pull{'s' if n != 1 else ''}"
+    causes = [c for c in (
+        (hp, f"{hp} {hp_s}", f"You went into {pulls(hp)} {hp_s}. Eat or bandage first."),
+        (mana, f"{mana} {mana_s}", f"You went into {pulls(mana)} {mana_s}. Drink before the next pull."),
+        (late, f"{late} late", f"You were late into {pulls(late)} (no press for over {T['pace_late_s']:g} s "
+                               f"after your combat began). Be ready when the tank pulls.")) if c[0]]
+    summary = (f"{pc.good} of {pc.judged} pulls entered safely and on time"
+               + ("; " + ", ".join(c[1] for c in causes) if causes else ""))
+    worst = max(causes, key=lambda c: c[0], default=None)   # ties: health, then mana, then late
+    return Category("Pacing", s, w, summary, worst[2] if worst and s < 85 and w > 0 else None)
+
+
 def _survival(m: Metrics, w: int) -> Category:
     """your own deaths and time under 35%"""
     T = TUNING
@@ -487,7 +528,8 @@ def hybrid_bonus(hm: HealerMetrics, cats: list[Category]) -> tuple[float, str]:
     return W[BONUS] * share * quality, note
 
 
-def score_healer(m: Metrics, hm: HealerMetrics, pm: PositionMetrics | None = None) -> Scorecard:
+def score_healer(m: Metrics, hm: HealerMetrics, pm: PositionMetrics | None = None,
+                 pc: PacingMetrics | None = None) -> Scorecard:
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "healer", note="no combat in this run, nothing to score")
     if not m.has_log:
@@ -499,6 +541,8 @@ def score_healer(m: Metrics, hm: HealerMetrics, pm: PositionMetrics | None = Non
     cats.append(_input(m, W["Input"]))
     if pm is not None:
         cats.append(_positioning(pm, m, W["Positioning"]))
+    if pa := _pacing(pc, W["Pacing"]):
+        cats.append(pa)
     bonus, note = hybrid_bonus(hm, cats)
     return _card(cats, "healer", bonus, note)
 
@@ -506,7 +550,7 @@ def score_healer(m: Metrics, hm: HealerMetrics, pm: PositionMetrics | None = Non
 # ----------------------------------------------------------------------------- dps
 def score_dps(m: Metrics, dmg: tuple[int, float] | None = None, im: InterruptMetrics | None = None,
               cm: CooldownMetrics | None = None, um: UpkeepMetrics | None = None,
-              pm: PositionMetrics | None = None) -> Scorecard:
+              pm: PositionMetrics | None = None, pc: PacingMetrics | None = None) -> Scorecard:
     """dmg: your damage and its share of an even split (group.py damage_share; None when solo)"""
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "dps", note="no combat in this run, nothing to score")
@@ -526,6 +570,8 @@ def score_dps(m: Metrics, dmg: tuple[int, float] | None = None, im: InterruptMet
         cats.append(res)
     if pm is not None and m.has_log:
         cats.append(_positioning(pm, m, W["Positioning"]))
+    if pa := _pacing(pc, W["Pacing"]):
+        cats.append(pa)
     return _card(cats, "dps")
 
 
@@ -573,7 +619,7 @@ def tank_categories(tm: TankMetrics, weights: dict, you: bool = True, m: Metrics
 
 def score_tank(m: Metrics, tm: TankMetrics, im: InterruptMetrics | None = None,
                cm: CooldownMetrics | None = None, um: UpkeepMetrics | None = None,
-              pm: PositionMetrics | None = None) -> Scorecard:
+              pm: PositionMetrics | None = None, pc: PacingMetrics | None = None) -> Scorecard:
     if m.combat_time <= 0:
         return Scorecard(0.0, "-", "tank", note="no combat in this run, nothing to score")
     if not m.has_log:
@@ -590,18 +636,21 @@ def score_tank(m: Metrics, tm: TankMetrics, im: InterruptMetrics | None = None,
         cats.append(res)
     if pm is not None:
         cats.append(_positioning(pm, m, W["Positioning"]))
+    if pa := _pacing(pc, W["Pacing"]):
+        cats.append(pa)
     return _card(cats, "tank")
 
 
 def score(m: Metrics, role: str = "healer", hm: HealerMetrics | None = None,
           tm: TankMetrics | None = None, dmg: tuple[int, float] | None = None,
           im: InterruptMetrics | None = None, cm: CooldownMetrics | None = None,
-          um: UpkeepMetrics | None = None, pm: PositionMetrics | None = None) -> Scorecard:
+          um: UpkeepMetrics | None = None, pm: PositionMetrics | None = None,
+          pc: PacingMetrics | None = None) -> Scorecard:
     if role == "healer" and hm is not None:
-        return score_healer(m, hm, pm)
+        return score_healer(m, hm, pm, pc)
     if role == "tank" and tm is not None:
-        return score_tank(m, tm, im, cm, um, pm)
-    return score_dps(m, dmg, im, cm, um, pm)
+        return score_tank(m, tm, im, cm, um, pm, pc)
+    return score_dps(m, dmg, im, cm, um, pm, pc)
 
 
 def _fail_tip(m: Metrics, ignore: set[str] = frozenset()) -> str:

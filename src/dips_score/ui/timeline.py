@@ -4,16 +4,17 @@
     Deaths     an X per death in the dead player's class color; wipes shade every lane red
     Response   (healer) each dip under 60%: a bar until you started a heal on them -
                green under 1.5s, orange under 3s, red slower; long red: no heal from you; grey: covered
-    Activity   (dps) busy (green) / idle gaps of 2.5s+ (red)
+    Activity   (dps) busy, and the Activity score's idle gaps of 2.5s+ washed in the highlighter, their seconds on top
     Casts      your cast bars: blue ok, red interrupted; orange ticks: refused presses
+    Spells     your casts from the combat log, colored by spell (a bar for cast times); hover for spell and target
     Presses    one tick per press: white key, orange click; red under a mash burst
     Moving     when you were moving
-    then, for every player (tank, healers, damage; names in class colors):
-      spells   every cast, colored by spell (a bar for cast times); hover for spell and target
-      health   their health, 0-100%; X: death
+    Health     yours and the tank's, 0-100%, as lines; X: death
+    Group (n)  everyone else, folded: open it for each player's spells and health
 
-Mouse wheel zooms at the pointer, drag pans, double-click shows the whole run. Hover for details.
-`highlight(guid, spell)` dims every cast but that spell's (from the Spells tab).
+Fights sit on the panel, the time between them on the page. Mouse wheel zooms at the pointer, drag pans, double-click
+shows the whole run. Hover for details. `highlight(guid, spell)` dims every cast but that spell's (from the Spells
+tab), opening the group when the spell is someone else's.
 """
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ from bisect import bisect_left, bisect_right
 from dataclasses import dataclass, field
 
 from PyQt6.QtCore import QPointF, QRectF, QSize, Qt
-from PyQt6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
+from PyQt6.QtGui import QColor, QPainter, QPainterPath, QPen
 from PyQt6.QtWidgets import QToolTip, QWidget
 
 from ..analysis import Analysis
@@ -32,20 +33,29 @@ from ..model.pulls import Pull
 from ..model.roster import Player
 from ..model.run import AUTO_REPEAT
 from ..scoring.healer import RESPONSE_CAP, Dip
-from ..scoring.metrics import GCD, SPAM_COUNT, SPAM_WINDOW, busy_intervals, gaps, moving_intervals
+from ..scoring.metrics import GCD, SPAM_COUNT, SPAM_WINDOW, busy_intervals, moving_intervals
 from . import assets, theme
+from .kit import Drawer, adv, box, elide, font, line, text_at
+from .theme import tok
 
 GUTTER = 118
 AXIS_H = 22
 ROW = 24
+ACT_ROW = 44
 SPELL_ROW = 20
 HEALTH_ROW = 54
+GROUP_ROW = 34
 ROLE_ORDER = {"TANK": 0, "HEALER": 1, "DPS": 2}
+
+
+def text_color(p: Player | None) -> QColor:
+    """the class colour, darkened if needed so a name reads on the panel (day themes)"""
+    return theme.readable(player_color(p))
 
 
 def player_color(p: Player | None) -> QColor:
     if not p:
-        return QColor(190, 190, 200)
+        return tok("mu")
     r, g, b = p.color
     return QColor(int(r * 255), int(g * 255), int(b * 255))
 
@@ -66,11 +76,13 @@ class Cast:
 
 @dataclass
 class Lane:
-    key: str               # "pulls", "deaths", ..., "spells", "health"
+    key: str               # "pulls", "deaths", ..., "spells", "health", "group"
     label: str
     height: int
-    color: QColor = field(default_factory=lambda: QColor(theme.DIM))
     guid: str | None = None
+    sub: str | None = None     # a small line under the label
+    ink: str = "mu"            # the label's token ("tx" for a player's name)
+    sub_ink: str = "mu"
     top: float = 0.0
 
 
@@ -81,6 +93,7 @@ class Data:
     pulls: list[Pull] = field(default_factory=list)
     busy: list[tuple[float, float]] = field(default_factory=list)
     idle: list[tuple[float, float]] = field(default_factory=list)
+    fight_idle: list[list[tuple[float, float]]] = field(default_factory=list)   # each fight's own card's gaps
     casts: list[Cast] = field(default_factory=list)
     fails: list[tuple[float, int | None]] = field(default_factory=list)
     presses: list[tuple[float, str, bool, str]] = field(default_factory=list)
@@ -104,9 +117,10 @@ def build_data(a: Analysis) -> Data:
     D = Data(role=a.role, duration=max(1.0, rd.duration), pulls=a.pulls, dips=a.healer.dips,
              deaths=a.deaths, wipes=a.wipes, roster=a.roster, player_casts=a.casts)
     D.players = sorted(a.roster.values(), key=lambda p: (ROLE_ORDER.get(p.role or "DPS", 3), not p.is_me, p.name))
-    busy, _ = busy_intervals(rd.lines)
-    D.busy = busy
-    D.idle = gaps(busy, [(f.start, f.end) for f in rd.fights], 2.5)
+    D.busy, _ = busy_intervals(rd.lines)
+    D.idle = a.metrics.idle_gaps     # the Activity score's own gaps (swinging, or waiting on rage or energy, isn't
+                                     # idle), so the lane, the Timeline tab and the scorecard agree
+    D.fight_idle = [fr.metrics.idle_gaps for fr in a.fights]     # a fight's Debrief card counts these
     D.moving = moving_intervals(rd.lines, rd.segment_spans)
     for e in rd.events:
         if e.spell_id and e.spell_name:
@@ -220,11 +234,17 @@ def _fmt(t: float) -> str:
     return f"{sign}{int(t // 60)}:{t % 60:04.1f}"
 
 
+def _alpha(key: str, a: int) -> QColor:
+    c = tok(key)
+    c.setAlpha(a)
+    return c
+
+
 def _dip_color(d: Dip) -> QColor:
     if d.covered:
-        return QColor(150, 150, 160, 120)
+        return _alpha("mu", 120)
     if d.response is None:
-        return QColor(240, 80, 80, 110)
+        return _alpha("gD", 110)
     if d.response <= 1.5:
         return theme.BUSY
     if d.response <= 3.0:
@@ -262,33 +282,62 @@ class Timeline(QWidget):
         self.hl_spell: str | None = None
         self._drag: tuple[float, float, float] | None = None
         self.hover_x: float | None = None     # the crosshair
+        self.idle: list[tuple[float, float]] = []      # what Activity washes: D.idle, or with a fight's own (the tab)
+        self.group = Drawer("Group", parent=self)     # the other players' lanes, folded under one row
+        self.group.toggled.connect(lambda _open: self._layout())
         self.setMouseTracking(True)
         self._layout()
 
     # -------------------------------------------------------------- data and view
     def set_analysis(self, a: Analysis | None):
-        self.D = build_data(a) if a else None
+        self.set_data(build_data(a) if a else None)
+
+    def set_data(self, D: Data | None):
+        self.D = D
+        self.idle = D.idle if D else []
         self.hl_guid = self.hl_spell = None
         self._layout()
         self.show_all()
 
+    def _others(self) -> list[Player]:
+        return [p for p in (self.D.players if self.D else []) if not p.is_me]
+
     def _layout(self):
+        """your lanes, the tank's health, then the group row and, when it is open, each other player's two lanes;
+        each lane under a 1px rule"""
         L: list[Lane] = [Lane("pulls", "Pulls", ROW), Lane("deaths", "Deaths", ROW)]
         role = self.D.role if self.D else "healer"
-        L.append(Lane("response", "Response", ROW) if role == "healer" else Lane("activity", "Activity", ROW))
-        L += [Lane("casts", "Your casts", ROW), Lane("presses", "Presses", ROW), Lane("moving", "Moving", ROW)]
-        for p in (self.D.players if self.D else []):
-            c = player_color(p)
-            L.append(Lane("spells", p.name, SPELL_ROW, c, p.guid))
-            L.append(Lane("health", "health", HEALTH_ROW, c, p.guid))
+        L.append(Lane("response", "Response", ROW) if role == "healer" else Lane("activity", "Activity", ACT_ROW))
+        players = self.D.players if self.D else []
+        me = next((p for p in players if p.is_me), None)
+        tank = next((p for p in players if p.role == "TANK" and not p.is_me), None)
+        L.append(Lane("casts", "Your casts", ROW))
+        if me:
+            L.append(Lane("spells", "Your spells", SPELL_ROW, me.guid))
+        L += [Lane("presses", "Presses", ROW), Lane("moving", "Moving", ROW)]
+        if me:
+            L.append(Lane("health", "Your health", HEALTH_ROW, me.guid, "0–100%"))
+        if tank:
+            L.append(Lane("health", "Tank health", HEALTH_ROW, tank.guid, tank.name, sub_ink="tx"))
+        others = self._others()
+        if others:
+            L.append(Lane("group", "", GROUP_ROW))
+            for p in others if self.group.open else []:
+                L.append(Lane("spells", p.name, SPELL_ROW, p.guid, ink="tx"))
+                L.append(Lane("health", (p.role or "").lower(), HEALTH_ROW, p.guid))
         y = AXIS_H
         for ln in L:
-            ln.top = y
-            y += ln.height + (8 if ln.key == "health" else 4)
+            ln.top = y + 1
+            y += 1 + ln.height
+            if ln.key == "group":
+                self.group.set_count(len(others))
+                self.group.move(0, round(ln.top + (ln.height - self.group.height()) / 2))
+        self.group.setVisible(bool(others))
         self.lanes = L
         self._height = int(y + 6)
         self.setMinimumHeight(self._height)
         self.updateGeometry()
+        self.update()
 
     def sizeHint(self) -> QSize:
         return QSize(900, self._height)
@@ -306,6 +355,8 @@ class Timeline(QWidget):
 
     def highlight(self, guid: str | None, spell: str | None):
         self.hl_guid, self.hl_spell = guid, spell
+        if guid and not self.group.open and any(p.guid == guid for p in self._others()):
+            self.group.flip()       # someone else's spell: open the group so it shows
         self.update()
 
     def x(self, t: float) -> float:
@@ -376,7 +427,7 @@ class Timeline(QWidget):
     # the moment under the crosshair --------------------------------------------------------------
     def moment_html(self, t: float, detail: str | None) -> str:
         """what's under the pointer (detail), then everyone at time t: health and its change, hits taken,
-        what they're casting, and for a sharp drop, who reacted and how fast"""
+        what they're casting, and for a sharp drop, who reacted and how fast (names in the text's own ink)"""
         D = self.D
         out = [f"<b>{_fmt(t)}</b>"]
         if detail:
@@ -384,19 +435,17 @@ class Timeline(QWidget):
         rows = []
         for p in D.players:
             g = p.guid
-            color = player_color(p).name()
             hp_now, change = _health_at(D.hp.get(g, []), t)
             hp = "" if hp_now is None else f"{hp_now:.0%}"
             if change is not None and abs(change) >= 0.05:
-                c = "#f05050" if change < 0 else "#50dc78"
+                c = theme.DEATH.name() if change < 0 else theme.grade_color("S").name()
                 hp += f" <span style='color:{c}'>({change:+.0%})</span>"
             taken = sum(a for tt, a, _, _ in D.hits.get(g, []) if t - 1.5 <= tt <= t)
             doing = _casting_at(D.player_casts.get(g, []), t)
             dead = any(d.guid == g and d.t <= t and (t - d.t) < 30 for d in D.deaths)
-            line = (f"<tr><td style='color:{color}'><b>{p.name}</b></td><td align=right>{'dead' if dead else hp}</td>"
-                    f"<td>&nbsp;{('-' + format(taken, ',') + ' taken') if taken else ''}</td>"
-                    f"<td>&nbsp;{doing}</td></tr>")
-            rows.append(line)
+            rows.append(f"<tr><td><b>{p.name}</b></td><td align=right>{'dead' if dead else hp}</td>"
+                        f"<td>&nbsp;{('-' + format(taken, ',') + ' taken') if taken else ''}</td>"
+                        f"<td>&nbsp;{doing}</td></tr>")
             drop = _sharp_drop(D.hp.get(g, []), t)
             if drop:
                 t0, frm, to = drop
@@ -405,14 +454,14 @@ class Timeline(QWidget):
                 if hits:
                     big = max(hits, key=lambda h: h[1])
                     cause = f" by {big[2]} ({big[3]})"
-                rows.append(f"<tr><td></td><td colspan=3 style='color:#f0a040'>dropped {frm:.0%} -> {to:.0%} at "
+                rows.append(f"<tr><td></td><td colspan=3 style='color:{theme.readable(theme.FAIL).name()}'>dropped {frm:.0%} -> {to:.0%} at "
                             f"{_fmt(t0)}{_esc(cause)}</td></tr>")
                 for who, c, delay in _reactions(D, p, t0):
                     own = who.guid == g
                     what = f"{c.spell}" + ("" if own else f" on {p.name.split(' ')[0]}")
-                    rows.append(f"<tr><td></td><td colspan=3>&nbsp;&rarr; <span style='color:{player_color(who).name()}'>"
-                                f"{'their next cast' if own else who.name}</span>: {_esc(what)} "
-                                f"<span style='color:#9696a0'>{delay:.1f}s after</span></td></tr>")
+                    rows.append(f"<tr><td></td><td colspan=3>&nbsp;&rarr; "
+                                f"{'their next cast' if own else who.name}: {_esc(what)} "
+                                f"<span style='color:{theme.DIM.name()}'>{delay:.1f}s after</span></td></tr>")
         if rows:
             out.append("<table cellspacing=1>" + "".join(rows) + "</table>")
         return "<br>".join(out)
@@ -449,7 +498,7 @@ class Timeline(QWidget):
                 return f"{head}\nno heal from you within {RESPONSE_CAP:.0f}s"
 
     def _tip_activity(self, lane, t, tol):
-        for a, b in self.D.idle:
+        for a, b in self.idle:
             if a <= t <= b:
                 return f"Idle {b - a:.1f}s\n{_fmt(a)} - {_fmt(b)}"
 
@@ -496,65 +545,72 @@ class Timeline(QWidget):
     # -------------------------------------------------------------- drawing
     def paintEvent(self, ev):
         p = QPainter(self)
-        p.setFont(QFont(theme.FONT, 8))
-        for ln in self.lanes:
-            r = self.lane_rect(ln)
-            p.fillRect(r, theme.LANE if ln.key != "health" else QColor(24, 24, 30))
-            if ln.key == "health":
-                continue
-            p.setPen(ln.color if ln.key == "spells" else theme.DIM)
-            if ln.key == "spells":
-                f = QFont(theme.FONT, 9)
-                f.setBold(True)
-                p.setFont(f)
-                p.drawText(QRectF(4, r.top(), GUTTER - 10, r.height() + HEALTH_ROW),
-                           Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight, ln.label)
-                cls = self.D.roster[ln.guid].cls if self.D and ln.guid in self.D.roster else None
-                cls_pm = assets.class_pixmap(cls)
-                if cls_pm is not None:
-                    p.drawPixmap(QRectF(4, r.top() + 18, 18, 18).toRect(), cls_pm)
-                role = self.D.roster[ln.guid].role if self.D and ln.guid in self.D.roster else ""
-                p.setFont(QFont(theme.FONT, 8))
-                p.setPen(theme.DIM)
-                p.drawText(QRectF(4, r.top() + 16, GUTTER - 10, 14),
-                           Qt.AlignmentFlag.AlignRight, (role or "").lower())
-            else:
-                p.drawText(QRectF(4, r.top(), GUTTER - 10, r.height()),
-                           Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, ln.label)
-        self._axis(p)
         D = self.D
+        lane_area = QRectF(GUTTER, 0, self.width() - GUTTER - 8, self.height())
+        if D:       # each fight on the panel, the time between them left on the page
+            p.setClipRect(lane_area)
+            for ln in self.lanes:
+                if ln.key != "group":
+                    for pl in D.pulls:
+                        self._span(p, self.lane_rect(ln), pl.fight.start, pl.fight.end, tok("panel"))
+            p.setClipping(False)
+        for ln in self.lanes:
+            self._label(p, ln)
+        self._axis(p)
         if not D:
-            p.setPen(theme.DIM)
-            p.drawText(QRectF(0, 0, self.width(), self.height()), Qt.AlignmentFlag.AlignCenter, "No run selected")
+            f = font(12)
+            text_at(p, f, tok("mu"), (self.width() - adv(f, "No run selected")) / 2, self.height() / 2,
+                    "No run selected")
             return
-        p.setClipRect(QRectF(GUTTER, 0, self.width() - GUTTER - 8, self.height()))
+        p.setClipRect(lane_area)
         for ln in self.lanes:
             getattr(self, f"_draw_{ln.key}")(p, ln, self.lane_rect(ln))
-        # the crosshair, through every lane, with the time on the axis
-        if self.hover_x is not None:
-            p.setPen(QPen(QColor(255, 255, 255, 110), 1))
-            p.drawLine(QPointF(self.hover_x, AXIS_H), QPointF(self.hover_x, self.height()))
-            p.fillRect(QRectF(self.hover_x - 28, 2, 56, AXIS_H - 6), QColor(40, 40, 50))
-            p.setPen(theme.TEXT)
-            p.drawText(QRectF(self.hover_x - 28, 2, 56, AXIS_H - 6), Qt.AlignmentFlag.AlignCenter,
-                       _fmt(self.t(self.hover_x)))
         # wipes: a red wash over everything
         for w in D.wipes:
             first = min((d.t for d in w.deaths), default=w.t - 3)
             x0, x1 = self.x(first), self.x(w.t + 2)
-            p.fillRect(QRectF(x0, AXIS_H, max(3.0, x1 - x0), self.height() - AXIS_H), QColor(200, 30, 30, 45))
+            p.fillRect(QRectF(x0, AXIS_H, max(3.0, x1 - x0), self.height() - AXIS_H), _alpha("gD", 45))
+        # the crosshair, through every lane, with the time on the axis: tx on panel, over everything
+        if self.hover_x is not None:
+            p.setPen(QPen(_alpha("tx", 110), 1))
+            p.drawLine(QPointF(self.hover_x, AXIS_H), QPointF(self.hover_x, self.height()))
+            f, s = font(12, 600, num=True), _fmt(self.t(self.hover_x))
+            w = adv(f, s) + 12
+            x = min(max(self.hover_x - w / 2, GUTTER), self.width() - 8 - w)
+            box(p, QRectF(x, 1, w, AXIS_H - 2), tok("tx"), tok("panel"))
+            line(p, f, tok("tx"), round(x) + 6, 1, AXIS_H - 2, s)
+
+    def _label(self, p: QPainter, ln: Lane):
+        """the rule above a lane, and its label (and the line under it) in the gutter; a player's lane carries their
+        class icon"""
+        p.fillRect(QRectF(0, ln.top - 1, self.width(), 1), tok("ln"))
+        top, width = ln.top + (6 if ln.height > 30 else (ln.height - 16) / 2), GUTTER - 12
+        if ln.ink == "tx" and self.D and ln.guid in self.D.roster:
+            pm = assets.class_pixmap(self.D.roster[ln.guid].cls)
+            if pm is not None:
+                p.drawPixmap(QRectF(GUTTER - 30, ln.top + 1, 18, 18).toRect(), pm)
+                width = GUTTER - 36
+        if ln.label:
+            f = font(12, 600) if ln.ink == "tx" else font(12)
+            line(p, f, tok(ln.ink), 0, top, 16, elide(f, ln.label, width))
+        if ln.sub:
+            f = font(11)
+            line(p, f, tok(ln.sub_ink), 0, top + 16, 14, elide(f, ln.sub, GUTTER - 12))
 
     def _axis(self, p: QPainter):
         span = self.v1 - self.v0
         step = next((s for s in (1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800) if span / s <= 12), 3600)
+        f, mu = font(12, 500, num=True), tok("mu")
         t = (self.v0 // step) * step
         while t <= self.v1:
             x = self.x(t)
             if x >= GUTTER:
                 p.setPen(theme.GRID)
                 p.drawLine(QPointF(x, AXIS_H), QPointF(x, self.height()))
-                p.setPen(theme.DIM)
-                p.drawText(QPointF(x + 3, AXIS_H - 7), f"{int(t // 60)}:{int(t % 60):02d}")
+                s = f"{int(t // 60)}:{int(t % 60):02d}"
+                sw = adv(f, s)
+                if GUTTER <= x - sw / 2 and x + sw / 2 <= self.width() - 8:
+                    text_at(p, f, mu, x - sw / 2, AXIS_H - 7, s)
             t += step
 
     def _span(self, p, r: QRectF, a: float, b: float, color: QColor, inset: float = 0, min_w: float = 1.0):
@@ -564,6 +620,7 @@ class Timeline(QWidget):
         p.fillRect(QRectF(x0, r.top() + inset, max(min_w, x1 - x0), r.height() - 2 * inset), color)
 
     def _draw_pulls(self, p, ln, r):
+        p.setFont(font(12))
         for pl in self.D.pulls:
             boss = pl.fight.boss is not None
             self._span(p, r, pl.start, pl.fight.end, theme.BOSS if boss else theme.COMBAT)
@@ -585,7 +642,7 @@ class Timeline(QWidget):
             p.drawLine(QPointF(x - 5, cy - 5), QPointF(x + 5, cy + 5))
             p.drawLine(QPointF(x - 5, cy + 5), QPointF(x + 5, cy - 5))
             if self.v1 - self.v0 < 600:
-                p.drawText(QPointF(x + 8, cy + 4), d.name.split(" ")[0])
+                text_at(p, font(12), tok("tx"), x + 8, cy + 4, d.name.split(" ")[0])
 
     def _draw_response(self, p, ln, r):
         for d in self.D.dips:
@@ -595,10 +652,20 @@ class Timeline(QWidget):
             p.fillRect(QRectF(x - 1, r.top() + 1, 2, r.height() - 2), theme.TEXT)
 
     def _draw_activity(self, p, ln, r):
+        """busy across the middle; each idle gap washed in the highlighter (16%), underlined, its seconds on top"""
+        for a, b in self.idle:
+            self._span(p, r, a, b, _alpha("hl", 41))
         for a, b in self.D.busy:
-            self._span(p, r, a, b, theme.BUSY, inset=6)
-        for a, b in self.D.idle:
-            self._span(p, r, a, b, theme.IDLE, inset=3)
+            self._span(p, r, a, b, theme.BUSY, inset=16)
+        f, hl, ink = font(12, 700, num=True), tok("hl"), tok("tx")
+        for a, b in self.idle:
+            if b < self.v0 or a > self.v1:
+                continue
+            x0, x1 = self.x(a), self.x(b)
+            p.fillRect(QRectF(x0, r.bottom() - 4, x1 - x0, 3), hl)
+            s = f"{b - a:.1f} s"
+            if x1 - x0 >= adv(f, s) + 6:
+                text_at(p, f, ink, (x0 + x1 - adv(f, s)) / 2, r.top() + 14, s)
 
     def _draw_casts(self, p, ln, r):
         colors = {"ok": theme.CAST_OK, "interrupted": theme.CAST_BAD, "failed": theme.FAIL}
@@ -650,26 +717,21 @@ class Timeline(QWidget):
                 p.fillRect(QRectF(self.x(c.t) - 1, r.bottom() - 3 - h, 2 if c.auto else 3, h), color)
 
     def _draw_health(self, p, ln, r):
-        y = lambda pct: r.bottom() - 2 - pct * (r.height() - 4)  # noqa: E731
-        for frac in (0.35, 0.60):
-            p.setPen(QPen(QColor(255, 255, 255, 22), 1, Qt.PenStyle.DashLine))
-            p.drawLine(QPointF(r.left(), y(frac)), QPointF(r.right(), y(frac)))
+        """health, 0-100%, as a line over a dashed 50% guide; X: death"""
+        y = lambda pct: r.bottom() - 5 - pct * (r.height() - 10)  # noqa: E731
+        guide = QPen(tok("ln"), 1)
+        guide.setDashPattern([3, 3])
+        p.setPen(guide)
+        p.drawLine(QPointF(r.left(), y(0.5)), QPointF(r.right(), y(0.5)))
         series = [(t, v) for t, v in self.D.hp.get(ln.guid, []) if self.v0 - 10 <= t <= self.v1 + 10]
         if not series:
             return
-        path, fill = QPainterPath(), QPainterPath()
-        fill.moveTo(QPointF(self.x(series[0][0]), r.bottom()))
+        path = QPainterPath()
         for i, (t, v) in enumerate(series):
-            pt = QPointF(self.x(t), y(v))
-            (path.moveTo if i == 0 else path.lineTo)(pt)
-            fill.lineTo(pt)
-        fill.lineTo(QPointF(self.x(series[-1][0]), r.bottom()))
-        fill.closeSubpath()
-        c = QColor(ln.color)
-        c.setAlpha(40)
+            (path.moveTo if i == 0 else path.lineTo)(QPointF(self.x(t), y(v)))
         p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        p.fillPath(fill, c)
-        p.setPen(QPen(ln.color, 1.3))
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(tok("m-surv"), 1.6, join=Qt.PenJoinStyle.RoundJoin))
         p.drawPath(path)
         p.setRenderHint(QPainter.RenderHint.Antialiasing, False)
         p.setPen(QPen(theme.DEATH, 2))
@@ -678,3 +740,15 @@ class Timeline(QWidget):
                 x, cy = self.x(d.t), r.center().y()
                 p.drawLine(QPointF(x - 5, cy - 5), QPointF(x + 5, cy + 5))
                 p.drawLine(QPointF(x - 5, cy + 5), QPointF(x + 5, cy - 5))
+
+    def _draw_group(self, p, ln, r):
+        """the folded group's row: a neutral square, each player's name and their role"""
+        x, base = r.left(), r.center().y() + 4.5
+        for pl in self._others():
+            p.fillRect(QRectF(x, base - 8, 8, 8), tok("tx2"))
+            x += 15 + text_at(p, font(13), tok("tx"), x + 15, base, pl.name)
+            x += 26 + text_at(p, font(12), tok("mu"), x + 4, base, (pl.role or "").lower())
+
+    # _hover calls _tip_<key> for the lane under the pointer; the group row has no detail of its own
+    def _tip_group(self, lane, t, tol):
+        return None

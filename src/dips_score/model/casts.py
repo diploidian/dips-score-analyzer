@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 
+from ..sources.combatlog import is_enemy
 from .roster import Player, clean_name
 from .run import AUTO_REPEAT, RunData
 
@@ -76,7 +77,8 @@ def player_casts(rd: RunData, roster: dict[str, Player]) -> dict[str, list[CastE
 
 def spell_table(rd: RunData, guid: str, windows: list[tuple[float, float]] | None = None,
                 owned: set[str] | None = None) -> list[SpellRow]:
-    """Per-spell totals for one player (and their pets, `owned`), biggest first."""
+    """Per-spell totals for one player (and their pets, `owned`), biggest first; damage only on enemies, as the
+    summary and the group count it."""
     who = {guid} | (owned or set())
 
     def keep(t: float) -> bool:
@@ -102,7 +104,7 @@ def spell_table(rd: RunData, guid: str, windows: list[tuple[float, float]] | Non
             row(e).casts += 1
         elif ev == "SPELL_CAST_FAILED" and e.src == guid:
             row(e).failed += 1
-        elif ev.endswith("_DAMAGE") and not ev.endswith("_LANDED"):
+        elif ev.endswith("_DAMAGE") and not ev.endswith("_LANDED") and is_enemy(e.dst, e.dst_flags):
             r = row(e)
             r.damage += e.amount
             r.hits += 1
