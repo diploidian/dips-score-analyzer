@@ -304,6 +304,23 @@ class BossesRecordsTests(unittest.TestCase):
             "The 18 Nov visit's 75 B is 11 points short of your best.",
             "Best 86 A: +11 needed — more than any one fix is worth", None))
 
+    def test_records_tie_reads_the_same_on_hero_and_board(self):
+        """the last visit's 75.3 against a best that also shows as 75 B: the board says it ties, so the hero does too
+        (not a new best for 75.0 under it, nor a point short for 75.4 over it)"""
+        for best in (75.0, 75.4):
+            records, within = build_records(records_history(best=best), TODAY)
+            self.assertEqual(records[0].status, "ties your record")
+            verdict, title, body = records_text(build_history(visits(records_history(best=best))), within, "today")
+            self.assertTrue(verdict.startswith("Today's 75 B ties your best score here."), verdict)
+            self.assertEqual(body, None)
+            self.assertEqual(title, ": ".join(within) if within else "Tied best today: 75 B — come back to beat it")
+        self.assertIsNotNone(within)        # 75.4: the top fix (10.3) would still have beaten it
+        self.assertEqual(verdict, "Today's 75 B ties your best score here. Your Abilities on time fix alone (−10.3) "
+                                  "would have beaten it.")
+        h = build_history(visits(records_history(best=75.0)))
+        self.assertEqual(records_text(h, None, "18 Nov")[:2], ("The 18 Nov visit's 75 B ties your best score here.",
+                                                               "Tied best on 18 Nov: 75 B — come back to beat it"))
+
     def test_records_single_visit(self):
         records, within = build_records(blackfathom(), TODAY)       # one scored visit; two too short; one broken
         self.assertIsNone(within)

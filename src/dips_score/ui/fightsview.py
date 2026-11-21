@@ -1,7 +1,8 @@
 """The Fights page: every fight summed up after it ended (open world and dungeons), newest first in the rail, and one
 fight on its page, painted from a FightView (see dips_score/fight_view.py): how much of the damage you could have done
 you did, the biggest gap on the plate, the key figures, where the rest went, what went well and the group; and the
-fight's whole detail (abilities, cooldowns, buffs, failed casts, idle time, resource, the pull) in the Abilities drawer.
+fight's whole detail (abilities, cooldowns, buffs, failed casts, idle time, resource, the pull) in the All the details
+drawer.
 
 Sizes follow docs/design/mockups/fight.html (CSS px). The shared parts come from kit.py.
 """
@@ -17,11 +18,9 @@ from ..debrief import fmt_time
 from ..fight_view import build_fight, list_row
 from . import theme
 from .debrief import NARROW
-from .kit import (HEAD_H, BarRow, BarRows, Drawer, Hero, KeyFigures, Part, Plate, Sheet, adv, baseline,
-                  draw_label_tab, draw_tag, elide, flow, font, line, rule, text_at)
+from .kit import (HEAD_H, BarRow, BarRows, Drawer, Fold, Hero, KeyFigures, Part, Plate, SectionHead, Sheet, Side, adv,
+                  baseline, draw_label_tab, draw_tag, elide, flow, font, line, rule, text_at)
 from .pages import dim_label, item, table
-from .pulls import SectionHead
-from .spells import Fold, Side
 from .theme import tok
 
 HERO_W = (330, 290)      # the hero's column (narrow)
@@ -379,7 +378,7 @@ class FightDetail(QScrollArea):
         self.details_lay = QVBoxLayout(self.details)
         self.details_lay.setContentsMargins(0, 0, 0, 12)
         self.details_lay.setSpacing(0)
-        self.drawer = Drawer("Abilities", self.details)
+        self.drawer = Drawer("All the details", self.details)
         self.fold = Fold(self.drawer, last=True)
         self.well, self.share = WentWell(), GroupShare()
         self.empty = dim_label(NO_FIGHTS)
@@ -448,8 +447,9 @@ class FightDetail(QScrollArea):
                                detail or None) for label, detail, dmg in v.rows],
                        None if v.left_on_table is None else (LEFT, f"≈{_n(v.left_on_table)}"))
         self.where.setVisible(bool(v.rows))
-        self.drawer.set_count(len(v.abilities))
-        for title_, widgets in _details(f):
+        sections = _details(f)
+        self.drawer.set_count(len(sections))        # what it holds: its sections
+        for title_, widgets in sections:
             self.details_lay.addWidget(SectionHead(title_))
             for wd in widgets:
                 self.details_lay.addWidget(wd)

@@ -303,9 +303,17 @@ class Window(QMainWindow):
 
     # ------------------------------------------------------------------ showing
     def _picked(self, it: QTreeWidgetItem | None, _prev=None):
-        if it is None or self.left_stack.currentIndex() == 1:
+        if it is None:
             return
         key = it.data(0, RUN_ROLE) or ""
+        if self.left_stack.currentIndex() == 1:     # Fights or Habits: a reload's visit still loads behind the page,
+            if key in self.by_id:                   # so its fights get Show on the timeline (R7)
+                page = self.stack.currentIndex()
+                self._show_run(self.by_id[key])
+                self.stack.setCurrentIndex(page)
+                if page == 2:
+                    self._show_fight(self._fight())
+            return
         if key.startswith("zone:"):
             zone = key[5:]
             visits = analysis.dungeons(self.runs).get(zone, [])
@@ -329,19 +337,16 @@ class Window(QMainWindow):
         except Exception:
             traceback.print_exc()
             self.current = None
+        for tab in (self.score, self.group, self.pulls, self.spells, self.timeline_tab):
+            tab.set_analysis(self.current)      # None: no tab keeps showing the last run
+        if self.current is None:
             self.score.page.show_view(DebriefView(), run.zone, "Couldn't analyze this run - see the terminal.")
-            self.stack.setCurrentIndex(1)
-            return
-        a = self.current
-        for tab in (self.score, self.group, self.pulls, self.spells):
-            tab.set_analysis(a)
-        self.timeline_tab.set_analysis(a)
         self.stack.setCurrentIndex(1)
         self._refresh_labels()
 
     def _tab_changed(self, i: int):
-        if self.tabs.widget(i) not in (self.spells, self.timeline_tab):   # a spell's highlight lasts while it's in view
-            self.timeline.highlight(None, None)
+        if self.tabs.widget(i) not in (self.spells, self.timeline_tab):   # a spell's pick lasts while it's in view
+            self.spells.pick(None)          # unlit on the timeline too (its highlight signal)
 
     def _set_timeline(self, start: float | None = None, end: float | None = None, guid: str | None = None,
                       spell: str | None = None):

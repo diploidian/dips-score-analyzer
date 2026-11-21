@@ -1,6 +1,6 @@
 """The painted parts every page is built from, so they all draw the same way: the page's head, the boxed label tab,
-the hero figure, the one solid plate, ruled bar rows, key figures, the "All … (n)" drawer, kind tags and the
-highlighter's hand marks.
+the hero figure, the one solid plate, ruled bar rows, key figures, the "All … (n)" drawer and its fold, a section's
+head, the side column, kind and preview tags and the highlighter's hand marks.
 
 Sizes follow docs/design/mockups/*.html (CSS px). A Part paints itself, and the same pass measures its height for a
 width, so text wraps the way it is drawn. Colours come from theme.tok() when painting, so a theme switch needs
@@ -11,7 +11,7 @@ from dataclasses import dataclass
 
 from PyQt6.QtCore import QEvent, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen, QPolygonF, QTextLayout
-from PyQt6.QtWidgets import QLabel, QPushButton, QSizePolicy, QToolTip, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QPushButton, QSizePolicy, QToolTip, QVBoxLayout, QWidget
 
 from ..debrief import bar_fraction, ticker
 from . import theme
@@ -20,6 +20,7 @@ from .theme import tok
 MINUS = "−"
 GRADES = ("S", "A", "B", "C", "D", "F")
 HEAD_H = 71          # a page's head: the title, the meta line and the gold rule under them
+SECTION_H = 1 + 12 + 25 + 6     # a section's head (SectionHead): its rule, padding and label tab
 
 
 # ---------------------------------------------------------------------------- painting helpers
@@ -587,33 +588,65 @@ class Drawer(QWidget):
         line(p, font(12, 600, num=True, spacing=0.08), tok("tx"), 22, 0, self.height(), self.label)
 
 
-class _Tag(QLabel):
-    """painted rather than styled: a style sheet can't set letter spacing"""
+class Fold(QWidget):
+    """a drawer: its header between rules, pad above and below it, its body under it; the last closes with a rule
+    under it all"""
 
-    def __init__(self, text: str):
-        super().__init__(text)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-
-    def sizeHint(self) -> QSize:
-        return QSize(math.ceil(adv(font(11, 600, num=True, spacing=0.14), self.text().upper())) + 14, 18)
-
-    def minimumSizeHint(self) -> QSize:
-        return self.sizeHint()
+    def __init__(self, drawer: Drawer, last: bool = False, pad: int = 8):
+        super().__init__()
+        self.last = last
+        head = QHBoxLayout()
+        head.setContentsMargins(0, pad, 0, pad)
+        head.addWidget(drawer)
+        head.addStretch(1)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 1, 0, 1 if last else 0)
+        lay.setSpacing(0)
+        lay.addLayout(head)
+        lay.addWidget(drawer.body)
 
     def paintEvent(self, _ev):
         p = QPainter(self)
-        box(p, QRectF(self.rect()), tok("ln"))
-        line(p, font(11, 600, num=True, spacing=0.14), tok("mu"), 7, 4, 11, self.text().upper())
+        rule(p, 0, 0, self.width(), tok("ln"))
+        if self.last:
+            rule(p, 0, self.height() - 1, self.width(), tok("ln"))
 
 
-def tag(text: str) -> QLabel:
-    """a kind tag (Boss, Dungeon, PvP, Trash): tracked capitals in mu, in a 1px ln frame"""
-    return _Tag(text)
+class Side(QWidget):
+    """the right-hand column, ruled off from the left"""
+
+    def paintEvent(self, _ev):
+        QPainter(self).fillRect(QRectF(0, 0, 1, self.height()), tok("ln"))
+
+
+class SectionHead(Part):
+    """a section's rule and label tab, with an optional preview tag beside it"""
+
+    def __init__(self, title: str, tag: str | None = None):
+        super().__init__()
+        self.title, self.tag = title, tag
+
+    def draw(self, p, w):
+        if p:
+            rule(p, 0, 0, w, tok("ln"))
+            r = draw_label_tab(p, 0, 13, self.title)
+            if self.tag:
+                preview_tag(p, r.right() + 8, r.center().y(), self.tag)
+        return SECTION_H
+
+
+def preview_tag(p, x, mid, s):
+    """the small gold-framed tag ("preview"), centred on mid"""
+    f, s = font(11, 600, spacing=0.1), s.upper()
+    h = 11 * 1.2 + 6
+    r = QRectF(x, mid - h / 2, adv(f, s) + 14, h)
+    box(p, r, tok("gold"))
+    line(p, f, tok("gold"), x + 7, r.y() + 3, 11 * 1.2, s)
 
 
 def draw_tag(p, x: float, mid: float, text: str, ink: QColor | None = None, edge: QColor | None = None) -> float:
-    """a kind tag painted as tag() draws it, centred on mid (ink: its text's, default mu; edge: its box's, default
-    ln); returns its width"""
+    """a kind tag (Boss, Dungeon, PvP, Trash): tracked capitals, 18px tall, centred on mid (ink: its text's, default
+    mu; edge: its 1px frame's, default ln); returns its width"""
     f, s = font(11, 600, num=True, spacing=0.14), text.upper()
     w = adv(f, s) + 14
     if p:

@@ -96,6 +96,101 @@ class ShellTests(unittest.TestCase):
             w._mode("fights")
             self.assertFalse(w.fight_detail.plate.has_button)
 
+    def test_leaving_spells_unpicks_the_spell(self):
+        """a spell stays picked (row lifted, drawer row selected, lit on the timeline) on Spells and Timeline; left
+        for another tab, it lets go everywhere, so nothing on Spells looks picked that the timeline doesn't show"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.model.casts import SpellRow
+        from dips_score.spells_view import spells_view
+        from dips_score.ui.app import Window
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            s = w.spells
+            s.who.addItem("Bao Kahn (you)", "me")
+            s.show_view(spells_view([SpellRow(None, "Judgement", 10, 0, 500, 0, 0, 10, 1)], 60.0), "Somewhere", "")
+            w.tabs.setCurrentWidget(s)
+            s.damage.clicked.emit("Judgement")          # a damage row picked
+            w.tabs.setCurrentWidget(w.timeline_tab)     # in view on the timeline: still picked
+            self.assertEqual((s.damage.sel, w.timeline.hl_spell), ("Judgement", "Judgement"))
+            w.tabs.setCurrentWidget(w.pulls)            # left: unpicked, and unlit
+            self.assertEqual((s.damage.sel, w.timeline.hl_spell), (None, None))
+            w.tabs.setCurrentWidget(s)
+            s.every.selectRow(0)                        # a drawer row picked
+            self.assertEqual(w.timeline.hl_spell, "Judgement")
+            w.tabs.setCurrentWidget(w.group)
+            self.assertEqual((s.every.selectionModel().hasSelection(), w.timeline.hl_spell), (False, None))
+
+    def test_a_run_that_fails_clears_every_tab(self):
+        """a run that can't be analysed: the Debrief says so, and no other tab keeps showing the last run"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            pages = (w.timeline_tab, w.pulls, w.spells, w.group)
+            for tab in pages:
+                tab.page.title = "Blackfathom Deeps"         # the last run's
+            with mock.patch.object(Window, "_analysis", side_effect=ValueError("broken log")), \
+                    mock.patch("dips_score.ui.app.traceback.print_exc"):
+                w._show_run(SimpleNamespace(id="r9", zone="Wailing Caverns"))
+            self.assertIsNone(w.current)
+            self.assertEqual((w.score.page.title, w.score.page.sub),
+                             ("Wailing Caverns", "Couldn't analyze this run - see the terminal."))
+            self.assertEqual([tab.page.title for tab in pages], ["No run selected"] * 4)
+            self.assertEqual((w.stack.currentIndex(), w.score.who.count()), (1, 0))
+
+    def test_reload_in_fights_mode_follows_the_visit(self):
+        """a reload while the rail shows Fights still loads the picked visit as saved now (or a new visit, when a
+        dungeon is picked) behind the page, so a fight in it gets Show on the timeline; the page stays on Fights"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        fight = {"start": "2026-11-18T23:38:49.824000", "duration": 112.458, "damage": 2583, "dps": 23.0,
+                 "taken": 433, "healing": 53, "result": "they got away", "kind": "PvP", "target": "Blackfathom Oracle"}
+
+        def run(rid, start, length):
+            return SimpleNamespace(id=rid, zone="Kalimdor", kind="world", started=start.timestamp(), start_time=start,
+                                   line_count=9, parts=[rid], length=length)
+
+        def analysed(_self, r):
+            return SimpleNamespace(data=SimpleNamespace(run=r, start=r.start_time, duration=r.length),
+                                   card=SimpleNamespace(empty=True))
+        start = datetime(2026, 11, 18, 23, 30)          # the fight is 530 s to 642 s into the visit
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            for tab in (w.score, w.group, w.pulls, w.spells, w.timeline_tab):
+                tab.set_analysis = lambda _a: None          # the stub visits aren't drawn
+            w.dungeon.show_dungeon = lambda *_a: None
+            w.fight_list.set_fights([fight])
+            later = start.replace(minute=50)
+            with mock.patch("dips_score.analysis.load_saved", return_value=(None, [run("r7", start, 300.0)])) as load, \
+                    mock.patch.object(Window, "_analysis", analysed):
+                w.reload()                                  # the visit, as the game last saved it
+                w._mode("fights")
+                self.assertFalse(w.fight_detail.plate.has_button)     # the fight came after that save
+                load.return_value = (None, [run("r7", start, 900.0)])
+                w.reload()                                  # a /reload in game: the visit grew, the fight's in it
+                self.assertEqual((w.current.data.duration, w.stack.currentIndex()), (900.0, 2))
+                self.assertTrue(w.fight_detail.plate.has_button)
+                w._mode("dungeons")
+                w.tree.setCurrentItem(w.tree.topLevelItem(0))       # a dungeon picked, then Fights
+                w._mode("fights")
+                load.return_value = (None, [run("r7", start, 900.0), run("r8", later, 600.0)])
+                w.reload()                                  # a new visit: it opens behind the page
+                self.assertEqual((w.current.data.run.id, w.stack.currentIndex()), ("r8", 2))
+                self.assertFalse(w.fight_detail.plate.has_button)     # the fight was before it
+            self.assertTrue(w.mode_fights.isChecked())
+
     def test_new_weights_redraw_group_and_timeline(self):
         """a weights change scores the run showing again on the Debrief, Group and Timeline, and keeps the tab, the
         Timeline's view, the Debrief's fight and a spell lit from Spells"""

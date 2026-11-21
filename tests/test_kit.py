@@ -2,7 +2,6 @@
 Needs PyQt6, so it is skipped on a Python without it:
 PYTHONPATH=<folder with PyQt6> python -m unittest discover -s tests"""
 import importlib.util
-import math
 import os
 import sys
 import unittest
@@ -78,7 +77,8 @@ class KitTests(unittest.TestCase):
         self.paints(hero)
 
     def test_bar_rows_key_figures_and_tag_paint(self):
-        from dips_score.ui.kit import BarRow, BarRows, KeyFigures, tag
+        from PyQt6.QtGui import QPainter, QPixmap
+        from dips_score.ui.kit import BarRow, BarRows, KeyFigures, draw_tag
         rows = BarRows("Where the damage went")
         rows.set([BarRow("Swings lost", "≈1,538", 1.0, "m-act", "×12"),
                   BarRow("Judgement sat ready", "≈614", 0.4, "m-cd")], None)
@@ -95,11 +95,10 @@ class KitTests(unittest.TestCase):
                 ("6", "you pulled", "12:27, 15:54, 28:16, 37:35, 43:12, 55:02")])
         self.assertGreater(kf.heightForWidth(500), 51)
         self.paints(kf)
-        t = tag("PvP")
-        self.assertEqual((t.text(), t.sizeHint().height()), ("PvP", 18))
-        self.paints(t)
-        from dips_score.ui.kit import draw_tag
-        self.assertEqual(math.ceil(draw_tag(None, 0, 9, "PvP")), t.sizeHint().width())   # painted, as tag() is
+        pm = QPixmap(60, 18)
+        p = QPainter(pm)
+        self.assertEqual(draw_tag(p, 0, 9, "PvP"), draw_tag(None, 0, 9, "PvP"))     # painted as it measures
+        p.end()
         h = rows.heightForWidth(500)
         rows.top_rule = False                # under a part that ends on a rule: same height, no rule of its own
         self.assertEqual(rows.heightForWidth(500), h)

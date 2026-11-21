@@ -32,7 +32,6 @@ class FightView:
     also: list[str] = field(default_factory=list)       # a close call, then what to improve that isn't a row
     group: list[tuple[str, int, int, bool]] | None = None   # (name, damage, healing, is you), most damage first
     group_line: str | None = None
-    abilities: list[dict] = field(default_factory=list)
 
 
 def _n(v: float) -> str:
@@ -122,8 +121,7 @@ def build_fight(d: dict) -> FightView:
                  (_n(d["healing"]), "healing")],
         rows=[(label, detail, dmg) for label, detail, dmg, _ in losses],
         went_well=list(d.get("good") or []),
-        also=_also(d, own),
-        abilities=list(d.get("abilities") or []))
+        also=_also(d, own))
     v.big, v.unit, v.caption = _hero(d, eff)
     if losses:
         v.gap = (losses[0][3], f"≈ {_n(losses[0][2])}")

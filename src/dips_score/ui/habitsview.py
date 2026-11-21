@@ -14,10 +14,10 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout
 
 from ..habits_view import NO_FIGHTS, RECENT, HabitsView, build_habits
 from .debrief import NARROW
-from .kit import (HEAD_H, Hero, KeyFigures, Part, Plate, Sheet, adv, baseline, draw_hand_circle, draw_hand_note,
-                  draw_label_tab, draw_tag, elide, font, halo_text, hand_font, line, rule, text_at, wrapped)
+from .kit import (HEAD_H, Hero, KeyFigures, Part, Plate, Sheet, Side, adv, baseline, draw_hand_circle,
+                  draw_hand_note, draw_label_tab, draw_tag, elide, font, halo_text, hand_font, line, rule, text_at,
+                  wrapped)
 from .pages import dim_label
-from .spells import Side
 from .theme import tok
 
 HERO_W = (280, 236)      # the hero's column (narrow)

@@ -14,7 +14,7 @@ from PyQt6.QtGui import QFontMetricsF, QPainter, QPen, QPolygonF
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout
 
 from ..debrief import display_name, fmt_time
-from ..dungeon_view import UNJUDGED, HistoryView, plate_text, trend_note
+from ..dungeon_view import UNJUDGED, HistoryView, day, plate_text, trend_note
 from . import theme
 from .kit import HEAD_H, Part, Plate, Sheet, adv, box, draw_label_tab, elide, font, halo_text, line, rule, text_at
 from .theme import tok
@@ -24,10 +24,6 @@ PLATE_W = 420
 BANDS = (("S", 90, 100), ("A", 80, 90), ("B", 70, 80), ("C", 60, 70), ("D", 45, 60))
 VIEW_W = 640        # the mock-up's chart is drawn 640 x 330: x stretches with the page, y stays
 TAB_GAP = 4         # under a label tab, before what it names
-
-
-def day(d) -> str:
-    return f"{d.day} {d:%b}"
 
 
 def dot(p: QPainter, c: QPointF, r: float, fill, edge, width: float):

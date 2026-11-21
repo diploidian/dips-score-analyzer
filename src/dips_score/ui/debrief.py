@@ -17,8 +17,8 @@ from ..debrief import (DebriefView, FightCell, bar_fraction, breakdown_title, ci
                        route_alpha)
 from . import theme
 from .kit import (HEAD_H, MINUS, BarRow, BarRows, Drawer, Hero, Part, Plate, adv, baseline, box, draw_hand_circle,
-                  draw_hand_note, draw_label_tab, draw_page_head, elide, font, halo_text, hand_font, line, rule,
-                  text_at, wrapped)
+                  draw_hand_note, draw_label_tab, draw_page_head, elide, font, halo_text, hand_font, line,
+                  preview_tag, rule, text_at, wrapped)
 from .theme import tok
 
 NARROW = 1420        # the mock-up's breakpoint (window width): a smaller hero below it
@@ -27,15 +27,6 @@ EDGE = 16            # the page's right margin, lent to the fights column for ed
 LEFT_MIN = 480       # the left column never gets narrower (the page scrolls sideways instead)
 ENTRANCE_MS = 900     # the one entrance: ticker, bars, circles, note; p runs 0..1, 1 is the settled page
 PREVIEW = ("Rotation", "Pacing")   # measures still being worked out
-
-
-def preview_tag(p, x, mid, s):
-    """the small gold-framed tag ("preview"), centred on mid"""
-    f, s = font(11, 600, spacing=0.1), s.upper()
-    h = 11 * 1.2 + 6
-    r = QRectF(x, mid - h / 2, adv(f, s) + 14, h)
-    box(p, r, tok("gold"))
-    line(p, f, tok("gold"), x + 7, r.y() + 3, 11 * 1.2, s)
 
 
 # ---------------------------------------------------------------------------- the debrief's own parts

@@ -103,10 +103,6 @@ def grade_color(grade: str) -> QColor:
     return tok({"S": "gS", "A": "gA", "B": "gB", "C": "gC"}.get(grade, "gD"))
 
 
-def score_color(s: float) -> QColor:
-    return tok("gS" if s >= 85 else "gB" if s >= 65 else "gC" if s >= 45 else "gD")
-
-
 def _c(c: QColor) -> str:
     return f"rgba({c.red()},{c.green()},{c.blue()},{c.alpha()})"
 

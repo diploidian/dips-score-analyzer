@@ -274,6 +274,11 @@ def _streak(a) -> tuple[int, float, float]:
     return best
 
 
+def _score(s: float, _short: bool = True) -> str:
+    """a score as the Records board shows it ("75 B"): two that read the same tie, on the board and in the hero"""
+    return f"{s:.0f} {grade(s)}"
+
+
 def _record(name, vals, sv, word, show, gap, low=False, note=lambda i: "") -> Record:
     """a record from each scored visit's value (oldest first; None: it has none), the last visit against the best
     before it (the earliest, on a tie). show(v, short): the figure, as the Best column has it (short: the Today
@@ -334,7 +339,7 @@ def build_records(pairs, today: date | None = None) -> tuple[list[Record], tuple
         return "fights scoring 90+ in a row" + (f", {fmt_time(a)} to {fmt_time(b)}" if k > 1 else "")
 
     records = [
-        _record("Best score", [v.score for v, _ in sv], sv, word, lambda s, _: f"{s:.0f} {grade(s)}",
+        _record("Best score", [v.score for v, _ in sv], sv, word, _score,
                 lambda b, t: f"{math.ceil(b - t)} short" + (" · within reach" if within else "")),
         _record("Fastest clear", [a.data.duration if c else None for (_, a), c in zip(sv, clear)], sv, word, clock,
                 behind, low=True, note=lambda i: "whole visit, entry to exit"),
@@ -368,13 +373,20 @@ def records_text(h: HistoryView, within: tuple[str, str] | None, word: str) -> t
         visit = "today's visit" if today else f"the {word} visit"
         return f"Every record here is from {visit}, your only scored one.", "First visit — records start here", why
     whose = f"{'Today' if today else f'The {word} visit'}'s {t.score:.0f} {t.grade}"
+    on = "today" if today else f"on {word}"
+    alone = ""
+    if within:
+        cat, x = next(iter(t.lost.items()))
+        alone = f" Your {display_name(cat)} fix alone ({MINUS}{x:.1f}) would have beaten it."
+    prior = max((v.score for v in h.visits if v.score is not None and v is not t), default=None)
+    if prior is not None and _score(prior) == _score(t.score):      # the board's tie test: "ties your record"
+        return (f"{whose} ties your best score here.{alone}", ": ".join(within) if within else
+                f"Tied best {on}: {t.score:.0f} {t.grade} — come back to beat it", None)
     if b is t:
-        new = f"New best {'today' if today else f'on {word}'}: {t.score:.0f} {t.grade} — come back to beat it"
+        new = f"New best {on}: {t.score:.0f} {t.grade} — come back to beat it"
         return f"{whose} is your best score here.", new, None
     need = math.ceil(b.score - t.score)
     short = f"{whose} is {_plural(need, 'point')} short of your best."
     if within:
-        cat, x = next(iter(t.lost.items()))
-        alone = f"Your {display_name(cat)} fix alone ({MINUS}{x:.1f}) would have beaten it."
-        return f"{short} {alone}", ": ".join(within), None
+        return f"{short}{alone}", ": ".join(within), None
     return short, f"Best {b.score:.0f} {b.grade}: +{need} needed — more than any one fix is worth", None

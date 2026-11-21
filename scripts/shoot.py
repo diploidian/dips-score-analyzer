@@ -35,7 +35,7 @@ ap.add_argument("--click", choices=["show-me", "show-pull", "all-pulls", "show-s
                      "Spells plate's \"Show on the timeline\"; all-spells: open both Spells drawers; show-death: the "
                      "Group plate's \"Show your death\"; edit-roles / all-numbers: open that Group drawer; "
                      "show-fight: the Fights plate's \"Show on the timeline\"; abilities: open the Fights page's "
-                     "Abilities drawer; group: show-me, then open the timeline's Group row")
+                     "All the details drawer; group: show-me, then open the timeline's Group row")
 ap.add_argument("--overlay", nargs="?", const="history", choices=["history", "gap", "clean", "died", "minimal"],
                 help="save the after-fight card instead of the window: a real fight from the history (the default), "
                      "or one of the mock-up's states from tests/test_overlay_view.py's fights")

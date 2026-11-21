@@ -13,6 +13,7 @@ from ..dungeon_view import build_bosses, build_history, build_records, history_m
 from ..scoring.group import ordinal, player_card
 from ..scoring.score import Scorecard
 from ..sources.savedvars import Run
+from ..timeline_view import fight_window
 from . import assets
 from .bossestab import BossesTab
 from .debrief import DebriefPage
@@ -67,13 +68,13 @@ def dim_label(text: str = "") -> QLabel:
 ROLE_NAME = {"dps": "DPS"}
 
 
-def run_meta(a: Analysis) -> str:
-    """a run page's meta line: when, how long, in combat, fights, and the role you were scored as"""
+def run_meta(a: Analysis, role: bool = True) -> str:
+    """a run page's meta line: when, how long, in combat, fights, and (role) the role you were scored as"""
     rd = a.data
     parts = f" ({len(rd.run.parts)} pieces)" if len(rd.run.parts) > 1 else ""
     sub = (f"{rd.run.start_time:%a %d %b %H:%M}{parts} · {fmt_time(rd.duration)} long · "
            f"{fmt_time(a.metrics.combat_time)} in combat · {len(rd.fights)} fights")
-    return sub if a.card.empty else f"{sub} · as {ROLE_NAME.get(a.card.role, a.card.role)}"
+    return sub if a.card.empty or not role else f"{sub} · as {ROLE_NAME.get(a.card.role, a.card.role)}"
 
 
 class ScoreTab(QWidget):
@@ -148,8 +149,7 @@ class ScoreTab(QWidget):
     # ------------------------------------------------------------------ showing
     def _window(self, i: int) -> tuple[float, float]:
         f = self.a.fights[i].fight
-        pad = max(3.0, f.duration * 0.08)
-        return f.start - pad, f.end + pad
+        return fight_window(f.start, f.end)
 
     def _show(self, card: Scorecard, share: float | None, deaths: int, title: str, sub: str, fight: int | None):
         """fight: where "Show me" zooms (None: the fight whose card lost the most in the fix's category)"""
@@ -168,9 +168,7 @@ class ScoreTab(QWidget):
             self.page.show_view(DebriefView(), "No run selected", "")
             return
         rd = a.data
-        parts = f" ({len(rd.run.parts)} pieces)" if len(rd.run.parts) > 1 else ""
-        when = (f"{rd.run.start_time:%a %d %b %H:%M}{parts} · {fmt_time(rd.duration)} long · "
-                f"{fmt_time(a.metrics.combat_time)} in combat · {len(rd.fights)} fights")
+        when = run_meta(a, role=False)     # _show adds the role of the card it shows
         if self._is_me():
             sync = "; ".join(s.describe() for s in rd.sync if s.anchors) or "no clock anchors"
             if rd.has_combat_log and not rd.has_advanced:

@@ -15,11 +15,10 @@ from ..model.roster import CLASSES, ROLES
 from ..scoring.group import ordinal
 from . import assets, theme
 from .debrief import NARROW
-from .kit import (HEAD_H, MINUS, Drawer, Part, Plate, Sheet, adv, baseline, box, draw_label_tab, elide, flow, font,
-                  line, rule, text_at, wrapped)
+from .kit import (HEAD_H, MINUS, Drawer, Fold, Part, Plate, Sheet, adv, baseline, box, draw_label_tab, draw_tag, elide,
+                  flow, font, line, rule, text_at, wrapped)
 from .pages import dim_label, fmt_num, item, run_meta, table
 from .radar import H as MAP_H, W as MAP_W, draw_map, map_tips
-from .spells import Fold
 from .theme import tok
 
 PLATE_W = 400
@@ -54,16 +53,6 @@ def _sign(p, x: float, y: float, plus: bool, ink, size: float = 10):
     if plus:
         p.drawLine(QPointF(x + c, y + m), QPointF(x + c, y + size - m))
     p.restore()
-
-
-def _you_tag(p, x: float, mid: float) -> float:
-    """the "you" tag, as kit.tag draws a tag, centred on mid; returns its width"""
-    f = font(11, 600, num=True, spacing=0.14)
-    w = adv(f, "YOU") + 14
-    if p:
-        box(p, QRectF(x, mid - 9, w, 18), tok("ln"))
-        line(p, f, tok("mu"), x + 7, mid - 5, 11, "YOU")
-    return w
 
 
 def _mvp(p, x: float, y: float) -> QRectF:
@@ -186,9 +175,10 @@ class Podium(Part):
         if c.mvp:
             _mvp(p, r.right() - 13 - _mvp(None, 0, 0).width(), r.y() + 13)
         nf = font(15, 600)
-        nw = line(p, nf, tok("tx"), x, y + 34, 21, elide(nf, c.name, cw - (_you_tag(None, 0, 0) + 8 if c.you else 0)))
+        nw = line(p, nf, tok("tx"), x, y + 34, 21,
+                  elide(nf, c.name, cw - (draw_tag(None, 0, 0, "you") + 8 if c.you else 0)))
         if c.you:
-            _you_tag(p, x + nw + 8, y + 34 + 10.5)
+            draw_tag(p, x + nw + 8, y + 34 + 10.5, "you")
         line(p, font(12), tok("mu"), x, y + 34 + 21, 12 * 1.4, c.role)
         pf = font(26, 700, num=True)
         base = baseline(pf, r.bottom() - 12 - 26, 26)
@@ -262,7 +252,7 @@ class Standings(Tips):
             base = baseline(nf, y, 23.8)
             rw = text_at(p, rf, tok("mu"), x + nw + 10, base, c.role)
             if c.you:
-                _you_tag(p, x + nw + 10 + rw + 10, y + 23.8 / 2)
+                draw_tag(p, x + nw + 10 + rw + 10, y + 23.8 / 2, "you")
         y += 23.8 + 3
         y += wrapped(p, f, tok("tx2"), x, y, w, 14 * 1.4, c.reason)
         rows = [(True, s) for s in c.plus] + [(False, s) for s in c.minus]

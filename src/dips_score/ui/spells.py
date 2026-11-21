@@ -7,14 +7,13 @@ Sizes follow docs/design/mockups/spells.html (CSS px). The shared parts come fro
 from dataclasses import dataclass
 
 from PyQt6.QtCore import QEvent, QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QPainter
 from PyQt6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
 
 from ..spells_view import REFUSED, SpellsView, build_spells
 from . import assets, theme
 from .debrief import NARROW
-from .kit import (HEAD_H, Drawer, Hero, Part, Plate, Sheet, adv, baseline, draw_hand_circle, draw_label_tab, elide,
-                  font, line, rule, text_at)
+from .kit import (HEAD_H, Drawer, Fold, Hero, Part, Plate, Sheet, Side, adv, baseline, draw_hand_circle, draw_label_tab,
+                  elide, font, line, rule, text_at)
 from .pages import dim_label, fmt_num, item, run_meta, table
 from .theme import tok
 
@@ -133,36 +132,6 @@ class Ruled(Part):
         return y + 6
 
 
-class Fold(QWidget):
-    """a drawer: its header between rules, its body under it; the last closes with a rule under it all"""
-
-    def __init__(self, drawer: Drawer, last: bool = False):
-        super().__init__()
-        self.last = last
-        head = QHBoxLayout()
-        head.setContentsMargins(0, 8, 0, 8)
-        head.addWidget(drawer)
-        head.addStretch(1)
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(0, 1, 0, 1 if last else 0)
-        lay.setSpacing(0)
-        lay.addLayout(head)
-        lay.addWidget(drawer.body)
-
-    def paintEvent(self, _ev):
-        p = QPainter(self)
-        rule(p, 0, 0, self.width(), tok("ln"))
-        if self.last:
-            rule(p, 0, self.height() - 1, self.width(), tok("ln"))
-
-
-class Side(QWidget):
-    """the right-hand column, ruled off from the left"""
-
-    def paintEvent(self, _ev):
-        QPainter(self).fillRect(QRectF(0, 0, 1, self.height()), tok("ln"))
-
-
 def _body(t) -> QWidget:
     """a drawer's table, with the mock-up's 12px under it; its head in small tracked-caps type, as the mock-up's, so
     the columns leave the names room in the side column"""
@@ -207,7 +176,7 @@ class SpellsTab(QScrollArea):
                             top_rule=True)
         self.healing = Ruled("Healing", ["healed", "overheal"])
         for part in (self.damage, self.healing):
-            part.clicked.connect(self._pick)
+            part.clicked.connect(self.pick)
         self.buffs = table(["SPELL", "CASTS", "REFUSED"], stretch=0)
         self.every = table(["SPELL", "CASTS", "REFUSED", "PER MIN", "CRIT", "DAMAGE", "HEALING"], stretch=0)
         self.buffs_drawer = Drawer("Seals, blessings and other spells", _body(self.buffs))
@@ -317,7 +286,7 @@ class SpellsTab(QScrollArea):
             start, end, spell = self.view.show
             self.show_me.emit(start, end, self.who.currentData(), spell)
 
-    def _pick(self, spell: str | None, source=None):
+    def pick(self, spell: str | None, source=None):
         """a spell picked (None: unpicked) in a ruled part, or in the drawer table source: lit up on the timeline,
         which readies in the background; whatever else looked picked lets go"""
         for part in (self.damage, self.healing):
@@ -331,7 +300,7 @@ class SpellsTab(QScrollArea):
     def _picked_in(self, t):
         rows = t.selectionModel().selectedRows()
         if rows:
-            self._pick(t.item(rows[0].row(), 0).data(Qt.ItemDataRole.UserRole), t)
+            self.pick(t.item(rows[0].row(), 0).data(Qt.ItemDataRole.UserRole), t)
 
     def eventFilter(self, obj, ev):
         """in a drawer table, Esc or a click on its picked row: unpicked"""
@@ -341,7 +310,7 @@ class SpellsTab(QScrollArea):
             if (obj is t and ev.type() == QEvent.Type.KeyPress and ev.key() == Qt.Key.Key_Escape
                     or obj is t.viewport() and ev.type() == QEvent.Type.MouseButtonPress
                     and t.selectionModel().isRowSelected(t.indexAt(ev.position().toPoint()).row())):
-                self._pick(None)
+                self.pick(None)
                 return True
         return super().eventFilter(obj, ev)     # QScrollArea filters its page's resizes
 

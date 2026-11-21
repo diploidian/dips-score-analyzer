@@ -98,13 +98,12 @@ class FightViewTests(unittest.TestCase):
                                    ("Anaruz Lightborne", 0, 68, False)])
         self.assertIn("25% of the damage (3rd of 5)", v.group_line)
         self.assertEqual(v.group_line, "You did 25% of the damage (3rd of 5) and 11% of the healing.")
-        self.assertEqual(len(v.abilities), 8)
 
     def test_fight_view_minimal_dict(self):
         """an old saved fight: no free, auto, group or potential; nothing to show is empty, never an error"""
         v = build_fight(BARE)
         self.assertEqual((v.rows, v.gap, v.group, v.group_line, v.left_on_table), ([], None, None, None, None))
-        self.assertEqual((v.went_well, v.also, v.abilities, v.zone, v.verdict), ([], [], [], "", ""))
+        self.assertEqual((v.went_well, v.also, v.zone, v.verdict), ([], [], "", ""))
         self.assertEqual((v.name, v.duration, v.efficiency, v.big), ("Aku'mai", "0:20", None, "–"))
         self.assertEqual(v.caption, "no damage done this fight")
         old = dict(ORACLE, cooldowns=[{"name": "Judgement", "cd": 8.0, "used": 2, "lost": 600.0}])
@@ -217,7 +216,7 @@ class FightPageTests(unittest.TestCase):
         self.assertEqual(page.plate.button.text(), "Show on the timeline")
         page.plate.button.click()
         self.assertEqual(shown, [(106.8, 225.3)])
-        self.assertEqual(page.drawer.label, "ABILITIES (8)")
+        self.assertEqual(page.drawer.label, "ALL THE DETAILS (7)")   # its sections: Abilities, Cooldowns, ... Pull
         self.assertTrue(page.drawer.body.isHidden())
         self.assertEqual([r.ink for r in page.where.rows], ["m-act", "m-cd", "m-cd", "m-cd"])
         self.assertEqual(page.where.total, ("Left on the table · estimate — only time you were free to act",
@@ -228,6 +227,7 @@ class FightPageTests(unittest.TestCase):
         page.show_fight(ORACLE, None)              # outside the loaded run: no button
         self.assertFalse(page.plate.has_button)
         page.show_fight(BARE)                      # nothing to fix, nobody with you
+        self.assertEqual(page.drawer.label, "ALL THE DETAILS (3)")   # idle time, resource and the pull
         self.assertTrue(page.plate.isHidden())
         self.assertTrue(page.where.isHidden())
         self.assertTrue(page.share.isHidden())

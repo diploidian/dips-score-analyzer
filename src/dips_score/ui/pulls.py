@@ -15,9 +15,9 @@ from PyQt6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QHeaderView, QLa
 from ..debrief import fmt_time
 from ..pulls_view import BREAK_S, LOW, PullsView, build_pulls, fix_plate, pct, safety_figures, slide_note, slide_rows
 from . import assets
-from .debrief import NARROW, preview_tag
-from .kit import (HEAD_H, Drawer, Hero, KeyFigures, Part, Plate, Sheet, adv, baseline, box, draw_hand_circle,
-                  draw_hand_note, draw_label_tab, font, hand_font, line, rule, text_at)
+from .debrief import NARROW
+from .kit import (HEAD_H, SECTION_H, Drawer, Fold, Hero, KeyFigures, Part, Plate, SectionHead, Sheet, adv, baseline,
+                  draw_hand_circle, draw_hand_note, draw_label_tab, draw_tag, font, hand_font, rule, text_at)
 from .pages import dim_label, item, run_meta, table
 from .theme import tok
 
@@ -26,7 +26,6 @@ VERDICT_W = 576      # the verdict stops at 36em
 X0, RIGHT = 96, 12   # the track's time axis: after the PULLS / MANA labels, to 12px short of the edge
 TRACK_H = 224        # the track and mana line, as the mock-up's 1184 x 224 drawing (only x stretches)
 LANE, M100, M0 = 58, 118, 198      # the pulls' line; the mana line's 100% and 0
-HEAD = 1 + 12 + 25 + 6             # a section's rule, padding and label tab
 BODY_H = 640         # the open drawer: the pulls table, the picked pull's mobs under it
 RUNS = Qt.ItemDataRole.UserRole + 1
 
@@ -62,7 +61,7 @@ class Track(Part):
         if ev.type() == QEvent.Type.ToolTip:
             pos, near = ev.pos(), None
             for r in self.view.rows:
-                d = math.hypot(pos.x() - self._x(r.start, self.width()), pos.y() - HEAD - LANE)
+                d = math.hypot(pos.x() - self._x(r.start, self.width()), pos.y() - SECTION_H - LANE)
                 if d <= max(radius(r.mobs), 3.6) + 4 and (near is None or d < near[0]):
                     near = (d, r)
             if near is None:
@@ -82,8 +81,8 @@ class Track(Part):
             rule(p, 0, 0, w, tok("ln"))
             draw_label_tab(p, 0, 13, "The run, pull by pull")
             self._key(p, w, 13 + 12.5)
-            self._track(p, w, HEAD)
-        return HEAD + TRACK_H + 12
+            self._track(p, w, SECTION_H)
+        return SECTION_H + TRACK_H + 12
 
     def _key(self, p, w, mid):
         """the legend, right of the tab: size = mobs, mana at pull, no pack data"""
@@ -258,22 +257,6 @@ class Track(Part):
             draw_hand_note(p, "died here", QPointF(ax, oy + 34), QPointF(cx + rx * 0.4 * side, lane - 16), 22)
 
 
-class SectionHead(Part):
-    """a section's rule and label tab, with an optional preview tag beside it"""
-
-    def __init__(self, title: str, tag: str | None = None):
-        super().__init__()
-        self.title, self.tag = title, tag
-
-    def draw(self, p, w):
-        if p:
-            rule(p, 0, 0, w, tok("ln"))
-            r = draw_label_tab(p, 0, 13, self.title)
-            if self.tag:
-                preview_tag(p, r.right() + 8, r.center().y(), self.tag)
-        return HEAD
-
-
 class PulledBy(Part):
     """Pulled by, most first: a neutral square, the name in tx and the count; an unknown puller in mu"""
 
@@ -326,20 +309,14 @@ class Runs(QStyledItemDelegate):
     def _draw(self, p, runs, x, r: QRectF) -> float:
         """runs from x, on r's middle; returns their width"""
         x0, base = x, baseline(font(13), r.y(), r.height())
-        tf = font(11, 600, num=True, spacing=0.14)
         for k, (s, kind) in enumerate(runs):
             x += 6 if k else 0
             if kind == "sq":
                 if p:
                     p.fillRect(QRectF(x, base - 8, 8, 8), tok("tx2"))
                 x += 8
-            elif kind == "tag":         # as kit.tag draws it
-                s, top = s.upper(), r.center().y() - 9
-                tw = adv(tf, s) + 14
-                if p:
-                    box(p, QRectF(x, top, tw, 18), tok("ln"))
-                    line(p, tf, tok("mu"), x + 7, top + 4, 11, s)
-                x += tw
+            elif kind == "tag":
+                x += draw_tag(p, x, r.center().y(), s)
             else:
                 px, weight, ink = self.STYLE[kind]
                 x += text_at(p, font(px, weight), tok(ink), x, base, s)
@@ -365,22 +342,6 @@ class Runs(QStyledItemDelegate):
         if runs:
             hint.setWidth(math.ceil(self._draw(None, runs, 0, QRectF(0, 0, 0, hint.height()))) + 12)
         return hint
-
-
-class DrawerRow(QWidget):
-    """the All pulls drawer's header, between rules"""
-
-    def __init__(self, drawer: Drawer):
-        super().__init__()
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0, 12, 0, 12)
-        lay.addWidget(drawer)
-        lay.addStretch(1)
-
-    def paintEvent(self, _ev):
-        p = QPainter(self)
-        rule(p, 0, 0, self.width(), tok("ln"))
-        rule(p, 0, self.height() - 1, self.width(), tok("ln"))
 
 
 class PullsTab(QScrollArea):
@@ -441,7 +402,7 @@ class PullsTab(QScrollArea):
         lay.setSpacing(0)
         lay.addSpacing(HEAD_H)
         lay.addLayout(hero_row)
-        for wd in (self.track, self.safety, self.figures, self.pulled, DrawerRow(self.drawer), body):
+        for wd in (self.track, self.safety, self.figures, self.pulled, Fold(self.drawer, last=True, pad=11)):
             lay.addWidget(wd)
         lay.addStretch(1)
         self.setWidget(self.page)
