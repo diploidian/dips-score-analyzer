@@ -6,7 +6,7 @@ Sizes follow docs/design/mockups/pulls.html (CSS px). The shared parts come from
 """
 import math
 
-from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt, pyqtSignal
+from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QFontMetricsF, QPainter, QPen, QPolygonF
 from PyQt6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QHeaderView, QLabel, QScrollArea, QSplitter, QStyle,
                              QStyledItemDelegate, QStyleOptionViewItem, QToolTip, QTreeWidget, QTreeWidgetItem,
@@ -43,15 +43,41 @@ def shade(mana: float | None) -> float:
 class Track(Part):
     """The run, pull by pull: a dot per pull at its time, sized by mobs and shaded by your mana going in, "you" over
     the pulls you pulled, breaks dotted, the death pull circled in highlighter; under it your mana line, with the
-    slide marked. Hover a dot for its time, mobs and mana."""
+    slide marked. Hover a dot for its time, mobs and mana; click one to open its row in All pulls."""
+    picked = pyqtSignal(int)              # a dot clicked: its index in view.rows
 
     def __init__(self):
         super().__init__()
         self.view, self.duration = PullsView(), 0.0
+        self.sel: int | None = None       # the pull ringed, from a click or a table pick
+        self.setMouseTracking(True)
 
     def set_view(self, view: PullsView, duration: float):
-        self.view, self.duration = view, duration
+        self.view, self.duration, self.sel = view, duration, None
         self.changed()
+
+    def _hit(self, pos) -> int | None:
+        """the index of the nearest dot within reach of pos, if any"""
+        near = None
+        for k, r in enumerate(self.view.rows):
+            d = math.hypot(pos.x() - self._x(r.start, self.width()), pos.y() - SECTION_H - LANE)
+            if d <= max(radius(r.mobs), 3.6) + 4 and (near is None or d < near[0]):
+                near = (d, k)
+        return None if near is None else near[1]
+
+    def mouseMoveEvent(self, ev):
+        if self._hit(ev.position()) is None:
+            self.unsetCursor()
+        else:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+        super().mouseMoveEvent(ev)
+
+    def mousePressEvent(self, ev):
+        k = self._hit(ev.position()) if ev.button() == Qt.MouseButton.LeftButton else None
+        if k is None:
+            super().mousePressEvent(ev)
+        else:
+            self.picked.emit(k)
 
     def _x(self, t: float, w: float) -> float:
         dur = self.duration or max((r.end for r in self.view.rows), default=1.0)
@@ -59,19 +85,15 @@ class Track(Part):
 
     def event(self, ev):
         if ev.type() == QEvent.Type.ToolTip:
-            pos, near = ev.pos(), None
-            for r in self.view.rows:
-                d = math.hypot(pos.x() - self._x(r.start, self.width()), pos.y() - SECTION_H - LANE)
-                if d <= max(radius(r.mobs), 3.6) + 4 and (near is None or d < near[0]):
-                    near = (d, r)
-            if near is None:
+            k = self._hit(ev.pos())
+            if k is None:
                 QToolTip.hideText()
                 ev.ignore()
                 return True
-            r = near[1]
-            QToolTip.showText(ev.globalPos(), f"{r.at}: no pack data" if not r.mobs else
+            r = self.view.rows[k]
+            QToolTip.showText(ev.globalPos(), (f"{r.at}: no pack data" if not r.mobs else
                               f"{r.at} · {r.mobs} mob{'s' if r.mobs != 1 else ''} · "
-                              f"{'–' if r.mana is None else pct(r.mana)} mana", self)
+                              f"{'–' if r.mana is None else pct(r.mana)} mana") + " · click for its mobs", self)
             return True
         return super().event(ev)
 
@@ -194,6 +216,12 @@ class Track(Part):
                 self._dot(p, c, radius(r.mobs), shade(r.mana), ink)
             else:
                 self._no_packs(p, c)
+        if self.sel is not None and self.sel < len(rows):
+            r = rows[self.sel]
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setPen(QPen(tx, 1.5))
+            rr = max(radius(r.mobs), 3.6) + 4
+            p.drawEllipse(QPointF(X(r.start), lane), rr, rr)
         yf = font(11, 600, num=True)
         for r in rows:
             if r.you_pulled:
@@ -345,7 +373,8 @@ class Runs(QStyledItemDelegate):
 
 
 class PullsTab(QScrollArea):
-    """the Pulls tab: the page, scrolling when the window is small or the drawer is open"""
+    """the Pulls tab: the page, scrolling when the window is small or the drawer is open; a clicked dot on the
+    track opens its row in the drawer"""
     zoom = pyqtSignal(float, float)       # a pull picked in the drawer: the timeline readies there, the tab stays
     show_me = pyqtSignal(float, float)    # "Show this pull": the Timeline tab, zoomed to it
 
@@ -360,13 +389,14 @@ class PullsTab(QScrollArea):
         self.hero.setMaximumWidth(VERDICT_W)
         self.plate.setFixedWidth(PLATE_W)
         self.plate.clicked.connect(lambda: self.view.fix and self.show_me.emit(*self._window(self.view.fix)))
-        self.track, self.safety, self.figures, self.pulled = Track(), SectionHead("Pull safety", "preview"), \
+        self.track, self.safety, self.figures, self.pulled = Track(), SectionHead("Pull safety"), \
             KeyFigures(), PulledBy()
         # the drawer: every pull, and the picked pull's mobs under them
         self.table = table(["#", "At", "Fight", "Mobs", "Packs", "Pulled by", "Your health", "Your mana",
                             "Gap before", "Length", "Died"], stretch=2)
         self.table.setItemDelegate(Runs(self.table))
         self.table.itemSelectionChanged.connect(self._pick)
+        self.track.picked.connect(self._open_pull)
         mobs = QWidget()
         ml = QVBoxLayout(mobs)
         ml.setContentsMargins(0, 12, 0, 0)
@@ -464,12 +494,21 @@ class PullsTab(QScrollArea):
         t.blockSignals(False)
         self._mobs(None)
 
+    def _open_pull(self, k: int):
+        """a dot clicked: open the drawer on its row (the selection then fills the mobs and readies the timeline)"""
+        if not self.drawer.open:
+            self.drawer.flip()
+        self.table.selectRow(k)
+        QTimer.singleShot(0, lambda: self.ensureWidgetVisible(self.table))   # after the drawer is laid out
+
     def _pick(self):
         rows = self.table.selectionModel().selectedRows()
         if not rows:
             return
         k = self.table.item(rows[0].row(), 0).data(Qt.ItemDataRole.UserRole)
         self._mobs(k)
+        self.track.sel = k
+        self.track.update()
         self.zoom.emit(*self._window(self.view.rows[k]))
 
     def _mobs(self, k: int | None):

@@ -190,6 +190,32 @@ class PullsPageTests(unittest.TestCase):
         tab.show_view(pulls_view([]), "Nothing", "", 0.0)   # no pulls: no crash
         self.assertFalse(tab.grab().isNull())
 
+    def test_bubble_click_opens_its_row(self):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtCore import QPoint
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841
+        from dips_score.ui.pulls import LANE, SECTION_H, PullsTab
+        tab = PullsTab()
+        tab.resize(1200, 900)
+        v = pulls_view([PullRow(*r) for r in PULLS])
+        tab.show_view(v, "Blackfathom Deeps", "", 4185.0)
+        self.assertIsNone(tab.safety.tag)
+        tr = tab.track
+        r = v.rows[5]
+        centre = QPoint(round(tr._x(r.start, tr.width())), SECTION_H + LANE)
+        self.assertEqual(tr._hit(centre), 5)
+        self.assertIsNone(tr._hit(QPoint(centre.x(), SECTION_H + LANE + 60)))
+        zoomed = []
+        tab.zoom.connect(lambda a, b: zoomed.append((a, b)))
+        tr.picked.emit(5)
+        self.assertTrue(tab.drawer.open)
+        self.assertEqual(tab.table.currentRow(), 5)
+        self.assertEqual(zoomed, [(r.start - 3, r.end + 3)])
+        self.assertEqual(tr.sel, 5)
+        tab.show_view(v, "Blackfathom Deeps", "", 4185.0)
+        self.assertIsNone(tr.sel)
+
 
 if __name__ == "__main__":
     unittest.main()
