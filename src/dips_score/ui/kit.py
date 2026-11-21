@@ -611,11 +611,12 @@ def tag(text: str) -> QLabel:
     return _Tag(text)
 
 
-def draw_tag(p, x: float, mid: float, text: str, ink: QColor | None = None) -> float:
-    """a kind tag painted as tag() draws it, centred on mid (ink: its text's, default mu); returns its width"""
+def draw_tag(p, x: float, mid: float, text: str, ink: QColor | None = None, edge: QColor | None = None) -> float:
+    """a kind tag painted as tag() draws it, centred on mid (ink: its text's, default mu; edge: its box's, default
+    ln); returns its width"""
     f, s = font(11, 600, num=True, spacing=0.14), text.upper()
     w = adv(f, s) + 14
     if p:
-        box(p, QRectF(x, mid - 9, w, 18), tok("ln"))
+        box(p, QRectF(x, mid - 9, w, 18), edge or tok("ln"))
         line(p, f, ink or tok("mu"), x + 7, mid - 5, 11, s)
     return w

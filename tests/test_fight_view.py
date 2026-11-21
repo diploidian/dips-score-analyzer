@@ -237,6 +237,25 @@ class FightPageTests(unittest.TestCase):
         self.assertTrue(page.hero.isHidden())
         self.assertFalse(page.grab().isNull())
 
+    def test_grade_inks_read_on_the_rail(self):
+        """the fight list's efficiency inks (gS, gD) are lifted toward rail-tx until they read at 4.5:1 on the rail and
+        on the picked row in all four looks; an ink that already reads is left alone"""
+        from dips_score.ui import theme
+        from test_tokens import contrast
+        was = (theme.NAME, theme.MODE)
+        try:
+            for look in (("timeless", "day"), ("timeless", "night"), ("classical", "day"), ("classical", "night")):
+                theme.apply(*look)
+                for key in ("gS", "gD"):
+                    got = theme.on_rail(theme.tok(key)).name()
+                    for bg in ("rail", "rail-on"):
+                        self.assertGreaterEqual(contrast(got, theme.tok(bg).name()), 4.5, (look, key, bg))
+                self.assertEqual(theme.on_rail(theme.tok("rail-tx")), theme.tok("rail-tx"))
+            theme.apply("timeless", "day")
+            self.assertNotEqual(theme.on_rail(theme.tok("gD")), theme.tok("gD"))    # 1.4:1 on the dark rail: lifted
+        finally:
+            theme.apply(*was)
+
     def test_fight_list_rows(self):
         from dips_score.ui.fightsview import FightList
         fl = FightList()

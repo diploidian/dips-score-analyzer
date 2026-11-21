@@ -72,6 +72,10 @@ from PyQt6.QtWidgets import QApplication  # noqa: E402
 from dips_score.ui import app as ui  # noqa: E402
 
 qapp = QApplication([])
+# A running game writes its combat log mid-shot, which changes Window._key (it holds every log's time) between a
+# run's analysis and the rail's label lookup, so the score beside the visit went missing at random. Pin each key.
+_key, keys = ui.Window._key, {}
+ui.Window._key = lambda self, run: keys.setdefault(run.id, _key(self, run))
 paths = config.paths()
 if args.replay or args.overlay == "history":
     from dips_score.live.history import replay

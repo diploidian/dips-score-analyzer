@@ -25,7 +25,7 @@ FONTS_DIR = Path(__file__).parent / "fonts"
 _fonts_loaded = False
 
 # ---- legacy names: filled from T by apply(), so pages not yet redesigned follow the theme ----
-ACCENT = BG = PANEL = LANE = GRID = TEXT = DIM = EDGE = SELECT = TITLE = QColor()
+ACCENT = BG = PANEL = LANE = GRID = TEXT = DIM = SELECT = TITLE = QColor()
 COMBAT = BOSS = BUSY = IDLE = CAST = CAST_OK = CAST_BAD = FAIL = KEY = CLICK = QColor()
 SPAM = MOVE = HP = HP_LOW = HIT = DEATH = QColor()
 
@@ -43,7 +43,7 @@ def apply(name: str, mode: str = "auto", os_dark: bool = False) -> None:
     T = {k: QColor(v) for k, v in tokens.TOKENS[(NAME, MODE)].items()}
     g = globals()
     g.update(ACCENT=tok("gold"), BG=tok("bg"), PANEL=tok("panel"), LANE=tok("track"), GRID=_alpha(T["ln"], 120),
-             TEXT=tok("tx"), DIM=tok("mu"), EDGE=tok("ln"), SELECT=tok("track"), TITLE=tok("tx"),
+             TEXT=tok("tx"), DIM=tok("mu"), SELECT=tok("track"), TITLE=tok("tx"),
              COMBAT=_alpha(T["plate"], 45), BOSS=_alpha(T["gC"], 70), BUSY=tok("m-dmg"), IDLE=tok("m-surv"),
              CAST=tok("m-cast"), CAST_OK=tok("m-pace"), CAST_BAD=tok("gD"), FAIL=tok("hl-note"), KEY=tok("tx2"),
              CLICK=tok("hl"), SPAM=tok("gD"), MOVE=tok("m-upk"), HP=tok("m-dmg"), HP_LOW=tok("gD"),
@@ -71,6 +71,16 @@ def readable(c: QColor, on: QColor | None = None) -> QColor:
     while _contrast(out, on) < 4.5 and l > 0 and _lum(on) > 0.3:
         l = max(0.0, l - 0.02)
         out.setHslF(max(h, 0.0), s, l, a)
+    return out
+
+
+def on_rail(c: QColor) -> QColor:
+    """c mixed toward rail-tx until it reads at 4.5:1 on both rail and rail-on (as the mock-ups lift the grade inks
+    on the dark rail); unchanged when it already does"""
+    out, t, to = QColor(c), 0.0, T["rail-tx"]
+    while min(_contrast(out, T["rail"]), _contrast(out, T["rail-on"])) < 4.5 and t < 1:
+        t = min(1.0, t + 0.05)
+        out = QColor.fromRgbF(*(a + (b - a) * t for a, b in zip(c.getRgbF()[:3], to.getRgbF()[:3])))
     return out
 
 
@@ -149,6 +159,11 @@ QLabel#title {{ font-size: 15pt; font-weight: 600; color: {tx}; }}
 #rail QPushButton#link {{ background: transparent; border: 0; padding: 0; color: {T["rail-mu"].name()};
     font-size: 13px; font-weight: 400; }}
 #rail QPushButton#link:hover, #rail QPushButton#link:focus {{ text-decoration: underline; }}
+#rail QTreeWidget, #rail QListWidget {{ background: {T["rail"].name()}; color: {T["rail-tx"].name()}; border: 0; }}
+#rail QTreeWidget::item:selected, #rail QListWidget::item:selected {{ background: {T["rail-on"].name()};
+    color: {T["rail-tx"].name()}; }}
+#rail QScrollBar:vertical {{ background: {T["rail"].name()}; }}
+#rail QScrollBar::handle:vertical {{ background: {T["rail-on"].name()}; }}
 QSplitter::handle {{ background: {ln}; }}
 QScrollBar:vertical {{ background: {T["panel"].name()}; width: 10px; }}
 QScrollBar::handle:vertical {{ background: {ln}; min-height: 20px; }}

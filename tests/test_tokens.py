@@ -40,6 +40,14 @@ class TokensTest(unittest.TestCase):
         for look, t in tokens.TOKENS.items():
             self.assertGreaterEqual(contrast(t["tx"], t["panel"]), 4.5, look)
 
+    def test_rail_text_reads_on_rail(self):
+        """the rail's run tree and fight list: rail-tx (names) and rail-mu (muted line, tags) reach 4.5:1 on the rail
+        and on the picked row (rail-on) in all four looks"""
+        for look, t in tokens.TOKENS.items():
+            for ink in ("rail-tx", "rail-mu"):
+                for bg in ("rail", "rail-on"):
+                    self.assertGreaterEqual(contrast(t[ink], t[bg]), 4.5, (look, ink, bg))
+
     def test_normalize(self):
         self.assertEqual(tokens.normalize("wow", None), ("timeless", "auto"))
         self.assertEqual(tokens.normalize("classic", "night"), ("timeless", "night"))

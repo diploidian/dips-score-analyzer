@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 
 from PyQt6.QtCore import QObject, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QColor, QFont, QGuiApplication, QIcon, QPainter, QPixmap
+from PyQt6.QtGui import QAction, QFont, QGuiApplication, QIcon, QPainter, QPixmap
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from ..config import Paths
@@ -100,8 +100,8 @@ def tray_icon() -> QIcon:
     pm.fill(Qt.GlobalColor.transparent)
     p = QPainter(pm)
     p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-    p.setBrush(QColor(60, 40, 12))
-    p.setPen(QColor(255, 209, 0))
+    p.setBrush(theme.tok("rail"))       # the rail's mark: called after apply_look, so it is in the look in use
+    p.setPen(theme.tok("rail-ac"))
     p.drawEllipse(4, 4, 56, 56)
     f = QFont("Segoe UI", 28)
     f.setBold(True)

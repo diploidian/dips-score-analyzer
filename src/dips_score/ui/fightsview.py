@@ -58,8 +58,8 @@ def _words(text: str, f, bf, ink, bink) -> list:
 
 # ---------------------------------------------------------------------------- the rail's list
 class FightRows(QStyledItemDelegate):
-    """a fight's row: its name, then its muted line (DPS · efficiency · length, "died"), its kind tag on the right;
-    on the picked row (track behind it) the inks darken where they'd read under 4.5:1"""
+    """a fight's row on the rail: its name, then its muted line (DPS · efficiency · length, "died"), its kind tag on
+    the right; the grade inks lifted toward rail-tx where they'd read under 4.5:1 on the rail (fight.html)"""
 
     def paint(self, p, opt, idx):
         o = QStyleOptionViewItem(opt)
@@ -72,14 +72,16 @@ class FightRows(QStyledItemDelegate):
         picked = bool(opt.state & QStyle.StateFlag.State_Selected)
 
         def ink(key: str):
-            return theme.readable(tok(key), tok("track")) if picked else tok(key)
+            return tok("rail-mu") if key in ("mu", "tx2") else theme.on_rail(tok(key))
+        edge = tok("rail-mu")
+        edge.setAlpha(115)          # the mock-up's rail-ln: rail-mu at 45%
         p.save()
         nf = font(13, 600 if picked else 400)
-        line(p, nf, tok("tx"), r.x(), r.y(), 17, elide(nf, name, r.width()))
+        line(p, nf, tok("rail-tx"), r.x(), r.y(), 17, elide(nf, name, r.width()))
         x = r.x()
         for s, key in runs:
             x += line(p, font(12, 400 if key == "mu" else 600), ink(key), x, r.y() + 17, 16, s)
-        draw_tag(p, r.right() - draw_tag(None, 0, 0, kind), r.y() + 17 + 8, kind, ink("mu"))
+        draw_tag(p, r.right() - draw_tag(None, 0, 0, kind), r.y() + 17 + 8, kind, ink("mu"), edge)
         p.restore()
 
     def sizeHint(self, opt, idx):

@@ -86,6 +86,7 @@ class Window(QMainWindow):
         self.left_stack.addWidget(self.tree)
         self.left_stack.addWidget(self.fight_list)
         ll.addWidget(self.left_stack, 1)
+        ll.addSpacing(10)                       # the lists sit on the rail: keep a cut-off last row off the status
         self.status = dim_label()               # what's loaded, then the log delay (see _status)
         self.status_text = ""
         ll.addWidget(self.status)
