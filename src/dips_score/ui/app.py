@@ -1,6 +1,6 @@
 """The window.
 
-Left, the rail: Dungeons, Fights and Habits, then the dungeons, each opening into its visits. Right: picking a
+Left, the rail: Dungeons, Raids, Fights and Habits, then the dungeons, each opening into its visits. Right: picking a
 dungeon shows its page (your score on every visit); picking a visit shows its tabs (Debrief, Timeline, Pulls,
 Spells, Group). The window watches the add-on's saved file and reloads when the game saves (/reload, logout);
 a new visit opens by itself.
@@ -68,14 +68,17 @@ class Window(QMainWindow):
         nav.setContentsMargins(0, 14, 0, 14)
         nav.setSpacing(0)
         self.mode_dungeons = QPushButton("Dungeons")
+        self.mode_raids = QPushButton("Raids")
         self.mode_fights = QPushButton("Fights")
         self.mode_habits = QPushButton("Habits")
-        for b in (self.mode_dungeons, self.mode_fights, self.mode_habits):
+        for b in (self.mode_dungeons, self.mode_raids, self.mode_fights, self.mode_habits):
             b.setCheckable(True)
             b.setProperty("nav", "1")           # flat text items, themed in theme.stylesheet
             nav.addWidget(b)
         self.mode_dungeons.setChecked(True)
+        self.raid = False                       # the tree holds raids (Raids) or the rest (Dungeons), in every mode
         self.mode_dungeons.clicked.connect(lambda: self._mode("dungeons"))
+        self.mode_raids.clicked.connect(lambda: self._mode("raids"))
         self.mode_fights.clicked.connect(lambda: self._mode("fights"))
         self.mode_habits.clicked.connect(lambda: self._mode("habits"))
         ll = QVBoxLayout()
@@ -242,12 +245,22 @@ class Window(QMainWindow):
             self.live.load_chars()
         self._watch()
         self.by_id = {r.id: r for r in self.runs}
+        new = [r for r in self.runs if had and r.id not in had]
+        if new and all((r.kind == "raid") != self.raid for r in new):    # the game saved a visit of the other section
+            self.raid = not self.raid
+            if self.left_stack.currentIndex() == 0:
+                self.mode_dungeons.setChecked(not self.raid)
+                self.mode_raids.setChecked(self.raid)
+        self._fill_tree(keep, had)
+
+    def _fill_tree(self, keep: str | None, had: set):
+        """the section's dungeons and their visits; opens the visit `keep` (or a fresh one, or the newest)"""
         self.tree.blockSignals(True)
         self.tree.clear()
         bold = QFont()
         bold.setBold(True)
         select = fresh = None
-        for zone, visits in analysis.dungeons(self.runs).items():
+        for zone, visits in analysis.dungeons(self.runs, raid=self.raid).items():
             top = QTreeWidgetItem([f"{zone}   ({len(visits)})"])
             top.setFont(0, bold)
             top.setData(0, RUN_ROLE, "zone:" + zone)
@@ -268,6 +281,9 @@ class Window(QMainWindow):
         if not self.runs:
             self._status(f"No runs yet. Looking in {self.paths.accounts}" if self.paths.found() else
                          f"Game folder not found: {self.paths.wow}. Pick it in Settings.")
+            return
+        if self.raid and not self.tree.topLevelItemCount():    # the add-on records raids only with its Raids option on
+            self._status("No raids recorded. Tick Raids in the add-on's options (/dscore).")
             return
         who = self.paths.character_of(self.saved) if self.saved else "?"
         self._status(f"{who} · {len(self.runs)} visits · updates when the game saves")
@@ -321,7 +337,7 @@ class Window(QMainWindow):
             return
         if key.startswith("zone:"):
             zone = key[5:]
-            visits = analysis.dungeons(self.runs).get(zone, [])
+            visits = analysis.dungeons(self.runs, raid=self.raid).get(zone, [])
             analyses = {}
             for r in visits:
                 try:
@@ -370,9 +386,10 @@ class Window(QMainWindow):
 
     def _mode(self, which: str):
         self.mode_dungeons.setChecked(which == "dungeons")
+        self.mode_raids.setChecked(which == "raids")
         self.mode_fights.setChecked(which == "fights")
         self.mode_habits.setChecked(which == "habits")
-        self.left_stack.setCurrentIndex(0 if which == "dungeons" else 1)
+        self.left_stack.setCurrentIndex(0 if which in ("dungeons", "raids") else 1)
         if which == "habits":
             self._show_habits()
         elif which == "fights":
@@ -381,6 +398,11 @@ class Window(QMainWindow):
                 self.fight_list.setCurrentRow(0)
             else:      # shown again, against the run loaded now
                 self._show_fight(self._fight())
+        elif (which == "raids") != self.raid:      # the other section: its tree, opened on its newest visit
+            self.raid = which == "raids"
+            self._fill_tree(None, set())
+            if self.tree.currentItem() is None:
+                self.stack.setCurrentIndex(0)
         elif self.tree.currentItem() is None:
             self.stack.setCurrentIndex(0)      # no runs yet: _picked would return early and leave the old page
         else:
@@ -399,7 +421,7 @@ class Window(QMainWindow):
     def _fight_on_timeline(self, start: float, end: float):
         """a live fight's Show on the timeline: the loaded run's Timeline tab (the fight is inside it), zoomed to it"""
         self._open_run_id(self.current.data.run.id)      # in Fights mode the tree only takes the pick
-        self._mode("dungeons")                           # which shows the run's tabs again
+        self._mode("raids" if self.raid else "dungeons")     # which shows the run's tabs again
         self.stack.setCurrentIndex(1)
         self.show_on_timeline(start, end)
 

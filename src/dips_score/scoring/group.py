@@ -28,12 +28,11 @@ from .tank import TankBase, measure_tank, tank_base
 AWARD_POINTS, AWARD_CAP = 2.0, 6.0
 # who can interrupt or dispel at all (a hunter can't, so Utility doesn't count for one)
 CAN_UTILITY = {"WARRIOR", "ROGUE", "MAGE", "SHAMAN", "WARLOCK", "PRIEST", "PALADIN", "DRUID"}
-ORDINAL = {1: "1st", 2: "2nd", 3: "3rd"}
 TANK_WEIGHTS = {"Holding mobs": 40, "Pickups": 25, "Survival": 35}
 
 
 def ordinal(n: int) -> str:
-    return ORDINAL.get(n, f"{n}th")
+    return f"{n}" + ("th" if 11 <= n % 100 <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th"))
 
 
 @dataclass

@@ -108,10 +108,12 @@ def merge_visits(runs: list[Run]) -> list[Run]:
     return out
 
 
-def dungeons(runs: list[Run]) -> dict[str, list[Run]]:
-    """zone -> its visits, newest first; zones by their latest visit"""
+def dungeons(runs: list[Run], raid: bool = False) -> dict[str, list[Run]]:
+    """zone -> its visits, newest first; zones by their latest visit. Raids, or everything else (open world too)"""
     by: dict[str, list[Run]] = {}
     for r in runs:
+        if (r.kind == "raid") != raid:
+            continue
         by.setdefault(r.zone if r.kind != "world" else "Open world", []).append(r)
     for v in by.values():
         v.sort(key=lambda r: r.started, reverse=True)

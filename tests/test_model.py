@@ -6,11 +6,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dips_score.analysis import merge_visits, run_key  # noqa: E402
+from dips_score.analysis import dungeons, merge_visits, run_key  # noqa: E402
 from dips_score.model.deaths import find_deaths  # noqa: E402
 from dips_score.model.pulls import build_pulls  # noqa: E402
 from dips_score.model.roster import Overrides, Player, build_roster, clean_name  # noqa: E402
 from dips_score.model.run import Fight, RunData  # noqa: E402
+from dips_score.scoring.group import ordinal  # noqa: E402
 from dips_score.sources.combatlog import Event  # noqa: E402
 from dips_score.sources.savedvars import Line, Run, Segment  # noqa: E402
 
@@ -80,6 +81,17 @@ class Visits(unittest.TestCase):
         out = merge_visits([run(1, 1000, ended=1100), run(2, 1200, ended=1300), run(3, 9000), run(4, 9100, "SM", 2)])
         self.assertEqual([r.parts for r in out], [["1", "2"], ["3"], ["4"]])
         self.assertEqual(len(out[0].segments), 2)
+
+    def test_dungeons_and_raids_apart(self):
+        """raids go under Raids; dungeons and the open world under Dungeons"""
+        runs = [Run("1", "x", "SM", "party", 1, 2, 1000, None), Run("2", "x", "Molten Core", "raid", 1, 4, 2000, None),
+                Run("3", "x", "Kalimdor", "world", 1, 1, 3000, None)]
+        self.assertEqual(list(dungeons(runs)), ["Open world", "SM"])
+        self.assertEqual(list(dungeons(runs, raid=True)), ["Molten Core"])
+
+    def test_ordinal_for_raid_sizes(self):
+        self.assertEqual([ordinal(n) for n in (1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 40)],
+                         ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "22nd", "23rd", "40th"])
 
     def test_run_key_ignores_writes_after_the_run_is_on_disk(self):
         """the game writing its log after a run is over doesn't make the run look new (nor drop its rail score);

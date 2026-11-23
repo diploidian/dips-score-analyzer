@@ -230,6 +230,43 @@ class ShellTests(unittest.TestCase):
                 w._analysis(r6)                             # the log changed under it: analysed again
             self.assertEqual([k for k in w.cache if k[0] == "r6"], [("r6", 2)])
 
+    def test_raids_have_their_own_section(self):
+        """Raids shows only raid visits, Dungeons the rest; no raids says how to record them; a raid the game just
+        saved opens under Raids"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        start = datetime(2026, 11, 18, 22, 0)
+
+        def run(rid, zone, kind, minute):
+            at = start.replace(minute=minute)
+            return SimpleNamespace(id=rid, zone=zone, kind=kind, started=at.timestamp(), start_time=at, line_count=9,
+                                   parts=[rid], end_estimate=at.timestamp() + 600)
+
+        def zones():
+            return [w.tree.topLevelItem(i).text(0) for i in range(w.tree.topLevelItemCount())]
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            shown = []
+            w._show_run = lambda r: shown.append(r.id)
+            sm = run("r6", "Scarlet Monastery", "party", 10)
+            with mock.patch("dips_score.analysis.load_saved", return_value=(None, [sm])) as load:
+                w.reload()
+                w.mode_raids.click()                        # no raids yet
+                self.assertEqual((zones(), w.left_stack.currentIndex()), ([], 0))
+                self.assertIn("Tick Raids", w.status_text)
+                w.mode_dungeons.click()
+                self.assertEqual((zones(), shown[-1]), (["Scarlet Monastery   (1)"], "r6"))
+                load.return_value = (None, [sm, run("m1", "Molten Core", "raid", 30)])
+                w.reload()                                  # a raid just saved: Raids, opened on it
+                self.assertEqual((zones(), shown[-1]), (["Molten Core   (1)"], "m1"))
+                self.assertTrue(w.mode_raids.isChecked() and not w.mode_dungeons.isChecked())
+                w.mode_dungeons.click()
+                self.assertEqual(zones(), ["Scarlet Monastery   (1)"])
+
     def test_new_weights_redraw_group_and_timeline(self):
         """a weights change scores the run showing again on the Debrief, Group and Timeline, and keeps the tab, the
         Timeline's view, the Debrief's fight and a spell lit from Spells"""
