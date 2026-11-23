@@ -56,15 +56,27 @@ numbers. DESIGN.md wins everywhere else. No 3D, so no `threejs-*` skills.
 
 | Part | Content | Kit part |
 |---|---|---|
-| Hero | Big figure: share of fight time in your main role ("72%", caption "of fight time healing"). Verdict sentence: the label ("Careful dungeon healer who clicks."). Meta line as Habits (level, class, spec, gear, fights counted). | hero |
+| Hero | Big figure: share of fight time in your main role ("72%", caption "of fight time healing"). Verdict sentence: the label ("Careful dungeon healer who clicks."). Under it, one quiet line with the earlier label when it differs ("Before: reckless world damage dealer."). Meta line as Habits (level, class, spec, gear), ending "last 15 days · n fights". | hero |
 | Plate, tab "Worth changing" | The one trait that costs you most (rule below), its figure, and a button "Open Habits". | plate (the only one) |
 | Signature (left) | Top 5 spells by presses, bar = share of your damage or healing; your usual opening three presses as one line; drawer "All spells (n)". | ruled bar rows, drawer |
 | Hands (left) | Key vs click share, presses per minute, refused-press rate, casting while moving. Says "needs a recorded run" when no run exists. | ruled rows |
 | Role mix (right) | Damage / Healer / Tank share of fight time, with the average grade where runs exist (letter always printed). | ruled bar rows |
 | Where you fight (right) | Dungeon / Raid / World / PvP share of fight time. | ruled bar rows |
 | Temperament (right) | Deaths per hour of fighting, usual pull size, average lowest health, cooldowns used of possible. | ruled rows |
-| Period | Segmented toggle in the header: Last 30 days / All time. Each row shows a small chip when it moved 5 points or more against all time. | segmented toggle, chip |
-| Highlighter | One mark: circles the row that moved most, with a Caveat note. None when nothing moved. | highlighter mark |
+| What changed | No toggle. A row shows a small chip when it moved 5 points or more against Before ("+12 vs the 15 days before"). | chip |
+| Highlighter | One mark: circles the row that moved most against Before, with a Caveat note. None when nothing moved or there is no Before. | highlighter mark |
+| Earlier (foot of page) | Drawer "Earlier (n)": one ruled row per finished 15-day slice, newest first: the dates, that slice's label, and three figures (main role share, deaths per hour, cooldowns used). Text only; nothing opens from a row. | drawer |
+
+**Windows.** The page always shows the current playing style; there is no all-time view.
+- **Now:** fights from the last 15 calendar days, counted back from today. The whole page, the label
+  and the plate come from Now only.
+- **Before:** fights from days 16 to 30. Used only to say what changed.
+- **Earlier slices:** each finished 15-day slice is saved once and never rewritten, in
+  `%APPDATA%/dips-score/profile_history.json`, per character: `from`, `to`, `fights`, `label`, and
+  the profile's figures as plain data (the AI coach workstream will read them). A slice is saved
+  when 15 days have passed since the last saved slice's end. On first run the history is filled in
+  from the saved fights, in 15-day blocks counted back from today. A slice with fewer than 10
+  fights is not saved.
 
 **Colour rulings (my calls):** share bars (role, place, signature) use `tx2`, never a measure ink.
 A Temperament or Hands row that is a scored measure uses that measure's ink (Cooldowns `m-cd`,
@@ -83,16 +95,17 @@ hands trait is strong. Defaults, builder may tune and must put in one table in t
 50% of possible; harmful spells known but never cast (reuse `habits._build_cards`); dying in 15%+ of
 fights. Nothing applies: the plate reads "Nothing stands out" with the strongest trait.
 
-**Empty states:** under 10 fights: "Your profile appears after 10 fights (n so far)." A section
-without data shows "–" and one line saying what it needs. Never an invented number.
+**Empty states:** fewer than 10 fights in the last 15 days: "Your profile needs 10 fights from the
+last 15 days (n so far)." The Earlier drawer still shows, so a returning player sees who they were.
+Fights in Now but none in Before: the page shows normally, with no chips, no mark and no "Before"
+line. A section without data shows "–" and one line saying what it needs. Never an invented number.
 
 **Motion thesis** (motion-design, bound by DESIGN.md's Motion section; personality: rigid, zero
 overshoot): one entrance per visit to the page. The hero figure counts up over 700 ms; bars grow
 from the left over 700 ms with a 60 ms stagger, capped at 8 staggered bars so the cascade stays
 under 500 ms; then the highlighter mark draws (550 ms, starting at 900 ms) and the note fades in.
-Switching the period re-grows bars from their current length over 220 ms; numbers swap at once.
 Nothing loops. With reduced motion everything renders settled.
-`Allowed patterns:` count-up, bar grow, highlighter draw, 220 ms value change. Qt animations only;
+`Allowed patterns:` count-up, bar grow, highlighter draw. Qt animations only;
 reuse the entrance code the Debrief already has before writing any.
 
 ## Global Constraints
@@ -120,13 +133,17 @@ reuse the entrance code the Debrief already has before writing any.
    Older fights lack it; `replay` fills it in. Tests in `tests/test_live.py`. No `role` field is
    saved: the profile works a fight's role out as "healer" when `healing_role` is set, else the role
    of the fight's saved `spec` (through `talent_role`), else "damage".
-3. **Data.** `src/dips_score/live/profile.py::profile(fights, char, book, runs, days=None) -> dict`:
+3. **Data.** `src/dips_score/live/profile.py::profile(fights, char, book, runs, now) -> dict`:
    shares by role and by kind (weighted by `duration`), top spells, usual opener, hands (from runs,
-   reusing the Input metric), temperament figures, and the same figures for all time so the view
-   can show what moved. Tests `tests/test_profile.py`.
-4. **View-model.** `src/dips_score/profile_view.py::build_profile(p) -> ProfileView` (dataclass, as
-   `HabitsView`): hero figure, label, plate, rows, chips, the highlighter target, empty states.
-   The label and plate tables live here. Tests in `tests/test_profile.py`.
+   reusing `Metrics`), and temperament figures, once for Now and once for Before. `now` is passed in
+   so tests are fixed in time. Also `src/dips_score/live/profile_history.py`: load the saved slices,
+   fill them in from fights on first run, and add a slice when one finishes; written beside
+   `fights.jsonl` the way `History` writes its files. Tests `tests/test_profile.py`: slice edges,
+   the 10-fight floor, first-run fill-in, and that a saved slice is not rewritten.
+4. **View-model.** `src/dips_score/profile_view.py::build_profile(p, earlier) -> ProfileView`
+   (dataclass, as `HabitsView`): hero figure, label, the "Before" line, plate, rows, chips and the
+   highlighter target (Now against Before), the Earlier rows, empty states. The label and plate
+   tables live here; a slice's saved label comes from the same function. Tests in `tests/test_profile.py`.
 5. **Page.** `src/dips_score/ui/profileview.py::ProfilePage` on `ui/kit.py`; a "Profile" entry on
    the rail after Habits in `ui/app.py` (no fight list, as Habits); the entrance motion; a
    `scripts/shoot.py` capture in all four looks. Skills: `impeccable:impeccable`, `motion-design`.
@@ -148,7 +165,8 @@ reuse the entrance code the Debrief already has before writing any.
 10. **App.** `sources/savedvars.py` reads the new data; `live/profile.py` adds the time budget
     (replacing fight-time shares as the lead for "Where you play"), questing and PvP focus in the
     label, and two plate candidates (an important spell with no key; a spell on the bars never
-    pressed). Tests with sample saved-variable text.
+    pressed). The new figures use the same two windows and are saved into the same slice records.
+    Tests with sample saved-variable text.
 11. **Page.** Update the mock-up, then the page; same review as task 6; version `0.17.0`; installer.
     Consumables and profession casts are added here only if the probe shows a source for them.
 
@@ -159,13 +177,18 @@ reuse the entrance code the Debrief already has before writing any.
 2. A healer with no damage fights: Signature ranks by healing share.
 3. Two characters in the history: only the newest fight's character is profiled.
 4. Fights saved before task 2 (no `opener`) or without a `spec`: counted, role from `healing_role`.
-5. Under 10 fights, and a period with no fights in the last 30 days.
+5. Fewer than 10 fights in the last 15 days, and a player back after a month away (Now empty,
+   Earlier drawer filled).
+6. The day a slice closes: one record is added, earlier records are unchanged.
 
 ## Verification
 
 - `python -m unittest discover -s tests` passes; `profile.py` and `profile_view.py` import without PyQt.
 - `python -m dips_score --wow "S:\GAMES\BLIZZARD\World of Warcraft\_forever_" replay` with `APPDATA`
-  set to a temp folder, then open the Profile page: figures match a hand count on a few fights.
+  set to a temp folder, then open the Profile page: figures match a hand count on a few fights, the
+  meta line says "last 15 days", chips compare against days 16 to 30, and `profile_history.json`
+  holds one record per earlier 15-day block with 10 or more fights. Reopen the same day: the
+  history file is unchanged.
 - `scripts/shoot.py` captures of the page in Timeless and Classical, day and night, beside the mock-up.
 - The impeccable finish and motion reviews have no open material finding.
 - Phase 2: after a play session and `/reload`, the saved file holds the new lines and the page

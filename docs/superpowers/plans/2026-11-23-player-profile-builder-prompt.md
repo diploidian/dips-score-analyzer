@@ -8,6 +8,8 @@ Rulings:
 - The label and the plate are worked out by fixed rules, never by AI.
 - No `role` field is saved per fight; role comes from `healing_role`, then the fight's `spec`.
 - Share bars use `tx2` and carry no 90 tick; only scored measures use a measure ink.
+- The page shows the last 15 days only; there is no all-time view. Finished 15-day slices are
+  saved and never rewritten.
 - No chat is ever recorded by the add-on.
 - Never propose merging `projectArthas` into `main`.
 
