@@ -17,7 +17,7 @@
 .sc em{font-style:normal;font-size:64px;line-height:1;margin:2px 0 0 6px;color:var(--tx2)}
 .cap{margin-top:10px;font-size:13px;color:var(--mu)}
 .lab{margin-top:14px;font:600 23px/1.15 "Barlow Condensed",sans-serif;color:var(--tx)}
-p.bef{margin-top:6px;font-size:13px;color:var(--tx2)}.bef .illus{margin-left:8px}
+.hero p.bef{margin-top:6px;font-size:13px;color:var(--tx2)}.bef .illus{margin-left:8px}
 .need{font:600 23px/1.2 "Barlow Condensed",sans-serif;max-width:30ch;margin-top:18px}
 .need+p{margin-top:8px;font-size:14px;color:var(--tx2);max-width:62ch}
 .fix{position:relative;margin-top:12px;align-self:start;background:var(--plate);color:var(--plate-tx);padding:22px 18px 16px}
@@ -79,20 +79,18 @@ p.bef{margin-top:6px;font-size:13px;color:var(--tx2)}.bef .illus{margin-left:8px
 .ring .hand{position:absolute;left:calc(100% + 12px);top:3px;font:600 23px/1 Caveat,cursive;white-space:nowrap;transform:rotate(-3deg)}
 .foot{border-top:1px solid var(--tx);margin-top:6px}
 .foot .dr{margin-top:0;border-top:0}
-.ear{display:grid;grid-template-columns:150px 70px minmax(0,1fr) 110px 110px 110px;gap:0 14px;align-items:baseline;padding:6px 0;border-top:1px solid var(--ln)}
+.ear{display:grid;grid-template-columns:150px minmax(0,1fr) 110px 110px 110px;gap:0 14px;align-items:baseline;padding:6px 0;border-top:1px solid var(--ln)}
 .ear.h{border-top:0;padding:0 0 6px;font:600 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
-.ear span:nth-child(n+4),.ear span:nth-child(2){text-align:right}
+.ear span:nth-child(n+3){text-align:right}
 .ear .d{font:600 16px/1 "Barlow Condensed",sans-serif}
 .ear .l{color:var(--tx2)}
 .ear .f{font:700 18px/1 "Barlow Condensed",sans-serif}
-.earlier-none{padding:2px 0 12px;font-size:13px;color:var(--tx2)}
 /* review states: one page, switched from the header (mock-up only) */
 main:not([data-state="thin"]) .only-thin,main:not([data-state="nohands"]) .only-nohands,
-main:not([data-state="nobefore"]) .only-nobefore,[data-state="nobefore"] .earlier-rows,
 [data-state="thin"] .need-profile,[data-state="nohands"] .need-hands,
 [data-state="thin"] .bef,[data-state="nobefore"] .bef{display:none!important}
 .controls .lbl{margin-right:2px}
-@media (max-width:1419px){.hero{grid-template-columns:214px minmax(0,1fr);gap:22px}.sc{font-size:126px}.sc em{font-size:54px}.lab{font-size:21px}.ear{grid-template-columns:140px 60px minmax(0,1fr) 96px 96px 96px}}
+@media (max-width:1419px){.hero{grid-template-columns:214px minmax(0,1fr);gap:22px}.sc{font-size:126px}.sc em{font-size:54px}.lab{font-size:21px}.ear{grid-template-columns:140px minmax(0,1fr) 96px 96px 96px}}
 </style>
 </head>
 <body>
@@ -120,7 +118,7 @@ main:not([data-state="nobefore"]) .only-nobefore,[data-state="nobefore"] .earlie
   </aside>
   <main class="main" id="page" data-state="main">
     <header class="top">
-      <div><h1>Bao Kahn</h1><div class="meta"><b>level 27 Undead Paladin</b> · gear 31 · last 15 days · <span class="need-profile">396 fights</span><span class="only-thin">6 fights</span></div></div>
+      <div><h1>Bao Kahn</h1><div class="meta"><b>level 36 Undead Paladin</b> · gear 31 · last 15 days · <span class="need-profile">396 fights</span><span class="only-thin">6 fights</span></div></div>
       <div class="controls">
         <div class="seg-row"><span class="lbl">Mock-up state</span>
           <div class="seg" role="group" aria-label="Mock-up state" id="states"><button data-state="main" aria-pressed="true">With Before</button><button data-state="nobefore" aria-pressed="false">No Before</button><button data-state="nohands" aria-pressed="false">No recorded run</button><button data-state="thin" aria-pressed="false">Under 10 fights</button></div>
@@ -140,7 +138,7 @@ main:not([data-state="nobefore"]) .only-nobefore,[data-state="nobefore"] .earlie
             <div class="sc c"><span data-count="98">98</span><em>%</em></div>
             <p class="cap">of fight time dealing damage</p>
             <p class="lab">World damage dealer<span class="need-hands"> who keybinds</span>.</p>
-            <p class="bef">Before: hoarding dungeon damage dealer who keybinds.<span class="illus">illustrative</span></p>
+            <p class="bef">Before: hoarding dungeon damage dealer<span class="need-hands"> who keybinds</span>.<span class="illus">illustrative</span></p>
           </div>
           <section class="fix" aria-labelledby="fixh">
             <h2 class="tab" id="fixh">Worth changing</h2>
@@ -159,7 +157,7 @@ main:not([data-state="nobefore"]) .only-nobefore,[data-state="nobefore"] .earlie
           <div class="sig"><span class="n">Consecration</span><span class="c2 c">981</span><div class="bar"><i data-grow style="--i:2;width:8.1%"></i></div><span class="v">8%</span></div>
           <div class="sig"><span class="n">Seal of Command</span><span class="c2 c">672</span><div class="bar"><i data-grow style="--i:3;width:10.9%"></i></div><span class="v">11%</span></div>
           <div class="sig"><span class="n">Seal of the Crusader</span><span class="c2 c">231</span><div class="bar"></div><span class="v na">–</span><p>no damage of its own</p></div>
-          <div class="open"><b>Seal of the Crusader, Judgement, Holy Strike</b><span>your usual opening: the first three presses in 99 of 924 recorded fight starts</span></div>
+          <div class="open"><b>Judgement, Holy Strike, Consecration</b><span>your usual opening: the first three casts in 47 of 396 fights</span></div>
           <details class="dr"><summary><svg viewBox="0 0 10 10" aria-hidden="true"><polyline points="3,1 7,5 3,9"/></svg>All spells <span>(24)</span></summary>
             <table><thead><tr><th>spell</th><th>casts</th><th>share of damage</th></tr></thead><tbody>
 <tr><td>Judgement</td><td>1,665</td><td>13.4%</td></tr>
@@ -193,10 +191,10 @@ main:not([data-state="nobefore"]) .only-nobefore,[data-state="nobefore"] .earlie
         <section class="sec" aria-labelledby="handh">
           <h2 class="tab" id="handh">Hands</h2>
           <div class="need-hands">
-            <div class="fr"><span class="n">Keys or clicks</span><span class="v c">99<small>%</small> keys</span><p>114 clicks in 10,336 presses, over 21 recorded runs</p></div>
-            <div class="fr"><span class="n">Presses per minute</span><span class="v c">21.2</span><p>in combat, 8 h 8 min of it</p></div>
-            <div class="fr"><span class="n"><i style="background:var(--m-cast)"></i>Refused presses</span><span class="v c">16<small>%</small></span><p>2,234 casts the game turned down</p></div>
-            <div class="fr"><span class="n">Casting while moving</span><span class="v c">64</span><p>casts cut short by moving, of 85 interrupted; moving 20% of combat</p></div>
+            <div class="fr"><span class="n">Keys or clicks</span><span class="v c">99<small>% keys</small></span><p>114 clicks in 10,336 presses, in 21 recorded runs</p></div>
+            <div class="fr"><span class="n">Presses per minute</span><span class="v c">21.2</span><p>over 8 h 8 min of combat in recorded runs</p></div>
+            <div class="fr"><span class="n"><i style="background:var(--m-cast)"></i>Refused presses</span><span class="v c" style="color:var(--m-cast)">16<small>%</small></span><p>2,234 presses the game turned down, in recorded runs</p></div>
+            <div class="fr"><span class="n"><i style="background:var(--m-cast)"></i>Casting while moving</span><span class="v c" style="color:var(--m-cast)">64</span><p>casts cut short by moving, of 85 interrupted, in recorded runs</p></div>
           </div>
           <div class="only-nohands">
             <div class="fr"><span class="n">Keys, clicks and presses</span><span class="v c na">–</span><p>Hands needs a recorded run: play with the dips-Score add-on on, then reload.</p></div>
@@ -209,37 +207,35 @@ main:not([data-state="nobefore"]) .only-nobefore,[data-state="nobefore"] .earlie
           <h2 class="tab" id="roleh">Role mix</h2>
           <div class="br g4"><span class="n">Damage</span><div class="bar"><i data-grow style="--i:4;width:97.6%"></i></div><span class="v">98%</span><span class="gr g-B">72<small>B</small></span><p>average of 21 graded runs</p></div>
           <div class="br g4"><span class="n">Healer</span><div class="bar"><i data-grow style="--i:5;width:2.4%"></i></div><span class="v">2%</span><span class="gr na">–</span><p>no run graded as healer yet</p></div>
-          <div class="br g4"><span class="n">Tank</span><div class="bar"></div><span class="v">0%</span><span class="gr na">–</span></div>
+          <div class="br g4"><span class="n">Tank</span><div class="bar"></div><span class="v">0%</span><span class="gr na">–</span><p>no run graded as tank yet</p></div>
         </section>
 
         <section class="sec" aria-labelledby="whereh">
           <h2 class="tab" id="whereh">Where you fight</h2><span class="illus bef">changes illustrative</span>
           <div class="br"><span class="n">World</span><div class="bar"><i data-grow style="--i:6;width:70.4%"></i></div><span class="v">70%</span>
-            <p><span class="bef"><span class="ring"><span class="chip">+29 vs the 15 days before</span><svg viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true"><ellipse class="hl-stroke" data-draw style="--len:520;--i:0" cx="100" cy="20" rx="97" ry="17" transform="rotate(-2 100 20)" stroke-width="3.5" opacity=".85" vector-effect="non-scaling-stroke"/></svg><span class="hand" data-fade style="--i:1">out of dungeons</span></span></span></p></div>
-          <div class="br"><span class="n">Dungeon</span><div class="bar"><i data-grow style="--i:7;width:23.3%"></i></div><span class="v">23%</span><p><span class="chip bef">−29 vs the 15 days before</span>with 12 boss fights</p></div>
+            <p class="bef"><span><span class="ring"><span class="chip">+29 vs the 15 days before</span><svg viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true"><ellipse class="hl-stroke" data-draw style="--len:520;--i:0" cx="100" cy="20" rx="97" ry="17" transform="rotate(-2 100 20)" stroke-width="3.5" opacity=".85" vector-effect="non-scaling-stroke"/></svg><span class="hand" data-fade style="--i:1">out of dungeons</span></span></span></p></div>
+          <div class="br"><span class="n">Dungeon</span><div class="bar"><i data-grow style="--i:7;width:23.3%"></i></div><span class="v">23%</span><p><span class="chip bef">−29 vs the 15 days before</span>dungeon and boss fights</p></div>
           <div class="br"><span class="n">PvP</span><div class="bar"><i data-grow style="--i:7;width:6.2%"></i></div><span class="v">6%</span></div>
-          <div class="br"><span class="n">Raid</span><div class="bar"></div><span class="v">0%</span></div>
         </section>
 
         <section class="sec" aria-labelledby="temph">
-          <h2 class="tab" id="temph">Temperament</h2>
-          <div class="fr"><span class="n"><i style="background:var(--m-surv)"></i>Deaths per hour</span><span class="v c">4.2</span><p>24 deaths in 5 h 47 min of fighting</p></div>
+          <h2 class="tab" id="temph">Temperament</h2><span class="illus bef">change illustrative</span>
+          <div class="fr"><span class="n"><i style="background:var(--m-surv)"></i>Deaths per hour</span><span class="v c" style="color:var(--m-surv)">4.2</span><p>24 deaths in 396 fights, 5 h 47 min of fighting</p></div>
           <div class="fr"><span class="n">Usual pull</span><span class="v c">1 <small>enemy</small></span><p>alone in 228 of 396 fights, 1.7 on average</p></div>
-          <div class="fr"><span class="n">Average lowest health</span><span class="v c">60<small>%</small></span><p>the lowest you dropped, fight by fight</p></div>
-          <div class="fr"><span class="n"><i style="background:var(--m-cd)"></i>Cooldowns used</span><span class="v c">56<small>%</small></span><p>4,046 of 7,221 possible<span class="chip bef">+7 vs the 15 days before</span></p></div>
+          <div class="fr"><span class="n">Average lowest health</span><span class="v c">60<small>%</small></span><p>the lowest you dropped, over 396 fights</p></div>
+          <div class="fr"><span class="n"><i style="background:var(--m-cd)"></i>Cooldowns used</span><span class="v c" style="color:var(--m-cd)">56<small>%</small></span><p>4,046 of 7,221 possible, in 396 fights<span class="chip bef">+7 vs the 15 days before</span></p></div>
         </section>
       </div>
     </div>
 
     <div class="foot">
-      <details class="dr" id="earlier"><summary><svg viewBox="0 0 10 10" aria-hidden="true"><polyline points="3,1 7,5 3,9"/></svg>Earlier <span class="earlier-rows">(3)</span><span class="only-nobefore">(0)</span><span class="illus earlier-rows" style="display:inline;margin-left:6px">illustrative</span></summary>
-        <div class="earlier-rows">
-          <div class="ear h" aria-hidden="true"><span>15 days</span><span>fights</span><span>who you were</span><span>main role</span><span>deaths / hour</span><span>cooldowns used</span></div>
-          <div class="ear"><span class="d">25 Oct to 8 Nov</span><span class="f">214</span><span class="l">Hoarding dungeon damage dealer who keybinds</span><span class="f">96%</span><span class="f">3.1</span><span class="f">49%</span></div>
-          <div class="ear"><span class="d">10 Oct to 24 Oct</span><span class="f">167</span><span class="l">Careful dungeon damage dealer who keybinds</span><span class="f">94%</span><span class="f">1.4</span><span class="f">58%</span></div>
-          <div class="ear"><span class="d">25 Sep to 9 Oct</span><span class="f">88</span><span class="l">Reckless world hybrid who keybinds</span><span class="f">55%</span><span class="f">7.0</span><span class="f">61%</span></div>
+      <details class="dr" id="earlier"><summary><svg viewBox="0 0 10 10" aria-hidden="true"><polyline points="3,1 7,5 3,9"/></svg>Earlier <span>(3)</span><span class="illus" style="margin-left:6px">illustrative</span></summary>
+        <div>
+          <div class="ear h" aria-hidden="true"><span>15 days</span><span>who you were</span><span>main role</span><span>deaths / hour</span><span>cooldowns used</span></div>
+          <div class="ear"><span class="d">25 Oct to 8 Nov</span><span class="l">Hoarding dungeon damage dealer who keybinds</span><span class="f">96%</span><span class="f">3.1</span><span class="f">49%</span></div>
+          <div class="ear"><span class="d">10 Oct to 24 Oct</span><span class="l">Careful dungeon damage dealer who keybinds</span><span class="f">94%</span><span class="f">0.8</span><span class="f">58%</span></div>
+          <div class="ear"><span class="d">25 Sep to 9 Oct</span><span class="l">Reckless world hybrid who keybinds</span><span class="f">55%</span><span class="f">7.0</span><span class="f">61%</span></div>
         </div>
-        <p class="earlier-none only-nobefore">No finished 15-day slice yet. Each one is kept here once its 15 days are over.</p>
       </details>
     </div>
   </main>
