@@ -59,6 +59,11 @@ class Paths:
     def classes_file(self) -> Path:
         return self.data_dir / "classes.json"
 
+    @property
+    def analysis_dir(self) -> Path:
+        """the runs analysed, one file each (store.py)"""
+        return self.data_dir / "cache" / "analysis"
+
     def character_of(self, saved: Path) -> str:
         # .../Account/<account>/<realm>/<character>/SavedVariables/dips-Score.lua
         return saved.parent.parent.name
