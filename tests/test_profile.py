@@ -215,6 +215,18 @@ class View(unittest.TestCase):
         p = page(many(2, result="you died") + many(8)).plate
         self.assertEqual((p.title, p.figure, p.button), ("You die in 20% of your fights", "2 deaths", "Open Habits"))
 
+    def test_plate_why(self):
+        char = {"spells": {"Exorcism": {"harm": True}}}
+        ab = [{"name": "Smite", "casts": 3, "damage": 300}, {"name": "Seal", "casts": 1, "damage": 0}]
+        self.assertEqual(page(many(abilities=ab), char=char).plate.why,
+                         "Smite and Seal carry your casts. Exorcism is the harmful spell left on the bench.")
+        self.assertEqual(page(many(cooldowns=[{"possible": 10, "missed": 6}])).plate.why,
+                         "60 uses of a ready cooldown went unspent.")
+        self.assertEqual(page(many(2, result="you died") + many(8)).plate.why,
+                         "2 of your last 10 fights ended with you dead.")
+        self.assertEqual(page(many(), [run(1, by_key=60, by_click=40)]).plate.why, "")     # nothing real to add
+        self.assertEqual(page(many()).plate.why, "")
+
     def test_nothing_stands_out_strongest(self):
         # margins: keys 0.30 - 0.01 = 0.29, cooldowns 0.90 - 0.50 = 0.40, deaths 0.15 - 0 = 0.15
         p = page(many(cooldowns=[{"possible": 10, "missed": 1}]), [run(1, by_key=99, by_click=1)]).plate
@@ -231,6 +243,26 @@ class View(unittest.TestCase):
         v = page(many(cooldowns=cd(40)) + many(days_ago=20, cooldowns=cd(52)))
         self.assertEqual(row(v.temperament, "Cooldowns used").chip, "−12 vs the 15 days before")
         self.assertIsNone(row(v.temperament, "Deaths per hour").chip)      # per-hour figures get no chip
+
+    def test_chip_from_displayed_figures(self):
+        cd = lambda used: [{"possible": 1000, "missed": 1000 - used}]  # noqa: E731
+        v = page(many(cooldowns=cd(546)) + many(days_ago=20, cooldowns=cd(504)))      # 55 against 50: raw 4.2
+        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "+5 vs the 15 days before")
+        v = page(many(cooldowns=cd(554)) + many(days_ago=20, cooldowns=cd(496)))      # 55 against 50: raw 5.8
+        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "+5 vs the 15 days before")
+        v = page(many(cooldowns=cd(544)) + many(days_ago=20, cooldowns=cd(496)))      # 54 against 50: raw 4.8
+        self.assertIsNone(row(v.temperament, "Cooldowns used").chip)
+
+    def test_role_and_place_marks(self):
+        v = page(many(healing_role=True) + many(days_ago=20))
+        # damage -100 and healer +100 tie: Damage is first on the page
+        self.assertEqual((row(v.roles, "Damage").mark, row(v.roles, "Healer").chip),
+                         ("less damage dealing", "+100 vs the 15 days before"))
+        v = page(many() + many(days_ago=20, kind="Dungeon"))
+        self.assertEqual(row(v.places, "World").mark, "more open world")
+
+    def test_meta_level_without_char(self):
+        self.assertEqual(page(many(level=30)).meta, "level 30 · last 15 days · 10 fights")
 
     def test_highlighter_tie_break_page_order(self):
         # Dungeon 0 -> 50 and World 100 -> 50 both move 50 points; Dungeon is first on the page
@@ -273,6 +305,7 @@ class View(unittest.TestCase):
         self.assertEqual((k.value, k.unit, k.note), ("90", "% keys", "10 clicks in 100 presses, in 1 recorded run"))
         self.assertEqual((row(v.hands, "Refused presses").ink, row(v.hands, "Presses per minute").value),
                          ("m-cast", "10.0"))
+        self.assertEqual(row(v.hands, "Moving in combat").note, "1 min on the move in 10 min of combat, in recorded runs")
 
     def test_roles_grade(self):
         v = page(many(), [run(1)])

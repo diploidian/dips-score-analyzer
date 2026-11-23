@@ -1,6 +1,6 @@
 """What the Profile page shows, as plain data (no Qt), from live.profile.profile() and the saved 15-day slices
 (live.profile_history): the hero (main role share and the label), the "Before:" line, the Worth changing plate,
-Signature, Hands, Role mix, Where you fight, Temperament, the chips and the one highlighter mark (Now against
+Signature (no per-row note but "no damage of its own" for a "–" share), Hands, Role mix, Where you fight, Temperament, the chips and the one highlighter mark (Now against
 Before), the Earlier rows and every empty state. A value that cannot be known renders "–", never a guess.
 
 Inks are token names: share bars "tx2", scored-measure rows their measure ink ("m-cast", "m-surv", "m-cd"),
@@ -18,8 +18,10 @@ PLATE_CLICKS = 0.30         # clicking this share or more of keyed + clicked pre
 PLATE_COOLDOWNS = 0.50      # cooldowns used under this share of possible
 PLATE_DEATHS = 0.15         # dying in this share or more of fights
 DOING = {"damage": "dealing damage", "healer": "healing", "tank": "tanking"}
+ROLE_MOVE = {"damage": "damage dealing", "healer": "healing", "tank": "tanking"}    # "more healing"
 GRADED_AS = {"damage": "damage dealer", "healer": "healer", "tank": "tank"}
-PLACE_MORE = {"Dungeon": "dungeons", "World": "world", "PvP": "PvP"}
+PLACE_MOVE = {"Dungeon": ("more dungeons", "fewer dungeons"), "World": ("more open world", "less open world"),
+              "PvP": ("more PvP", "less PvP")}
 NO_HANDS = "Hands needs a recorded run: play with the dips-Score add-on on, then reload."
 
 
@@ -43,6 +45,7 @@ class Plate:
     title: str
     figure: str
     caption: str
+    why: str = ""               # one plain sentence from real figures; "" when there is nothing real to say
     button: str = "Open Habits"
 
 
@@ -116,6 +119,10 @@ def _earlier(earlier: list[dict]) -> list[EarlierRow]:
     return out
 
 
+def _and(names: list[str]) -> str:
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
 def _plate(now: dict) -> Plate:
     """the first rule that applies; none: "Nothing stands out" with the strongest trait, the measure furthest on
     the good side of its own plate threshold (keys against PLATE_CLICKS, cooldowns against PLATE_COOLDOWNS,
@@ -129,14 +136,20 @@ def _plate(now: dict) -> Plate:
         return Plate("You click instead of pressing keys", f"{_pct(clicks)}% clicks",
                      f"{h['by_click']:,} of {h['by_key'] + h['by_click']:,} presses, in {runs}")
     if cds is not None and cds < PLATE_COOLDOWNS:
+        left = t["cooldowns_possible"] - t["cooldowns_used"]
         return Plate("You leave your cooldowns unused", f"{_pct(cds)}% used",
-                     f"{t['cooldowns_used']:,} of {t['cooldowns_possible']:,} possible, {fights}")
+                     f"{t['cooldowns_used']:,} of {t['cooldowns_possible']:,} possible, {fights}",
+                     f"{_plural(left, 'use')} of a ready cooldown went unspent.")
     if unused:
-        names = unused[:3]
-        said = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
-        return Plate(f"You know {said} and have never cast {'it' if len(names) == 1 else 'them'}", "0 casts", fights)
+        names, one = unused[:3], len(unused[:3]) == 1
+        top = [s["name"] for s in sorted(now["signature"]["spells"], key=lambda s: -s["casts"])[:3]]
+        carry = f"{_and(top)} {'carries' if len(top) == 1 else 'carry'} your casts. " if top else ""
+        bench = f"{_and(names)} {'is the harmful spell' if one else 'are the harmful spells'} left on the bench."
+        return Plate(f"You know {_and(names)} and have never cast {'it' if one else 'them'}", "0 casts", fights,
+                     carry + bench)
     if dying is not None and dying >= PLATE_DEATHS:
-        return Plate(f"You die in {_pct(dying)}% of your fights", _plural(t["deaths"], "death"), fights)
+        return Plate(f"You die in {_pct(dying)}% of your fights", _plural(t["deaths"], "death"), fights,
+                     f"{t['deaths']} of your last {n} fights ended with you dead.")
     best = []
     if clicks is not None:
         best.append((PLATE_CLICKS - clicks, f"{_pct(h['key_share'])}% keys", f"of your presses, in {runs}"))
@@ -154,7 +167,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     now, before = p.get("now"), p.get("before")
     n = now["fights"] if now else 0
     v = ProfileView(title=p.get("name") or "Profile", earlier=_earlier(earlier),
-                    meta=_meta({"char": p.get("char")}, f"last 15 days · {_plural(n, 'fight')}"))
+                    meta=_meta({"char": p.get("char"), "level": p.get("level")}, f"last 15 days · {_plural(n, 'fight')}"))
     v.earlier_title = f"Earlier ({len(v.earlier)})"
     if n < MIN_FIGHTS:
         v.need = f"Your profile needs {MIN_FIGHTS} fights from the last 15 days ({n} so far)."
@@ -163,9 +176,10 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     moves = []      # (row, points, highlighter note) for every share row that got a chip, in page order
 
     def share(row: Row, key, up: str, down: str) -> Row:
-        """a share row's chip (and highlighter candidacy): key(figures) is the share, Now against Before"""
+        """a share row's chip (and highlighter candidacy): key(figures) is the share, Now against Before; the
+        points are the difference of the displayed (rounded) figures"""
         a, b = key(now), key(before) if before else None
-        if a is not None and b is not None and abs(d := round((a - b) * 100)) >= CHIP_MIN:
+        if a is not None and b is not None and abs(d := int(_pct(a)) - int(_pct(b))) >= CHIP_MIN:
             row.chip = f"{'+' if d > 0 else MINUS}{abs(d)} vs the 15 days before"
             moves.append((row, d, up if d > 0 else down))
         return row
@@ -214,8 +228,8 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
             share(Row("Refused presses", _pct(h["refused_share"]), "%" if h["refused_share"] is not None else "",
                       f"{h['failed']:,} presses the game turned down, in recorded runs", ink="m-cast"),
                   g("refused_share"), "more refused", "fewer refused"),
-            share(Row("Casting while moving", _pct(h["moving_share"]), "%" if h["moving_share"] is not None else "",
-                      f"{_hm(h['moving_seconds'])} of {_hm(combat)} of combat on the move, in recorded runs",
+            share(Row("Moving in combat", _pct(h["moving_share"]), "%" if h["moving_share"] is not None else "",
+                      f"{_hm(h['moving_seconds'])} on the move in {_hm(combat)} of combat, in recorded runs",
                       ink="m-cast"),
                   g("moving_share"), "more on the move", "more standing still")]
     else:
@@ -226,19 +240,19 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
         row = Row(role.title(), _pct(sh), "%" if sh is not None else "",
                   ink="tx2", bar=sh)
         if gr:
+            # the painter colours the letter with theme.grade_color(letter): there is no gF token
             row.grade, row.letter = f"{gr['score']:.0f}", gr["grade"]
             row.note = f"average of {_plural(gr['runs'], 'graded run')}"
         else:
             row.grade, row.note = NA, f"no run graded as {GRADED_AS[role]} yet"
-        v.roles.append(share(row, lambda f, r=role: f["roles"][r], f"more {DOING[role]}", f"less {DOING[role]}"))
+        v.roles.append(share(row, lambda f, r=role: f["roles"][r], f"more {ROLE_MOVE[role]}", f"less {ROLE_MOVE[role]}"))
 
     places = now["places"]
     for place in sorted(places, key=lambda k: -(places[k] or 0)):
         sh = places[place]
         v.places.append(share(Row(place, _pct(sh), "%" if sh is not None else "", ink="tx2", bar=sh,
                                   note="dungeon and boss fights" if place == "Dungeon" else ""),
-                              lambda f, k=place: f["places"][k], f"more {PLACE_MORE[place]}",
-                              f"out of {PLACE_MORE[place]}"))
+                              lambda f, k=place: f["places"][k], *PLACE_MOVE[place]))
 
     t = now["temperament"]
     dph, pull, low, cds = t["deaths_per_hour"], t["median_pull"], t["lowest_hp"], t["cooldowns_share"]

@@ -1,7 +1,7 @@
 """Who you are as a player: the newest fight's character over the last 15 days (Now) against days 16 to 30
 (Before). Pure data, plain JSON-able values; a figure that cannot be known is None, never a guess.
 
-profile(fights, char, book, runs, now) -> {"name", "char" (habits.char_block), "now": figures (None only when
+profile(fights, char, book, runs, now) -> {"name", "char" (habits.char_block), "level" (the newest fight's), "now": figures (None only when
 there are no fights at all), "before": figures or None when it has no fights}. Now is fights with start in (now - 15 days, now], Before (now - 30, now - 15].
 
 runs are plain dicts from the recorded runs: start (datetime), role ("tank"/"healer"/"damage"/None), score, grade,
@@ -175,11 +175,11 @@ def label(fig: dict) -> str:
 def profile(fights: list[dict], char: dict | None, book: dict | None, runs: list[dict] | None,
             now: datetime) -> dict:
     if not fights:
-        return {"name": "", "char": None, "now": None, "before": None}
+        return {"name": "", "char": None, "level": None, "now": None, "before": None}
     me = fights[-1]["me"]
     mine = [f for f in fights if f["me"] == me]
     book, runs = book or {}, runs or []
     before = figures(mine, char, book, runs, now - 2 * SLICE, now - SLICE)
-    return {"name": fights[-1].get("me_name", ""), "char": char_block(char),
+    return {"name": fights[-1].get("me_name", ""), "char": char_block(char), "level": fights[-1].get("level"),
             "now": figures(mine, char, book, runs, now - SLICE, now),
             "before": before if before["fights"] else None}
