@@ -8,17 +8,16 @@ a new visit opens by itself.
 from __future__ import annotations
 
 import sys
-import traceback
 from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import QFileSystemWatcher, QStandardPaths, Qt, QTimer
 from PyQt6.QtGui import QFont, QGuiApplication, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QInputDialog, QLabel, QMainWindow, QMenu,
-                             QMessageBox, QPushButton, QSplitter, QStackedWidget, QTabWidget, QTreeWidget,
-                             QTreeWidgetItem, QVBoxLayout, QWidget)
+                             QMessageBox, QProgressBar, QPushButton, QSplitter, QStackedWidget, QTabWidget,
+                             QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
-from .. import analysis, names, removed
+from .. import analysis, names, removed, store
 from ..analysis import Analysis
 from ..config import Paths
 from ..debrief import DebriefView
@@ -30,6 +29,8 @@ from ..sources.savedvars import Run
 from . import settings as app_settings
 from . import share, texture, theme
 from .group import GroupTab
+from .kit import HEAD_H, Sheet
+from .loader import Loader
 from .pages import DungeonPage, ScoreTab, dim_label
 from .pulls import PullsTab
 from .spells import SpellsTab
@@ -54,7 +55,17 @@ class Window(QMainWindow):
         self.runs: list[Run] = []
         self.by_id: dict[str, Run] = {}
         self.current: Analysis | None = None
-        self.cache: dict[tuple, Analysis] = {}
+        self.cache: dict[tuple, Analysis] = {}     # the runs asked for, by key (one per run, the newest)
+        self.scores: dict[tuple, str] = {}         # a warmed-up run's score for its rail row; its analysis is on disk
+        self.wanted: set[str] = set()              # runs asked for to be shown: theirs stay in memory when in
+        self.failed: set[tuple] = set()            # keys that couldn't be analysed, until that's shown
+        self.waiting: tuple | None = None          # (run ids, redo): what the loading page waits for, and shows it
+        self.warming: set[str] = set()             # the warm-up's runs still to come, of warm_n
+        self.warm_n = 0
+        self.loader = Loader(paths, self)
+        self.loader.done.connect(self._arrived)
+        self.warm_timer = QTimer(singleShot=True, interval=3000)    # after start and each reload: the window first
+        self.warm_timer.timeout.connect(self._warm_up)
         names.load(paths.names_file)
         removed.load(paths.removed_file)
         self.setWindowTitle("dips score")
@@ -154,7 +165,8 @@ class Window(QMainWindow):
         self.dungeon = DungeonPage()
         self.dungeon.open_run.connect(self._open_run_id)
         # Bosses' "Show the fight": that visit, its Timeline tab at the fight
-        self.dungeon.show_fight.connect(lambda rid, a, b: (self._open_run_id(rid), self.show_on_timeline(a, b)))
+        self.dungeon.show_fight.connect(lambda rid, a, b: (self._open_run_id(rid),
+                                                           self._after(lambda: self.show_on_timeline(a, b))))
         self.score, self.group, self.pulls = ScoreTab(), GroupTab(), PullsTab()
         self.score.page.settings = self.settings
         self.spells = SpellsTab()
@@ -184,6 +196,15 @@ class Window(QMainWindow):
         self.stack.addWidget(self.fight_detail)          # 2
         self.habits_page = HabitsPage()
         self.stack.addWidget(self.habits_page)           # 3
+        self.wait_page = Sheet()                         # 4: a run (or a dungeon's visits) being analysed
+        self.wait_bar = QProgressBar()
+        self.wait_bar.setTextVisible(False)
+        wl = QVBoxLayout(self.wait_page)
+        wl.setContentsMargins(16, 4, 16, 16)
+        wl.addSpacing(HEAD_H + 14)
+        wl.addWidget(self.wait_bar)
+        wl.addStretch(1)
+        self.stack.addWidget(self.wait_page)
         self.habits_page.open_fights.connect(lambda: self._mode("fights"))     # R8: the list stays unfiltered
         self.fight_list.picked.connect(self._show_fight)
         self.fight_detail.show_me.connect(self._fight_on_timeline)     # Show on the timeline (R7: the loaded run)
@@ -219,7 +240,9 @@ class Window(QMainWindow):
         if text is not None:
             self.status_text = text
         lag = self.live.live.lag if hasattr(self, "live") else None    # the first reload runs before the controller
-        self.status.setText(self.status_text + ("" if lag is None else f" · log delay {lag:.1f} s"))
+        text = (f"Getting runs ready · {self.warm_n - len(self.warming)} of {self.warm_n}" if self.warming
+                else self.status_text)
+        self.status.setText(text + ("" if lag is None else f" · log delay {lag:.1f} s"))
         self.status.setToolTip("" if lag is None else
                                "Log delay: how long the game takes to write a fight to its log file. "
                                "The app cannot shorten it.")
@@ -256,6 +279,7 @@ class Window(QMainWindow):
             self.live.load_chars()
         self._watch()
         self.by_id = {r.id: r for r in self.runs}
+        store.prune(self.paths.analysis_dir, self.by_id)
         new = [r for r in self.runs if had and r.id not in had]
         if new and all((r.kind == "raid") != self.raid for r in new):    # the game saved a visit of the other section
             self.raid = not self.raid
@@ -263,6 +287,8 @@ class Window(QMainWindow):
                 self.mode_dungeons.setChecked(not self.raid)
                 self.mode_raids.setChecked(self.raid)
         self._fill_tree(keep, had)
+        if self.loader.threaded:        # inline (the tests) it would hold the window for every run
+            self.warm_timer.start()
 
     def _fill_tree(self, keep: str | None, had: set):
         """the section's dungeons and their visits; opens the visit `keep` (or a fresh one, or the newest)"""
@@ -308,10 +334,8 @@ class Window(QMainWindow):
             self.tree.setCurrentItem(select)     # shows it (currentItemChanged)
 
     def _run_label(self, r: Run) -> str:
-        a = self._cached(r)
-        score = ""
-        if a and not a.card.empty:
-            score = f"   {a.card.total:.0f} {a.card.grade}"
+        key = self._key(r)
+        score = score_text(self.cache[key]) if key in self.cache else self.scores.get(key, "")
         when = names.get(r.id) or f"{r.start_time:%a %d %b  %H:%M}"     # your name for it, else its date
         return f"{when}{score}"
 
@@ -319,21 +343,63 @@ class Window(QMainWindow):
         picks = self.paths.roster_file.stat().st_mtime if self.paths.roster_file.exists() else 0
         return analysis.run_key(run, sorted(self.paths.logs.glob("WoWCombatLog*.txt")), picks)
 
-    def _cached(self, run: Run) -> Analysis | None:
-        return self.cache.get(self._key(run))
+    def _need(self, runs: list[Run]) -> list[Run]:
+        """the runs not in memory, asked for; returns those still to come (none, with the loader inline)"""
+        for r in runs:
+            if (key := self._key(r)) not in self.cache and key not in self.failed:
+                self.wanted.add(r.id)
+                self.loader.want(r, key, urgent=True)
+        return [r for r in runs if (key := self._key(r)) not in self.cache and key not in self.failed]
 
-    def _analysis(self, run: Run) -> Analysis:
-        key = self._key(run)
-        if key not in self.cache:
-            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-            try:
-                a = analysis.analyze(run, self.paths)
-            finally:
-                QApplication.restoreOverrideCursor()
-            for old in [k for k in self.cache if k[0] == run.id]:    # one analysis per run, the newest
-                del self.cache[old]
-            self.cache[key] = a
-        return self.cache[key]
+    def _wait(self, ids: set, redo, title: str, sub: str, n: int = 0, of: int = 0):
+        """the loading page (a moving bar, or n of `of`) until a run in ids comes in; redo then shows it"""
+        self.waiting = (ids, redo)
+        self.wait_page.title, self.wait_page.sub = title, sub
+        self.wait_bar.setRange(0, of)
+        self.wait_bar.setValue(n)
+        self.wait_page.update()
+        self.stack.setCurrentWidget(self.wait_page)
+
+    def _after(self, fn):
+        """fn now, or once what the loading page waits for is in and shown"""
+        if self.waiting:
+            ids, redo = self.waiting
+            self.waiting = (ids, lambda: (redo(), self._after(fn)))
+        else:
+            fn()
+
+    def _arrived(self, rid: str, key: tuple, a: Analysis | None, err: str):
+        """a run in from the loader: in memory when asked for (warmed up: only its score), shown if waited on"""
+        self.warming.discard(rid)
+        wanted = rid in self.wanted
+        self.wanted.discard(rid)
+        if a is None:
+            if wanted:
+                sys.stderr.write(err)       # as traceback.print_exc did
+                self.failed.add(key)
+        else:
+            analysis.rescore(a)             # the store's were scored with the weights of their day
+            self.scores = {k: v for k, v in self.scores.items() if k[0] != rid}
+            if wanted:
+                for old in [k for k in self.cache if k[0] == rid]:    # one analysis per run, the newest
+                    del self.cache[old]
+                self.cache[key] = a
+            else:
+                self.scores[key] = score_text(a)
+        self._refresh_labels()
+        if self.waiting and rid in self.waiting[0]:
+            redo, self.waiting = self.waiting[1], None
+            redo()
+        self._status()
+
+    def _warm_up(self):
+        """every run not in memory, newest first, got in the background: its score on its row, its analysis on disk"""
+        todo = [(r, key) for r in sorted(self.runs, key=lambda r: r.started, reverse=True)
+                if (key := self._key(r)) not in self.cache and key not in self.scores]
+        self.warming, self.warm_n = {r.id for r, _ in todo}, len(todo)
+        for r, key in todo:
+            self.loader.want(r, key, urgent=False)
+        self._status()
 
     # ------------------------------------------------------------------ showing
     def _picked(self, it: QTreeWidgetItem | None, _prev=None):
@@ -343,34 +409,49 @@ class Window(QMainWindow):
         if self.left_stack.currentIndex() == 1:     # Fights or Habits: a reload's visit still loads behind the page,
             if key in self.by_id:                   # so its fights get Show on the timeline (R7)
                 page = self.stack.currentIndex()
+
+                def back():
+                    self.stack.setCurrentIndex(page)
+                    if page == 2:
+                        self._show_fight(self._fight())
                 self._show_run(self.by_id[key])
-                self.stack.setCurrentIndex(page)
-                if page == 2:
-                    self._show_fight(self._fight())
+                self.stack.setCurrentIndex(page)        # a loading page waits behind it too
+                self._after(back)
             return
         if key.startswith("zone:"):
-            zone = key[5:]
-            visits = analysis.dungeons(self.runs, raid=self.raid).get(zone, [])
-            analyses = {}
-            for r in visits:
-                try:
-                    analyses[r.id] = self._analysis(r)
-                except Exception:
-                    traceback.print_exc()
-            self._refresh_labels()
-            self.dungeon.show_dungeon(zone, visits, analyses)
-            self.stack.setCurrentIndex(0)
+            self._show_zone(key[5:])
             return
         run = self.by_id.get(key)
         if run:
             self._show_run(run)
 
+    def _show_zone(self, zone: str):
+        """a dungeon's page, once all its visits are in (one that can't be analysed is left out)"""
+        visits = analysis.dungeons(self.runs, raid=self.raid).get(zone, [])
+        if missing := self._need(visits):
+            n = len(visits) - len(missing)
+            self._wait({r.id for r in missing}, lambda: self._show_zone(zone), zone,
+                       f"Analysing {zone} · {n} of {len(visits)}", n, len(visits))
+            return
+        self.waiting = None
+        analyses = {}
+        for r in visits:
+            if (key := self._key(r)) in self.cache:
+                analyses[r.id] = self.cache[key]
+            else:
+                self.failed.discard(key)        # said once (the terminal); asked again, it's tried again
+        self._refresh_labels()
+        self.dungeon.show_dungeon(zone, visits, analyses)
+        self.stack.setCurrentIndex(0)
+
     def _show_run(self, run: Run):
-        try:
-            self.current = self._analysis(run)
-        except Exception:
-            traceback.print_exc()
-            self.current = None
+        if self._need([run]):
+            self._wait({run.id}, lambda: self._show_run(run), names.titled(run.id, run.zone), "Analysing this run…")
+            return
+        self.waiting = None
+        key = self._key(run)
+        self.current = self.cache.get(key)
+        self.failed.discard(key)                # said once; picked again, it's tried again
         for tab in (self.score, self.group, self.pulls, self.spells, self.timeline_tab):
             tab.set_analysis(self.current)      # None: no tab keeps showing the last run
         if self.current is None:
@@ -399,6 +480,8 @@ class Window(QMainWindow):
         self.tabs.setCurrentWidget(self.timeline_tab)
 
     def _mode(self, which: str):
+        if self.stack.currentWidget() is self.wait_page:
+            self.waiting = None         # left: what it loads is kept, not shown
         self.mode_dungeons.setChecked(which == "dungeons")
         self.mode_raids.setChecked(which == "raids")
         self.mode_fights.setChecked(which == "fights")
@@ -436,8 +519,7 @@ class Window(QMainWindow):
         """a live fight's Show on the timeline: the loaded run's Timeline tab (the fight is inside it), zoomed to it"""
         self._open_run_id(self.current.data.run.id)      # in Fights mode the tree only takes the pick
         self._mode("raids" if self.raid else "dungeons")     # which shows the run's tabs again
-        self.stack.setCurrentIndex(1)
-        self.show_on_timeline(start, end)
+        self._after(lambda: (self.stack.setCurrentIndex(1), self.show_on_timeline(start, end)))
 
     def _show_habits(self):
         h = self.live.history
@@ -518,11 +600,13 @@ class Window(QMainWindow):
             removed.add(self.paths.removed_file, ids)
             self.live.history.remove(ids)
             names.rename(self.paths.names_file, rid, "")
+            (self.paths.analysis_dir / f"{store.file_name(rid)}.pkl").unlink(missing_ok=True)
         except OSError as e:      # a file can't be written: it stays gone until the app closes
             self._status(f"Couldn't save the delete ({e})")
         if run:
             for k in [k for k in self.cache if k[0] == rid]:
                 del self.cache[k]
+            self.scores = {k: v for k, v in self.scores.items() if k[0] != rid}
             if self.current and self.current.data.run.id == rid:     # else _redraw shows it again
                 self.current = None
             self.reload()
@@ -587,8 +671,7 @@ class Window(QMainWindow):
             self._show_fight(self._fight())
         elif self.stack.currentIndex() == 1 and self.current:
             self._show_run(self.current.data.run)
-            self.tabs.setCurrentIndex(tab)
-            self.timeline.set_view(*view)
+            self._after(lambda: (self.tabs.setCurrentIndex(tab), self.timeline.set_view(*view)))
         else:
             self._picked(self.tree.currentItem())
         self._refresh_labels()
@@ -605,6 +688,9 @@ class Window(QMainWindow):
         keeping the Debrief's fight, the Timeline's view and a spell lit from Spells"""
         for a in self.cache.values():
             analysis.rescore(a)
+        self.scores.clear()             # the warmed-up runs' are scored again from disk, once the sliders rest
+        if self.loader.threaded:
+            self.warm_timer.start()
         self._refresh_labels()
         if self.stack.currentIndex() == 1 and self.current:
             fight = self.score.fight
@@ -651,10 +737,25 @@ class Window(QMainWindow):
         tab = self.tabs.currentIndex()
         view = (self.timeline.v0, self.timeline.v1)
         if self.current:
-            self._show_run(self.current.data.run)
+            self._show_run(self.current.data.run)      # new picks: a new key, so analysed again
         if keep_tab:
-            self.tabs.setCurrentIndex(tab)
-            self.timeline.set_view(*view)
+            self._after(lambda: (self.tabs.setCurrentIndex(tab), self.timeline.set_view(*view)))
+
+    def closeEvent(self, ev):
+        self.loader.drop()              # the run in hand still lands in the store
+        self.warming.clear()
+        self._status()
+        super().closeEvent(ev)
+
+    def showEvent(self, ev):
+        super().showEvent(ev)
+        if self.waiting and self.stack.currentWidget() is self.wait_page:    # reopened: ask again for what was dropped
+            self.waiting[1]()
+
+
+def score_text(a: Analysis) -> str:
+    """a run's score and grade, for its rail row"""
+    return "" if a.card.empty else f"   {a.card.total:.0f} {a.card.grade}"
 
 
 def apply_look(paths: Paths, settings: dict):

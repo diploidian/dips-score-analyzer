@@ -182,6 +182,8 @@ QPushButton, QToolButton {{ background: {T["btn"].name()}; color: {T["btn-tx"].n
 QPushButton:hover, QToolButton:hover {{ border-color: {hl}; }}
 QPushButton:checked {{ border-color: {hl}; }}
 QPushButton#showme {{ border-color: {T["plate-ln"].name()}; font-size: 13px; font-weight: 600; padding: 10px 16px; }}
+QProgressBar {{ background: {T["track"].name()}; border: 0; max-height: 6px; }}
+QProgressBar::chunk {{ background: {hl}; }}
 QToolTip {{ background: {T["panel"].name()}; color: {tx}; border: 1px solid {ln}; padding: 4px; }}
 QLineEdit, QSpinBox {{ background: {T["panel"].name()}; border: 1px solid {ln}; selection-background-color: {hl};
     selection-color: {T["bg"].name()}; }}

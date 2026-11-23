@@ -2,6 +2,7 @@
 Needs PyQt6, so it is skipped on a Python without it:
 PYTHONPATH=<folder with PyQt6> python -m unittest discover -s tests"""
 import importlib.util
+import io
 import os
 import sys
 import tempfile
@@ -18,6 +19,12 @@ HAVE_QT = importlib.util.find_spec("PyQt6") is not None
 
 @unittest.skipUnless(HAVE_QT, "needs PyQt6")
 class ShellTests(unittest.TestCase):
+    def setUp(self):
+        from dips_score.ui.loader import Loader
+        inline = mock.patch.object(Loader, "threaded", False)      # a run is in as soon as it's asked for
+        inline.start()
+        self.addCleanup(inline.stop)
+
     def test_tabs_and_show_on_timeline(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         from PyQt6.QtWidgets import QApplication
@@ -137,9 +144,9 @@ class ShellTests(unittest.TestCase):
             pages = (w.timeline_tab, w.pulls, w.spells, w.group)
             for tab in pages:
                 tab.page.title = "Blackfathom Deeps"         # the last run's
-            with mock.patch.object(Window, "_analysis", side_effect=ValueError("broken log")), \
-                    mock.patch("dips_score.ui.app.traceback.print_exc"):
-                w._show_run(SimpleNamespace(id="r9", zone="Wailing Caverns"))
+            with mock.patch("dips_score.analysis.analyze", side_effect=ValueError("broken log")), \
+                    mock.patch("sys.stderr", io.StringIO()):
+                w._show_run(SimpleNamespace(id="r9", zone="Wailing Caverns", line_count=9, end_estimate=0))
             self.assertIsNone(w.current)
             self.assertEqual((w.score.page.title, w.score.page.sub),
                              ("Wailing Caverns", "Couldn't analyze this run - see the terminal."))
@@ -159,9 +166,10 @@ class ShellTests(unittest.TestCase):
 
         def run(rid, start, length):
             return SimpleNamespace(id=rid, zone="Kalimdor", kind="world", started=start.timestamp(), start_time=start,
-                                   line_count=9, parts=[rid], length=length, end_estimate=start.timestamp() + length)
+                                   line_count=int(length), parts=[rid], length=length,
+                                   end_estimate=start.timestamp() + length)
 
-        def analysed(_self, r):
+        def analysed(r, _paths):
             return SimpleNamespace(data=SimpleNamespace(run=r, start=r.start_time, duration=r.length),
                                    card=SimpleNamespace(empty=True))
         start = datetime(2026, 11, 18, 23, 30)          # the fight is 530 s to 642 s into the visit
@@ -174,7 +182,7 @@ class ShellTests(unittest.TestCase):
             w.fight_list.set_fights([fight])
             later = start.replace(minute=50)
             with mock.patch("dips_score.analysis.load_saved", return_value=(None, [run("r7", start, 300.0)])) as load, \
-                    mock.patch.object(Window, "_analysis", analysed):
+                    mock.patch("dips_score.analysis.analyze", analysed), mock.patch("dips_score.analysis.rescore"):
                 w.reload()                                  # the visit, as the game last saved it
                 w._mode("fights")
                 self.assertFalse(w.fight_detail.plate.has_button)     # the fight came after that save
@@ -223,11 +231,10 @@ class ShellTests(unittest.TestCase):
                 load.return_value = (None, [r6, r7, run("r8", 40)])
                 w.reload()                                  # the game saved a new visit: it opens
                 self.assertEqual(shown[-1], "r8")
-            keys = iter([("r6", 1), ("r6", 2)])
-            with mock.patch.object(Window, "_key", lambda _s, _r: next(keys)), \
-                    mock.patch("dips_score.analysis.analyze", side_effect=lambda r, _p: object()):
-                w._analysis(r6)
-                w._analysis(r6)                             # the log changed under it: analysed again
+            with mock.patch("dips_score.analysis.rescore"):
+                for key in (("r6", 1), ("r6", 2)):          # the log changed under it: analysed again
+                    w.wanted.add("r6")
+                    w._arrived("r6", key, SimpleNamespace(card=SimpleNamespace(empty=True)), "")
             self.assertEqual([k for k in w.cache if k[0] == "r6"], [("r6", 2)])
 
     def test_raids_have_their_own_section(self):
@@ -313,8 +320,8 @@ class ShellTests(unittest.TestCase):
             w.live.history.fights = [fight]
             row = lambda: w.tree.topLevelItem(0).child(0)      # noqa: E731
             with mock.patch("dips_score.analysis.load_saved", return_value=(None, [run])), \
-                    mock.patch.object(Window, "_analysis", side_effect=ValueError("no log")), \
-                    mock.patch("dips_score.ui.app.traceback.print_exc"):
+                    mock.patch("dips_score.analysis.analyze", side_effect=ValueError("no log")), \
+                    mock.patch("sys.stderr", io.StringIO()):
                 w.reload()
                 self.assertTrue(row().text(0).startswith("Wed 18 Nov"))
                 w.set_name("r6", "guild run with Anna")
@@ -356,8 +363,8 @@ class ShellTests(unittest.TestCase):
             rows = lambda: [t.child(j).data(0, RUN_ROLE) for t in tops() for j in range(t.childCount())]  # noqa: E731
             with mock.patch("dips_score.analysis.load_runs", return_value=runs), \
                     mock.patch.object(Paths, "saved_files", return_value=[Path(tmp) / "dips-Score.lua"]), \
-                    mock.patch.object(Window, "_analysis", side_effect=ValueError("no log")), \
-                    mock.patch("dips_score.ui.app.traceback.print_exc"):
+                    mock.patch("dips_score.analysis.analyze", side_effect=ValueError("no log")), \
+                    mock.patch("sys.stderr", io.StringIO()):
                 w.reload()
                 self.assertEqual(rows(), ["r7", "r6"])
                 w.set_name("r6", "guild run with Anna")
@@ -425,6 +432,133 @@ class ShellTests(unittest.TestCase):
             w.habits_page.plate.button.click()
             self.assertTrue(w.mode_fights.isChecked())
             self.assertEqual((w.stack.currentIndex(), w.left_stack.currentIndex()), (2, 1))
+
+    def loading_window(self, tmp, runs):
+        """a window whose runs are asked for but don't come in until _arrived is called (the loader's thread)"""
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        w = Window(Paths(Path(tmp) / "no game"))
+        w.live.timer.stop()
+        for tab in (w.score, w.group, w.pulls, w.spells, w.timeline_tab):
+            tab.set_analysis = lambda _a: None          # the stub visits aren't drawn
+        w.asked = []
+        w.loader.want = lambda run, key, urgent: w.asked.append((run.id, key, urgent))
+        load = mock.patch("dips_score.analysis.load_saved", return_value=(None, runs))
+        load.start()
+        self.addCleanup(load.stop)
+        rescore = mock.patch("dips_score.analysis.rescore")
+        rescore.start()
+        self.addCleanup(rescore.stop)
+        w.reload()
+        return w
+
+    def arrive(self, w, rid):
+        """the loader's answer for a run asked for"""
+        key = next(k for r, k, _u in w.asked if r == rid)
+        a = SimpleNamespace(data=SimpleNamespace(run=w.by_id[rid]), card=SimpleNamespace(empty=True))
+        w._arrived(rid, key, a, "")
+        return a
+
+    @staticmethod
+    def visit(rid, minute, zone="Blackfathom Deeps"):
+        at = datetime(2026, 11, 18, 22, minute)
+        return SimpleNamespace(id=rid, zone=zone, kind="party", started=at.timestamp(), start_time=at, line_count=9,
+                               parts=[rid], end_estimate=at.timestamp() + 600)
+
+    def test_a_run_shows_a_loading_page_until_it_is_in(self):
+        """picking a run not in memory: the loading page with a moving bar, then its tabs once it's in, on the tab
+        you were on"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = self.loading_window(tmp, [self.visit("r6", 10)])      # the newest visit opens: asked for
+            self.assertEqual([(r, u) for r, _k, u in w.asked], [("r6", True)])
+            self.assertIs(w.stack.currentWidget(), w.wait_page)
+            self.assertEqual((w.wait_page.title, w.wait_page.sub), ("Blackfathom Deeps", "Analysing this run…"))
+            self.assertEqual(w.wait_bar.maximum(), 0)                   # moving
+            w.tabs.setCurrentWidget(w.spells)
+            a = self.arrive(w, "r6")
+            self.assertEqual((w.stack.currentIndex(), w.current), (1, a))
+            self.assertIs(w.tabs.currentWidget(), w.spells)
+            w.dungeon.show_dungeon = lambda *_a: None
+            w.tree.setCurrentItem(w.tree.topLevelItem(0))
+            w.tree.setCurrentItem(w.tree.topLevelItem(0).child(0))      # picked again: in memory, no ask
+            self.assertEqual((len(w.asked), w.stack.currentIndex()), (1, 1))
+
+    def test_a_dungeon_page_counts_its_visits_in(self):
+        """a dungeon's page: n of N on the loading page, then the page once all its visits are in"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = self.loading_window(tmp, [self.visit("r6", 10), self.visit("r7", 20)])
+            shown = []
+            w.dungeon.show_dungeon = lambda zone, visits, analyses: shown.append((zone, sorted(analyses)))
+            w.tree.setCurrentItem(w.tree.topLevelItem(0))
+            self.assertIs(w.stack.currentWidget(), w.wait_page)
+            self.assertEqual(w.wait_page.sub, "Analysing Blackfathom Deeps · 0 of 2")
+            self.arrive(w, "r7")
+            self.assertEqual((w.wait_page.sub, w.wait_bar.value(), w.wait_bar.maximum()),
+                             ("Analysing Blackfathom Deeps · 1 of 2", 1, 2))
+            self.assertEqual(shown, [])
+            self.arrive(w, "r6")
+            self.assertEqual(shown, [("Blackfathom Deeps", ["r6", "r7"])])
+            self.assertEqual(w.stack.currentIndex(), 0)
+
+    def test_picking_another_run_while_one_loads_shows_the_new_one(self):
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = self.loading_window(tmp, [self.visit("r6", 10), self.visit("r8", 30, "Wailing Caverns")])
+            self.assertEqual(w.wait_page.title, "Wailing Caverns")          # the newest, asked for
+            w.tree.setCurrentItem(w.tree.topLevelItem(1).child(0))          # then the other, while it loads
+            self.assertEqual(w.wait_page.title, "Blackfathom Deeps")
+            self.arrive(w, "r8")                                            # the first in: kept, not shown
+            self.assertIs(w.stack.currentWidget(), w.wait_page)
+            a = self.arrive(w, "r6")
+            self.assertEqual((w.stack.currentIndex(), w.current), (1, a))
+            self.assertEqual(len(w.cache), 2)
+
+    def test_a_run_opens_from_the_store_next_time(self):
+        """a run analysed once is read back from disk by the next window (the next start), not analysed again;
+        the warm-up gets the rest: their scores on the rail, their analyses on disk only"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        runs = [self.visit("r6", 10), self.visit("r7", 20)]
+
+        def analysed(r, _paths):
+            return SimpleNamespace(data=SimpleNamespace(run=r), card=SimpleNamespace(empty=False, total=87, grade="A"))
+
+        def window():
+            load.return_value = (None, [])
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            for tab in (w.score, w.group, w.pulls, w.spells, w.timeline_tab):
+                tab.set_analysis = lambda _a: None          # the stub visits aren't drawn
+            load.return_value = (None, runs)
+            w.reload()
+            return w
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}), \
+                mock.patch("dips_score.analysis.load_saved") as load, mock.patch("dips_score.analysis.rescore"):
+            with mock.patch("dips_score.analysis.analyze", side_effect=analysed) as analyze:
+                w = window()
+                self.assertEqual((w.current.data.run.id, analyze.call_count), ("r7", 1))
+                w._warm_up()                                # the 3 s timer's, with the loader inline
+                self.assertEqual((analyze.call_count, len(w.cache), list(w.scores.values())), (2, 1, ["   87 A"]))
+                self.assertTrue(w.tree.topLevelItem(0).child(1).text(0).endswith("87 A"))
+                self.assertNotIn("Getting runs ready", w.status.text())
+            with mock.patch("dips_score.analysis.analyze") as analyze:
+                again = window()
+                again.tree.setCurrentItem(again.tree.topLevelItem(0).child(1))
+                analyze.assert_not_called()
+                self.assertEqual((again.current.data.run.id, again.current.card.total), ("r6", 87))
+            self.assertEqual(sorted(f.name for f in (Path(tmp) / "dips-score" / "cache" / "analysis").iterdir()),
+                             ["r6.pkl", "r7.pkl"])
 
 
 if __name__ == "__main__":
