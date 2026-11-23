@@ -33,7 +33,8 @@ def _plural(n: int, word: str) -> str:
     return f"{n} {word}{'' if n == 1 else 's'}"
 
 
-def _meta(h: dict) -> str:
+def _meta(h: dict, tail: str | None = None) -> str:
+    """the character line, ending with tail (default "last n fights"); the Profile page reuses it"""
     c = h.get("char")
     if c:
         kind = " ".join(x.title() for x in (c.get("race"), c.get("class")) if x)
@@ -41,7 +42,7 @@ def _meta(h: dict) -> str:
                c.get("spec"), f"gear {c['gear']}" if c.get("gear") else ""]
     else:
         who = [f"level {h['level']}" if h.get("level") else ""]
-    return " · ".join([x for x in who if x] + [f"last {_plural(h['fights'], 'fight')}"])
+    return " · ".join([x for x in who if x] + [tail or f"last {_plural(h['fights'], 'fight')}"])
 
 
 def _figures(s: dict | None) -> list[tuple[str, str]]:

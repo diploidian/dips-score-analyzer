@@ -1,0 +1,262 @@
+"""What the Profile page shows, as plain data (no Qt), from live.profile.profile() and the saved 15-day slices
+(live.profile_history): the hero (main role share and the label), the "Before:" line, the Worth changing plate,
+Signature, Hands, Role mix, Where you fight, Temperament, the chips and the one highlighter mark (Now against
+Before), the Earlier rows and every empty state. A value that cannot be known renders "–", never a guess.
+
+Inks are token names: share bars "tx2", scored-measure rows their measure ink ("m-cast", "m-surv", "m-cd"),
+other figures "tx", a grade letter "g<letter>"."""
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+
+from .habits_view import MINUS, _meta, _plural
+from .live.profile_history import MIN_FIGHTS
+
+NA = "–"
+CHIP_MIN = 5                # percentage points a share row must move against Before to get a chip
+# the plate rule table: first that applies (see _plate)
+PLATE_CLICKS = 0.30         # clicking this share or more of keyed + clicked presses
+PLATE_COOLDOWNS = 0.50      # cooldowns used under this share of possible
+PLATE_DEATHS = 0.15         # dying in this share or more of fights
+DOING = {"damage": "dealing damage", "healer": "healing", "tank": "tanking"}
+GRADED_AS = {"damage": "damage dealer", "healer": "healer", "tank": "tank"}
+PLACE_MORE = {"Dungeon": "dungeons", "World": "world", "PvP": "PvP"}
+NO_HANDS = "Hands needs a recorded run: play with the dips-Score add-on on, then reload."
+
+
+@dataclass
+class Row:
+    name: str
+    value: str = NA             # "98", "4.2", "–"
+    unit: str = ""              # small text after the value: "%", "% keys", "enemy"
+    note: str = ""              # the line under the row
+    ink: str = "tx"             # the value's (and bar's) colour token
+    bar: float | None = None    # bar length 0..1; None for a figure row or a share that cannot be known
+    chip: str | None = None     # "+12 vs the 15 days before"
+    mark: str | None = None     # the highlighter's note; on one row of the page at most
+    casts: str = ""             # Signature: "1,665"
+    grade: str = ""             # Role mix: mean score "72", or "–"
+    letter: str = ""            # Role mix: grade letter "B"
+
+
+@dataclass
+class Plate:
+    title: str
+    figure: str
+    caption: str
+    button: str = "Open Habits"
+
+
+@dataclass
+class EarlierRow:
+    dates: str                  # "25 Oct to 8 Nov"
+    label: str
+    role: str                   # main role share "96%"
+    deaths: str                 # deaths per hour "3.1"
+    cooldowns: str              # cooldowns used "49%"
+
+
+@dataclass
+class ProfileView:
+    title: str = "Profile"      # the character's name
+    meta: str = ""              # "level 36 Undead Paladin · gear 31 · last 15 days · 396 fights"
+    need: str | None = None     # under MIN_FIGHTS: the headline; the page then shows only it, need_line and Earlier
+    need_line: str = ""
+    hero: str = NA              # main role share, "98"
+    hero_unit: str = "%"
+    caption: str = ""           # "of fight time dealing damage"
+    label: str = ""             # "World damage dealer who keybinds."
+    before: str | None = None   # "Before: hoarding dungeon damage dealer."
+    plate: Plate | None = None
+    sig_header: str = ""        # "share of your damage" / "share of your casts"
+    signature: list[Row] = field(default_factory=list)
+    opener: str = NA            # "Judgement, Holy Strike, Consecration"
+    opener_note: str = ""
+    spells_title: str = ""      # "All spells (24)"
+    spells_header: str = ""     # "share of damage"
+    spells: list[tuple[str, str, str]] = field(default_factory=list)    # (name, casts, share "13.4%" or "–")
+    hands: list[Row] = field(default_factory=list)
+    roles: list[Row] = field(default_factory=list)
+    places: list[Row] = field(default_factory=list)
+    temperament: list[Row] = field(default_factory=list)
+    earlier_title: str = "Earlier (0)"
+    earlier: list[EarlierRow] = field(default_factory=list)            # newest first
+
+
+def _pct(v) -> str:
+    return NA if v is None else f"{v * 100:.0f}"
+
+
+def _hm(seconds) -> str:
+    h, m = divmod(round((seconds or 0) / 60), 60)
+    return f"{h} h {m} min" if h else f"{m} min"
+
+
+def _lower(label: str) -> str:
+    return label if label.startswith("PvP") else label[:1].lower() + label[1:]
+
+
+def _day(iso: str, shift=timedelta()) -> str:
+    d = datetime.fromisoformat(iso) + shift
+    return f"{d.day} {d:%b}"
+
+
+def _earlier(earlier: list[dict]) -> list[EarlierRow]:
+    out = []
+    for s in sorted(earlier, key=lambda s: s["to"], reverse=True):
+        f = s.get("figures") or {}
+        main, t = f.get("main_role"), f.get("temperament") or {}
+        dph = t.get("deaths_per_hour")
+        out.append(EarlierRow(
+            # the window is (from, to]: its first day is the day after from
+            dates=f"{_day(s['from'], timedelta(days=1))} to {_day(s['to'])}",
+            label=(s.get("label") or NA).rstrip("."),
+            role=NA if main is None else _pct((f.get("roles") or {}).get(main)) + "%",
+            deaths=NA if dph is None else f"{dph:.1f}",
+            cooldowns=NA if t.get("cooldowns_share") is None else _pct(t["cooldowns_share"]) + "%"))
+    return out
+
+
+def _plate(now: dict) -> Plate:
+    """the first rule that applies; none: "Nothing stands out" with the strongest trait, the measure furthest on
+    the good side of its own plate threshold (keys against PLATE_CLICKS, cooldowns against PLATE_COOLDOWNS,
+    deaths per fight against PLATE_DEATHS), first in that order on a tie"""
+    n, h, t = now["fights"], now.get("hands") or {}, now["temperament"]
+    fights = f"in your last {_plural(n, 'fight')}"
+    runs = _plural(h.get("runs") or 0, "recorded run")
+    clicks, cds, unused = h.get("click_share"), t.get("cooldowns_share"), now.get("unused")
+    dying = t["deaths"] / n if n else None
+    if clicks is not None and clicks >= PLATE_CLICKS:
+        return Plate("You click instead of pressing keys", f"{_pct(clicks)}% clicks",
+                     f"{h['by_click']:,} of {h['by_key'] + h['by_click']:,} presses, in {runs}")
+    if cds is not None and cds < PLATE_COOLDOWNS:
+        return Plate("You leave your cooldowns unused", f"{_pct(cds)}% used",
+                     f"{t['cooldowns_used']:,} of {t['cooldowns_possible']:,} possible, {fights}")
+    if unused:
+        names = unused[:3]
+        said = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+        return Plate(f"You know {said} and have never cast {'it' if len(names) == 1 else 'them'}", "0 casts", fights)
+    if dying is not None and dying >= PLATE_DEATHS:
+        return Plate(f"You die in {_pct(dying)}% of your fights", _plural(t["deaths"], "death"), fights)
+    best = []
+    if clicks is not None:
+        best.append((PLATE_CLICKS - clicks, f"{_pct(h['key_share'])}% keys", f"of your presses, in {runs}"))
+    if cds is not None:
+        best.append((cds - PLATE_COOLDOWNS, f"{_pct(cds)}% cooldowns used",
+                     f"{t['cooldowns_used']:,} of {t['cooldowns_possible']:,} possible"))
+    if dying is not None:
+        best.append((PLATE_DEATHS - dying, _plural(t["deaths"], "death"), fights))
+    _, figure, caption = max(best, key=lambda b: b[0]) if best else (0, NA, fights)
+    return Plate("Nothing stands out", figure, caption)
+
+
+def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
+    """the page for live.profile.profile(...)'s result and this character's saved slices"""
+    now, before = p.get("now"), p.get("before")
+    n = now["fights"] if now else 0
+    v = ProfileView(title=p.get("name") or "Profile", earlier=_earlier(earlier),
+                    meta=_meta({"char": p.get("char")}, f"last 15 days · {_plural(n, 'fight')}"))
+    v.earlier_title = f"Earlier ({len(v.earlier)})"
+    if n < MIN_FIGHTS:
+        v.need = f"Your profile needs {MIN_FIGHTS} fights from the last 15 days ({n} so far)."
+        v.need_line = "Play a few more fights and it fills in. Who you were in earlier slices is below."
+        return v
+    moves = []      # (row, points, highlighter note) for every share row that got a chip, in page order
+
+    def share(row: Row, key, up: str, down: str) -> Row:
+        """a share row's chip (and highlighter candidacy): key(figures) is the share, Now against Before"""
+        a, b = key(now), key(before) if before else None
+        if a is not None and b is not None and abs(d := round((a - b) * 100)) >= CHIP_MIN:
+            row.chip = f"{'+' if d > 0 else MINUS}{abs(d)} vs the 15 days before"
+            moves.append((row, d, up if d > 0 else down))
+        return row
+
+    main = now["main_role"]
+    if main:
+        v.hero, v.caption = _pct(now["roles"][main]), f"of fight time {DOING[main]}"
+    else:
+        v.hero_unit, v.caption = "", "no fight time in these fights"
+    v.label = now["label"]
+    if before and before["label"] != now["label"]:
+        v.before = f"Before: {_lower(before['label'])}"
+    v.plate = _plate(now)
+
+    sig = now["signature"]
+    casts = sig["basis"] == "casts"
+    v.sig_header = "share of your casts" if casts else "share of your damage"
+    v.spells_header = "share of casts" if casts else "share of damage"
+    for s in sig["top"]:
+        has = bool(s["share"])
+        v.signature.append(Row(s["name"], _pct(s["share"]) if has else NA, "%" if has else "", ink="tx2",
+                               bar=s["share"] if has else None, casts=f"{s['casts']:,}",
+                               note="" if has else "no damage of its own"))
+    if not sig["top"]:
+        v.signature.append(Row("Spells", note="no spell casts saved in these fights"))
+    v.spells_title = f"All spells ({len(sig['spells'])})"
+    v.spells = [(s["name"], f"{s['casts']:,}", f"{s['share'] * 100:.1f}%" if s["share"] else NA)
+                for s in sig["spells"]]
+    if o := now.get("opener"):
+        v.opener = ", ".join(o["casts"])
+        v.opener_note = f"your usual opening: the first three casts in {o['count']} of {o['of']} fights"
+    else:
+        v.opener_note = "your usual opening shows once a fight saves its first three casts"
+
+    h = now.get("hands")
+    if h:
+        runs, combat = _plural(h["runs"], "recorded run"), h["combat_seconds"]
+        g = lambda k: lambda f: (f.get("hands") or {}).get(k)  # noqa: E731
+        ks = h["key_share"]
+        v.hands = [
+            share(Row("Keys or clicks", _pct(ks), "% keys" if ks is not None else "",
+                      f"{h['by_click']:,} clicks in {h['by_key'] + h['by_click']:,} presses, in {runs}"),
+                  g("key_share"), "more keys", "more clicks"),
+            Row("Presses per minute", NA if h["per_minute"] is None else f"{h['per_minute']:.1f}",
+                note=f"over {_hm(combat)} of combat in recorded runs"),
+            share(Row("Refused presses", _pct(h["refused_share"]), "%" if h["refused_share"] is not None else "",
+                      f"{h['failed']:,} presses the game turned down, in recorded runs", ink="m-cast"),
+                  g("refused_share"), "more refused", "fewer refused"),
+            share(Row("Casting while moving", _pct(h["moving_share"]), "%" if h["moving_share"] is not None else "",
+                      f"{_hm(h['moving_seconds'])} of {_hm(combat)} of combat on the move, in recorded runs",
+                      ink="m-cast"),
+                  g("moving_share"), "more on the move", "more standing still")]
+    else:
+        v.hands = [Row("Keys, clicks and presses", note=NO_HANDS)]
+
+    for role in ("damage", "healer", "tank"):
+        sh, gr = now["roles"][role], (now.get("grades") or {}).get(role)
+        row = Row(role.title(), _pct(sh), "%" if sh is not None else "",
+                  ink="tx2", bar=sh)
+        if gr:
+            row.grade, row.letter = f"{gr['score']:.0f}", gr["grade"]
+            row.note = f"average of {_plural(gr['runs'], 'graded run')}"
+        else:
+            row.grade, row.note = NA, f"no run graded as {GRADED_AS[role]} yet"
+        v.roles.append(share(row, lambda f, r=role: f["roles"][r], f"more {DOING[role]}", f"less {DOING[role]}"))
+
+    places = now["places"]
+    for place in sorted(places, key=lambda k: -(places[k] or 0)):
+        sh = places[place]
+        v.places.append(share(Row(place, _pct(sh), "%" if sh is not None else "", ink="tx2", bar=sh,
+                                  note="dungeon and boss fights" if place == "Dungeon" else ""),
+                              lambda f, k=place: f["places"][k], f"more {PLACE_MORE[place]}",
+                              f"out of {PLACE_MORE[place]}"))
+
+    t = now["temperament"]
+    dph, pull, low, cds = t["deaths_per_hour"], t["median_pull"], t["lowest_hp"], t["cooldowns_share"]
+    v.temperament = [
+        Row("Deaths per hour", NA if dph is None else f"{dph:.1f}", ink="m-surv",
+            note=f"{_plural(t['deaths'], 'death')} in {_plural(n, 'fight')}, {_hm(now['seconds'])} of fighting"),
+        Row("Usual pull", NA, note="no pull size saved in these fights") if pull is None else
+        Row("Usual pull", f"{pull:g}", "enemy" if pull == 1 else "enemies",
+            f"alone in {t['alone']} of {n} fights, {t['mean_pull']:.1f} on average"),
+        Row("Average lowest health", _pct(low), "%" if low is not None else "",
+            "the lowest you dropped, over " + _plural(n, "fight") if low is not None else "no health saved"),
+        share(Row("Cooldowns used", NA, ink="m-cd", note="no cooldown with a known count in these fights")
+              if cds is None else
+              Row("Cooldowns used", _pct(cds), "%", f"{t['cooldowns_used']:,} of {t['cooldowns_possible']:,} "
+                  f"possible, in {_plural(n, 'fight')}", ink="m-cd"),
+              lambda f: f["temperament"]["cooldowns_share"], "more cooldowns", "fewer cooldowns")]
+
+    if moves:       # the largest move; max keeps the first in page order on a tie
+        row, _, note = max(moves, key=lambda m: abs(m[1]))
+        row.mark = note
+    return v

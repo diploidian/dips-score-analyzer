@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from dips_score.live import profile_history as ph  # noqa: E402
 from dips_score.live.profile import label, profile  # noqa: E402
+from dips_score.profile_view import build_profile  # noqa: E402
 
 T0 = datetime(2026, 11, 23, 12, 0, 0)
 DAY = timedelta(days=1)
@@ -172,6 +173,143 @@ class History(unittest.TestCase):
             ph.save(path, saved)
             self.assertEqual(ph.load(path), saved)
             self.assertEqual(list(Path(d).iterdir()), [path])
+
+
+def many(n=10, days_ago=1.0, **kw):
+    return [fight(days_ago, **kw) for _ in range(n)]
+
+
+def page(fs, runs=(), char=None, book=None, earlier=()):
+    return build_profile(profile(fs, char, book or {}, list(runs), T0), list(earlier))
+
+
+def row(rows, name):
+    return next(r for r in rows if r.name == name)
+
+
+def slice_(to_days_ago, lab="Careful world damage dealer.", main=0.9, dph=2.0, cds=0.5):
+    hi = T0 - to_days_ago * DAY
+    return {"from": (hi - 15 * DAY).isoformat(), "to": hi.isoformat(), "fights": 12, "label": lab,
+            "figures": {"main_role": "damage", "roles": {"damage": main},
+                        "temperament": {"deaths_per_hour": dph, "cooldowns_share": cds}}}
+
+
+class View(unittest.TestCase):
+    def test_hero_meta_label(self):
+        char = {"class": "PALADIN", "race": "Scourge", "level": 36, "spec": None}
+        v = page(many(), char=char)
+        self.assertEqual((v.hero, v.hero_unit, v.caption), ("100", "%", "of fight time dealing damage"))
+        self.assertEqual(v.label, "Careful world damage dealer.")
+        self.assertEqual(v.meta, "level 36 Scourge Paladin · last 15 days · 10 fights")
+        self.assertIsNone(v.need)
+
+    def test_plate_order(self):
+        clicky = [run(1, by_key=60, by_click=40)]
+        cd = [{"possible": 10, "missed": 6}]
+        char = {"spells": {"Exorcism": {"harm": True}}}
+        deadly = many(2, result="you died", cooldowns=cd) + many(8, cooldowns=cd)
+        self.assertEqual(page(deadly, clicky, char).plate.title, "You click instead of pressing keys")
+        self.assertEqual(page(deadly, char=char).plate.title, "You leave your cooldowns unused")
+        self.assertEqual(page(many(2, result="you died") + many(8), char=char).plate.title,
+                         "You know Exorcism and have never cast it")
+        p = page(many(2, result="you died") + many(8)).plate
+        self.assertEqual((p.title, p.figure, p.button), ("You die in 20% of your fights", "2 deaths", "Open Habits"))
+
+    def test_nothing_stands_out_strongest(self):
+        # margins: keys 0.30 - 0.01 = 0.29, cooldowns 0.90 - 0.50 = 0.40, deaths 0.15 - 0 = 0.15
+        p = page(many(cooldowns=[{"possible": 10, "missed": 1}]), [run(1, by_key=99, by_click=1)]).plate
+        self.assertEqual((p.title, p.figure), ("Nothing stands out", "90% cooldowns used"))
+        self.assertEqual(page(many()).plate.figure, "0 deaths")
+
+    def test_chip_threshold_and_sign(self):
+        cd = lambda used: [{"possible": 100, "missed": 100 - used}]  # noqa: E731
+        v = page(many(cooldowns=cd(60)) + many(days_ago=20, cooldowns=cd(55)))
+        c = row(v.temperament, "Cooldowns used")
+        self.assertEqual((c.chip, c.mark), ("+5 vs the 15 days before", "more cooldowns"))
+        v = page(many(cooldowns=cd(60)) + many(days_ago=20, cooldowns=cd(56)))
+        self.assertIsNone(row(v.temperament, "Cooldowns used").chip)
+        v = page(many(cooldowns=cd(40)) + many(days_ago=20, cooldowns=cd(52)))
+        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "−12 vs the 15 days before")
+        self.assertIsNone(row(v.temperament, "Deaths per hour").chip)      # per-hour figures get no chip
+
+    def test_highlighter_tie_break_page_order(self):
+        # Dungeon 0 -> 50 and World 100 -> 50 both move 50 points; Dungeon is first on the page
+        v = page(many(5, kind="World") + many(5, kind="Dungeon") + many(days_ago=20, kind="World"))
+        marks = [r for r in v.places if r.mark]
+        self.assertEqual(len(marks), 1)
+        self.assertEqual(v.places[0].name, "Dungeon")          # equal shares keep Dungeon, World, PvP order
+        self.assertEqual((marks[0].name, marks[0].mark), ("Dungeon", "more dungeons"))
+        self.assertEqual(row(v.places, "World").chip, "−50 vs the 15 days before")
+
+    def test_no_before(self):
+        v = page(many(kind="Dungeon"))
+        self.assertFalse(any(r.chip or r.mark for r in v.hands + v.roles + v.places + v.temperament))
+        self.assertIsNone(v.before)
+
+    def test_before_line_only_when_labels_differ(self):
+        self.assertIsNone(page(many() + many(days_ago=20)).before)
+        v = page(many() + many(days_ago=20, kind="Dungeon"))
+        self.assertEqual(v.before, "Before: careful dungeon damage dealer.")
+
+    def test_under_ten_keeps_earlier(self):
+        v = page(many(6), earlier=[slice_(20)])
+        self.assertEqual(v.need, "Your profile needs 10 fights from the last 15 days (6 so far).")
+        self.assertTrue(v.meta.endswith("last 15 days · 6 fights"))
+        self.assertEqual((len(v.earlier), v.earlier_title), (1, "Earlier (1)"))
+        self.assertIsNone(v.plate)
+        self.assertEqual(build_profile(profile([], None, {}, [], T0), []).need,
+                         "Your profile needs 10 fights from the last 15 days (0 so far).")
+
+    def test_hands_without_runs(self):
+        v = page(many())
+        self.assertEqual(len(v.hands), 1)
+        self.assertEqual((v.hands[0].value, v.hands[0].note),
+                         ("–", "Hands needs a recorded run: play with the dips-Score add-on on, then reload."))
+        self.assertNotIn(" who ", v.label)
+
+    def test_hands_with_runs(self):
+        v = page(many(), [run(1)])
+        k = row(v.hands, "Keys or clicks")
+        self.assertEqual((k.value, k.unit, k.note), ("90", "% keys", "10 clicks in 100 presses, in 1 recorded run"))
+        self.assertEqual((row(v.hands, "Refused presses").ink, row(v.hands, "Presses per minute").value),
+                         ("m-cast", "10.0"))
+
+    def test_roles_grade(self):
+        v = page(many(), [run(1)])
+        d, h = row(v.roles, "Damage"), row(v.roles, "Healer")
+        self.assertEqual((d.grade, d.letter, d.note, d.ink), ("85", "A", "average of 1 graded run", "tx2"))
+        self.assertEqual((h.grade, h.note, h.value), ("–", "no run graded as healer yet", "0"))
+
+    def test_healer_signature(self):
+        ab = [{"name": "Heal", "casts": 9, "damage": 0}, {"name": "Smite", "casts": 1, "damage": 500}]
+        v = page(many(healing_role=True, abilities=ab))
+        self.assertEqual((v.caption, v.sig_header, v.spells_header),
+                         ("of fight time healing", "share of your casts", "share of casts"))
+        self.assertEqual((v.signature[0].name, v.signature[0].value, v.signature[0].bar), ("Heal", "90", 0.9))
+        self.assertEqual(v.spells_title, "All spells (2)")
+
+    def test_damage_signature_no_damage_row(self):
+        ab = [{"name": "Smite", "casts": 3, "damage": 300}, {"name": "Seal", "casts": 1, "damage": 0}]
+        v = page(many(abilities=ab, opener=["Seal", "Smite", "Smite"]))
+        s = row(v.signature, "Seal")
+        self.assertEqual((s.value, s.bar, s.note), ("–", None, "no damage of its own"))
+        self.assertEqual(v.spells[1], ("Seal", "10", "–"))
+        self.assertEqual((v.opener, v.opener_note),
+                         ("Seal, Smite, Smite", "your usual opening: the first three casts in 10 of 10 fights"))
+
+    def test_earlier_newest_first(self):
+        v = page(many(), earlier=[slice_(45, "Reckless world hybrid.", 0.55, 7.0, 0.61), slice_(15, dph=None)])
+        self.assertEqual([e.dates for e in v.earlier], ["25 Oct to 8 Nov", "25 Sep to 9 Oct"])
+        e = v.earlier[1]
+        self.assertEqual((e.label, e.role, e.deaths, e.cooldowns), ("Reckless world hybrid", "55%", "7.0", "61%"))
+        self.assertEqual(v.earlier[0].deaths, "–")
+
+    def test_missing_values_dash(self):
+        v = page(many(duration=0, more=None, lowest_hp=None))
+        self.assertEqual((v.hero, v.hero_unit), ("–", ""))
+        self.assertEqual([r.value for r in v.temperament], ["–", "–", "–", "–"])
+        self.assertTrue(all(r.value == "–" for r in v.roles + v.places))
+        self.assertEqual(v.opener, "–")
 
 
 if __name__ == "__main__":
