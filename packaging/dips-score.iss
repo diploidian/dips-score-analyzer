@@ -27,6 +27,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\build\pyinstaller\dips-score\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; the in-game add-on goes in too, so one installer is all a player needs
+Source: "..\addon\dips-Score\*"; DestDir: "{code:WowDir}\Interface\AddOns\dips-Score"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: AddonNotLinked
 
 [Icons]
 Name: "{autoprograms}\dips score"; Filename: "{app}\dips-score.exe"
@@ -71,4 +73,17 @@ end;
 function WowDir(Param: String): String;
 begin
   Result := WowPage.Values[0];
+end;
+
+// On a dev PC AddOns\dips-Score is a junction into the source; writing (or uninstalling) through it would clobber the source.
+function AddonNotLinked: Boolean;
+var
+  R: TFindRec;
+begin
+  Result := True;
+  if FindFirst(AddBackslash(WowDir('')) + 'Interface\AddOns\dips-Score', R) then
+  begin
+    Result := (R.Attributes and $400) = 0;  // FILE_ATTRIBUTE_REPARSE_POINT
+    FindClose(R);
+  end;
 end;
