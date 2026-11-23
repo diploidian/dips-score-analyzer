@@ -500,7 +500,8 @@ class Window(QMainWindow):
         run = self.by_id.get(rid)
         ask = (f"Delete this run and the {len(self._fights_in(run))} fights in it? This can't be undone." if run
                else "Delete this fight? This can't be undone.")
-        if QMessageBox.question(self, "Delete", ask) == QMessageBox.StandardButton.Yes:
+        yes, no = QMessageBox.StandardButton.Yes, QMessageBox.StandardButton.No
+        if QMessageBox.question(self, "Delete", ask, yes | no, no) == yes:      # Enter alone doesn't delete
             self.delete_item(rid)
 
     def _fights_in(self, run: Run) -> list[str]:
