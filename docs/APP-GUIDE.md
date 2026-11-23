@@ -292,6 +292,10 @@ Right-click a visit or a fight in the rail and pick Rename… (or pick it and pr
 such as "guild run with Anna". The name takes the date's place on a visit's row (hover it for the date) and the
 target's on a fight's, and sits beside the original in the page title. Clear the text to take it off.
 
+Delete… sits in the same menu (or pick the row and press Del). Deleting a visit also deletes the fights inside it,
+and they stop counting in Habits; deleting a fight takes it off the Fights list. The visit is hidden by the app, not
+erased from the game's saved file, which the game rewrites. A box asks first, as it can't be undone.
+
 ## Why each role would use it
 
 ### Healers
