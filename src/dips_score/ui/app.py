@@ -371,7 +371,8 @@ class Window(QMainWindow):
         for tab in (self.score, self.group, self.pulls, self.spells, self.timeline_tab):
             tab.set_analysis(self.current)      # None: no tab keeps showing the last run
         if self.current is None:
-            self.score.page.show_view(DebriefView(), names.titled(run.id, run.zone), "Couldn't analyze this run - see the terminal.")
+            self.score.page.show_view(DebriefView(), names.titled(run.id, run.zone),
+                                      "Couldn't analyze this run - see the terminal.")
         self.stack.setCurrentIndex(1)
         self._refresh_labels()
 
