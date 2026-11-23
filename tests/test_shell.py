@@ -426,8 +426,12 @@ class ShellTests(unittest.TestCase):
             w = Window(Paths(Path(tmp) / "no game"))
             w.live.timer.stop()
             w.live.history.fights = [fight(i, cooldowns=[row]) for i in range(6)]
+            w._fight = lambda: {"id": "picked"}       # a fight picked in the Fights list before
             w.mode_habits.click()
             self.assertEqual(w.stack.currentIndex(), 3)
+            self.assertIsNot(w.left_stack.currentWidget(), w.fight_list)     # Habits shows no fight list
+            self.assertIsNone(w._rename_id())          # so F2 and Del don't act on a fight you can't see
+            del w._fight                                # the real one again, for Fights below
             self.assertEqual(w.habits_page.plate.title, "Judgement left unused")
             w.habits_page.plate.button.click()
             self.assertTrue(w.mode_fights.isChecked())

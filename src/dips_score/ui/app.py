@@ -103,6 +103,7 @@ class Window(QMainWindow):
         self.left_stack = QStackedWidget()
         self.left_stack.addWidget(self.tree)
         self.left_stack.addWidget(self.fight_list)
+        self.left_stack.addWidget(QWidget())        # 2: Habits sums up every fight, so no list
         ll.addWidget(self.left_stack, 1)
         ll.addSpacing(10)                       # the lists sit on the rail: keep a cut-off last row off the status
         self.status = dim_label()               # what's loaded, then the log delay (see _status)
@@ -209,7 +210,6 @@ class Window(QMainWindow):
         self.habits_page.open_fights.connect(lambda: self._mode("fights"))     # R8: the list stays unfiltered
         self.fight_list.picked.connect(self._show_fight)
         self.fight_detail.show_me.connect(self._fight_on_timeline)     # Show on the timeline (R7: the loaded run)
-        self.fight_list.itemClicked.connect(lambda _i: self._mode("fights") if self.mode_habits.isChecked() else None)
         rw = QWidget()
         rl = QVBoxLayout(rw)
         rl.setContentsMargins(8, 8, 8, 8)
@@ -412,7 +412,7 @@ class Window(QMainWindow):
             return
         self.keys.clear()               # a pick: a run whose log still grows gets its key anew (not _arrived's redo)
         key = it.data(0, RUN_ROLE) or ""
-        if self.left_stack.currentIndex() == 1:     # Fights or Habits: a reload's visit still loads behind the page,
+        if self.left_stack.currentIndex() != 0:     # Fights or Habits: a reload's visit still loads behind the page,
             if key in self.by_id:                   # so its fights get Show on the timeline (R7)
                 page = self.stack.currentIndex()
 
@@ -492,7 +492,7 @@ class Window(QMainWindow):
         self.mode_raids.setChecked(which == "raids")
         self.mode_fights.setChecked(which == "fights")
         self.mode_habits.setChecked(which == "habits")
-        self.left_stack.setCurrentIndex(0 if which in ("dungeons", "raids") else 1)
+        self.left_stack.setCurrentIndex({"fights": 1, "habits": 2}.get(which, 0))
         if which == "habits":
             self._show_habits()
         elif which == "fights":
@@ -563,6 +563,8 @@ class Window(QMainWindow):
             it = self.tree.currentItem()
             key = it.data(0, RUN_ROLE) if it else None
             return key if key in self.by_id else None
+        if self.left_stack.currentIndex() == 2:     # Habits: no list, nothing picked to rename or delete
+            return None
         f = self._fight()
         return f.get("id") if f else None
 
