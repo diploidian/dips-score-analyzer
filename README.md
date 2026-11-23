@@ -221,8 +221,8 @@ erased from the game's saved file, which the game rewrites. A box asks first, as
 In `%APPDATA%\dips-score`: `weights.json`, `classes.json` and `names.json` (yours), `removed.json` (the visits and
 fights you deleted), `fights.jsonl` (the last 5000 fights) and `spells.json` (a spell book per character).
 `spells.json` replaced `cooldowns.json`, which is no longer read; the `replay` command learns the spell books again
-from your old combat logs. `cache\analysis` holds every run analysed, one file each (a few MB a run, tens of MB
-for the longest); it is safe to delete, as the runs are analysed again when next opened.
+from your old combat logs. `cache\analysis` holds every run analysed, one file each (a few MB a run, up to about
+60 MB for the longest: about 350 MB for 25 runs); it is safe to delete, as the runs are analysed again when next opened.
 
 ## Layout
 

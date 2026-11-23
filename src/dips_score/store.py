@@ -32,7 +32,7 @@ def load(folder: Path, run_id: str, key: tuple):
 
 
 def save(folder: Path, run_id: str, key: tuple, a):
-    # shortcut: files are uncompressed (a few MB a run, 60 MB the longest), compress if the folder gets too big
+    # shortcut: files are uncompressed (about 350 MB for 25 runs), compress if the folder gets too big
     folder.mkdir(parents=True, exist_ok=True)
     tmp = folder / f"{file_name(run_id)}.tmp"
     with open(tmp, "wb") as f:
