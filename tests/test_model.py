@@ -82,6 +82,21 @@ class Visits(unittest.TestCase):
         self.assertEqual([r.parts for r in out], [["1", "2"], ["3"], ["4"]])
         self.assertEqual(len(out[0].segments), 2)
 
+    def test_a_deleted_piece_is_skipped_before_merging(self):
+        """the piece after a deleted one is a visit of its own, not merged into it"""
+        from unittest import mock
+        from dips_score import removed
+        from dips_score.analysis import load_saved
+        from dips_score.config import Paths
+        self.addCleanup(removed.IDS.clear)
+        seg = lambda: [Segment(0, [], [Line(0, "X", []), Line(60000, "X", [])])]     # noqa: E731
+        runs = [Run("1", "x", "Krol", "party", 1, 3039, 1000, 1100, seg()),
+                Run("2", "x", "Krol", "party", 1, 3039, 1200, 1300, seg())]
+        removed.IDS.add("1")
+        with mock.patch("dips_score.analysis.load_runs", return_value=runs):
+            _, out = load_saved(Paths(Path("no game")), saved=Path("dips-Score.lua"))
+        self.assertEqual([r.parts for r in out], [["2"]])
+
     def test_dungeons_and_raids_apart(self):
         """raids go under Raids; dungeons and the open world under Dungeons"""
         runs = [Run("1", "x", "SM", "party", 1, 2, 1000, None), Run("2", "x", "Molten Core", "raid", 1, 4, 2000, None),

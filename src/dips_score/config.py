@@ -52,6 +52,10 @@ class Paths:
         return self.data_dir / "names.json"
 
     @property
+    def removed_file(self) -> Path:
+        return self.data_dir / "removed.json"
+
+    @property
     def classes_file(self) -> Path:
         return self.data_dir / "classes.json"
 

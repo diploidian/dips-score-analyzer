@@ -9,15 +9,16 @@ from __future__ import annotations
 
 import sys
 import traceback
+from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import QFileSystemWatcher, QStandardPaths, Qt, QTimer
 from PyQt6.QtGui import QFont, QGuiApplication, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QInputDialog, QLabel, QMainWindow, QMenu,
-                             QPushButton, QSplitter, QStackedWidget, QTabWidget, QTreeWidget, QTreeWidgetItem,
-                             QVBoxLayout, QWidget)
+                             QMessageBox, QPushButton, QSplitter, QStackedWidget, QTabWidget, QTreeWidget,
+                             QTreeWidgetItem, QVBoxLayout, QWidget)
 
-from .. import analysis, names
+from .. import analysis, names, removed
 from ..analysis import Analysis
 from ..config import Paths
 from ..debrief import DebriefView
@@ -55,6 +56,7 @@ class Window(QMainWindow):
         self.current: Analysis | None = None
         self.cache: dict[tuple, Analysis] = {}
         names.load(paths.names_file)
+        removed.load(paths.removed_file)
         self.setWindowTitle("dips score")
         self.resize(1500, 950)
 
@@ -132,7 +134,8 @@ class Window(QMainWindow):
         ll.addLayout(links)
         QShortcut(QKeySequence("Ctrl+Shift+C"), self, self._share)
         QShortcut(QKeySequence("F2"), self, self._rename)
-        for view in (self.tree, self.fight_list):       # right-click a run or a fight: Rename…
+        QShortcut(QKeySequence("Del"), self, self._delete)
+        for view in (self.tree, self.fight_list):       # right-click a run or a fight: Rename…, Delete…
             view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             view.customContextMenuRequested.connect(lambda pos, v=view: self._rename_menu(v, pos))
         self.share_folder = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation),
@@ -463,6 +466,7 @@ class Window(QMainWindow):
         if self._rename_id():
             menu = QMenu(self)
             menu.addAction("Rename…").triggered.connect(self._rename)
+            menu.addAction("Delete…").triggered.connect(self._delete)
             menu.exec(view.viewport().mapToGlobal(pos))
 
     def _rename_id(self) -> str | None:
@@ -488,6 +492,40 @@ class Window(QMainWindow):
         except OSError as e:      # names.json can't be written: the name lasts until the app closes
             self._status(f"Couldn't save the name ({e})")
         self._redraw()      # the rail's rows too
+
+    def _delete(self):
+        rid = self._rename_id()
+        if not rid:
+            return
+        run = self.by_id.get(rid)
+        ask = (f"Delete this run and the {len(self._fights_in(run))} fights in it? This can't be undone." if run
+               else "Delete this fight? This can't be undone.")
+        if QMessageBox.question(self, "Delete", ask) == QMessageBox.StandardButton.Yes:
+            self.delete_item(rid)
+
+    def _fights_in(self, run: Run) -> list[str]:
+        """the ids of the fights that began inside a run (both naive local time, as in run_window)"""
+        end = datetime.fromtimestamp(run.end_estimate)
+        return [f["id"] for f in self.live.history.fights
+                if run.start_time <= datetime.fromisoformat(f["start"]) <= end]
+
+    def delete_item(self, rid: str):
+        """a run (hidden: the game's saved file is its own) with the fights in it, or a fight"""
+        run = self.by_id.get(rid)
+        ids = [*run.parts, *self._fights_in(run)] if run else [rid]
+        try:
+            removed.add(self.paths.removed_file, ids)
+            self.live.history.remove(ids)
+            names.rename(self.paths.names_file, rid, "")
+        except OSError as e:      # a file can't be written: it stays gone until the app closes
+            self._status(f"Couldn't save the delete ({e})")
+        if run:
+            for k in [k for k in self.cache if k[0] == rid]:
+                del self.cache[k]
+            if self.current and self.current.data.run.id == rid:     # else _redraw shows it again
+                self.current = None
+            self.reload()
+        self._redraw()
 
     def _open_settings(self):
         if self.settings_dialog is None:

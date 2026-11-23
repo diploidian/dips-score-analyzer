@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+from . import removed
 from .config import Paths
 from .model.casts import CastEvent, pets_of, player_casts
 from .model.deaths import Death, Wipe, find_deaths
@@ -124,7 +125,8 @@ def load_saved(paths: Paths, saved: Path | None = None, merge: bool = True) -> t
     files = [saved] if saved else paths.saved_files()
     if not files:
         return None, []
-    runs = [r for r in load_runs(files[0]) if r.line_count > 1]
+    # deleted pieces go before merging: a later piece of the same place is then a visit of its own
+    runs = [r for r in load_runs(files[0]) if r.line_count > 1 and r.id not in removed.IDS]
     return files[0], (merge_visits(runs) if merge else runs)
 
 

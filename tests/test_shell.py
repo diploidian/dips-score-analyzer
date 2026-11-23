@@ -329,6 +329,50 @@ class ShellTests(unittest.TestCase):
                 self.assertEqual(w.score.page.title, "Blackfathom Deeps")
             self.assertTrue((Path(tmp) / "dips-score" / "names.json").exists())
 
+    def test_delete_a_run_and_a_fight(self):
+        """a deleted run leaves the rail with the fights inside it and its name, and stays gone on reload; a deleted
+        fight leaves the Fights list and the file"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score import names, removed
+        from dips_score.config import Paths
+        from dips_score.sources.savedvars import Line, Run, Segment
+        from dips_score.ui.app import RUN_ROLE, Window
+        self.addCleanup(removed.IDS.clear)
+        self.addCleanup(names.NAMES.clear)
+        at = int(datetime(2026, 11, 18, 22, 0).timestamp())
+        seg = lambda: [Segment(0, [], [Line(0, "X", []), Line(60000, "X", [])])]     # noqa: E731
+        runs = [Run("r6", "x", "Blackfathom Deeps", "party", 1, 48, at, at + 600, seg()),
+                Run("r7", "x", "Scarlet Monastery", "party", 1, 189, at + 7200, at + 7800, seg())]
+        inside = {"id": "20261118220500000000", "start": "2026-11-18T22:05:00", "duration": 30.0, "damage": 900,
+                  "dps": 30.0, "taken": 100, "healing": 0, "result": "killed", "kind": "Trash", "target": "Murloc"}
+        after = dict(inside, id="20261118233849824000", start="2026-11-18T23:38:49.824000", target="Oracle")
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            w.live.history.fights = [inside, after]
+            tops = lambda: [w.tree.topLevelItem(i) for i in range(w.tree.topLevelItemCount())]     # noqa: E731
+            rows = lambda: [t.child(j).data(0, RUN_ROLE) for t in tops() for j in range(t.childCount())]  # noqa: E731
+            with mock.patch("dips_score.analysis.load_runs", return_value=runs), \
+                    mock.patch.object(Paths, "saved_files", return_value=[Path(tmp) / "dips-Score.lua"]), \
+                    mock.patch.object(Window, "_analysis", side_effect=ValueError("no log")), \
+                    mock.patch("dips_score.ui.app.traceback.print_exc"):
+                w.reload()
+                self.assertEqual(rows(), ["r7", "r6"])
+                w.set_name("r6", "guild run with Anna")
+                w.delete_item("r6")
+                self.assertEqual(rows(), ["r7"])
+                self.assertEqual([f["id"] for f in w.live.history.fights], [after["id"]])
+                self.assertEqual(names.get("r6"), "")
+                w.reload()
+                self.assertEqual(rows(), ["r7"])
+                w.mode_fights.click()
+                w.delete_item(after["id"])
+                self.assertEqual(w.fight_list.count(), 0)
+                w.live.history.load()
+                self.assertEqual(w.live.history.fights, [])
+
     def test_new_weights_redraw_group_and_timeline(self):
         """a weights change scores the run showing again on the Debrief, Group and Timeline, and keeps the tab, the
         Timeline's view, the Debrief's fight and a spell lit from Spells"""

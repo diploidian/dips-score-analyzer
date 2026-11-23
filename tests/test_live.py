@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from dips_score import removed  # noqa: E402
 from dips_score.live.summary import cooldown, learn_cooldowns, summarize  # noqa: E402
 from dips_score.config import Paths  # noqa: E402
 from dips_score.live.history import History  # noqa: E402
@@ -310,6 +311,19 @@ class Cooldowns(unittest.TestCase):
             h2 = History(Paths(Path(d)))
             self.assertEqual(list(h2.book("Player-1-A")), ["Judgement"])
             self.assertEqual(h2.book("Player-1-B"), {})
+
+    def test_remove_and_a_removed_fight_stays_out(self):
+        """a deleted fight leaves the file, and a replay (or a combat carrying on) doesn't save it again"""
+        self.addCleanup(removed.IDS.clear)
+        with tempfile.TemporaryDirectory() as d, patch.dict("os.environ", {"APPDATA": d}):
+            h = History(Paths(Path(d)))
+            for i in ("1", "2", "3"):
+                h.add({"id": i})
+            h.remove({"2"})
+            self.assertEqual([f["id"] for f in History(Paths(Path(d))).fights], ["1", "3"])
+            removed.IDS.add("2")
+            self.assertFalse(h.add({"id": "2"}))
+            self.assertEqual([f["id"] for f in History(Paths(Path(d))).fights], ["1", "3"])
 
 
 class Defensives(unittest.TestCase):

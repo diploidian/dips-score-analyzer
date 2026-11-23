@@ -12,6 +12,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+from .. import removed
 from ..config import Paths
 from .summary import gear_level, learn_cooldowns, new_entry, summarize
 from .tail import LogTail
@@ -65,6 +66,8 @@ class History:
 
     def add(self, fight: dict) -> bool:
         """save a fight; one with the same id (a combat that carried on) replaces it. True if it replaced."""
+        if fight["id"] in removed.IDS:      # deleted: a replay or a carried-on combat doesn't bring it back
+            return False
         self.file.parent.mkdir(parents=True, exist_ok=True)
         for i, old in enumerate(self.fights):
             if old.get("id") == fight["id"]:
@@ -79,6 +82,10 @@ class History:
             with open(self.file, "a", encoding="utf-8") as fh:
                 fh.write(json.dumps(fight) + "\n")
         return False
+
+    def remove(self, ids):
+        self.fights = [f for f in self.fights if f.get("id") not in ids]
+        self._rewrite()
 
     def _rewrite(self):
         self.file.write_text("".join(json.dumps(f) + "\n" for f in self.fights), encoding="utf-8")
@@ -115,7 +122,7 @@ class Live:
             self.history.save_books()
         earlier = [h for h in self.history.fights if h.get("id") != _fight_id(f)]
         s = summarize(f, me, self.tracker.me_name, self.history.book(me), earlier)
-        if s:
+        if s and s["id"] not in removed.IDS:      # a deleted fight carrying on isn't shown again
             self.history.tag(s, me)
             s["updated"] = self.history.add(s)       # a carried-on combat: its card is updated
             return s
@@ -148,7 +155,7 @@ def _keep(h: History, tr: Tracker, f) -> int:
     if s:
         h.tag(s, tr.me)
         h.add(s)
-        return 0 if known else 1
+        return 0 if known or s["id"] in removed.IDS else 1
     return 0
 
 

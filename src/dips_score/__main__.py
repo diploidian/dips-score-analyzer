@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from . import analysis
+from . import analysis, removed
 from .config import paths as get_paths
 from .scoring.classes import load_upkeep
 from .scoring.score import ROLES, load_weights
@@ -114,6 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     p = get_paths(args.wow)
     load_weights(p.weights_file)
     load_upkeep(p.classes_file)
+    removed.load(p.removed_file)      # runs, report and replay skip what you deleted, as the window does
     if args.cmd == "runs":
         return cmd_runs(p)
     if args.cmd == "report":
