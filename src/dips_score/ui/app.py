@@ -11,8 +11,8 @@ import sys
 import traceback
 from pathlib import Path
 
-from PyQt6.QtCore import QFileSystemWatcher, Qt, QTimer
-from PyQt6.QtGui import QFont, QGuiApplication
+from PyQt6.QtCore import QFileSystemWatcher, QStandardPaths, Qt, QTimer
+from PyQt6.QtGui import QFont, QGuiApplication, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QMainWindow, QPushButton,
                              QSplitter, QStackedWidget, QTabWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
                              QWidget)
@@ -27,7 +27,7 @@ from ..scoring.classes import load_upkeep
 from ..scoring.score import load_weights
 from ..sources.savedvars import Run
 from . import settings as app_settings
-from . import texture, theme
+from . import share, texture, theme
 from .group import GroupTab
 from .pages import DungeonPage, ScoreTab, dim_label
 from .pulls import PullsTab
@@ -120,7 +120,7 @@ class Window(QMainWindow):
         links = QHBoxLayout()
         links.setContentsMargins(0, 8, 0, 0)
         links.setSpacing(16)
-        for text, slot in (("Settings", self._open_settings), ("Reload", self.reload)):
+        for text, slot in (("Settings", self._open_settings), ("Reload", self.reload), ("Share", self._share)):
             b = QPushButton(text)
             b.setObjectName("link")             # quiet text links, themed in theme.stylesheet
             b.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -129,6 +129,9 @@ class Window(QMainWindow):
             links.addWidget(b)
         links.addStretch(1)
         ll.addLayout(links)
+        QShortcut(QKeySequence("Ctrl+Shift+C"), self, self._share)
+        self.share_folder = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation),
+                                 "dips-score")
         self.weights: WeightsDialog | None = None
         self.settings_dialog: SettingsDialog | None = None
         # opened from the tray: share the controller's settings, so changes here reach the overlay
@@ -430,6 +433,19 @@ class Window(QMainWindow):
         me = h.fights[-1]["me"] if h.fights else ""
         self.habits_page.show_habits(habits(h.fights, h.chars.get(me), h.book(me) if me else None))
         self.stack.setCurrentIndex(3)
+
+    def _share(self):
+        """the page showing (the tab picked, on a page of tabs) on the clipboard and saved as a PNG"""
+        page, tab = self.stack.currentWidget(), ""
+        if isinstance(page, QTabWidget):
+            page, tab = page.currentWidget(), page.tabText(page.currentIndex())
+        title = getattr(share.page_widget(page), "title", "")
+        try:
+            path = share.share(page, self.share_folder, " ".join(s for s in (title, tab) if s))
+        except OSError as e:      # the folder can't be written: the clipboard has it anyway
+            self._status(f"Copied to the clipboard · couldn't save it ({e})")
+            return
+        self._status(f"Copied to the clipboard · saved {path}")
 
     def _open_settings(self):
         if self.settings_dialog is None:

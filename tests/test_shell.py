@@ -267,6 +267,32 @@ class ShellTests(unittest.TestCase):
                 w.mode_dungeons.click()
                 self.assertEqual(zones(), ["Scarlet Monastery   (1)"])
 
+    def test_share_copies_and_saves_the_whole_page(self):
+        """Share puts the page showing on the clipboard and in a PNG, all of it, the part scrolled off screen too"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtGui import QImage
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            w.share_folder = Path(tmp) / "pictures"
+            w.stack.setCurrentIndex(1)
+            w.score.page.title = "Blackfathom Deeps"
+            w.score.page.setMinimumHeight(3000)          # taller than the window: it scrolls
+            w.show()
+            app.processEvents()
+            w._share()
+            w.close()
+            self.assertFalse(app.clipboard().image().isNull())
+            saved = list((Path(tmp) / "pictures").glob("Blackfathom Deeps Debrief-*.png"))
+            self.assertEqual(len(saved), 1)
+            self.assertIn(str(saved[0]), w.status_text)
+            self.assertEqual(QImage(str(saved[0])).height(), w.score.page.height())
+            self.assertGreaterEqual(w.score.page.height(), 3000)
+
     def test_new_weights_redraw_group_and_timeline(self):
         """a weights change scores the run showing again on the Debrief, Group and Timeline, and keeps the tab, the
         Timeline's view, the Debrief's fight and a spell lit from Spells"""
