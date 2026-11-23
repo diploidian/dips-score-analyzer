@@ -29,6 +29,10 @@ The window reloads by itself when the game saves (after `/reload` or logout). Ne
 automatically. Pick the game folder (and, if it's elsewhere, the combat log folder) in Settings;
 `--wow <folder>` overrides that, and `DIPS_WOW` is used when nothing is picked.
 
+The first time a run opens it takes a moment (up to about 20 seconds for a long one) while a page shows the
+progress; a dungeon's page counts its visits in. After that it opens at once, the next start too. A few seconds
+after start the app prepares the other runs in the background ("Getting runs ready · 3 of 25" under the rail).
+
 Needs Python 3.13 and PyQt6.
 
 ## The score
@@ -217,7 +221,8 @@ erased from the game's saved file, which the game rewrites. A box asks first, as
 In `%APPDATA%\dips-score`: `weights.json`, `classes.json` and `names.json` (yours), `removed.json` (the visits and
 fights you deleted), `fights.jsonl` (the last 5000 fights) and `spells.json` (a spell book per character).
 `spells.json` replaced `cooldowns.json`, which is no longer read; the `replay` command learns the spell books again
-from your old combat logs.
+from your old combat logs. `cache\analysis` holds every run analysed, one file each (a few MB a run, tens of MB
+for the longest); it is safe to delete, as the runs are analysed again when next opened.
 
 ## Layout
 

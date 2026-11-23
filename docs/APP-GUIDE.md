@@ -145,6 +145,11 @@ only saves on `/reload` or logout. Do either after a run (the record button's ri
 
 A brand new character's first save is picked up too, without restarting the app.
 
+The first time a run opens, the app reads it against the combat log, which takes a moment (up to about 20
+seconds for a long one); a page shows the progress meanwhile, and a dungeon's page counts its visits in. The
+result is kept on disk, so after that the run opens at once, even after a restart. A few seconds after start the
+app prepares your other runs in the background, so most are ready before you pick them.
+
 ## From records to a grade
 
 ### Each category is a straight line between two numbers
