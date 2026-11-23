@@ -19,10 +19,11 @@ threshold and formula, and [First run](FIRST-RUN.md) walks you to your first sco
 5. [From records to a grade](#from-records-to-a-grade)
 6. [After every fight](#after-every-fight)
 7. [Over weeks of play](#over-weeks-of-play)
-8. [Why each role would use it](#why-each-role-would-use-it)
-9. [Why each class would use it](#why-each-class-would-use-it)
-10. [How it compares with a log parser](#how-it-compares-with-a-log-parser)
-11. [What it can't do](#what-it-cant-do)
+8. [Raids, sharing and names](#raids-sharing-and-names)
+9. [Why each role would use it](#why-each-role-would-use-it)
+10. [Why each class would use it](#why-each-class-would-use-it)
+11. [How it compares with a log parser](#how-it-compares-with-a-log-parser)
+12. [What it can't do](#what-it-cant-do)
 
 ## What it is for
 
@@ -274,6 +275,22 @@ Other cards catch the slow leaks: the cooldown that costs you the most, your mos
 pull buffs you usually have but sometimes forget, mana at the pull when it averages under 70%,
 damage spells you know and never use, empty gear slots, and gear that went into a pull broken or
 under 20% durability.
+
+## Raids, sharing and names
+
+Raids have their own section in the rail, under Raids, and work like Dungeons: each raid opens into its
+visits, and a visit into its Debrief, Timeline, Pulls, Spells and Group tabs. The add-on records raids only
+when Raids is ticked in its options (`/dscore`); it is off by default. A raid the game just saved opens
+under Raids by itself.
+
+Share (beside Settings and Reload, or Ctrl+Shift+C) copies the page showing to the clipboard as a
+picture, all of it, the part scrolled off screen too, and saves it as a PNG in `Pictures\dips-score`.
+Paste it into Discord or a chat. The picture is as wide as the window, lists that scroll inside a page
+show only their visible rows, and the dips-Core texture is left out.
+
+Right-click a visit or a fight in the rail and pick Rename… (or pick it and press F2) to give it a name,
+such as "guild run with Anna". The name takes the date's place on a visit's row (hover it for the date) and the
+target's on a fight's, and sits beside the original in the page title. Clear the text to take it off.
 
 ## Why each role would use it
 

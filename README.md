@@ -192,10 +192,26 @@ The snapshot depends on game API calls that could not be confirmed outside the g
 takes a snapshot and prints what this client returned: spell count, how many have a cooldown, gear
 slots, talent points and durability.
 
+## Raids, sharing and names
+
+Raids have their own section in the rail, under Raids, and work like Dungeons: each raid opens into its
+visits, and a visit into its Debrief, Timeline, Pulls, Spells and Group tabs. The add-on records raids only
+when Raids is ticked in its options (`/dscore`); it is off by default. A raid the game just saved opens
+under Raids by itself.
+
+Share (beside Settings and Reload, or Ctrl+Shift+C) copies the page showing to the clipboard as a
+picture, all of it, the part scrolled off screen too, and saves it as a PNG in `Pictures\dips-score`.
+Paste it into Discord or a chat. The picture is as wide as the window, lists that scroll inside a page
+show only their visible rows, and the dips-Core texture is left out.
+
+Right-click a visit or a fight in the rail and pick Rename… (or pick it and press F2) to give it a name,
+such as "guild run with Anna". The name takes the date's place on a visit's row (hover it for the date) and the
+target's on a fight's, and sits beside the original in the page title. Clear the text to take it off.
+
 ## Data the app keeps
 
-In `%APPDATA%\dips-score`: `weights.json` and `classes.json` (yours), `fights.jsonl` (the last 5000
-fights) and `spells.json` (a spell book per character). `spells.json` replaced `cooldowns.json`, which
+In `%APPDATA%\dips-score`: `weights.json`, `classes.json` and `names.json` (yours), `fights.jsonl`
+(the last 5000 fights) and `spells.json` (a spell book per character). `spells.json` replaced `cooldowns.json`, which
 is no longer read; the `replay` command learns the spell books again from your old combat logs.
 
 ## Layout
