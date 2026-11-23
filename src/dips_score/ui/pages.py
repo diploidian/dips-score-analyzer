@@ -7,6 +7,7 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHeaderView, QLabel, QScrollArea, QTableWidget,
                              QTableWidgetItem, QTabWidget, QVBoxLayout, QWidget)
 
+from .. import names
 from ..analysis import Analysis
 from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, worst_fight
 from ..dungeon_view import build_bosses, build_history, build_records, history_meta, visits
@@ -168,18 +169,19 @@ class ScoreTab(QWidget):
             self.page.show_view(DebriefView(), "No run selected", "")
             return
         rd = a.data
+        zone = names.titled(rd.run.id, rd.run.zone)
         when = run_meta(a, role=False)     # _show adds the role of the card it shows
         if self._is_me():
             sync = "; ".join(s.describe() for s in rd.sync if s.anchors) or "no clock anchors"
             if rd.has_combat_log and not rd.has_advanced:
                 sync += " · advanced logging: off"
-            self._show(a.card, a.damage[1] if a.damage else None, len(self.deaths), rd.run.zone,
+            self._show(a.card, a.damage[1] if a.damage else None, len(self.deaths), zone,
                        f"{when} · sync: {sync}", None)
             return
         pl = next((x for x in a.ranking if x.guid == self._guid()), None)
         p = a.roster[self._guid()]
         sub = when + (f" · placed {ordinal(pl.rank)} of {len(a.ranking)}" if pl else "")
-        self._show(pl.card if pl else player_card(a, p.guid), None, len(self.deaths), f"{p.name} - {rd.run.zone}",
+        self._show(pl.card if pl else player_card(a, p.guid), None, len(self.deaths), f"{p.name} - {zone}",
                    sub, None)
 
     def _pick(self, i: int):
@@ -202,8 +204,9 @@ class ScoreTab(QWidget):
         kill = "" if f.killed is None else (" - killed" if f.killed else " - wipe")
         who = "" if me else f"{a.roster[self._guid()].name} · "
         deaths = len(fight_of(self.deaths, a.data.fights).get(i, []))
+        zone = names.titled(a.data.run.id, a.data.run.zone)
         self._show(self.cards[i], fr.damage[1] if me and fr.damage else None, deaths, f"{f.label}{kill}",
-                   f"{who}{a.data.run.zone} · at {fmt_time(f.start)} · {f.duration:.0f}s", i)
+                   f"{who}{zone} · at {fmt_time(f.start)} · {f.duration:.0f}s", i)
 
 
 # ============================================================================ Dungeon page

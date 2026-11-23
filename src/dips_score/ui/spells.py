@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from PyQt6.QtCore import QEvent, QRectF, Qt, pyqtSignal
 from PyQt6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
 
+from .. import names
 from ..spells_view import REFUSED, SpellsView, build_spells
 from . import assets, theme
 from .debrief import NARROW
@@ -238,8 +239,8 @@ class SpellsTab(QScrollArea):
             self.show_view(SpellsView(), "No run selected", "")
             return
         me, name = guid == a.data.player_guid, a.roster[guid].name
-        self.show_view(build_spells(a, guid, self.scope.currentData()),
-                       a.data.run.zone if me else f"{name} - {a.data.run.zone}", run_meta(a),
+        zone = names.titled(a.data.run.id, a.data.run.zone)
+        self.show_view(build_spells(a, guid, self.scope.currentData()), zone if me else f"{name} - {zone}", run_meta(a),
                        "your" if me else f"{name}'s")
 
     def show_view(self, view: SpellsView, title: str, sub: str, whose: str = "your"):

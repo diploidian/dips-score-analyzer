@@ -9,6 +9,7 @@ from PyQt6.QtGui import QFont, QFontMetricsF, QPen
 from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QPushButton, QScrollArea, QToolTip,
                              QVBoxLayout, QWidget)
 
+from .. import names
 from ..debrief import fmt_time
 from ..group_view import ROLE_WORD, GroupView, PlayerCard, breakdown, build_group, of_line
 from ..model.roster import CLASSES, ROLES
@@ -411,7 +412,7 @@ class GroupTab(QScrollArea):
         if not a:
             self.show_view(GroupView(), "No run selected", "")
             return
-        self.show_view(build_group(a), a.data.run.zone, run_meta(a))
+        self.show_view(build_group(a), names.titled(a.data.run.id, a.data.run.zone), run_meta(a))
 
     def show_view(self, view: GroupView, title: str, sub: str):
         self.view = view

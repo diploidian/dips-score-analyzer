@@ -13,11 +13,11 @@ from pathlib import Path
 
 from PyQt6.QtCore import QFileSystemWatcher, QStandardPaths, Qt, QTimer
 from PyQt6.QtGui import QFont, QGuiApplication, QKeySequence, QShortcut
-from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QLabel, QMainWindow, QPushButton,
-                             QSplitter, QStackedWidget, QTabWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
-                             QWidget)
+from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QInputDialog, QLabel, QMainWindow, QMenu,
+                             QPushButton, QSplitter, QStackedWidget, QTabWidget, QTreeWidget, QTreeWidgetItem,
+                             QVBoxLayout, QWidget)
 
-from .. import analysis
+from .. import analysis, names
 from ..analysis import Analysis
 from ..config import Paths
 from ..debrief import DebriefView
@@ -54,6 +54,7 @@ class Window(QMainWindow):
         self.by_id: dict[str, Run] = {}
         self.current: Analysis | None = None
         self.cache: dict[tuple, Analysis] = {}
+        names.load(paths.names_file)
         self.setWindowTitle("dips score")
         self.resize(1500, 950)
 
@@ -130,6 +131,10 @@ class Window(QMainWindow):
         links.addStretch(1)
         ll.addLayout(links)
         QShortcut(QKeySequence("Ctrl+Shift+C"), self, self._share)
+        QShortcut(QKeySequence("F2"), self, self._rename)
+        for view in (self.tree, self.fight_list):       # right-click a run or a fight: Rename…
+            view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            view.customContextMenuRequested.connect(lambda pos, v=view: self._rename_menu(v, pos))
         self.share_folder = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation),
                                  "dips-score")
         self.weights: WeightsDialog | None = None
@@ -270,6 +275,7 @@ class Window(QMainWindow):
             self.tree.addTopLevelItem(top)
             for r in visits:
                 child = QTreeWidgetItem([self._run_label(r)])
+                child.setToolTip(0, f"{r.start_time:%a %d %b  %H:%M}")     # the date, when a name is in its place
                 child.setData(0, RUN_ROLE, r.id)
                 top.addChild(child)
                 if r.id == keep:
@@ -303,7 +309,8 @@ class Window(QMainWindow):
         score = ""
         if a and not a.card.empty:
             score = f"   {a.card.total:.0f} {a.card.grade}"
-        return f"{r.start_time:%a %d %b  %H:%M}{score}"
+        when = names.get(r.id) or f"{r.start_time:%a %d %b  %H:%M}"     # your name for it, else its date
+        return f"{when}{score}"
 
     def _key(self, run: Run) -> tuple:
         picks = self.paths.roster_file.stat().st_mtime if self.paths.roster_file.exists() else 0
@@ -364,7 +371,7 @@ class Window(QMainWindow):
         for tab in (self.score, self.group, self.pulls, self.spells, self.timeline_tab):
             tab.set_analysis(self.current)      # None: no tab keeps showing the last run
         if self.current is None:
-            self.score.page.show_view(DebriefView(), run.zone, "Couldn't analyze this run - see the terminal.")
+            self.score.page.show_view(DebriefView(), names.titled(run.id, run.zone), "Couldn't analyze this run - see the terminal.")
         self.stack.setCurrentIndex(1)
         self._refresh_labels()
 
@@ -446,6 +453,40 @@ class Window(QMainWindow):
             self._status(f"Copied to the clipboard · couldn't save it ({e})")
             return
         self._status(f"Copied to the clipboard · saved {path}")
+
+    def _rename_menu(self, view, pos):
+        it = view.itemAt(pos)
+        if it is None:
+            return
+        view.setCurrentItem(it)
+        if self._rename_id():
+            menu = QMenu(self)
+            menu.addAction("Rename…").triggered.connect(self._rename)
+            menu.exec(view.viewport().mapToGlobal(pos))
+
+    def _rename_id(self) -> str | None:
+        """the run or fight picked in the rail's list showing (a dungeon row isn't renamed)"""
+        if self.left_stack.currentIndex() == 0:
+            it = self.tree.currentItem()
+            key = it.data(0, RUN_ROLE) if it else None
+            return key if key in self.by_id else None
+        f = self._fight()
+        return f.get("id") if f else None
+
+    def _rename(self):
+        rid = self._rename_id()
+        if rid:
+            text, ok = QInputDialog.getText(self, "Rename", "Your name for it (empty: none):", text=names.get(rid))
+            if ok:
+                self.set_name(rid, text)
+
+    def set_name(self, rid: str, text: str):
+        """your name for a run or fight (empty takes it off), on its rail row and its page"""
+        try:
+            names.rename(self.paths.names_file, rid, text)
+        except OSError as e:      # names.json can't be written: the name lasts until the app closes
+            self._status(f"Couldn't save the name ({e})")
+        self._redraw()      # the rail's rows too
 
     def _open_settings(self):
         if self.settings_dialog is None:

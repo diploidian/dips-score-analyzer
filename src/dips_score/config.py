@@ -48,6 +48,10 @@ class Paths:
         return self.data_dir / "weights.json"
 
     @property
+    def names_file(self) -> Path:
+        return self.data_dir / "names.json"
+
+    @property
     def classes_file(self) -> Path:
         return self.data_dir / "classes.json"
 

@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (QAbstractItemView, QApplication, QFrame, QHBoxLayou
                              QListWidgetItem, QScrollArea, QStyle, QStyledItemDelegate, QStyleOptionViewItem,
                              QVBoxLayout, QWidget)
 
+from .. import names
 from ..fight_view import _foes, build_fight, list_row
 from . import theme
 from .debrief import NARROW
@@ -122,6 +123,7 @@ class FightList(QListWidget):
     def _add(self, f: dict, row: int | None = None):
         it = QListWidgetItem()
         row_data = list_row(f)
+        row_data = (names.get(f.get("id", "")) or row_data[0], *row_data[1:])     # your name for it over the target
         it.setText(row_data[0])          # read out and searched by; painted by FightRows
         it.setData(ROW, row_data)
         it.setToolTip(_foes(f))
@@ -447,7 +449,8 @@ class FightDetail(QScrollArea):
             self.page.update()
             return
         v = build_fight(f)
-        self.page.title, self.page.sub = v.name, " · ".join(s for s in (v.when, v.zone) if s)
+        self.page.title = names.titled(f.get("id", ""), v.name)
+        self.page.sub = " · ".join(s for s in (v.when, v.zone) if s)
         self.hero.bar = None if v.efficiency is None else (v.efficiency, "m-cd")
         self.hero.kind, self.hero.status = v.kind, f"{v.duration} long · {v.result}"
         self.hero.set(v.big, v.unit, v.caption, None, v.verdict)

@@ -11,6 +11,7 @@ Sizes follow docs/design/mockups/timeline.html (CSS px). The shared parts come f
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QPushButton, QScrollArea, QVBoxLayout
 
+from .. import names
 from ..debrief import fight_cells, fmt_time
 from ..timeline_view import fight_window, idle_view, option_text, scope_for, step, with_fight
 from .debrief import NARROW
@@ -109,8 +110,8 @@ class TimelineTab(QScrollArea):
             return
         card = a.card
         score = None if card.empty or card.grade == "-" else f"{card.total:.0f} {card.grade}"
-        self.show_run(a.data.run.zone, run_meta(a), fight_cells(a), a.data.duration, fmt_time(a.metrics.combat_time),
-                      score, keep)
+        self.show_run(names.titled(a.data.run.id, a.data.run.zone), run_meta(a), fight_cells(a), a.data.duration,
+                      fmt_time(a.metrics.combat_time), score, keep)
 
     def show_run(self, title: str, sub: str, cells: list, duration: float, combat: str, score: str | None,
                  keep: bool = False):

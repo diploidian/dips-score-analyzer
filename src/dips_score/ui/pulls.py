@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QHeaderView, QLa
                              QStyledItemDelegate, QStyleOptionViewItem, QToolTip, QTreeWidget, QTreeWidgetItem,
                              QVBoxLayout, QWidget)
 
+from .. import names
 from ..debrief import fmt_time
 from ..pulls_view import BREAK_S, LOW, PullsView, build_pulls, fix_plate, pct, safety_figures, slide_note, slide_rows
 from . import assets
@@ -448,7 +449,7 @@ class PullsTab(QScrollArea):
         if not a:
             self.show_view(PullsView(), "No run selected", "", 0.0)
             return
-        self.show_view(build_pulls(a), a.data.run.zone, run_meta(a), a.data.duration)
+        self.show_view(build_pulls(a), names.titled(a.data.run.id, a.data.run.zone), run_meta(a), a.data.duration)
 
     def show_view(self, view: PullsView, title: str, sub: str, duration: float):
         self.view = view

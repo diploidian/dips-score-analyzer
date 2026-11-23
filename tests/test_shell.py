@@ -293,6 +293,42 @@ class ShellTests(unittest.TestCase):
             self.assertEqual(QImage(str(saved[0])).height(), w.score.page.height())
             self.assertGreaterEqual(w.score.page.height(), 3000)
 
+    def test_rename_a_run_and_a_fight(self):
+        """a name takes the date's place on the run's rail row and sits beside the zone in the Debrief's title; a
+        fight's takes the target's place on its row and sits beside its name on its page; empty takes it off"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        at = datetime(2026, 11, 18, 22, 0)
+        run = SimpleNamespace(id="r6", zone="Blackfathom Deeps", kind="party", started=at.timestamp(), start_time=at,
+                              line_count=9, parts=["r6"], end_estimate=at.timestamp() + 600)
+        fight = {"id": "20261118233849824000", "start": "2026-11-18T23:38:49.824000", "duration": 112.458,
+                 "damage": 2583, "dps": 23.0, "taken": 433, "healing": 53, "result": "they got away", "kind": "PvP",
+                 "target": "Blackfathom Oracle"}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            w.live.history.fights = [fight]
+            row = lambda: w.tree.topLevelItem(0).child(0)      # noqa: E731
+            with mock.patch("dips_score.analysis.load_saved", return_value=(None, [run])), \
+                    mock.patch.object(Window, "_analysis", side_effect=ValueError("no log")), \
+                    mock.patch("dips_score.ui.app.traceback.print_exc"):
+                w.reload()
+                self.assertTrue(row().text(0).startswith("Wed 18 Nov"))
+                w.set_name("r6", "guild run with Anna")
+                self.assertEqual((row().text(0), row().toolTip(0)), ("guild run with Anna", "Wed 18 Nov  22:00"))
+                self.assertEqual(w.score.page.title, "Blackfathom Deeps — guild run with Anna")
+                w.mode_fights.click()
+                w.set_name(fight["id"], "the oracle")
+                self.assertEqual(w.fight_list.item(0).text(), "the oracle")
+                self.assertEqual(w.fight_detail.page.title, "Blackfathom Oracle — the oracle")
+                w.mode_dungeons.click()
+                w.set_name("r6", "")
+                self.assertEqual(w.score.page.title, "Blackfathom Deeps")
+            self.assertTrue((Path(tmp) / "dips-score" / "names.json").exists())
+
     def test_new_weights_redraw_group_and_timeline(self):
         """a weights change scores the run showing again on the Debrief, Group and Timeline, and keeps the tab, the
         Timeline's view, the Debrief's fight and a spell lit from Spells"""
