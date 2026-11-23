@@ -506,6 +506,29 @@ class ShellTests(unittest.TestCase):
             self.assertEqual(shown, [("Blackfathom Deeps", ["r6", "r7"])])
             self.assertEqual(w.stack.currentIndex(), 0)
 
+    def test_a_key_is_worked_out_once_until_a_save_a_pick_or_new_picks(self):
+        """arrivals (and the dungeon page they redo) reuse each run's key: working one out stats the logs, which
+        hands the interpreter to the loader's thread; a reload, a pick and new role picks work them out again"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score import analysis
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = self.loading_window(tmp, [self.visit(f"r{i}", 10 + i) for i in range(4)])
+            w.dungeon.show_dungeon = lambda *_a: None
+            with mock.patch("dips_score.analysis.run_key", side_effect=analysis.run_key) as run_key:
+                w.tree.setCurrentItem(w.tree.topLevelItem(0))       # the dungeon: its 4 visits asked for
+                for i in range(4):
+                    self.arrive(w, f"r{i}")
+                self.assertEqual(w.stack.currentIndex(), 0)
+                self.assertEqual(run_key.call_count, 4)              # once a run, the arrivals' redo included
+                w.reload()
+                self.assertGreaterEqual(run_key.call_count, 8)       # the game saved: anew
+                n = run_key.call_count
+                w.current = SimpleNamespace(data=SimpleNamespace(run=w.by_id["r3"]))
+                w._group_changed("guid", "PALADIN", "tank")         # new role picks: anew
+                self.assertGreater(run_key.call_count, n)
+
     def test_picking_another_run_while_one_loads_shows_the_new_one(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         from PyQt6.QtWidgets import QApplication

@@ -56,6 +56,7 @@ class Window(QMainWindow):
         self.by_id: dict[str, Run] = {}
         self.current: Analysis | None = None
         self.cache: dict[tuple, Analysis] = {}     # the runs asked for, by key (one per run, the newest)
+        self.keys: dict[str, tuple] = {}           # run id -> its key, worked out once (see _key)
         self.scores: dict[tuple, str] = {}         # a warmed-up run's score for its rail row; its analysis is on disk
         self.wanted: set[str] = set()              # runs asked for to be shown: theirs stay in memory when in
         self.failed: set[tuple] = set()            # keys that couldn't be analysed, until that's shown
@@ -266,6 +267,7 @@ class Window(QMainWindow):
         # not the combat log: it grows all through combat, and runs only change when the game saves
 
     def reload(self):
+        self.keys.clear()               # the game saved: runs and logs changed
         cur = self.tree.currentItem()
         keep = cur.data(0, RUN_ROLE) if cur else None
         had = set(self.by_id)
@@ -340,8 +342,11 @@ class Window(QMainWindow):
         return f"{when}{score}"
 
     def _key(self, run: Run) -> tuple:
-        picks = self.paths.roster_file.stat().st_mtime if self.paths.roster_file.exists() else 0
-        return analysis.run_key(run, sorted(self.paths.logs.glob("WoWCombatLog*.txt")), picks)
+        # once per run until the game saves, picks change or you pick: each stat hands the interpreter to the worker
+        if run.id not in self.keys:
+            picks = self.paths.roster_file.stat().st_mtime if self.paths.roster_file.exists() else 0
+            self.keys[run.id] = analysis.run_key(run, sorted(self.paths.logs.glob("WoWCombatLog*.txt")), picks)
+        return self.keys[run.id]
 
     def _need(self, runs: list[Run]) -> list[Run]:
         """the runs not in memory, asked for; returns those still to come (none, with the loader inline)"""
@@ -405,6 +410,7 @@ class Window(QMainWindow):
     def _picked(self, it: QTreeWidgetItem | None, _prev=None):
         if it is None:
             return
+        self.keys.clear()               # a pick: a run whose log still grows gets its key anew (not _arrived's redo)
         key = it.data(0, RUN_ROLE) or ""
         if self.left_stack.currentIndex() == 1:     # Fights or Habits: a reload's visit still loads behind the page,
             if key in self.by_id:                   # so its fights get Show on the timeline (R7)
@@ -734,6 +740,7 @@ class Window(QMainWindow):
         self._reshow(keep_tab=True)
 
     def _reshow(self, keep_tab: bool):
+        self.keys.clear()               # role picks changed: every key did
         tab = self.tabs.currentIndex()
         view = (self.timeline.v0, self.timeline.v1)
         if self.current:
