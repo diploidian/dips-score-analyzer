@@ -534,6 +534,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         "lowest_hp": min((p for _, p in hp), default=None),
         "potential": potential, "efficiency": efficiency,
         "healing_role": healing_role, "verdict": verdict,
+        "opener": [c[2] for c in casts[:3]],       # your first three casts, in time order
         "best_before": best,
         "good": good[:4], "improve": [text for _, text in improve][:5],
         "danger": danger, "abilities": abilities, "cooldowns": cd_rows, "auto": auto,

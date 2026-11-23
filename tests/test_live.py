@@ -382,5 +382,22 @@ class Verdict(unittest.TestCase):
         self.assertEqual(s["verdict"], f"Clean fight: {s['efficiency']:.0%} of the damage that was possible.")
 
 
+class Opener(unittest.TestCase):
+    def opener(self, *names):
+        casts = [cast(i, 100 + i, n) for i, n in enumerate(names)]
+        tr, f = one_fight([*casts, *bites(10)])
+        return summarize(f, tr.me, tr.me_name, {}, [])["opener"]
+
+    def test_first_three_in_order(self):
+        self.assertEqual(self.opener("Smite", "Mind Blast", "Shadow Word: Pain", "Renew"),
+                         ["Smite", "Mind Blast", "Shadow Word: Pain"])
+
+    def test_fewer_casts(self):
+        self.assertEqual(self.opener("Smite", "Renew"), ["Smite", "Renew"])
+
+    def test_no_casts(self):
+        self.assertEqual(self.opener(), [])
+
+
 if __name__ == "__main__":
     unittest.main()
