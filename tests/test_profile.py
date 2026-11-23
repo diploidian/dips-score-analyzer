@@ -90,6 +90,17 @@ class Figures(unittest.TestCase):
         t = n["temperament"]
         self.assertEqual((t["deaths"], t["deaths_per_hour"], t["median_pull"], t["cooldowns_share"]), (1, 30, 2, 0.75))
 
+    def test_click_share_ignores_unknown_source(self):
+        n = profile([fight(1)], None, {}, [run(1, presses=1000, by_key=60, by_click=40)], T0)["now"]
+        self.assertAlmostEqual(n["hands"]["click_share"], 0.4)        # 40 of 100 keyed or clicked, not of 1000
+        self.assertTrue(n["label"].endswith(" who clicks."))
+        none = profile([fight(1)], None, {}, [run(1, by_key=0, by_click=0)], T0)["now"]
+        self.assertIsNone(none["hands"]["click_share"])
+        self.assertFalse(" who " in none["label"])
+
+    def test_no_seconds_no_main_role(self):
+        self.assertIsNone(profile([fight(1, duration=0)], None, {}, [], T0)["now"]["main_role"])
+
     def test_healer_signature_by_casts(self):
         fs = [fight(1, healing_role=True, abilities=[{"name": "Heal", "casts": 9, "damage": 0},
                                                      {"name": "Smite", "casts": 1, "damage": 500}])]

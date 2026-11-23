@@ -64,7 +64,7 @@ def update(saved: dict, fights: list[dict], char: dict | None, book: dict | None
             hi += SLICE
         slices.extend(added)
     else:               # first run: blocks counted back from now, back past the oldest fight
-        oldest = datetime.fromisoformat(mine[0]["start"])
+        oldest = min(datetime.fromisoformat(f["start"]) for f in mine)
         hi = now - SLICE
         while hi >= oldest:
             if s := _slice(mine, char, book, runs, hi - SLICE, hi):

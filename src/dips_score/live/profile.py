@@ -21,7 +21,7 @@ figures(...) keys (shares are fractions 0..1; None when there is nothing to divi
   opener           {"casts": [three names], "count": fights that opened so, "of": fights with three opening
                    casts}, or None
   hands            None without runs in the window; else {"runs", "presses", "by_key", "by_click", "key_share",
-                   "click_share", "combat_seconds", "per_minute", "failed", "casts", "refused_share",
+                   "click_share" (of keyed + clicked presses), "combat_seconds", "per_minute", "failed", "casts", "refused_share",
                    "moving_seconds", "moving_share"}
   temperament      {"deaths", "deaths_per_hour", "median_pull", "mean_pull", "alone" (fights against one enemy),
                    "lowest_hp" (mean, same scale as the fight's lowest_hp), "cooldowns_used", "cooldowns_possible",
@@ -95,7 +95,7 @@ def _hands(runs: list[dict]) -> dict | None:
     presses, key, click, failed, casts = s("presses"), s("by_key"), s("by_click"), s("failed"), s("casts")
     combat, moving = s("combat_time"), s("moving_time")
     return {"runs": len(runs), "presses": presses, "by_key": key, "by_click": click,
-            "key_share": _share(key, presses), "click_share": _share(click, presses),
+            "key_share": _share(key, key + click), "click_share": _share(click, key + click),   # "?" sources left out
             "combat_seconds": combat, "per_minute": _share(presses * 60, combat),
             "failed": failed, "casts": casts, "refused_share": _share(failed, casts + failed),
             "moving_seconds": moving, "moving_share": _share(moving, combat)}
@@ -136,7 +136,7 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
         if f.get("kind") in PLACE:
             by_place[PLACE[f["kind"]]] += f.get("duration") or 0
     roles = {r: _share(by_role[r], seconds) for r in ROLES}
-    main = max(ROLES, key=lambda r: roles[r] or 0) if win else None
+    main = max(ROLES, key=lambda r: roles[r] or 0) if seconds else None
     out = {"fights": len(win), "seconds": seconds, "roles": roles, "main_role": main,
            "places": {p: _share(by_place[p], seconds) for p in ("Dungeon", "World", "PvP")},
            "grades": _grades(runs),
