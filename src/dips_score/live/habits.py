@@ -194,23 +194,35 @@ def _wear_cards(win: list[dict], pulls: list[tuple]) -> list[tuple]:
     return []
 
 
+def idle_spells(win: list[dict], char: dict, book: dict) -> list[str] | None:
+    """harmful spells the character knows and has not cast since the window's first fight; None when the
+    snapshot has no harm flag to judge by"""
+    first = _t(win[0]["start"])
+    spells = char.get("spells") or {}
+    if not any(sp["harm"] is not None for sp in spells.values()):
+        return None
+    return [n for n, sp in spells.items() if sp["harm"] and not (
+        (last := (book.get(n) or {}).get("last")) and _t(last) >= first)]
+
+
 def _build_cards(win: list[dict], char: dict, book: dict) -> list[tuple]:
     """what the character snapshot shows: harmful spells never cast in the window, empty gear slots"""
     out = []
-    first = _t(win[0]["start"])
-    spells = char.get("spells") or {}
-    if any(sp["harm"] is not None for sp in spells.values()):         # without the flag nothing can be judged
-        idle = [n for n, sp in spells.items() if sp["harm"] and not (
-            (last := (book.get(n) or {}).get("last")) and _t(last) >= first)]
-        if idle:
-            out.append(("build", "Spells you never use", f"You know {', '.join(idle[:UNUSED_SHOWN])} and have not "
-                        f"cast {'it' if len(idle) == 1 else 'them'} in your last {len(win)} fights"))
+    if idle := idle_spells(win, char, book):
+        out.append(("build", "Spells you never use", f"You know {', '.join(idle[:UNUSED_SHOWN])} and have not "
+                    f"cast {'it' if len(idle) == 1 else 'them'} in your last {len(win)} fights"))
     gear = char.get("gear") or {}
     if gear:                                    # an empty list means the client gave nothing, not a naked character
         empty = [label for slot, label in SLOTS if slot not in gear]
         if empty:
             out.append(("build", "Gear slots to fill", "Empty gear slots: " + ", ".join(empty)))
     return out
+
+
+def char_block(char: dict | None) -> dict | None:
+    """the snapshot's line for a page header: class, race, level, spec, gear level"""
+    return char and {"class": char.get("class"), "race": char.get("race"), "level": char.get("level"),
+                     "spec": char.get("spec"), "gear": gear_level(char)}
 
 
 def habits(fights: list[dict], char: dict | None = None, book: dict | None = None) -> dict:
@@ -226,9 +238,7 @@ def habits(fights: list[dict], char: dict | None = None, book: dict | None = Non
              for f in _damage_fights(win)]
     return {"name": fights[-1].get("me_name", ""), "level": fights[-1].get("level"), "fights": len(win),
             "trend": trend,
-            "session": _session(mine), "char": char and {
-                "class": char.get("class"), "race": char.get("race"), "level": char.get("level"),
-                "spec": char.get("spec"), "gear": gear_level(char)},
+            "session": _session(mine), "char": char_block(char),
             # a card's figures beside its words: cost on every card (None without one), the rest on their own card
             "cards": [{"kind": k, "title": t, "detail": d, "cost": None, **(more[0] if more else {})}
                       for k, t, d, *more in cards]}
