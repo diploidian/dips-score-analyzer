@@ -6,6 +6,8 @@ Sizes follow docs/design/mockups/profile.html (CSS px). The shared parts come fr
 """
 from __future__ import annotations
 
+import math
+
 from PyQt6.QtCore import QEasingCurve, QPointF, QRectF, Qt, QVariantAnimation, pyqtSignal
 from PyQt6.QtGui import QPainter
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
@@ -25,6 +27,8 @@ GROW_AT, STAGGER, STAGGERED = 150, 60, 8        # bars: when the first starts, e
 DRAW_AT, DRAW_MS = 900, 550                     # the highlighter's ring
 NOTE_AT, NOTE_MS = 1360, 400                    # its note
 OUT, IN_OUT = QEasingCurve.Type.OutQuart, QEasingCurve.Type.InOutCubic
+GROW = QEasingCurve(QEasingCurve.Type.BezierSpline)     # DESIGN.md's cubic-bezier(.16,1,.3,1)
+GROW.addCubicBezierSegment(QPointF(0.16, 1), QPointF(0.3, 1), QPointF(1, 1))
 
 
 def phase(p: float, start: float, ms: float, curve=OUT) -> float:
@@ -34,7 +38,7 @@ def phase(p: float, start: float, ms: float, curve=OUT) -> float:
 
 def grow(p: float, i: int) -> float:
     """how much of the page's bar i is drawn"""
-    return phase(p, GROW_AT + STAGGER * min(i, STAGGERED - 1), GROW_MS)
+    return phase(p, GROW_AT + STAGGER * min(i, STAGGERED - 1), GROW_MS, GROW)
 
 
 def figure_ink(row: Row):
@@ -94,8 +98,19 @@ def draw_under(p, x, y, w, row: Row, prog: float, nf, ink: str, chip_first: bool
     return h
 
 
+def unit_text(row: Row) -> str:
+    return row.unit if row.unit[:1] in ("", "%") else f" {row.unit}"
+
+
 def spoken(title: str, rows: list[Row]) -> str:
-    return f"{title}: " + ", ".join(f"{r.name} {r.value}{r.unit}" for r in rows)
+    """what a screen reader says for a section"""
+    return f"{title}: " + "; ".join(", ".join(filter(None, (
+        f"{r.name} {r.value}{unit_text(r)}", spoken_casts(r.casts), f"grade {r.grade} {r.letter}" if r.letter else "",
+        r.note, r.chip))) for r in rows)
+
+
+def spoken_casts(casts: str) -> str:
+    return "" if casts in ("", NA) else casts if casts.endswith("swings") else f"{casts} casts"
 
 
 class ProfileHero(Hero):
@@ -141,6 +156,9 @@ class Signature(Part):
         draw_label_tab(p, 0, 1 + 14, "Signature")
         y = 1 + 14 + 25 + 8
         name_w, cast_w, share_w = (172, 82, 40) if self.narrow else (170, 92, 44)
+        nf = font(14, 500)      # the names get the room they need, down to a 100px bar
+        longest = math.ceil(max((adv(nf, r.name) for r in v.signature), default=0)) + 1
+        name_w = max(name_w, min(longest, w - 3 * 12 - cast_w - share_w - 100))
         cast_r = name_w + 12 + cast_w
         bx = cast_r + 12
         bw = max(0.0, w - bx - 12 - share_w)
@@ -149,7 +167,7 @@ class Signature(Part):
             right_text(p, hf, tok("mu"), cast_r, baseline(hf, y, 12), "CASTS")
             line(p, hf, tok("mu"), bx, y, 12, elide(hf, v.sig_header.upper(), w - bx))
         y += 12 + 4
-        nf, cf, vf, tf = font(14, 500), font(14, num=True), font(20, 700, num=True), font(12)
+        cf, vf, tf = font(14, num=True), font(20, 700, num=True), font(12)
         for k, row in enumerate(v.signature):
             if p:
                 rule(p, 0, y, w, tok("ln"))
@@ -180,6 +198,8 @@ class SpellTable(Part):
     def set_view(self, v: ProfileView):
         self.rows, self.header = v.spells, v.spells_header
         self.total = v.spells_header.replace("share of ", "All your ")
+        self.setAccessibleName("All spells: " + "; ".join(
+            ", ".join(filter(None, (name, spoken_casts(casts), share))) for name, casts, share in v.spells))
         self.changed()
 
     def draw(self, p, w):
@@ -214,9 +234,9 @@ class ShareRows(Part):
     """Role mix or Where you fight: a ruled row each, name, a bar as long as its share, the share (and the average
     grade of its runs), then its note and chip. first: the number of its first bar in the entrance's order"""
 
-    def __init__(self, title: str, first: int, top_rule: bool, graded: bool = False):
+    def __init__(self, title: str, first: int, graded: bool = False):
         super().__init__()
-        self.title, self.first, self.top_rule, self.graded = title, first, top_rule, graded
+        self.title, self.first, self.graded = title, first, graded
         self.rows: list[Row] = []
 
     def set(self, rows: list[Row]):
@@ -225,10 +245,8 @@ class ShareRows(Part):
         self.changed()
 
     def draw(self, p, w):
-        if p and self.top_rule:
-            rule(p, 0, 0, w, tok("ln"))
-        draw_label_tab(p, 0, 1 + 14, self.title)
-        y = 1 + 14 + 25 + 8
+        draw_label_tab(p, 0, 14, self.title)
+        y = 14 + 25 + 8
         bx, right = 122, w - (58 + 12 if self.graded else 0)
         nf, vf, gf, lf = font(14, 500), font(22, 700, num=True), font(20, 700, num=True), font(13, 700, num=True)
         for k, row in enumerate(self.rows):
@@ -250,7 +268,9 @@ class ShareRows(Part):
             y += 22
             h = draw_under(p, bx, y + 4, w - bx, row, self.p, font(12), "mu", True)
             y += (4 + h if h else 0) + 5
-        return y + 12
+        if p:
+            rule(p, 0, y + 12, w, tok("ln"))
+        return y + 12 + 1
 
 
 class TraitCard(Part):
@@ -283,7 +303,7 @@ class TraitCard(Part):
                 rule(p, 0, y, w, tok("ln"))
                 base = baseline(vf, y + 8, 26)
                 text_at(p, nf, tok("tx"), 0, base, row.name)
-                unit = row.unit if row.unit[:1] in ("", "%") else f" {row.unit}"
+                unit = unit_text(row)
                 uw = adv(uf, unit) + 1 if unit else 0
                 right_text(p, uf, tok("tx2"), w, base, unit)       # quiet, as the hero's: some inks miss 4.5:1 at 17px
                 right_text(p, vf, figure_ink(row), w - uw, base, row.value)
@@ -303,6 +323,8 @@ class EarlierTable(Part):
 
     def set(self, rows: list[EarlierRow]):
         self.rows = rows
+        self.setAccessibleName("Earlier: " + "; ".join(
+            f"{r.dates}, {r.label}, {r.role}, {r.deaths} deaths an hour, {r.cooldowns} cooldowns used" for r in rows))
         self.changed()
 
     def draw(self, p, w):
@@ -358,8 +380,8 @@ class ProfilePage(QScrollArea):
         self.need, self.signature, self.table = Need(), Signature(), SpellTable()
         self.spells_drawer = Drawer("All spells", self.table)
         self.hands = TraitCard("Hands", "m-act")
-        self.roles = ShareRows("Role mix", 5, top_rule=False, graded=True)
-        self.places = ShareRows("Where you fight", 7, top_rule=True)
+        self.roles = ShareRows("Role mix", 5, graded=True)
+        self.places = ShareRows("Where you fight", 7)
         self.temperament = TraitCard("Temperament", "m-surv")
         self.earlier = EarlierTable()
         self.earlier_drawer = Drawer("Earlier", self.earlier)
@@ -386,6 +408,7 @@ class ProfilePage(QScrollArea):
         right.setSpacing(0)
         right.addWidget(self.roles)
         right.addWidget(self.places)
+        right.addSpacing(16)
         right.addWidget(self.temperament)
         right.addStretch(1)
         self.body = QWidget()
@@ -399,9 +422,9 @@ class ProfilePage(QScrollArea):
         lay.setSpacing(0)
         lay.addSpacing(HEAD_H)
         lay.addWidget(self.need)
-        lay.addWidget(self.body)
+        lay.addWidget(self.body, 1)     # the divider runs down to Earlier, at the window's foot
         lay.addWidget(self.foot)
-        lay.addStretch(1)
+        lay.addStretch(0)
         self.setWidget(self.page)
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -417,9 +440,12 @@ class ProfilePage(QScrollArea):
         self.need.setVisible(thin)
         self.body.setVisible(not thin)
         self.need.head, self.need.text = v.need or "", v.need_line
+        self.need.setAccessibleName(f"{self.need.head} {self.need.text}")
         self.need.changed()
         self.hero.before, self.hero.chip_ink = v.before or "", v.chip_ink
         self.hero.set(v.hero, v.hero_unit or None, v.caption, v.chip, v.label or "")
+        self.hero.setAccessibleName(", ".join(filter(None, (f"{v.hero}{v.hero_unit} {v.caption}", v.chip, v.label,
+                                                            v.before))))
         self.plate.setVisible(v.plate is not None)
         if v.plate:
             self.plate.set(v.plate.title, v.plate.figure, v.plate.caption, v.plate.button, [], v.plate.why)

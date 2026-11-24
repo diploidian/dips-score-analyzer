@@ -94,7 +94,7 @@ class SettingsDialog(QDialog):
             rb.toggled.connect(lambda on, k=key: on and self.theme_changed.emit(k))
             self.choice.addButton(rb)
             bl.addWidget(rb)
-        self.motion = QCheckBox("Animate the debrief when it opens")
+        self.motion = QCheckBox("Animate the Debrief and Profile when they open")
         self.motion.setChecked(bool(self.settings.get("motion", True)))
         self.motion.toggled.connect(lambda on: self._set("motion", on))
         bl.addWidget(self.motion)

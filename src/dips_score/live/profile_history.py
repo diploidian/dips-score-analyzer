@@ -2,10 +2,10 @@
 profile_history.json (beside fights.jsonl), {character guid: [slice, ...] oldest first}, each slice
 {"from", "to" (ISO times, the window (from, to]), "fights", "label", "figures" (profile.figures)}.
 
-file(paths) is the path; load(path) -> dict ({} when missing or unreadable); update(saved, fights, char, book,
-runs, now, types=None) adds the slices that have finished for the newest fight's character and returns them; save(path,
-saved) writes atomically. A block is saved once its end is 15 days back, so it has left Now. A slice with fewer than MIN_FIGHTS
-fights is skipped.
+file(paths) is the path; load(path) -> dict ({} when missing), or None when it can't be read now (locked, or broken
+and set aside): nothing may be saved over it then; update(saved, fights, char, book, runs, now, types=None) adds the
+slices that have finished for the newest fight's character and returns them; save(path, saved) writes atomically. A
+block is saved once its end is 15 days back, so it has left Now. A slice with fewer than MIN_FIGHTS fights is skipped.
 """
 from __future__ import annotations
 
@@ -23,12 +23,22 @@ def file(paths) -> Path:
     return paths.data_dir / "profile_history.json"
 
 
-def load(path: Path) -> dict:
+def load(path: Path) -> dict | None:
     try:
         saved = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        if isinstance(saved, dict):
+            return saved
+    except FileNotFoundError:
         return {}
-    return saved if isinstance(saved, dict) else {}
+    except OSError:                # locked: read again next time
+        return None
+    except ValueError:
+        pass
+    try:                           # broken: kept aside, and the next time starts a new one
+        path.rename(path.with_name(f"{path.stem}.bad-{datetime.now():%Y%m%d-%H%M%S}.json"))
+    except OSError:
+        pass
+    return None
 
 
 def save(path: Path, saved: dict):

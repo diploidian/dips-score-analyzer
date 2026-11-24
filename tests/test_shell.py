@@ -449,6 +449,7 @@ class ShellTests(unittest.TestCase):
         app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
         from dips_score.config import Paths
         from dips_score.ui.app import Window
+        from dips_score.ui.profileview import grow
         from test_fight_view import ORACLE
         from test_profile import fight
         now = datetime.now()
@@ -485,6 +486,11 @@ class ShellTests(unittest.TestCase):
             self.assertEqual([r.name for r in page.roles.rows], ["Damage", "Healer", "Tank"])
             self.assertIn("Hands needs a recorded run", page.hands.rows[0].note)
             self.assertEqual(len(page.earlier.rows), 1)
+            for part in (page.hero, page.need, page.signature, page.table, page.hands, page.roles, page.places,
+                         page.temperament, page.earlier):
+                self.assertTrue(part.accessibleName(), part)
+            self.assertIn("no run graded as healer yet", page.roles.accessibleName())
+            self.assertIn("Careful world damage dealer.", page.hero.accessibleName())
             before = saved.stat().st_mtime_ns
             w._redraw()                     # a look change: shown again, nothing new to save
             self.assertEqual((w.stack.currentIndex(), saved.stat().st_mtime_ns), (5, before))
@@ -497,6 +503,7 @@ class ShellTests(unittest.TestCase):
             w.stack.setCurrentIndex(0)
             w.mode_profile.click()          # one entrance a visit, not one a refresh
             self.assertEqual(page.roles.p, 0.0)
+            self.assertEqual((grow(0.0, 0), grow(1.0, 20)), (0.0, 1.0))
             page.entrance.stop()
             page.set_progress(0.5)
             w.mode_profile.click()
@@ -505,6 +512,91 @@ class ShellTests(unittest.TestCase):
             page.plate.button.click()
             self.assertTrue(w.mode_habits.isChecked())
             self.assertEqual(w.stack.currentIndex(), 3)
+
+    def test_profile_saves_own_data_only(self):
+        """slices and run rows are saved only when the add-on's file was read and is the newest fight's character's"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from datetime import timedelta
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.live import profile_history, profile_runs
+        from dips_score.ui.app import Window
+        from test_profile import fight, run
+        now = datetime.now()
+
+        def row(me, name="A"):
+            return run(me=me, name=name, parts=["r1"], start=now - timedelta(days=2))
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            w.live.history.fights = [fight(start=(now - timedelta(days=d)).isoformat()) for d in [20] * 10 + [1] * 10]
+            files = [m.file(w.paths) for m in (profile_history, profile_runs)]
+
+            def saved(fresh=True):
+                w._show_profile()
+                out = [f.exists() for f in files]
+                for f in files if fresh else ():
+                    f.unlink(missing_ok=True)
+                return out
+            w.saved = Path(tmp) / "Account" / "X" / "Realm" / "B" / "SavedVariables" / "dips-Score.lua"
+            w.by_id, w.run_rows = {"r1": SimpleNamespace(player_name="B")}, {"r1": row("B", "B")}
+            self.assertEqual(saved(), [False, False])       # another character's file
+            w.run_rows = {"r1": None}
+            self.assertEqual(saved(), [False, False])       # no run says whose: by name
+            w.by_id, w.run_rows = {}, {}
+            self.assertEqual(saved(), [False, False])       # no run at all: by the folder
+            w.saved = w.saved.parents[2] / "A" / "SavedVariables" / "dips-Score.lua"
+            self.assertEqual(saved(), [True, False])
+            w.by_id, w.run_rows = {"r1": SimpleNamespace(player_name="A")}, {"r1": row("A")}
+            self.assertEqual(saved(), [True, True])
+
+            with mock.patch("dips_score.analysis.load_saved", side_effect=ValueError("half-written")):
+                w.reload()
+            w.debounce.stop()
+            self.assertEqual(saved(), [False, False])       # the last reload failed
+            w.reload()                                      # no file at all: nothing to wait for
+            self.assertEqual(w.saved, None)
+            self.assertEqual(saved(fresh=False), [True, True])
+
+            w.run_rows = {}                                 # the next start: the add-on dropped the run, its row stays
+            self.assertEqual([r["presses"] for r in w._profile_runs()[0]], [100])
+            before = [f.read_bytes() for f in files]
+            w._show_profile()
+            self.assertEqual([f.read_bytes() for f in files], before)
+            with mock.patch.object(profile_history, "load", return_value=None), \
+                    mock.patch.object(profile_history, "save") as save:         # unreadable now: nothing over it
+                w.run_rows = {"r1": row("A")}
+                w._show_profile()
+            save.assert_not_called()
+            files[0].unlink()
+            files[1].write_text("{", encoding="utf-8")      # the run rows broken: no slice without them this time
+            self.assertEqual(saved(fresh=False), [False, False])
+            self.assertEqual(saved(), [True, True])
+
+    def test_leaving_profile_while_a_run_loads(self):
+        """a run that comes in after you left Profile for another page leaves you there; a later failure keeps its
+        good row; new weights redraw an open Profile"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = self.loading_window(tmp, [])
+            w.mode_profile.click()
+            with mock.patch("dips_score.analysis.load_saved", return_value=(None, [self.visit("r1", 1)])):
+                w.reload()
+            self.assertTrue(w.waiting)
+            self.assertEqual(w.stack.currentIndex(), 5)     # it loads behind Profile
+            w.mode_habits.click()
+            self.arrive(w, "r1")
+            self.assertEqual((w.waiting, w.stack.currentIndex()), (None, 3))
+            good = w.run_rows["r1"]
+            w._arrived("r1", ("r1",), None, "")
+            self.assertIs(w.run_rows["r1"], good)
+            w.mode_profile.click()
+            with mock.patch.object(w, "_show_profile") as show:
+                w._rescore()
+            show.assert_called()
 
     def loading_window(self, tmp, runs):
         """a window whose runs are asked for but don't come in until _arrived is called (the loader's thread)"""

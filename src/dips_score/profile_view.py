@@ -1,7 +1,8 @@
 """What the Profile page shows, as plain data (no Qt), from live.profile.profile() and the saved 15-day slices
 (live.profile_history): the hero (main role share and the label), the "Before:" line, the Worth changing plate,
 Signature (no per-row note but "no damage of its own" for a "–" share), Hands, Role mix, Where you fight, Temperament, the chips and the one highlighter mark (Now against
-Before), the Earlier rows and every empty state. A value that cannot be known renders "–", never a guess.
+Before: the largest move, on a tie the increase, then page order), the Earlier rows and every empty state. A
+value that cannot be known renders "–", never a guess.
 
 Inks are token names: Signature bars "m-dmg", Role mix bars ROLE_INK, Where you fight bars PLACE_INK, scored
 rows their measure ink ("m-cast", "m-surv", "m-cd", "m-act"), other figures "tx". A Role mix grade letter and
@@ -187,16 +188,16 @@ def run_row(a) -> dict:
     compared), the role it was scored as (None: nothing to tell it from), its presses and its casts"""
     run, m, visit = a.data.run, a.metrics, visits([(a.data.run, a)])[0]
     known = visit.score is not None and a.me and a.me.role
-    return {"me": a.data.player_guid, "name": run.player_name, "start": run.start_time,
-            "role": {"dps": "damage"}.get(a.role, a.role) if known else None, "score": visit.score,
-            "grade": visit.grade, "presses": m.presses, "by_key": m.by_key, "by_click": m.by_click,
+    return {"me": a.data.player_guid, "parts": list(run.parts) or [run.id], "name": run.player_name,
+            "start": run.start_time, "role": {"dps": "damage"}.get(a.role, a.role) if known else None,
+            "score": visit.score, "grade": visit.grade, "presses": m.presses, "by_key": m.by_key, "by_click": m.by_click,
             "failed": m.failed, "casts": m.casts, "combat_time": m.combat_time, "moving_time": m.moving_time,
             "move_interrupts": m.move_interrupts, "wasted_cast_time": m.wasted_cast_time}
 
 
-def mine(rows, me: str, name: str) -> list[dict]:
+def mine(rows: dict[str, dict | None], me: str, name: str) -> dict[str, dict]:
     """the run rows of one character: by guid, by name for a run without a combat log (its guid unknown)"""
-    return [r for r in rows if r["me"] == me or (r["me"] is None and r["name"] == name)]
+    return {rid: r for rid, r in rows.items() if r and (r["me"] == me or (r["me"] is None and r["name"] == name))}
 
 
 def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
@@ -318,7 +319,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
                   f"possible, in {_plural(n, 'fight')}", ink="m-cd"),
               lambda f: f["temperament"]["cooldowns_share"], "more cooldowns", "fewer cooldowns")]
 
-    if moves:       # the largest move; max keeps the first in page order on a tie
-        row, _, note = max(moves, key=lambda m: abs(m[1]))
+    if moves:       # the largest move, on a tie the increase, then (max keeps the first) page order
+        row, _, note = max(moves, key=lambda m: (abs(m[1]), m[1]))
         row.mark = note
     return v

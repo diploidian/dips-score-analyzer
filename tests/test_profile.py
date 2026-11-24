@@ -6,10 +6,13 @@ import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace as NS
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from dips_score import removed  # noqa: E402
 from dips_score.live import profile_history as ph  # noqa: E402
+from dips_score.live import profile_runs  # noqa: E402
 from dips_score.live.profile import label, profile  # noqa: E402
 from dips_score.profile_view import build_profile, mine, run_row  # noqa: E402
 
@@ -223,6 +226,39 @@ class History(unittest.TestCase):
             self.assertEqual(ph.load(path), saved)
             self.assertEqual(list(Path(d).iterdir()), [path])
 
+    def test_load_locked_or_broken(self):
+        with tempfile.TemporaryDirectory() as d:
+            for name in ("profile_history.json", "profile_runs.json"):
+                path = Path(d) / name
+                self.assertEqual(ph.load(path), {})                     # not there yet
+                path.write_text('{"A": []}', encoding="utf-8")
+                with mock.patch.object(Path, "read_text", side_effect=PermissionError):
+                    self.assertIsNone(ph.load(path))
+                self.assertEqual(ph.load(path), {"A": []})              # only locked: left where it is
+                for broken in ('{"A": [', "[]"):
+                    path.write_text(broken, encoding="utf-8")
+                    self.assertIsNone(ph.load(path))
+                    self.assertFalse(path.exists())
+                    aside = list(Path(d).glob(f"{path.stem}.bad-*.json"))
+                    self.assertEqual([p.read_text(encoding="utf-8") for p in aside], [broken])
+                    aside[0].unlink()
+                path.write_bytes(b"\xff\xfe{")                          # not UTF-8 either
+                self.assertIsNone(ph.load(path))
+                self.assertEqual(ph.load(path), {})                     # the next time starts a new one
+
+    def test_run_rows_kept(self):
+        rows = {"old": run(61, parts=["old"]), "r1": run(40, parts=["r1", "r1b"])}
+        kept = json.loads(json.dumps(profile_runs.pack(rows, T0)))
+        self.assertEqual(list(kept), ["r1"])                            # 60 days
+        now = {"r1": run(40, parts=["r1", "r1b"], score=90.0), "r2": run(1, parts=["r2"])}
+        merged = profile_runs.merge(kept, now)
+        self.assertEqual({k: r["score"] for k, r in merged.items()}, {"r1": 90.0, "r2": 85.0})      # upserted
+        self.assertEqual(merged["r1"]["start"], rows["r1"]["start"])
+        # the add-on kept only the visit's second piece: already in the whole visit's row
+        self.assertEqual(list(profile_runs.merge(kept, {"r1b": run(40, parts=["r1b"])})), ["r1"])
+        with mock.patch.object(removed, "IDS", {"r1"}):
+            self.assertEqual(profile_runs.merge(kept, {}), {})          # deleted
+
 
 def many(n=10, days_ago=1.0, **kw):
     return [fight(days_ago, **kw) for _ in range(n)]
@@ -309,17 +345,17 @@ class View(unittest.TestCase):
 
     def test_role_and_place_marks(self):
         v = page(many(healing_role=True) + many(days_ago=20))
-        # damage -100 and healer +100 tie: Damage is first on the page
-        self.assertEqual((row(v.roles, "Damage").mark, row(v.roles, "Healer").chip),
-                         ("less damage dealing", "+100 pts vs the 15 days before"))
+        # damage -100 and healer +100 tie: the increase
+        self.assertEqual((row(v.roles, "Healer").mark, row(v.roles, "Damage").chip),
+                         ("more healing", "−100 pts vs the 15 days before"))
         v = page(many() + many(days_ago=20, kind="Dungeon"))
         self.assertEqual(row(v.places, "World").mark, "more open world")
 
     def test_meta_level_without_char(self):
         self.assertEqual(page(many(level=30)).meta, "level 30 · last 15 days · 10 fights")
 
-    def test_highlighter_tie_break_page_order(self):
-        # Dungeon 0 -> 50 and World 100 -> 50 both move 50 points; Dungeon is first on the page
+    def test_highlighter_tie_break(self):
+        # Dungeon 0 -> 50 and World 100 -> 50 both move 50 points; Dungeon grew
         v = page(many(5, kind="World") + many(5, kind="Dungeon") + many(days_ago=20, kind="World"))
         marks = [r for r in v.places if r.mark]
         self.assertEqual(len(marks), 1)
@@ -355,13 +391,14 @@ class View(unittest.TestCase):
             return NS(data=NS(run=run_, player_guid=guid, duration=900.0), metrics=m, card=card, summary=None,
                       deaths=[], wipes=[], me=me, role=role)
         r = run_row(a())
-        self.assertEqual(r, {"me": "A", "name": "Bao", "start": T0, "role": "damage", "score": 72.0, "grade": "B",
-                             "presses": 9, "by_key": 8, "by_click": 1, "failed": 2, "casts": 7, "combat_time": 600.0,
+        self.assertEqual(r, {"me": "A", "parts": ["r"], "name": "Bao", "start": T0, "role": "damage",
+                             "score": 72.0, "grade": "B", "presses": 9, "by_key": 8, "by_click": 1, "failed": 2, "casts": 7, "combat_time": 600.0,
                              "moving_time": 1.5, "move_interrupts": 1, "wasted_cast_time": 0.5})
         short, unknown = run_row(a(combat=20.0)), run_row(a(guid=None, role="healer", me=None))
         self.assertEqual((short["role"], short["score"]), (None, None))     # too short to compare: no grade
         self.assertIsNone(unknown["role"])                                  # no combat log: "healer" is only a default
-        self.assertEqual(mine([r, unknown, run_row(a("B"))], "A", "Bao"), [r, unknown])
+        self.assertEqual(mine({"1": r, "2": unknown, "3": run_row(a("B")), "4": None}, "A", "Bao"),
+                         {"1": r, "2": unknown})
 
     def test_hands_without_runs(self):
         v = page(many())

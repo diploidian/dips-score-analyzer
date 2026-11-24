@@ -38,7 +38,7 @@ from .spells import SpellsTab
 from .timelinetab import TimelineTab
 from .settings import SettingsDialog
 from .tokens import THEMES
-from ..live import profile_history
+from ..live import profile_history, profile_runs
 from ..live.habits import habits
 from ..live.profile import profile
 from ..live.tail import LogTail
@@ -62,6 +62,7 @@ class Window(QMainWindow):
         self.cache: dict[tuple, Analysis] = {}     # the runs asked for, by key (one per run, the newest)
         self.keys: dict[str, tuple] = {}           # run id -> its key, worked out once (see _key)
         self.scores: dict[tuple, str] = {}         # a warmed-up run's score for its rail row; its analysis is on disk
+        self.read_ok = False            # the last reload read the add-on's saved file (or found none)
         self.run_rows: dict[str, dict | None] = {}     # each run that came in, for the Profile (None: it failed)
         self.wanted: set[str] = set()              # runs asked for to be shown: theirs stay in memory when in
         self.failed: set[tuple] = set()            # keys that couldn't be analysed, until that's shown
@@ -286,9 +287,11 @@ class Window(QMainWindow):
         try:
             self.saved, self.runs = analysis.load_saved(self.paths)
         except Exception as e:  # a half-written file while the game is saving: try again shortly
+            self.read_ok = False
             self._status(f"Couldn't read the saved file yet ({e}); retrying.")
             self.debounce.start()
             return
+        self.read_ok = True
         if hasattr(self, "live"):      # the first reload runs before the controller exists; it loads them itself
             self.live.load_chars()
         self._watch()
@@ -391,7 +394,7 @@ class Window(QMainWindow):
         wanted = rid in self.wanted
         self.wanted.discard(rid)
         if a is None:
-            self.run_rows[rid] = None
+            self.run_rows.setdefault(rid, None)     # a good row stays
             if wanted:
                 sys.stderr.write(err)       # as traceback.print_exc did
                 self.failed.add(key)
@@ -409,8 +412,11 @@ class Window(QMainWindow):
         if self.waiting and rid in self.waiting[0]:
             redo, self.waiting = self.waiting[1], None
             redo()
-        if not self.warming and self.stack.currentIndex() == 5:     # the last of the runs it waits for
-            self._show_profile()
+        if not self.warming and hasattr(self, "live"):      # the last of the runs to come in
+            if self.stack.currentIndex() == 5:
+                self._show_profile()
+            else:
+                self._profile_runs()
         self._status()
 
     def _warm_up(self):
@@ -430,14 +436,12 @@ class Window(QMainWindow):
         key = it.data(0, RUN_ROLE) or ""
         if self.left_stack.currentIndex() != 0:     # no tree: a reload's visit still loads behind the page,
             if key in self.by_id:                   # so its fights get Show on the timeline (R7)
-                page = self.stack.currentIndex()
-
-                def back():
-                    self.stack.setCurrentIndex(page)
-                    if page == 2:
+                def back():         # to the rail's page as it is by then
+                    self.stack.setCurrentIndex(self._rail_page())
+                    if self.mode_fights.isChecked():
                         self._show_fight(self._fight())
                 self._show_run(self.by_id[key])
-                self.stack.setCurrentIndex(page)        # a loading page waits behind it too
+                self.stack.setCurrentIndex(self._rail_page())       # a loading page waits behind it too
                 self._after(back)
             return
         if key.startswith("zone:"):
@@ -501,8 +505,12 @@ class Window(QMainWindow):
         self._set_timeline(start, end, guid, spell)
         self.tabs.setCurrentWidget(self.timeline_tab)
 
+    def _rail_page(self) -> int:
+        """the stack's page in a rail mode without the tree"""
+        return 5 if self.mode_profile.isChecked() else 3 if self.mode_habits.isChecked() else 2
+
     def _mode(self, which: str):
-        if self.stack.currentWidget() is self.wait_page:
+        if self.stack.currentWidget() is self.wait_page or which in ("dungeons", "raids"):
             self.waiting = None         # left: what it loads is kept, not shown
         self.mode_dungeons.setChecked(which == "dungeons")
         self.mode_raids.setChecked(which == "raids")
@@ -560,19 +568,50 @@ class Window(QMainWindow):
         last = h.fights[-1] if h.fights else {"me": ""}
         me = last["me"]
         char, book = h.chars.get(me), h.book(me) if me else None
-        runs = mine([r for rid, r in self.run_rows.items() if r and rid in self.by_id], me, last.get("me_name", ""))
+        runs, readable = self._profile_runs()
         path = profile_history.file(self.paths)
         saved = profile_history.load(path)
         # a saved slice is never rewritten, so it waits until every run's figures are in
-        if self.run_rows.keys() >= self.by_id.keys() and \
+        if readable and saved is not None and self._own_data(me, last.get("me_name", "")) and \
+                self.run_rows.keys() >= self.by_id.keys() and \
                 profile_history.update(saved, h.fights, char, book, runs, now, h.types):
-            try:
-                profile_history.save(path, saved)
-            except OSError as e:      # shown anyway, and saved next time
-                self._status(f"Couldn't save the profile's history ({e})")
+            self._save_profile(path, saved)
         self.profile_page.show_view(build_profile(profile(h.fights, char, book, runs, now, h.types),
-                                                  saved.get(me, [])))
+                                                  (saved or {}).get(me, [])))
         self.stack.setCurrentIndex(5)
+
+    def _profile_runs(self) -> tuple[list[dict] | None, bool]:
+        """the newest fight's character's run rows, the stored ones and those that came in since, which are stored
+        (None: no run known); False: the store can't be read now, so rows are missing"""
+        last = self.live.history.fights[-1] if self.live.history.fights else {}
+        me, name = last.get("me"), last.get("me_name", "")
+        if not me:
+            return None, True
+        path = profile_runs.file(self.paths)
+        saved = profile_history.load(path)
+        was = (saved or {}).get(me, {})
+        rows = profile_runs.merge(was, mine(self.run_rows, me, name))
+        if saved is not None and self._own_data(me, name) and \
+                (pack := profile_runs.pack(rows, datetime.now())) != was:
+            self._save_profile(path, {**saved, me: pack})
+        return list(rows.values()) or None, saved is not None
+
+    def _own_data(self, me: str, name: str) -> bool:
+        """the profile may be saved: the last reload read the add-on's file and its data is this character's, or there
+        is no file. By guid; by name while no run says whose it is"""
+        if not self.read_ok or self.saved is None:
+            return self.read_ok
+        guids = {r["me"] for rid in self.by_id if (r := self.run_rows.get(rid)) and r["me"]}
+        if guids:
+            return me in guids
+        owner = next((r.player_name for r in self.by_id.values()), self.paths.character_of(self.saved))
+        return name.partition("-")[0].replace(" ", "-") == owner.replace(" ", "-")      # the folder's has no spaces
+
+    def _save_profile(self, path: Path, data: dict):
+        try:
+            profile_history.save(path, data)
+        except OSError as e:      # shown anyway, and saved next time
+            self._status(f"Couldn't save the profile's history ({e})")
 
     def _share(self):
         """the page showing (the tab picked, on a page of tabs) on the clipboard and saved as a PNG"""
@@ -756,6 +795,8 @@ class Window(QMainWindow):
             self.timeline.highlight(*lit)
         else:
             self._picked(self.tree.currentItem())
+        if self.stack.currentIndex() == 5:
+            self._show_profile()
 
     def _refresh_labels(self):
         for i in range(self.tree.topLevelItemCount()):
