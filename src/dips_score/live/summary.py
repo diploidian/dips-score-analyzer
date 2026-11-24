@@ -41,7 +41,7 @@ from datetime import datetime, timedelta
 
 from ..model.roster import clean_name
 from ..scoring.classes import DEFENSIVES
-from ..scoring.metrics import swing_stats
+from ..scoring.metrics import count_hit, hit_table, swing_stats
 from ..sources.combatlog import Event
 from . import readiness
 from .tracker import NOT_HOSTILE as NOT_FIGHTING
@@ -169,6 +169,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     starts: dict[int, float] = {}
     swings: list[float] = []
     swing_dmg: list[int] = []
+    melee, ranged, taken_swings = hit_table(), hit_table(), hit_table()   # hit tables (see hit_table)
+    extra_hits: Counter = Counter()                              # extra swings by the spell that gave them
     taken: list[tuple[float, int, str, str]] = []
     hp: list[tuple[float, float]] = []
     power: list[tuple[float, float]] = []
@@ -248,6 +250,12 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 row(name)["miss"] += 1
                 if ev.startswith("SWING") and e.src == me:
                     swings.append(t)
+            elif ev == "SPELL_EXTRA_ATTACKS" and e.src == me:
+                extra_hits[e.spell_name] += e.amount
+            if ev in ("SWING_DAMAGE", "SWING_MISSED") and e.src == me and is_foe(e.dst, e.dst_flags):
+                count_hit(melee, e)
+            elif ev in ("RANGE_DAMAGE", "RANGE_MISSED") and e.src == me and is_foe(e.dst, e.dst_flags):
+                count_hit(ranged, e)
             elif ev.endswith("_HEAL") and e.src == me:
                 heal += max(0, e.amount - e.overheal)
                 overheal += e.overheal
@@ -268,6 +276,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 interrupts += 1
             elif ev.endswith("_DISPEL"):
                 dispels += 1
+        if e.dst == me and ev in ("SWING_DAMAGE", "SWING_MISSED") and is_foe(e.src, e.src_flags):
+            count_hit(taken_swings, e)
         if e.dst == me and ev.endswith("_DAMAGE") and not ev.endswith("_LANDED") and e.amount:
             who = clean_name(e.src_name) if e.src.startswith("Player-") else (e.src_name or "?")
             taken.append((t, e.amount, e.spell_name or "Melee", who))
@@ -364,7 +374,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         avg = statistics.mean(swing_dmg) if swing_dmg else 0
         swing_lost = lost_other * avg
         auto = {"swings": len(swings), "speed": speed, "lost": lost_while_casting + lost_other,
-                "lost_casting": lost_while_casting, "lost_other": lost_other, "damage_lost": swing_lost}
+                "lost_casting": lost_while_casting, "lost_other": lost_other, "damage_lost": swing_lost,
+                **melee, "extra": dict(extra_hits)}
 
     # ---- idle: gaps with no cast and no GCD running
     busy = []
@@ -538,6 +549,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         "best_before": best,
         "good": good[:4], "improve": [text for _, text in improve][:5],
         "danger": danger, "abilities": abilities, "cooldowns": cd_rows, "auto": auto,
+        "ranged": ranged if ranged["landed"] or ranged["misses"] else None,
+        "swings_taken": taken_swings if taken_swings["landed"] or taken_swings["misses"] else None,
         "idle": {"total": idle_res + idle_out + idle_moving, "with_resource": idle_res,
                  "out_of_resource": idle_out, "moving": idle_moving, "lost": idle_lost,
                  "filler": has_filler},

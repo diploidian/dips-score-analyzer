@@ -87,6 +87,56 @@ class Roster(unittest.TestCase):
         self.assertIsNone(roster["Player-2-0000BBBB"].race)
         self.assertEqual(roster["Player-2-0000BBBB"].cls, "WARRIOR")
 
+# auto attack shapes, as this client writes them (combat log version 22, advanced logging)
+H = '11/17/2026 15:46:07.899-8  '
+P = 'Player-6932-00C0878F,"Bao-Kahn-PvP-US",0x511,0x80000000'
+C = 'Creature-0-6824-1-288-4025-0001FCE572,"Singed Basilisk",0x10a48,0x80000000'
+ADV = ('Player-6932-00C0878F,0000000000000000,1639,1669,626,7,1009,0,0,0,0,1084,1133,0,799.79,1500.54,'
+       '1442,0.3387,22')
+SWING_GLANCE = H + f'SWING_DAMAGE,{P},{C},{ADV},84,114,-1,1,0,0,0,nil,1,nil'
+SWING_CRIT_BLOCKED = H + f'SWING_DAMAGE,{P},{C},{ADV},200,180,-1,1,5,13,0,1,nil,nil'
+SWING_CRUSH = H + f'SWING_DAMAGE,{C},{P},{ADV},300,200,-1,1,0,0,0,nil,nil,1'
+SWING_DODGE = H + f'SWING_MISSED,{P},{C},DODGE,nil'
+SWING_OFFHAND_MISS = H + f'SWING_MISSED,{P},{C},MISS,1'
+SWING_BLOCK = H + f'SWING_MISSED,{C},{P},BLOCK,nil,24'
+SWING_ABSORB = H + f'SWING_MISSED,{C},{P},ABSORB,nil,43,58,nil'
+RANGE_CRIT = H + f'RANGE_DAMAGE,{P},{C},75,"Auto Shot",0x1,{ADV},31,29,-1,1,0,0,0,1,nil,nil,ST'
+RANGE_MISS = H + f'RANGE_MISSED,{P},{C},5019,"Shoot",0x1,MISS,nil'
+EXTRA = H + f'SPELL_EXTRA_ATTACKS,{P},{P},20178,"Reckoning",0x1,2'
+
+
+class AutoAttacks(unittest.TestCase):
+    def test_swing_damage(self):
+        e = combatlog.parse_line(SWING_GLANCE)
+        self.assertEqual((e.amount, e.overkill, e.crit, e.glancing, e.crushing), (84, -1, False, True, False))
+        e = combatlog.parse_line(SWING_CRIT_BLOCKED)
+        self.assertEqual((e.amount, e.resisted, e.blocked, e.crit, e.glancing), (200, 5, 13, True, False))
+        self.assertTrue(combatlog.parse_line(SWING_CRUSH).crushing)
+
+    def test_swing_missed(self):
+        e = combatlog.parse_line(SWING_DODGE)
+        self.assertEqual((e.miss_type, e.off_hand, e.amount), ("DODGE", False, 0))
+        self.assertTrue(combatlog.parse_line(SWING_OFFHAND_MISS).off_hand)
+        self.assertEqual(combatlog.parse_line(SWING_BLOCK).amount, 24)
+        self.assertEqual(combatlog.parse_line(SWING_ABSORB).amount, 43)
+
+    def test_ranged(self):
+        e = combatlog.parse_line(RANGE_CRIT)
+        self.assertEqual((e.spell_id, e.amount, e.crit, e.info.guid), (75, 31, True, "Player-6932-00C0878F"))
+        e = combatlog.parse_line(RANGE_MISS)
+        self.assertEqual((e.spell_name, e.miss_type), ("Shoot", "MISS"))
+
+    def test_extra_attacks(self):
+        e = combatlog.parse_line(EXTRA)
+        self.assertEqual((e.spell_name, e.amount), ("Reckoning", 2))
+
+    def test_hit_table(self):
+        t = metrics.hit_table()
+        for ln in (SWING_GLANCE, SWING_CRIT_BLOCKED, SWING_DODGE, SWING_OFFHAND_MISS, SWING_BLOCK):
+            metrics.count_hit(t, combatlog.parse_line(ln))
+        self.assertEqual(t, {"landed": 2, "crits": 1, "glancing": 1, "crushing": 0, "blocked": 1,
+                             "misses": {"dodge": 1, "miss": 1, "block": 1}, "offhand_misses": 1})
+
 
 class CombatLog(unittest.TestCase):
     def test_heal_with_advanced(self):

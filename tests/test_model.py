@@ -293,6 +293,16 @@ class Activity(unittest.TestCase):
         self.assertTrue(cats["Movement"].info_only)    # melee: no cast to cut
         self.assertIn("30 swings, 0 lost", cats["Activity"].summary)
 
+    def test_melee_hit_table(self):
+        miss = ev(59, "SWING_MISSED", ME, MOB1)
+        miss.miss_type = "PARRY"
+        taken = ev(5, "SWING_DAMAGE", MOB1, ME, amount=30)
+        extra = ev(7, "SPELL_EXTRA_ATTACKS", ME, ME, "Windfury Attack", 1)
+        m = self.measure(self.swings() + [miss, taken, extra])
+        self.assertEqual((m.melee["landed"], m.melee["misses"]), (30, {"parry": 1}))
+        self.assertEqual((m.swings_taken["landed"], m.extra_attacks), (1, {"Windfury Attack": 1}))
+        self.assertEqual(m.ranged["landed"], 0)
+
     def test_hole_in_swings(self):
         m = self.measure(self.swings(lambda t: 20 < t < 30))   # 20 then 30: a 10 s hole
         self.assertEqual(m.swings_lost, 4)

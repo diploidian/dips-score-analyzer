@@ -31,7 +31,29 @@ def dmg(sec, src, dst, spell_id, name, amount):
     return line(sec, f"SPELL_DAMAGE,{src},{dst},{spell_id},\"{name}\",0x20,{amount},{amount},-1,32,0,0,0,nil,nil,nil")
 
 
+def swing(sec, src, dst, amount, crit="nil", glancing="nil"):
+    return line(sec, f"SWING_DAMAGE,{src},{dst},{amount},{amount},-1,1,0,0,0,{crit},{glancing},nil")
+
+
 class Live(unittest.TestCase):
+    def test_auto_attack_hit_table(self):
+        log = [swing(0, ME, MOB, 100), swing(2, ME, MOB, 200, crit="1"), swing(4, ME, MOB, 70, glancing="1"),
+               line(6, f"SWING_MISSED,{ME},{MOB},DODGE,nil"), line(8, f"SWING_MISSED,{ME},{MOB},MISS,nil"),
+               line(9, f"SPELL_EXTRA_ATTACKS,{ME},{ME},15494,\"Fury of Forgewright\",0x1,1"),
+               swing(9.1, ME, MOB, 100), swing(10, ME, MOB, 100),
+               line(11, f"RANGE_DAMAGE,{ME},{MOB},75,\"Auto Shot\",0x1,50,50,-1,1,0,0,0,nil,nil,nil,ST"),
+               line(12, f"RANGE_MISSED,{ME},{MOB},75,\"Auto Shot\",0x1,MISS,nil"),
+               line(3, f"SWING_MISSED,{MOB},{ME},PARRY,nil"), swing(5, MOB, ME, 40),
+               line(13, f"UNIT_DIED,{NONE},{MOB},0"), line(40, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")]
+        tr = Tracker()
+        s = summarize(tr.feed_lines(sorted(log))[0], tr.me, tr.me_name, {}, [])
+        a = s["auto"]
+        self.assertEqual(a["swings"], 7)            # the old count: hits and misses
+        self.assertEqual((a["landed"], a["crits"], a["glancing"], a["misses"]), (5, 1, 1, {"dodge": 1, "miss": 1}))
+        self.assertEqual(a["extra"], {"Fury of Forgewright": 1})
+        self.assertEqual((s["ranged"]["landed"], s["ranged"]["misses"]), (1, {"miss": 1}))
+        self.assertEqual((s["swings_taken"]["landed"], s["swings_taken"]["misses"]), (1, {"parry": 1}))
+
     def test_summary_saves_difficulty(self):
         log = [line(0, 'ZONE_CHANGE,409,"Molten Core",9'),
                *[dmg(t, ME, MOB, 8092, "Mind Blast", 300) for t in (1, 3, 5, 7)],

@@ -102,6 +102,28 @@ def swing_stats(swings: list[float], casting: list[Interval],
     return speed, lost_casting, lost_other
 
 
+def hit_table() -> dict:
+    """plain counts of auto attacks (swings or shots): landed, crits, glancing, crushing, blocked (a
+    landed hit partly blocked), misses by type ("miss", "dodge", "parry", "block", "immune", ...)
+    and how many misses the log marked off-hand"""
+    return {"landed": 0, "crits": 0, "glancing": 0, "crushing": 0, "blocked": 0, "misses": {},
+            "offhand_misses": 0}
+
+
+def count_hit(table: dict, e) -> None:
+    """add one SWING_/RANGE_ DAMAGE or MISSED event to a hit_table()"""
+    if e.event.endswith("_MISSED"):
+        kind = e.miss_type.lower() or "?"
+        table["misses"][kind] = table["misses"].get(kind, 0) + 1
+        table["offhand_misses"] += e.off_hand
+    else:
+        table["landed"] += 1
+        table["crits"] += e.crit
+        table["glancing"] += e.glancing
+        table["crushing"] += e.crushing
+        table["blocked"] += e.blocked > 0
+
+
 def busy_intervals(lines: list[TLine], gcd: float = GCD) -> tuple[list[Interval], list[Interval]]:
     """(busy, wasted): when you were casting, channeling, on the GCD or wanding; and the cast
     time thrown away by casts that got interrupted."""
@@ -175,6 +197,11 @@ class Metrics:
     swings: int = 0            # your melee swings (hits and misses)
     swings_lost: int = 0       # swings lost while not casting
     swing_speed: float = 0.0
+    # hit tables (see hit_table); None in analyses saved before they were counted
+    melee: dict | None = None          # your swings
+    ranged: dict | None = None         # your Auto Shot / Shoot / Throw (RANGE_ events)
+    swings_taken: dict | None = None   # enemies' swings at you
+    extra_attacks: dict | None = None  # extra swings by the spell that gave them (Windfury, ...)
     hard_casts: int = 0        # casts with a cast bar (from the combat log)
     power_type: int | None = None   # 0 mana, 1 rage, 3 energy; None without Advanced Combat Logging
     # casting
@@ -262,7 +289,8 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
         windows = [(f.start, f.end) for f in rd.fights]
     windows = union(windows)
     m = Metrics(combat_time=total(windows), fights=len(windows), has_log=rd.has_combat_log,
-                has_advanced=rd.has_advanced)
+                has_advanced=rd.has_advanced, melee=hit_table(), ranged=hit_table(),
+                swings_taken=hit_table(), extra_attacks={})
     lines = rd.lines
     # only the stretch of the log these windows cover (a fight is a small slice of a long run)
     events = rd.events_between(windows[0][0] - 1, windows[-1][1] + 1) if windows else []
@@ -355,12 +383,19 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
             hp.append((t, e.info.hp_pct))
         if ev in ("SWING_DAMAGE", "SWING_MISSED") and e.src == me:
             swings.append(t)
+            count_hit(m.melee, e)
+        elif ev in ("RANGE_DAMAGE", "RANGE_MISSED") and e.src == me:
+            count_hit(m.ranged, e)
+        elif ev == "SPELL_EXTRA_ATTACKS" and e.src == me:
+            m.extra_attacks[e.spell_name] = m.extra_attacks.get(e.spell_name, 0) + e.amount
         elif ev == "SPELL_CAST_START" and rd.mine(e):
             starts[e.spell_id] = t
         elif ev == "SPELL_CAST_SUCCESS" and rd.mine(e):
             began = starts.pop(e.spell_id, None)
             if began is not None and t - began < 10:
                 casting.append((began, t))
+        if ev in ("SWING_DAMAGE", "SWING_MISSED") and rd.to_me(e) and e.src != me:
+            count_hit(m.swings_taken, e)
         if ev.endswith("_DAMAGE") and not ev.endswith("_LANDED"):
             if rd.mine(e):
                 m.damage += e.amount

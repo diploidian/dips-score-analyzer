@@ -103,7 +103,13 @@ class Event:
     overheal: int = 0
     absorbed: int = 0
     crit: bool = False
-    miss_type: str = ""      # _MISSED: MISS, DODGE, PARRY, ABSORB, ...
+    resisted: int = 0        # _DAMAGE: the part resisted / blocked
+    blocked: int = 0
+    glancing: bool = False   # _DAMAGE (melee): a glancing or crushing blow
+    crushing: bool = False
+    miss_type: str = ""      # _MISSED: MISS, DODGE, PARRY, ABSORB, ... (amount: the amount missed, if any)
+    # _MISSED only: this client marks off-hand on misses but not on _DAMAGE lines, so swings stay one stream
+    off_hand: bool = False
     reason: str = ""         # SPELL_CAST_FAILED: "Not yet recovered", ...
     extra_spell_id: int | None = None  # _INTERRUPT, _DISPEL: the spell it hit
     raw: list[str] | None = None       # special events: their fields
@@ -182,12 +188,19 @@ def parse_line(line: str) -> Event | None:
             e.info = None
     s = f[p:]
     if ev.endswith(("_DAMAGE", "_DAMAGE_LANDED")) and len(s) >= 8:
+        # amount, base amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing
         e.amount, e.overkill, e.absorbed, e.crit = _int(s[0]), _int(s[2]), _int(s[6]), s[7] == "1"
+        e.resisted, e.blocked = _int(s[4]), _int(s[5])
+        e.glancing, e.crushing = len(s) > 9 and s[8] == "1", len(s) > 9 and s[9] == "1"
     elif ev.endswith("_HEAL") and len(s) >= 5:
         # amount, base amount, overhealing, absorbed, critical
         e.amount, e.overheal, e.absorbed, e.crit = _int(s[0]), _int(s[2]), _int(s[3]), s[4] == "1"
     elif ev.endswith("_MISSED") and s:
-        e.miss_type = s[0]
+        # miss type, is off-hand, amount missed (BLOCK, ABSORB, RESIST), critical
+        e.miss_type, e.off_hand = s[0], len(s) > 1 and s[1] == "1"
+        e.amount = _int(s[2]) if len(s) > 2 else 0
+    elif ev == "SPELL_EXTRA_ATTACKS" and s:
+        e.amount = _int(s[0])    # how many extra swings
     elif ev == "SPELL_CAST_FAILED" and s:
         e.reason = s[0]
     elif ev.endswith(("_INTERRUPT", "_DISPEL", "_STOLEN", "_AURA_BROKEN_SPELL")) and s:
