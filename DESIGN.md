@@ -319,7 +319,7 @@ Warm, inked and print-like: ivory or walnut-black grounds, one deep plate colour
 - `m-dmg` Damage, `m-cd` Cooldowns / Abilities on time, `m-rot` Rotation, `m-pace` Pacing, `m-surv` Survival, `m-upk` Upkeep, `m-cast` Casting, `m-act` Activity. A measure's ink is its identity across every page.
 
 ### Role and place inks
-- `role-dmg` Damage, `role-heal` Healer, `role-tank` Tank; `place-dungeon` Dungeon, `place-raid` Raid, `place-world` World, `place-pvp` PvP. The Profile page's share bars (Role mix, Where you fight) and their chips. Each clears 4.5:1 on `panel` in all four sets, so it can colour text as well as a bar; no measure borrows them.
+- `role-dmg` Damage, `role-heal` Healer, `role-tank` Tank; `place-dungeon` Dungeon, `place-raid` Raid, `place-world` World, `place-pvp` PvP. The Profile page's share bars (Role mix, Where you fight) and their chips. Each clears 4.5:1 on `panel` in all four sets, so it can colour text as well as a bar; no measure borrows them. The Profile's traits may reuse role, place and measure inks, one ink per trait in its big figure, How you fight and All traits.
 
 ### Named Rules
 **The One Plate Rule.** A screen has exactly one solid `plate` surface, and it holds the fix: "Fix this first" on the debrief, "Recurring fix" on history, "To move up" on group, "Biggest gap" on the fight card. Everything else sits on `bg` or `panel` behind hairlines.
@@ -340,7 +340,7 @@ Warm, inked and print-like: ivory or walnut-black grounds, one deep plate colour
 
 ### Hierarchy
 - **Display** (700, 150px, 0.8, −0.02em; 126px under 1420px): the run score numeral and the group placing. One per page. The grade letter rides beside it at 56px in a 2px gold box.
-- **Crest title** (700, 74px, 1; down to 44px on two lines, then smaller on more): the Profile's title, wrapped, never elided. One per page.
+- **Crest title** (700, at most 74px and 14% of its width, 1): the Profile's title on two lines, or three or four when each line more makes it 15% bigger; never elided. One per page.
 - **Headline** (700, 30px, 1.05): the page title in the header (dungeon name, "After each fight").
 - **Title** (600, 23px, 1.15; 34px on the history plate): the fix sentence on the plate.
 - **Metric** (700, 30px, 1): measure scores, plate prices (32px), podium ranks; condensed, tabular.
@@ -393,13 +393,13 @@ Every corner is square (0px); there is no `border-radius` in the build. Containe
 - **On the plate:** it straddles the plate's top edge; on group's plate it drops its fill and takes `plate-ac` text with a `plate-ln` border.
 
 ### Fix plate (signature)
-The one solid block. `plate` fill, 22px × 18px padding, a Title-size fix sentence, the price in `plate-ac` Metric (−10.3 points) with category and damage in `plate-mu`, a primary button ("Show me on the timeline"), and a `plate-ln` rule above the next two fixes, each with its price right-aligned.
+The one solid block. On the Profile its tab reads "Going well" when it holds no fix (never praise under "Worth changing"), and with no figure there is no plate. `plate` fill, 22px × 18px padding, a Title-size fix sentence, the price in `plate-ac` Metric (−10.3 points) with category and damage in `plate-mu`, a primary button ("Show me on the timeline"), and a `plate-ln` rule above the next two fixes, each with its price right-aligned.
 
 ### Crest (Profile)
-A double `gold` rule, 2px then 1px 3px inside it, square, around `panel`: gold draws the rules, never a fill. In it race, class and level (Barlow 600 15px, `tx2`), the Crest title, the second line (Barlow 500 16px), a 1px `gold` rule and the deeds (Barlow Condensed 600 18px, `tx2`). One per page, above the hero and the plate; it never moves.
+A double `gold` rule, 2px then 1px 3px inside it, square, around `panel`, 26px of air above and below: gold draws the rules, never a fill, and the highlighter never rings its letters. In it race, class and level (Barlow 600 15px, `tx2`), the Crest title, the second line (Barlow 500 16px), a 1px `gold` rule and the deeds (Barlow Condensed 600 18px, `tx2`). One per page, above the hero and the plate; it never moves.
 
 ### Tier rows (All traits)
-Name, the tier in a 1px `gold` frame (Barlow 500 12px), the figure, then a 6px `tx2` bar on `track` with a 1px `tx` tick where each tier begins and, in `mu`, what the next tier needs.
+Name, the tier in a 1px `gold` frame (Barlow 500 12px), the figure (Barlow Condensed 700 20px) and a 6px bar on `track` in the trait's ink with a 1px tick where each tier begins (`panel` in the fill, `tx` past it) and, in `mu`, what the next tier needs. Full width in two columns, no family split; a new tier's ring goes round its frame.
 
 ### Measure bars
 - **Style:** 10px tall, `track` behind, the measure's `m-*` ink as fill, square ends. A 2px `tx` tick at 90% marks the target on every effectiveness bar, overhanging 4px top and bottom.
