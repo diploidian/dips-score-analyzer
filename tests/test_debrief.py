@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from types import SimpleNamespace as NS  # noqa: E402
 
 from dips_score.debrief import (FightCell, bar_fraction, breakdown_title, build_view, circle_fraction,  # noqa: E402
-                                display_name, fight_cells, fight_of, note_alpha, ticker, worst_fight)
+                                display_name, fight_cells, fight_of, note_alpha, run_auto_share, ticker, worst_fight)
 from dips_score.scoring.score import Category, Scorecard, _card  # noqa: E402
 
 
@@ -104,6 +104,19 @@ class ViewTests(unittest.TestCase):
 
     def test_review_few(self):
         self.assertEqual(review([95, 80, 95, 60]), [1, 3])
+
+    def test_melee_share_line(self):
+        """from the run's hit tables: melee and/or shots from 10% of your damage; none from an older analysis"""
+        m = NS(damage=10000, melee={"landed": 900, "damage": 4600}, ranged={"landed": 0, "damage": 0})
+        self.assertEqual(run_auto_share(m), ("Melee 46% of your damage", 0.46))
+        m.ranged = {"landed": 300, "damage": 2000}
+        self.assertEqual(run_auto_share(m)[0], "Melee 46% and shots 20% of your damage")
+        m.melee = {"landed": 10, "damage": 900}          # 9%: left out
+        self.assertEqual(run_auto_share(m), ("Shots 20% of your damage", 0.2))
+        self.assertIsNone(run_auto_share(NS(damage=10000, melee={"landed": 900}, ranged=None)))   # no damage kept
+        self.assertIsNone(run_auto_share(NS(damage=10000)))                 # Metrics pickled before hit tables
+        self.assertIsNone(run_auto_share(NS(damage=0, melee={"damage": 0}, ranged=None)))
+        self.assertIsNone(build_view(blackfathom_card(), [], None, 0).auto_share)     # the page sets it
 
     def test_view_empty_card(self):
         v = build_view(Scorecard(0, "-", note="no combat"), [], None, 0)

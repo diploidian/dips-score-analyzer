@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHeaderView, 
 
 from .. import names
 from ..analysis import Analysis
-from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, worst_fight
+from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, run_auto_share, worst_fight
 from ..dungeon_view import build_bosses, build_history, build_records, history_meta, visits
 from ..scoring.group import ordinal, player_card
 from ..scoring.score import Scorecard
@@ -152,9 +152,12 @@ class ScoreTab(QWidget):
         f = self.a.fights[i].fight
         return fight_window(f.start, f.end)
 
-    def _show(self, card: Scorecard, share: float | None, deaths: int, title: str, sub: str, fight: int | None):
-        """fight: where "Show me" zooms (None: the fight whose card lost the most in the fix's category)"""
+    def _show(self, card: Scorecard, share: float | None, deaths: int, title: str, sub: str, fight: int | None,
+              m=None):
+        """fight: where "Show me" zooms (None: the fight whose card lost the most in the fix's category); m: your
+        Metrics for the melee share line (None: another player's, not measured)"""
         view = build_view(card, self.cells, share, deaths, self._is_me())
+        view.auto_share = run_auto_share(m) if m is not None and view.categories else None
         if view.fix and fight is None:
             fight = worst_fight(self.cards, view.fix.category)
         role = ROLE_NAME.get(card.role, card.role)
@@ -176,7 +179,7 @@ class ScoreTab(QWidget):
             if rd.has_combat_log and not rd.has_advanced:
                 sync += " · advanced logging: off"
             self._show(a.card, a.damage[1] if a.damage else None, len(self.deaths), zone,
-                       f"{when} · sync: {sync}", None)
+                       f"{when} · sync: {sync}", None, a.metrics)
             return
         pl = next((x for x in a.ranking if x.guid == self._guid()), None)
         p = a.roster[self._guid()]
@@ -206,7 +209,7 @@ class ScoreTab(QWidget):
         deaths = len(fight_of(self.deaths, a.data.fights).get(i, []))
         zone = names.titled(a.data.run.id, a.data.run.zone)
         self._show(self.cards[i], fr.damage[1] if me and fr.damage else None, deaths, f"{f.label}{kill}",
-                   f"{who}{zone} · at {fmt_time(f.start)} · {f.duration:.0f}s", i)
+                   f"{who}{zone} · at {fmt_time(f.start)} · {f.duration:.0f}s", i, fr.metrics if me else None)
 
 
 # ============================================================================ Dungeon page

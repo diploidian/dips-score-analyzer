@@ -4,7 +4,7 @@ and every spell in the drawers. Pick a spell (a row, or one in a drawer) to ligh
 
 Sizes follow docs/design/mockups/spells.html (CSS px). The shared parts come from kit.py.
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from PyQt6.QtCore import QEvent, QRectF, Qt, pyqtSignal
 from PyQt6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
@@ -42,6 +42,7 @@ class Row:
     cells: list[list[tuple[str, str]]]     # each column's runs of (text, style)
     fraction: float = 0.0                  # the bar, of the longest (bar tables)
     note: str | None = None                # muted, under the bar
+    lines: list[str] = field(default_factory=list)     # 12px muted evidence lines under the row, full width
 
 
 class Ruled(Part):
@@ -101,9 +102,12 @@ class Ruled(Part):
             y += 1
             ch = 10 + 3 + 12 * 1.4 if self.bar and r.note else 21.0     # the bar and its note, or a line
             top = y + 5
+            more = len(r.lines) * 12 * 1.4 + (2 if r.lines else 0)      # the evidence lines under it
             if p:
                 if r.name == self.sel:
-                    p.fillRect(QRectF(0, y, w, ch + 10), tok("panel"))
+                    p.fillRect(QRectF(0, y, w, ch + more + 10), tok("panel"))
+                for j, s in enumerate(r.lines):
+                    line(p, notef, tok("mu"), 0, top + ch + 2 + j * 12 * 1.4, 12 * 1.4, elide(notef, s, w))
                 line(p, nf, tok("tx"), 0, top + (ch - 21) / 2, 21, elide(nf, r.name, name_w))
                 if self.bar:
                     bt = top if r.note else top + (ch - 10) / 2
@@ -117,8 +121,8 @@ class Ruled(Part):
                         x += line(p, _font(st), tok(STYLE[st][3]), x, top + (ch - lh) / 2, lh, s)
                     if self.ring == (i, k):     # as the mock-up's ring: 14px out either side, 9 above and below
                         ring = QRectF(x0 - 14, top + (ch - 13 * 1.4) / 2 - 9, x - x0 + 28, 13 * 1.4 + 18)
-            self.hits.append((top - 6, top + ch + 5, r.name))
-            y = top + ch + 5
+            self.hits.append((top - 6, top + ch + more + 5, r.name))
+            y = top + ch + more + 5
         if self.rows:
             if p:
                 rule(p, 0, y, w, tok("ln"))
@@ -264,7 +268,8 @@ class SpellsTab(QScrollArea):
         self.damage.title = f"Where {whose} damage came from"
         self.damage.set([Row(r.name, [[(f"{r.share:.0%}", "s")], [(_casts(r), "v")],
                                       _refused(r), [(NA if r.per_min is None else f"{r.per_min:.1f}", "v")],
-                                      [(NA if r.crit is None else f"{r.crit:.0%}", "v")]], r.damage / most, r.note)
+                                      [(NA if r.crit is None else f"{r.crit:.0%}", "v")]], r.damage / most, r.note,
+                             r.evidence)
                          for r in view.damage_rows], ring)
         heal = view.healing_rows
         self.healing.set([Row(r.name, [[(f"{r.healing:,}", "s")], [(f"{r.overheal_share:.0%}", "v")]]) for r in heal],
@@ -343,7 +348,9 @@ def _refused(r) -> list[tuple[str, str]]:
 
 
 def _casts(r) -> str:
-    """"–" when it was never pressed (melee, procs)"""
+    """the swings or shots of Melee / Auto Shot; "–" when it was never pressed (procs, melee in an older analysis)"""
+    if r.auto is not None:
+        return f"{r.auto:,}"
     return str(r.casts) if r.casts + r.refused else NA
 
 

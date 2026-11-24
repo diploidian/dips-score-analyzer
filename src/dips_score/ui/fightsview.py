@@ -466,10 +466,12 @@ class FightDetail(QScrollArea):
         self.plate.setVisible(v.gap is not None)
         self.figures.set(v.figures)
         most = max((dmg for *_, dmg in v.rows), default=0) or 1
-        self.where.set([BarRow(label, f"≈{_n(dmg)}", dmg / most, "m-cd" if label.endswith(" sat ready") else "m-act",
-                               detail or None) for label, detail, dmg in v.rows],
+        self.where.lead = v.auto_share
+        self.where.set([BarRow(label, f"≈{_n(dmg)}" if dmg > 0 else "–", dmg / most,
+                               "m-cd" if label.endswith(" sat ready") else "m-act", detail or None)
+                        for label, detail, dmg in v.rows],
                        None if v.left_on_table is None else (LEFT, f"≈{_n(v.left_on_table)}"))
-        self.where.setVisible(bool(v.rows))
+        self.where.setVisible(bool(v.rows or v.auto_share))
         sections = _details(f)
         self.drawer.set_count(len(sections))        # what it holds: its sections
         for title_, widgets in sections:

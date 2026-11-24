@@ -439,9 +439,11 @@ class BarRow:
 
 class BarRows(Part):
     """a section of ranked rows: a rule, its label tab, then a ruled row each (name, a bar sized by impact in
-    the row's ink, the value on the right), and an optional total under a heavy rule"""
+    the row's ink, the value on the right), and an optional total under a heavy rule. lead: a muted line over the
+    rows with an m-dmg bar as long as its share ("Melee 46% of your damage", 0.46)"""
     name_w, bar_w = 120, 220     # where the bars start, and the longest one
     top_rule = True              # the rule above the tab (off under a part that ends on one)
+    lead: tuple[str, float] | None = None
 
     def __init__(self, title: str = ""):
         super().__init__()
@@ -461,6 +463,18 @@ class BarRows(Part):
         draw_label_tab(p, 0, y, self.title)
         y += 25 + 8
         nf, vf = font(15), font(15, 700, num=True)
+        if self.lead:
+            if p:
+                text, share = self.lead
+                lf = font(13)
+                x = max(self.name_w, line(p, lf, tok("tx2"), 0, y + 3, 18, text) + 10)     # the bar after the words
+                p.fillRect(QRectF(x, y + 3 + 4, min(self.bar_w * share, w - x) * bar_fraction(self.p, 0), 10),
+                           tok("m-dmg"))
+            y += 3 + 18 + 3
+            if self.rows:
+                if p:
+                    rule(p, 0, y, w, tok("ln"))
+                y += 1
         for k, row in enumerate(self.rows):
             if k:
                 if p:

@@ -95,6 +95,7 @@ class Breakdown(BarRows):
         if view.bonus > 0:          # so the rows add up to Earned
             rows.append(BarRow("Hybrid bonus", f"+{view.bonus:.1f}", 0, "tx"))
         self.title = breakdown_title(view.earned, rows, whose)
+        self.lead = view.auto_share
         self.toggle.set_count(len(view.categories))
         self.toggle.setVisible(bool(view.categories))
         self.set(rows, (f"Earned · {view.earned} of 100", str(view.earned)))

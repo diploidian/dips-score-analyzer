@@ -121,10 +121,10 @@ def auto_running(times: list[float], speed: float) -> list[Interval]:
 
 def hit_table() -> dict:
     """plain counts of auto attacks (swings or shots): landed, crits, glancing, crushing, blocked (a
-    landed hit partly blocked), misses by type ("miss", "dodge", "parry", "block", "immune", ...)
-    and how many misses the log marked off-hand"""
+    landed hit partly blocked), misses by type ("miss", "dodge", "parry", "block", "immune", ...),
+    how many misses the log marked off-hand, and the damage the landed ones did"""
     return {"landed": 0, "crits": 0, "glancing": 0, "crushing": 0, "blocked": 0, "misses": {},
-            "offhand_misses": 0}
+            "offhand_misses": 0, "damage": 0}
 
 
 def count_hit(table: dict, e) -> None:
@@ -135,6 +135,7 @@ def count_hit(table: dict, e) -> None:
         table["offhand_misses"] += e.off_hand
     else:
         table["landed"] += 1
+        table["damage"] = table.get("damage", 0) + e.amount
         table["crits"] += e.crit
         table["glancing"] += e.glancing
         table["crushing"] += e.crushing

@@ -5,10 +5,15 @@ from dataclasses import dataclass, field
 
 from .model.casts import SpellRow, spell_table
 from .scoring.cooldowns import CooldownRow
+from .scoring.metrics import count_hit, hit_table
+from .sources.combatlog import is_enemy
 from .scoring.usable import across
 
 REFUSED = 0.25      # refused on more than this share of presses: worth a look
 SUMS = ("casts", "failed", "damage", "healing", "overheal", "hits", "crits")
+# a miss type's word in the hit table line; others are said as the log names them
+MISSED = {"dodge": "dodged", "parry": "parried", "miss": "missed", "block": "blocked", "evade": "evaded",
+          "resist": "resisted", "absorb": "absorbed", "deflect": "deflected"}
 
 
 @dataclass
@@ -29,6 +34,8 @@ class AbilityRow:
     crit: float | None              # of the hits; None: no hits
     healing: int
     overheal_share: float
+    auto: int | None = None         # swings or shots, for Melee / Auto Shot / Shoot (they're not cast)
+    evidence: list[str] = field(default_factory=list)   # the hit table line, the extra swings line
 
 
 @dataclass
@@ -81,11 +88,57 @@ def _casts(n: float) -> str:
     return "under one more cast" if k < 1 else f"about {k} more cast{'' if k == 1 else 's'}"
 
 
+def hit_line(n: int, word: str, speed: float | None, t: dict) -> str:
+    """"1,240 swings every 3.4 s · 82% landed, 9% crit, 6% glancing, 5% dodged": each part of the swings (or shots),
+    those under half a percent left out"""
+    misses = sorted(t["misses"].items(), key=lambda kv: -kv[1])
+    parts = [(t["landed"], "landed"), (t["crits"], "crit"), (t["glancing"], "glancing"),
+             *((c, MISSED.get(k, k)) for k, c in misses)]
+    said = ", ".join(f"{c / n:.0%} {w}" for c, w in parts if c / n >= 0.005)
+    every = f" every {speed:.1f} s" if speed else ""
+    return f"{n:,} {word}{'' if n == 1 else 's'}{every} · {said}"
+
+
+def auto_tables(rd, guid: str, windows=None, swing_speed: float | None = None,
+                shot_speed: float | None = None) -> dict[str, dict]:
+    """guid's own swings and shots on enemies, as the rows they're in ("Melee", "Auto Shot", "Shoot"): each its
+    count, speed, hit table, word, and (Melee) the extra swings by the spell that gave them"""
+    out: dict[str, dict] = {}
+    extra: dict[str, int] = {}
+    for e in rd.events:
+        if e.src != guid or windows is not None and not any(a <= rd.rel(e.ts) <= b for a, b in windows):
+            continue
+        ev = e.event
+        if ev == "SPELL_EXTRA_ATTACKS":
+            extra[e.spell_name] = extra.get(e.spell_name, 0) + e.extra_count
+        elif ev in ("SWING_DAMAGE", "SWING_MISSED", "RANGE_DAMAGE", "RANGE_MISSED") and is_enemy(e.dst, e.dst_flags):
+            melee = ev.startswith("SWING")
+            name = "Melee" if melee else e.spell_name
+            r = out.setdefault(name, {"word": "swing" if melee else "shot", "table": hit_table(),
+                                      "speed": swing_speed if melee else shot_speed})
+            count_hit(r["table"], e)
+    for r in out.values():
+        r["n"] = r["table"]["landed"] + sum(r["table"]["misses"].values())
+    if "Melee" in out and extra:
+        out["Melee"]["extra"] = extra
+    return out
+
+
+def _evidence(a: dict) -> list[str]:
+    out = [hit_line(a["n"], a["word"], a["speed"], a["table"])]
+    if extra := a.get("extra"):
+        top = sorted(extra.items(), key=lambda kv: -kv[1])
+        out.append(f"+{sum(extra.values()):,} extra swings: " + ", ".join(f"{k} {c:,}" for k, c in top))
+    return out
+
+
 def spells_view(rows: list[SpellRow], combat_s: float, cooldowns=None, who: str | None = None,
-                where: dict[str, tuple[float, float]] | None = None, role: str = "dps") -> SpellsView:
+                where: dict[str, tuple[float, float]] | None = None, role: str = "dps",
+                auto: dict[str, dict] | None = None) -> SpellsView:
     """rows: spell_table's; cooldowns: your CooldownRows (name, free, missed, lost), None when not measured;
     who: another player's name (None: you); where: the (start, end) of the fight each cooldown cost most in;
-    role: what they're scored as ("healer", "tank", "dps")"""
+    role: what they're scored as ("healer", "tank", "dps"); auto: auto_tables' (None: no hit table line)"""
+    auto = auto or {}
     merged = [r for r in merge_by_name(rows) if r.casts or r.failed or r.damage or r.healing]
     total = sum(r.damage for r in merged)
     minutes = combat_s / 60
@@ -94,7 +147,9 @@ def spells_view(rows: list[SpellRow], combat_s: float, cooldowns=None, who: str 
         refused_share=r.failed / (r.casts + r.failed) if who is None and r.casts + r.failed else None,
         damage=r.damage, share=r.damage / total if total else 0.0,
         per_min=r.casts / minutes if r.casts and minutes else None, crit=r.crits / r.hits if r.hits else None,
-        healing=r.healing, overheal_share=r.overheal_share) for r in merged]
+        healing=r.healing, overheal_share=r.overheal_share,
+        auto=auto[r.spell]["n"] if r.spell in auto else None,
+        evidence=_evidence(auto[r.spell]) if r.spell in auto else []) for r in merged]
     healed = sum(r.healing for r in merged)
     v = SpellsView(total_damage=total, dps=total / combat_s if combat_s else 0.0, total_healing=healed,
                    hps=healed / combat_s if combat_s else 0.0, healer=role == "healer")
@@ -165,4 +220,9 @@ def build_spells(a, guid: str, scope: str = "all") -> SpellsView:
     me = guid == a.data.player_guid
     cds, where = _cooldowns(fr for fr in a.fights if kept(fr.fight)) if me and a.cooldowns else (None, None)
     role = a.role if me else (a.roster[guid].role or "dps").lower()     # as the Debrief and Group score them
-    return spells_view(rows, combat, cds, None if me else a.roster[guid].name, where, role)
+    m = a.metrics
+    auto = None
+    if getattr(m, "melee", None) is not None:      # an analysis cached before hit tables: no line, as before
+        speeds = (m.swing_speed, m.shot_speed) if me else (None, None)     # only yours are measured
+        auto = auto_tables(a.data, guid, windows, *speeds)
+    return spells_view(rows, combat, cds, None if me else a.roster[guid].name, where, role, auto)

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from dips_score.model.casts import SpellRow  # noqa: E402
-from dips_score.spells_view import merge_by_name, spells_view  # noqa: E402
+from dips_score.spells_view import auto_tables, hit_line, merge_by_name, spells_view  # noqa: E402
 
 HAVE_QT = importlib.util.find_spec("PyQt6") is not None
 
@@ -135,6 +135,51 @@ class SpellsViewTests(unittest.TestCase):
         dps = spells_view(both, 600.0, None)
         self.assertEqual((dps.healer, dps.verdict), (False, "Smite did 100% of your damage."))
 
+    def test_hit_table_lines(self):
+        """Melee and Auto Shot rows: their swings or shots for casts, and the hit table under them; none without"""
+        table = {"landed": 82, "crits": 9, "glancing": 6, "crushing": 0, "blocked": 0, "offhand_misses": 0,
+                 "misses": {"parry": 3, "dodge": 5, "miss": 2, "immune": 0}, "damage": 5000}
+        self.assertEqual(hit_line(92, "swing", 3.4, table),
+                         "92 swings every 3.4 s · 89% landed, 10% crit, 7% glancing, 5% dodged, 3% parried, 2% missed")
+        self.assertEqual(hit_line(1, "shot", None, dict(table, landed=1, crits=0, glancing=0, misses={})),
+                         "1 shot · 100% landed")
+        auto = {"Melee": {"n": 92, "word": "swing", "speed": 3.4, "table": table,
+                          "extra": {"Thrash": 16, "Reckoning": 30}},
+                "Auto Shot": {"n": 40, "word": "shot", "speed": 2.9,
+                              "table": dict(table, landed=40, crits=4, glancing=0, misses={})}}
+        spec = SPELLS + [("Auto Shot", 41, 0, 900, 0, 0, 40, 4)]
+        v = spells_view(rows(spec), COMBAT, COOLDOWNS, where=WHERE, auto=auto)
+        by = {r.name: r for r in v.damage_rows}
+        self.assertEqual((by["Melee"].auto, by["Auto Shot"].auto, by["Seal of Command"].auto), (92, 40, None))
+        self.assertEqual(by["Melee"].evidence, [hit_line(92, "swing", 3.4, table),
+                                                "+46 extra swings: Reckoning 30, Thrash 16"])
+        self.assertEqual(by["Auto Shot"].evidence, ["40 shots every 2.9 s · 100% landed, 10% crit"])
+        self.assertEqual(by["Seal of Command"].evidence, [])
+        self.assertAlmostEqual(by["Melee"].share, 52475 / v.total_damage)      # of the same total as every row
+        old = {r.name: r for r in spells_view(rows(SPELLS), COMBAT).damage_rows}      # no tables: as before
+        self.assertEqual((old["Melee"].auto, old["Melee"].evidence), (None, []))
+
+    def test_auto_tables(self):
+        """yours only, on enemies, inside the windows; extra swings under Melee"""
+        foe, flags = "Creature-0-1-2-3-4-5", 0x10a48
+
+        def ev(t, event, **kw):
+            base = dict(ts=t, event=event, src="me", dst=foe, dst_flags=flags, spell_name="", amount=0, crit=False,
+                        glancing=False, crushing=False, blocked=0, miss_type="", off_hand=False, extra_count=0)
+            return SimpleNamespace(**{**base, **kw})
+        rd = SimpleNamespace(rel=lambda ts: ts, events=[
+            ev(1, "SWING_DAMAGE", amount=100, crit=True), ev(2, "SWING_MISSED", miss_type="DODGE"),
+            ev(3, "SWING_DAMAGE", amount=90, glancing=True),
+            ev(4, "SPELL_EXTRA_ATTACKS", spell_name="Thrash", extra_count=1),
+            ev(5, "RANGE_DAMAGE", spell_name="Auto Shot", amount=50), ev(6, "SWING_DAMAGE", src="pet", amount=9),
+            ev(7, "SWING_DAMAGE", dst="Player-1-2", dst_flags=0x511, amount=9), ev(50, "SWING_DAMAGE", amount=9)])
+        t = auto_tables(rd, "me", [(0, 10)], 3.0, 2.8)
+        self.assertEqual((t["Melee"]["n"], t["Melee"]["speed"], t["Melee"]["extra"]), (3, 3.0, {"Thrash": 1}))
+        self.assertEqual((t["Melee"]["table"]["landed"], t["Melee"]["table"]["crits"],
+                          t["Melee"]["table"]["glancing"], t["Melee"]["table"]["misses"]), (2, 1, 1, {"dodge": 1}))
+        self.assertEqual((t["Auto Shot"]["n"], t["Auto Shot"]["word"], t["Auto Shot"]["speed"]), (1, "shot", 2.8))
+        self.assertEqual(auto_tables(rd, "me")["Melee"]["n"], 4)           # the whole run: the swing at 50 s too
+
     def test_build_spells_takes_the_scored_role(self):
         """yours from the analysis (as the Debrief scores you); anyone else's from the roster (as the Group does)"""
         from unittest import mock
@@ -176,6 +221,19 @@ class SpellsPageTests(unittest.TestCase):
         self.assertEqual([tab.every.item(0, c).text() for c in range(7)],
                          ["Melee", "–", "–", "–", "9%", "52,475", "–"])
         self.assertEqual([tab.every.item(1, c).text() for c in (3, 4)], ["6.9", "11%"])     # Seal of Command
+        self.assertEqual(tab.damage.rows[0].lines, [])          # no hit tables: Melee as before
+        plain = tab.damage.draw(None, 700)
+        table = {"landed": 400, "crits": 40, "glancing": 30, "misses": {"dodge": 40, "parry": 18}}
+        tab.show_view(spells_view(rows(SPELLS), COMBAT, COOLDOWNS, where=WHERE, auto={"Melee": {
+            "n": 458, "word": "swing", "speed": 3.4, "table": table, "extra": {"Reckoning": 30}}}), "B", "")
+        self.assertEqual(tab.every.item(0, 1).text(), "458")    # swings for casts
+        self.assertEqual(tab.damage.rows[0].lines, ["458 swings every 3.4 s · 87% landed, 9% crit, 7% glancing, "
+                                                    "9% dodged, 4% parried", "+30 extra swings: Reckoning 30"])
+        self.assertAlmostEqual(tab.damage.draw(None, 700), plain + 2 * 12 * 1.4 + 2)     # room for both lines
+        self.assertFalse(tab.grab().isNull())
+        tab.show_view(spells_view(rows(SPELLS), COMBAT, COOLDOWNS, where=WHERE), "Blackfathom Deeps", "")
+        lit.clear()
+        lit.append((None, None))
         tab.plate.button.click()                            # Show on the timeline: Consecration's worst fight
         self.assertEqual(shown, [(382.3, 478.1, "me", "Consecration")])
         self.assertFalse(tab.grab().isNull())

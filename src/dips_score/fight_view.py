@@ -5,13 +5,14 @@ their parts are empty."""
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from .debrief import fmt_time
+from .debrief import auto_share, fmt_time
 from .live.summary import idle_words
 from .scoring.group import ordinal
 from .scoring.usable import across
 
 CLEAN, LOW = 0.90, 0.60      # efficiency from which a fight is clean (gS), and under which it's poor (gD)
 SWINGS, SHOTS, IDLE = "Swings lost", "Shots lost", "Idle with resource"
+CLIPPED, NO_ABILITY = "Shots clipped by casts", "No ability"
 
 
 @dataclass
@@ -37,6 +38,8 @@ class FightView:
     danger: list[tuple[str, str]] = field(default_factory=list)     # (label, text); "" carries on the label above
     group: list[tuple[str, int, int, bool]] | None = None   # (name, damage, healing, is you), most damage first
     group_line: str | None = None
+    auto_share: tuple[str, float] | None = None     # ("Melee 46% of your damage", share) over the losses
+
 
 
 def _n(v: float) -> str:
@@ -78,9 +81,15 @@ def _losses(d: dict) -> tuple[list[tuple[str, str, float, str]], tuple[str, ...]
             own.append(f"{c['name']} sat ready ")
     idle = d.get("idle") or {}
     if idle.get("lost", 0) > 0:       # in the potential too, so the rows add up to what was left on the table
-        s = f"{idle['with_resource']:.1f} s"
-        out.append((IDLE, s, idle["lost"], idle_words(idle["with_resource"], idle.get("swinging_free"),
-                                                      idle.get("shooting", False)) + " with resource to spare"))
+        free, auto_t = idle["with_resource"], idle.get("swinging_free") or 0.0
+        s = f"{free:.1f} s"
+        label, detail = IDLE, s
+        if auto_t >= 0.05:            # M2's split: no ability used while swinging is not idle
+            word = "shooting" if idle.get("shooting") else "swinging"
+            label, detail = NO_ABILITY, f"{auto_t:.1f} s {word}" + (f", {free - auto_t:.1f} s idle"
+                                                                     if free - auto_t >= 0.05 else "")
+        out.append((label, detail, idle["lost"], idle_words(free, idle.get("swinging_free"),
+                                                            idle.get("shooting", False)) + " with resource to spare"))
         own += (f"{s} idle", "No ability used for ")
     return sorted(out, key=lambda r: -r[2]), tuple(own)
 
@@ -163,7 +172,7 @@ def build_fight(d: dict) -> FightView:
         duration=fmt_time(d["duration"]), result=d["result"],
         figures=[(_n(d["damage"]), "damage"), (f"{d['dps']:.0f}", "DPS"), (_n(d["taken"]), "taken"),
                  (_n(d["healing"]), "healing")],
-        rows=[(label, detail, dmg) for label, detail, dmg, _ in losses],
+        rows=[(label, detail, dmg) for label, detail, dmg, _ in losses] + _clipped(d),
         went_well=list(d.get("good") or []),
         also=_also(d, own), pull=_pull(d), danger=_danger(d))
     v.big, v.unit, v.caption = _hero(d, eff)
@@ -172,7 +181,16 @@ def build_fight(d: dict) -> FightView:
     if d.get("potential") is not None and d["potential"] - d["damage"] >= 1:      # under 1: nothing left
         v.left_on_table = d["potential"] - d["damage"]
     v.group, v.group_line = _group(d)
+    if not d.get("healing_role"):
+        v.auto_share = auto_share((d.get("auto") or {}).get("damage"), (d.get("ranged") or {}).get("damage"),
+                                  d["damage"])
     return v
+
+
+def _clipped(d: dict) -> list[tuple[str, str, float]]:
+    """shots a cast cut short: a row of its own under the priced ones (not priced, so no bar)"""
+    n = (d.get("ranged") or {}).get("clipped") or 0
+    return [(CLIPPED, f"×{n}", 0.0)] if n and not d.get("healing_role") else []
 
 
 def list_row(d: dict) -> tuple[str, list[tuple[str, str]], str]:

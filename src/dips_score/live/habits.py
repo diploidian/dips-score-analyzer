@@ -23,6 +23,8 @@ ORDER = {"fix": 0, "build": 1, "keep": 2}
 UNUSED_SHOWN = 3             # spells named in the "you know ... but never cast" card
 SKILL_MOVE = 0.05            # DPS change between the trend's halves that gets the skill-against-gear card
 PULL_MATCH = 10              # seconds between a fight's start and the add-on's pull record that still match
+NOT_LANDING = 0.10           # of your swings missed, dodged or parried that gets the "Swings not landing" card
+NOT_LANDING_MIN = 50         # swings needed before it is said (a few swings say nothing)
 WORN = 20                    # durability percent under which gear is nearly broken
 # gear slots worth filling, in the order they are named
 SLOTS = [(1, "head"), (2, "neck"), (3, "shoulder"), (5, "chest"), (6, "waist"), (7, "legs"), (8, "feet"),
@@ -102,7 +104,18 @@ def _damage_cards(win: list[dict]) -> list[tuple]:
     swings = sum(a["lost_other"] for a in auto)
     if minutes and swings / minutes >= 1:
         out.append(("fix", "Swings going missing", f"{swings / minutes:.1f} swings lost per minute ({swings} in {len(auto)} fights)"))
+    out += _not_landing([a for a in auto if "landed" in a])     # older saves have no hit table
     return out + _skill_card(dmg)
+
+
+def _not_landing(tables: list[dict]) -> list[tuple]:
+    """your swings missed, dodged or parried, from NOT_LANDING of them over the window (and NOT_LANDING_MIN swings)"""
+    swings = sum(t["landed"] + sum(t["misses"].values()) for t in tables)
+    off = sum(t["misses"].get(k, 0) for t in tables for k in ("miss", "dodge", "parry"))
+    if swings < NOT_LANDING_MIN or off / swings < NOT_LANDING:
+        return []
+    return [("build", "Swings not landing", f"{off / swings:.0%} of your swings missed, were dodged or parried over "
+                                            f"{len(tables)} fight{'' if len(tables) == 1 else 's'}")]
 
 
 def _change(prev: list[dict], cur: list[dict], key: str, label: str) -> str | None:

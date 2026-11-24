@@ -60,6 +60,7 @@ class DebriefView:
     categories: list[Category] = field(default_factory=list)   # all of the card's, for the All categories drawer
     bonus: float = 0.0          # hybrid bonus points, on top of the categories
     bonus_note: str = ""
+    auto_share: tuple[str, float] | None = None     # ("Melee 46% of your damage", share) over the breakdown
 
 
 def _clamp(x: float) -> float:
@@ -146,6 +147,27 @@ def build_view(card: Scorecard, fights: list[FightCell], damage_share: float | N
         lost=[Lost(c.name, p, ink_for(c.name)) for c, p in lost],
         earned=round(card.total), fights=fights, review=_review(fights), categories=card.categories,
         bonus=round(card.bonus, 1), bonus_note=card.bonus_note)
+
+
+AUTO_SHARE = 0.10           # melee (or shots) from this share of your damage gets its line over the losses
+
+
+def auto_share(melee: float | None, shots: float | None, total: float) -> tuple[str, float] | None:
+    """"Melee 46% of your damage" (and/or the shots'), each from AUTO_SHARE of it, with their share together; None
+    under it, with no damage, or saved before the hit tables kept their damage (None)"""
+    if not total:
+        return None
+    parts = [(w, v / total) for w, v in (("Melee", melee), ("Shots", shots)) if v and v / total >= AUTO_SHARE]
+    if not parts:
+        return None
+    said = " and ".join(f"{w if k == 0 else w.lower()} {x:.0%}" for k, (w, x) in enumerate(parts))
+    return f"{said} of your damage", sum(x for _, x in parts)
+
+
+def run_auto_share(m) -> tuple[str, float] | None:
+    """auto_share from a run's (or fight's) Metrics; None for one cached before the hit tables kept damage"""
+    return auto_share((getattr(m, "melee", None) or {}).get("damage"), (getattr(m, "ranged", None) or {}).get("damage"),
+                      getattr(m, "damage", 0))
 
 
 def fmt_time(s: float) -> str:

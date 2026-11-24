@@ -191,9 +191,27 @@ class FightViewTests(unittest.TestCase):
                           "resource to spare ≈ 900 damage", "4 shots lost while not shooting ≈ 500 damage"])
         v = build_fight(f)
         self.assertEqual([(label, detail) for label, detail, _ in v.rows],
-                         [("Idle with resource", "12.3 s"), ("Shots lost", "×4")])
+                         [("No ability", "10.0 s swinging, 2.3 s idle"), ("Shots lost", "×4"),
+                          ("Shots clipped by casts", "×1")])        # clipped: not priced, under the priced rows
+        self.assertEqual(v.rows[-1][2], 0.0)
         self.assertEqual(v.gap[0], "No ability used for 10.0 s while swinging and 2.3 s idle with resource to spare")
         self.assertEqual(v.also, [])
+        f["idle"] = dict(f["idle"], swinging_free=12.3, shooting=True)     # all of it shooting: no "idle" part
+        self.assertEqual(build_fight(f).rows[0][:2], ("No ability", "12.3 s shooting"))
+
+    def test_melee_share_line(self):
+        """over the losses when melee or shots are 10% or more of your damage; none in an older fight"""
+        self.assertIsNone(build_fight(ORACLE).auto_share)            # saved before the hit tables kept damage
+        f = dict(ORACLE, auto=dict(ORACLE["auto"], damage=1666))
+        text, share = build_fight(f).auto_share
+        self.assertEqual(text, "Melee 64% of your damage")
+        self.assertAlmostEqual(share, 1666 / 2583)
+        f["ranged"] = {"shots": 9, "damage": 520, "clipped": 0}
+        self.assertEqual(build_fight(f).auto_share[0], "Melee 64% and shots 20% of your damage")
+        f = dict(ORACLE, auto=dict(ORACLE["auto"], damage=200))      # 8%: not said
+        self.assertIsNone(build_fight(f).auto_share)
+        self.assertIsNone(build_fight(dict(ORACLE, auto=dict(ORACLE["auto"], damage=1666), healing_role=True))
+                          .auto_share)
 
     def test_group_deaths_and_ties(self):
         f = dict(ORACLE, damage=3040, group=dict(ORACLE["group"], deaths=["Shizuka Tsuruta"]))
@@ -252,6 +270,15 @@ class FightPageTests(unittest.TestCase):
         self.assertEqual(page.drawer.label, "ALL THE DETAILS (6)")   # its sections: Abilities, Cooldowns, ... Resource
         self.assertTrue(page.drawer.body.isHidden())
         self.assertEqual([r.ink for r in page.where.rows], ["m-act", "m-cd", "m-cd", "m-cd"])
+        self.assertIsNone(page.where.lead)                  # an older fight: no melee line
+        page.show_fight(dict(ORACLE, auto=dict(ORACLE["auto"], damage=1666),
+                             ranged={"shots": 9, "speed": 2.9, "shots_lost": 0, "damage": 0, "clipped": 3,
+                                     "damage_lost": 0.0}), (106.8, 225.3))
+        self.assertEqual(page.where.lead[0], "Melee 64% of your damage")
+        self.assertEqual((page.where.rows[-1].name, page.where.rows[-1].value_text, page.where.rows[-1].note),
+                         ("Shots clipped by casts", "–", "×3"))
+        self.assertFalse(page.grab().isNull())
+        page.show_fight(ORACLE, (106.8, 225.3))
         self.assertEqual(page.where.total, ("Left on the table · estimate — only time you were free to act",
                                             "≈2,705"))
         self.assertFalse(page.grab().isNull())

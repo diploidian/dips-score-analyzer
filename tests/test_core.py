@@ -135,7 +135,8 @@ class AutoAttacks(unittest.TestCase):
         for ln in (SWING_GLANCE, SWING_CRIT_BLOCKED, SWING_DODGE, SWING_OFFHAND_MISS, SWING_BLOCK):
             metrics.count_hit(t, combatlog.parse_line(ln))
         self.assertEqual(t, {"landed": 2, "crits": 1, "glancing": 1, "crushing": 0, "blocked": 1,
-                             "misses": {"dodge": 1, "miss": 1, "block": 1}, "offhand_misses": 1})
+                             "misses": {"dodge": 1, "miss": 1, "block": 1}, "offhand_misses": 1,
+                             "damage": 284})
 
 
 class CombatLog(unittest.TestCase):

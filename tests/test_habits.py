@@ -111,6 +111,23 @@ class Habits(unittest.TestCase):
         self.assertEqual(costs.pop("Judgement left unused"), 903.0)
         self.assertTrue(costs and all(v is None for v in costs.values()), costs)
 
+    def test_swings_not_landing(self):
+        """misses, dodges and parries from 10% of your swings: a build card apart from the lost swings"""
+        def auto(landed, misses):
+            return {"swings": landed + sum(misses.values()), "lost_other": 0, "landed": landed, "misses": misses}
+        fs = [fight(i, auto=auto(18, {"dodge": 1, "parry": 1})) for i in range(4)]      # 8 of 80: 10%
+        h = habits(fs)
+        card = next(c for c in h["cards"] if c["title"] == "Swings not landing")
+        self.assertEqual((card["kind"], card["detail"]),
+                         ("build", "10% of your swings missed, were dodged or parried over 4 fights"))
+        self.assertNotIn("Swings going missing", titles(h))     # no swings lost: that card stays away
+        low = [fight(i, auto=auto(19, {"miss": 1, "block": 3})) for i in range(4)]     # blocks don't count: 5%
+        self.assertNotIn("Swings not landing", titles(habits(low)))
+        few = [fight(0, auto=auto(5, {"miss": 5}))]                 # under 50 swings: says nothing
+        self.assertNotIn("Swings not landing", titles(habits(few)))
+        old = [fight(i, auto={"swings": 20, "lost_other": 0}) for i in range(4)]     # saved before the hit table
+        self.assertNotIn("Swings not landing", titles(habits(old)))
+
     def test_card_figures(self):
         """each card's figures beside its words, so the page never reads the sentences"""
         cards = {c["title"]: c for c in habits([fight(i, eff=0.9 if i < 20 else 0.7) for i in range(40)])["cards"]}
