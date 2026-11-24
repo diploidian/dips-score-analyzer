@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 
 from .habits_view import MINUS, _meta, _plural
 from .live.profile_history import MIN_FIGHTS
+from .scoring import usable
 
 NA = "–"
 CHIP_MIN = 5                # percentage points a share row must move against Before to get a chip
@@ -26,7 +27,6 @@ ROLE_INK = {"damage": "role-dmg", "healer": "role-heal", "tank": "role-tank"}
 PLACE_INK = {"Dungeon": "place-dungeon", "Raid": "place-raid", "World": "place-world", "PvP": "place-pvp"}
 PLACE_MOVE = {"Dungeon": ("more dungeons", "fewer dungeons"), "Raid": ("more raids", "fewer raids"),
               "World": ("more open world", "less open world"), "PvP": ("more PvP", "less PvP")}
-TYPE_WORD = {"Undead": "undead", "Demon": "demons"}
 MELEE = "Melee (auto attack)"
 NO_HANDS = "Hands needs a recorded run: play with the dips-Score add-on on, then reload."
 
@@ -129,6 +129,13 @@ def _and(names: list[str]) -> str:
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
+def _works(name: str, c: dict) -> str:
+    """"Exorcism works on undead and demons. You fought 37 of them in 12 fights and cast it 0 times." """
+    r = usable.RULES[name]
+    had = f"You had {c['chances']:,} {r['chance']}" if "after" in r else f"You fought {c['chances']:,} of them"
+    return f"{name} works {r['works']}. {had} in {_plural(c['fights'], 'fight')} and cast it 0 times."
+
+
 def _plate(now: dict) -> Plate:
     """the first rule that applies; none: "Nothing stands out" with the strongest trait, the measure furthest on
     the good side of its own plate threshold (keys against PLATE_CLICKS, cooldowns against PLATE_COOLDOWNS,
@@ -154,9 +161,7 @@ def _plate(now: dict) -> Plate:
         free = [x for x in names if x not in met]
         bench = (f"{_and(free)} {'is the harmful spell' if len(free) == 1 else 'are the harmful spells'} left on "
                  "the bench." if free else "")
-        works = " ".join(f"{x} works on {_and([TYPE_WORD.get(k, k.lower()) for k in met[x]['types']])}. You fought "
-                         f"{met[x]['foes']:,} of them in {_plural(met[x]['fights'], 'fight')} and cast it 0 times."
-                         for x in names if x in met)
+        works = " ".join(_works(x, met[x]) for x in names if x in met)
         return Plate(f"You know {_and(names)} and have never cast {'it' if one else 'them'}", "0 casts", fights,
                      " ".join(w.strip() for w in (carry, bench, works) if w))
     if dying is not None and dying >= PLATE_DEATHS:

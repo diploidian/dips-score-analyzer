@@ -8,8 +8,9 @@ runs are plain dicts from the recorded runs: start (datetime), role ("tank"/"hea
 presses, by_key, by_click, failed, casts, combat_time (seconds), move_interrupts (casts the game cut because you
 started to move) and wasted_cast_time (seconds lost to them); runs without both move keys are left out of those.
 A run counts for a window when its start is inside it; the caller passes only this character's runs.
-types is {enemy name: creature type} (the add-on's dipsScoreDB.types) or None; it decides whether a spell that
-only works on some enemy types (RESTRICTED) can count as unused.
+types is {enemy name: creature type} (the add-on's dipsScoreDB.types) or None; with the fights' saved chances it
+decides whether a spell that needs a chance (scoring/usable.py: an enemy type, a low target, an avoided attack)
+can count as unused.
 
 figures(...) keys (shares are fractions 0..1; None when there is nothing to divide by):
   fights           fights in the window
@@ -34,9 +35,9 @@ figures(...) keys (shares are fractions 0..1; None when there is nothing to divi
                    "lowest_hp" (mean, same scale as the fight's lowest_hp), "cooldowns_used", "cooldowns_possible",
                    "cooldowns_share"}
   unused           harmful spells known but not cast since the window's first fight (habits.idle_spells),
-                   None without a snapshot or its harm flag; a RESTRICTED spell only when you met its types
-  restricted       {spell: {"types": [creature types], "foes": enemies of those types met, "fights": fights they
-                   were in}} for the RESTRICTED spells in unused
+                   None without a snapshot or its harm flag; a spell in usable.RULES only with a known chance
+  restricted       {spell: {"chances", "fights" (fights with one)}} (usable.window_chances) for the spells in
+                   unused that need a chance
   label            label(figures), None without fights
 """
 from __future__ import annotations
@@ -45,6 +46,7 @@ from collections import Counter
 from datetime import datetime, timedelta
 from statistics import median
 
+from ..scoring import usable
 from ..scoring.classes import talent_role
 from ..scoring.score import grade
 from .habits import char_block, idle_spells
@@ -55,8 +57,6 @@ PLACES = ("Dungeon", "Raid", "World", "PvP")
 OLD_PLACE = {"Dungeon": "Dungeon", "Boss": "Dungeon", "World": "World"}     # fights saved without a difficulty
 # WoW difficulty ids of raids; any other difficulty inside an instance is a dungeon
 RAID_DIFFICULTIES = {3, 4, 5, 6, 7, 9, 14, 15, 16, 17, 33, 148, 151, 175, 176, 185, 186, 193, 198, 215, 226}
-# spells that only work on some creature types, by name: never unused unless you met enemies of those types
-RESTRICTED = {"Exorcism": ("Undead", "Demon"), "Holy Wrath": ("Undead", "Demon"), "Turn Undead": ("Undead",)}
 TALENT = {"TANK": "tank", "HEALER": "healer", "DPS": "damage"}
 TOP = 5
 
@@ -155,22 +155,9 @@ def _temperament(win: list[dict], seconds: float) -> dict:
             "cooldowns_share": _share(used, possible)}
 
 
-def _restricted(win: list[dict], unused: list[str] | None, types: dict | None) -> tuple[list[str] | None, dict]:
-    """unused less the RESTRICTED spells whose enemy types you did not meet (or that cannot be known), and the
-    met ones' counts"""
-    if unused is None:
-        return None, {}
-    keep, met = [], {}
-    for name in unused:
-        kinds = RESTRICTED.get(name)
-        if kinds is None:
-            keep.append(name)
-            continue
-        per = [sum(c for foe, c in f.get("foes") or [] if (types or {}).get(foe) in kinds) for f in win]
-        if sum(per):
-            keep.append(name)
-            met[name] = {"types": list(kinds), "foes": sum(per), "fights": sum(n > 0 for n in per)}
-    return keep, met
+def _restricted(win: list[dict], unused: list[str] | None, types: dict | None) -> dict:
+    """the chances of the spells in unused that need one (idle_spells kept only those with a known chance)"""
+    return {n: usable.window_chances(n, win, types) for n in unused or [] if usable.rule(n)}
 
 
 def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], lo: datetime, hi: datetime,
@@ -187,7 +174,8 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
             by_place[place] += f.get("duration") or 0
     roles = {r: _share(by_role[r], seconds) for r in ROLES}
     main = max(ROLES, key=lambda r: roles[r] or 0) if seconds else None
-    unused, restricted = _restricted(win, idle_spells(win, char, book) if win and char else None, types)
+    unused = idle_spells(win, char, book, types) if win and char else None
+    restricted = _restricted(win, unused, types)
     out = {"fights": len(win), "seconds": seconds, "roles": roles, "main_role": main,
            "places": {p: _share(by_place[p], seconds) for p in PLACES},
            "grades": _grades(runs),

@@ -12,6 +12,9 @@ reason not to (see readiness.py):
                            is its damage per cast, counting damage under a longer name that starts with it
                            and has no casts of its own ("Judgement" owns "Judgement of Command"). A miss
                            is counted only when the spell sat ready 2 s or more with no excuse.
+                           A spell that only works on some targets or after a dodge, block or parry
+                           (scoring/usable.py) is excused while it couldn't be used; its row says its
+                           chances, and possible counts only the casts that fit in those chances.
     melee swings lost      gaps in your auto-attacks longer than 1.6 swings, while you weren't casting
     idle time              gaps of 2.5 s+ with nothing cast, while you weren't moving or stunned and had
                            the resource to cast (half counted: not every gap is a mistake). Only if you
@@ -35,11 +38,13 @@ The result is a plain dict, so it can be saved as JSON and shown later.
 """
 from __future__ import annotations
 
+import math
 import statistics
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
 from ..model.roster import clean_name
+from ..scoring import usable
 from ..scoring.classes import DEFENSIVES
 from ..scoring.metrics import count_hit, hit_table, swing_stats
 from ..sources.combatlog import Event
@@ -153,9 +158,10 @@ def spoken(text: str) -> str:
     return text.replace(" ≈ ", ", about ") + "."
 
 
-def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], history: list[dict]) -> dict | None:
+def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], history: list[dict],
+              types: dict | None = None) -> dict | None:
     """the summary dict, or None for a fight that isn't worth one (a critter, a stray hit); "best before" only
-    counts earlier fights within a level of this one"""
+    counts earlier fights within a level of this one. types: enemy name -> creature type (dipsScoreDB.types)"""
     start, end = f.start, f.end or f.start
     dur = max(0.1, _rel(end, start))
     pets = {e.dst for e in f.events if e.event == "SPELL_SUMMON" and e.src == me}
@@ -170,6 +176,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     swings: list[float] = []
     swing_dmg: list[int] = []
     melee, ranged, taken_swings = hit_table(), hit_table(), hit_table()   # hit tables (see hit_table)
+    avoided: dict[tuple[str, str], list[float]] = defaultdict(list)    # ("target"|"you", "dodge"...) -> times
     extra_hits: Counter = Counter()                              # extra swings by the spell that gave them
     taken: list[tuple[float, int, str, str]] = []
     hp: list[tuple[float, float]] = []
@@ -278,6 +285,14 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 dispels += 1
         if e.dst == me and ev in ("SWING_DAMAGE", "SWING_MISSED") and is_foe(e.src, e.src_flags):
             count_hit(taken_swings, e)
+        # avoided attacks, for the spells that answer them (usable.py): any attack, swing or spell
+        if ev.endswith("_MISSED") and e.miss_type in ("DODGE", "PARRY", "BLOCK"):
+            if e.src == me and is_foe(e.dst, e.dst_flags):
+                avoided[("target", e.miss_type.lower())].append(t)
+            elif e.dst == me and is_foe(e.src, e.src_flags):
+                avoided[("you", e.miss_type.lower())].append(t)
+        elif e.dst == me and ev.endswith("_DAMAGE") and e.blocked > 0 and is_foe(e.src, e.src_flags):
+            avoided[("you", "block")].append(t)       # a partly blocked hit is a block
         if e.dst == me and ev.endswith("_DAMAGE") and not ev.endswith("_LANDED") and e.amount:
             who = clean_name(e.src_name) if e.src.startswith("Player-") else (e.src_name or "?")
             taken.append((t, e.amount, e.spell_name or "Melee", who))
@@ -330,6 +345,11 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
               for fo in f.foes.values()],
         hurt=hurt, you_heal=heal > 0, lulls=readiness.lulls(fighting, dur))
 
+    # ---- when the spells that need a target type, a low target or an avoided attack could be used
+    foe_list = [(fo.name, _rel(fo.first, start), _rel(fo.died, start) if fo.died else None, foe_hp.get(fo.guid, []))
+                for fo in f.foes.values()]
+    chances = {n: usable.fight_chances(r, dur, foe_list, types, avoided) for n, r in usable.RULES.items()}
+
     # ---- cooldowns: when each damage cooldown sat ready while you were free to use it
     cd_rows, cd_lost = [], 0.0
     by_spell: dict[str, list[tuple[float, float]]] = defaultdict(list)
@@ -351,9 +371,14 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         ready0 = max(0.0, _rel(before, start) + cd) if before else 0.0
         windows = readiness.ready_windows(uses, cd, ready0, dur)
         cost = statistics.median(costs[name]) if costs.get(name) else entry.get("cost", 0)
-        free, why = readiness.judge(windows, ctx, cast_time.get(name, entry.get("cast", False)), cost)
+        rule = usable.rule(name)
+        can, n_chances = chances.get(name, (None, None))
+        free, why = readiness.judge(windows, ctx, cast_time.get(name, entry.get("cast", False)), cost,
+                                    can, usable.reason(rule) if rule else "")
         limit = dur - GCD
         possible = int((limit - ready0) // cd) + 1 if ready0 <= limit else 0
+        if can is not None:               # only the casts that fit in its chances
+            possible = max(len(uses), min(possible, sum(math.ceil((b - a) / cd) for a, b in can)))
         held = cd >= HELD and kind != "Boss"
         lost = 0.0 if held else free / cd * per_cast
         cd_lost += lost
@@ -362,6 +387,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                         "free": free, "excused": {k: round(v, 1) for k, v in why.most_common() if v >= 0.05},
                         "lost": lost, "possible": possible, "missed": missed,
                         "counted": 0 if free < 2.0 else min(missed, max(1, round(free / cd))),
+                        **({"chances": n_chances} if n_chances is not None else {}),
                         **({"held": True} if held else {})})
     cd_rows.sort(key=lambda r: -r["lost"])
 
@@ -500,7 +526,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
 
     for r in ([] if healing_role else judged):
         if r["free"] >= 2.0 and r["lost"] >= 1:
-            improve.append((r["lost"], f"{r['name']} sat ready {r['free']:.1f} s while you were free "
+            improve.append((r["lost"], f"{r['name']} sat ready {r['free']:.1f} s{usable.across(r.get('chances'))} while you were free "
                                        f"≈ {_fmt(r['lost'])} damage"))
     if group and group["deaths"] and healing_role:
         improve.append((1e9, f"{', '.join(group['deaths'])} died"))
@@ -561,6 +587,9 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         "level": level,
         "pull": {"since_last": f.since_last, "buffs": f.buffs_at_pull, "own": f.own_buffs_at_pull, "rest": f.rest},
         "interrupts": interrupts, "dispels": dispels,
+        # chances of the spells that answer health or avoided attacks (usable.py), where known; creature-type
+        # chances are counted from "foes"
+        "chances": {n: c for n, (_, c) in chances.items() if c is not None and "types" not in usable.RULES[n]},
     }
 
 

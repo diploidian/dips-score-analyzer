@@ -12,6 +12,7 @@ from __future__ import annotations
 from collections import Counter
 from datetime import datetime
 
+from ..scoring import usable
 from .summary import MASHING, gear_level
 
 WINDOW = 40                  # fights looked at; the trend compares the last 20 with the 20 before
@@ -194,23 +195,38 @@ def _wear_cards(win: list[dict], pulls: list[tuple]) -> list[tuple]:
     return []
 
 
-def idle_spells(win: list[dict], char: dict, book: dict) -> list[str] | None:
+def idle_spells(win: list[dict], char: dict, book: dict, types: dict | None = None) -> list[str] | None:
     """harmful spells the character knows and has not cast since the window's first fight; None when the
-    snapshot has no harm flag to judge by"""
+    snapshot has no harm flag to judge by. A spell that needs a chance (scoring/usable.py: an enemy type, a low
+    target, an avoided attack) only when these fights had one; with its chances unknown it is left out"""
     first = _t(win[0]["start"])
     spells = char.get("spells") or {}
     if not any(sp["harm"] is not None for sp in spells.values()):
         return None
     return [n for n, sp in spells.items() if sp["harm"] and not (
-        (last := (book.get(n) or {}).get("last")) and _t(last) >= first)]
+        (last := (book.get(n) or {}).get("last")) and _t(last) >= first) and usable.has_chance(n, win, types)]
 
 
-def _build_cards(win: list[dict], char: dict, book: dict) -> list[tuple]:
+def _idle_detail(idle: list[str], win: list[dict], types: dict | None) -> str:
+    """"You know Smite and have not cast it in your last 12 fights", then a sentence per spell that needs a
+    chance: "You know Exorcism and used it 0 of 37 chances (37 undead and demons in 12 fights)." """
+    names = idle[:UNUSED_SHOWN]
+    plain = [n for n in names if not usable.rule(n)]
+    out = [f"You know {', '.join(plain)} and have not cast {'it' if len(plain) == 1 else 'them'} in your last "
+           f"{len(win)} fights"] if plain else []
+    for n in names:
+        if r := usable.rule(n):
+            c = usable.window_chances(n, win, types)
+            out.append(f"You know {n} and used it 0 of {c['chances']:,} chances ({c['chances']:,} {r['chance']} in "
+                       f"{c['fights']} fight{'' if c['fights'] == 1 else 's'})")
+    return ". ".join(out) + ("." if len(out) > bool(plain) else "")
+
+
+def _build_cards(win: list[dict], char: dict, book: dict, types: dict | None = None) -> list[tuple]:
     """what the character snapshot shows: harmful spells never cast in the window, empty gear slots"""
     out = []
-    if idle := idle_spells(win, char, book):
-        out.append(("build", "Spells you never use", f"You know {', '.join(idle[:UNUSED_SHOWN])} and have not "
-                    f"cast {'it' if len(idle) == 1 else 'them'} in your last {len(win)} fights"))
+    if idle := idle_spells(win, char, book, types):
+        out.append(("build", "Spells you never use", _idle_detail(idle, win, types)))
     gear = char.get("gear") or {}
     if gear:                                    # an empty list means the client gave nothing, not a naked character
         empty = [label for slot, label in SLOTS if slot not in gear]
@@ -225,13 +241,15 @@ def char_block(char: dict | None) -> dict | None:
                      "spec": char.get("spec"), "gear": gear_level(char)}
 
 
-def habits(fights: list[dict], char: dict | None = None, book: dict | None = None) -> dict:
+def habits(fights: list[dict], char: dict | None = None, book: dict | None = None,
+           types: dict | None = None) -> dict:
+    """types: enemy name -> creature type (dipsScoreDB.types), for the spells that need one"""
     if not fights:
         return {"name": "", "level": None, "fights": 0, "session": None, "cards": [], "char": None, "trend": []}
     me = fights[-1]["me"]
     mine = [f for f in fights if f["me"] == me]
     win = mine[-WINDOW:]
-    cards = _damage_cards(win) + _habit_cards(win) + (_build_cards(win, char, book or {}) + _wear_cards(
+    cards = _damage_cards(win) + _habit_cards(win) + (_build_cards(win, char, book or {}, types) + _wear_cards(
         win, char.get("pulls") or []) if char else [])
     cards.sort(key=lambda c: ORDER[c[0]])
     trend = [{"efficiency": f.get("efficiency"), "level": f.get("level"), "gear": f.get("gear")}

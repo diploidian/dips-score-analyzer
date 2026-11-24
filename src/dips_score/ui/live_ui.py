@@ -35,7 +35,9 @@ class LiveController(QObject):
         self.refresh()       # kept up: the last fight is there from the start
 
     def load_chars(self):
-        """the character snapshots in every saved file (the game rewrites them on /reload and logout)"""
+        """the character snapshots in every saved file, and the enemies' creature types in the account-wide ones
+        (the game rewrites them on /reload and logout)"""
+        self.history.load_types(self.paths.account_saved_files())
         for path in self.paths.saved_files():
             try:
                 char = load_char(path)

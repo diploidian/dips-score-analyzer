@@ -132,8 +132,18 @@ class BuildCards(unittest.TestCase):
         gear = {s: 30 for s in (1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16)}    # everything but ring 2 (slot 12)
         h = habits(self.fights, char(spells=self.spells, gear=gear), self.book)
         cards = {c["title"]: c for c in h["cards"]}
+        self.assertNotIn("Spells you never use", cards)     # both need a chance, and none is known
+        fights = [dict(f, foes=[["Ghoul", 3], ["Imp", 1]] if i < 3 else [["Wolf", 2]], chances={"Hammer of Wrath": i})
+                  for i, f in enumerate(self.fights)]
+        spells = dict(self.spells, Consecration={"cd": None, "harm": True})
+        h = habits(fights, char(spells=spells, gear=gear), self.book, {"Ghoul": "Undead", "Imp": "Demon",
+                                                                       "Wolf": "Beast"})
+        cards = {c["title"]: c for c in h["cards"]}
         self.assertEqual(cards["Spells you never use"]["detail"],
-                         "You know Exorcism, Hammer of Wrath and have not cast them in your last 5 fights")
+                         "You know Consecration and have not cast it in your last 5 fights. "
+                         "You know Exorcism and used it 0 of 12 chances (12 undead and demons in 3 fights). "
+                         "You know Hammer of Wrath and used it 0 of 10 chances (10 enemies under 20% health in 4 "
+                         "fights).")
         self.assertEqual(cards["Gear slots to fill"]["detail"], "Empty gear slots: ring 2")
         self.assertEqual(titles(h)["Gear slots to fill"], "build")
         self.assertEqual(h["char"], {"class": "PRIEST", "race": "Undead", "level": 33, "spec": "Shadow", "gear": 30})

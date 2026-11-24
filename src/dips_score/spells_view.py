@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 
 from .model.casts import SpellRow, spell_table
 from .scoring.cooldowns import CooldownRow
+from .scoring.usable import across
 
 REFUSED = 0.25      # refused on more than this share of presses: worth a look
 SUMS = ("casts", "failed", "damage", "healing", "overheal", "hits", "crits")
@@ -109,12 +110,12 @@ def spells_view(rows: list[SpellRow], combat_s: float, cooldowns=None, who: str 
     cds = sorted((c for c in known if c.lost >= 1), key=lambda c: c.lost, reverse=True)
     fix = cds[0] if cds else None
     if fix:
-        v.fix = (f"{fix.name} sat ready {fix.free:.0f} s", f"~{fix.lost:,.0f} damage", _casts(fix.missed))
+        v.fix = (f"{fix.name} sat ready {fix.free:.0f} s{across(getattr(fix, 'chances', None))}", f"~{fix.lost:,.0f} damage", _casts(fix.missed))
         if where and fix.name in where:
             v.show = (*where[fix.name], fix.name)
     v.next_rows = [(f"{r.name} refused on {r.refused} of {r.casts + r.refused} presses",
                     f"{r.refused_share:.0%} refused") for r in refused]
-    v.next_rows += [(f"{c.name} sat ready {c.free:.0f} s", f"~{c.lost:,.0f} damage") for c in cds[1:2]]
+    v.next_rows += [(f"{c.name} sat ready {c.free:.0f} s{across(getattr(c, 'chances', None))}", f"~{c.lost:,.0f} damage") for c in cds[1:2]]
     v.refused_most = refused[0].name if refused else None
     v.verdict = _verdict(v, refused[0] if refused else None, fix, "your" if who is None else f"{who}'s")
     return v
@@ -131,7 +132,7 @@ def _verdict(v: SpellsView, refused: AbilityRow | None, fix, whose: str) -> str:
     part, total = (sum(getattr(r, what) for r in rs) for rs in (top, lead[what]))
     out = [f"{_and([r.name for r in top])} did {part / total:.0%} of {whose} {what}."]
     bits = ([f"{refused.name} was refused on {refused.refused} of {refused.casts + refused.refused} presses"]
-            if refused else []) + ([f"{fix.name} sat ready for {fix.free:.0f} s"] if fix else [])
+            if refused else []) + ([f"{fix.name} sat ready for {fix.free:.0f} s{across(getattr(fix, 'chances', None))}"] if fix else [])
     if bits:
         out.append(", and ".join(bits) + ".")
     return " ".join(out)
@@ -144,6 +145,8 @@ def _cooldowns(fights) -> tuple[list[CooldownRow], dict[str, tuple[float, float]
         for r in fr.cooldowns.rows if fr.cooldowns else []:
             x = rows.setdefault(r.name, CooldownRow(r.name, 0.0, 0.0, 0.0))
             x.free, x.missed, x.lost = x.free + r.free, x.missed + r.missed, x.lost + r.lost
+            if getattr(r, "chances", None) is not None:      # rows saved before chances have none
+                x.chances = (x.chances or 0) + r.chances
             if r.lost > worst.get(r.name, (-1.0, None))[0]:
                 worst[r.name] = (r.lost, (fr.fight.start - 3, fr.fight.end + 3))
     return list(rows.values()), {n: w for n, (_, w) in worst.items()}

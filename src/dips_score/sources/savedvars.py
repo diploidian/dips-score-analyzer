@@ -194,7 +194,7 @@ def load_char(path: str | Path) -> dict | None:
 def load_types(path: str | Path) -> dict[str, str]:
     """enemy name -> creature type ("Undead", "Demon", ...) from the account-wide saved file's dipsScoreDB.types
     (Types.lua); {} when the file or the table is missing or broken. Paths.account_saved_files() lists the files.
-    The Profile page is to call it (one dict merged over every account) when it counts a window's foes by type."""
+    History.load_types merges it over every account, for the spells that need a creature type (usable.py)."""
     try:
         db = luadata.load(path).get("dipsScoreDB")
     except (OSError, ValueError):

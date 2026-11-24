@@ -13,6 +13,9 @@ your last cast of it before the fight). Each moment of that ready time is either
     healing           you heal, and someone in the group was under HURT health (heals come first)
     nothing to hit    a lull of LULL seconds or more with no fighting at all (an enemy ran off, or you
                       were between packs in one combat)
+    no valid target,  the spell could not be used: no enemy of its creature types, no target under 20%,
+    target above 20%, no dodge, block or parry to answer (scoring/usable.py); the REACT seconds after a
+    nothing to answer chance opens count as just came up
 
 What's left is time the spell sat ready while you were free to use it: casting something else instead counts
 here, because that's the choice that cost damage. Lost damage is that time divided by the cooldown (the casts
@@ -106,8 +109,10 @@ def _target_low(ctx: Context, t: float) -> bool:
     return True
 
 
-def judge(windows: list[tuple[float, float]], ctx: Context, has_cast_time: bool, cost: float) -> tuple[float, Counter]:
-    """(seconds ready while you were free, seconds excused by reason)"""
+def judge(windows: list[tuple[float, float]], ctx: Context, has_cast_time: bool, cost: float,
+          usable: list[tuple[float, float]] | None = None, unusable: str = "") -> tuple[float, Counter]:
+    """(seconds ready while you were free, seconds excused by reason). usable: when the spell could be used at
+    all (None: always), the rest excused as `unusable`"""
     excused: Counter = Counter()
     free = 0.0
     for a, b in windows:
@@ -119,6 +124,10 @@ def judge(windows: list[tuple[float, float]], ctx: Context, has_cast_time: bool,
         t = a
         while t < b:
             if t < grace:
+                excused["just came up"] += STEP
+            elif usable is not None and not _inside(t, usable):
+                excused[unusable] += STEP
+            elif usable is not None and any(u <= t < u + REACT for u, _ in usable):
                 excused["just came up"] += STEP
             elif _inside(t, ctx.lulls):
                 excused["nothing to hit"] += STEP

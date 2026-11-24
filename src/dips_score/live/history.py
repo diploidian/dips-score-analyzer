@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .. import removed
 from ..config import Paths
+from ..sources.savedvars import load_types
 from .summary import gear_level, learn_cooldowns, new_entry, summarize
 from .tail import LogTail
 from .tracker import Tracker
@@ -28,6 +29,7 @@ class History:
         self.fights: list[dict] = []
         self.books: dict[str, dict[str, dict]] = {}
         self.chars: dict[str, dict] = {}       # character snapshots from the add-on, by guid (not saved here)
+        self.types: dict[str, str] = {}        # enemy name -> creature type, from the add-on (not saved here)
         self.load()
 
     def load(self):
@@ -54,6 +56,11 @@ class History:
         book = self.book(char["guid"])
         for name, sp in char["spells"].items():
             book.setdefault(name, new_entry())["game_cd"] = sp["cd"]
+
+    def load_types(self, files):
+        """the enemies' creature types in the account-wide saved files (Paths.account_saved_files), merged"""
+        for path in files:
+            self.types.update(load_types(path))
 
     def tag(self, s: dict, me: str):
         """put the character's spec and gear level on a fight summary, when there is a snapshot"""
@@ -121,7 +128,7 @@ class Live:
         if learn_cooldowns(f, me, self.history.book(me)):
             self.history.save_books()
         earlier = [h for h in self.history.fights if h.get("id") != _fight_id(f)]
-        s = summarize(f, me, self.tracker.me_name, self.history.book(me), earlier)
+        s = summarize(f, me, self.tracker.me_name, self.history.book(me), earlier, self.history.types)
         if s and s["id"] not in removed.IDS:      # a deleted fight carrying on isn't shown again
             self.history.tag(s, me)
             s["updated"] = self.history.add(s)       # a carried-on combat: its card is updated
@@ -132,6 +139,7 @@ class Live:
 def replay(paths: Paths, files: list[Path]) -> int:
     """sum up every fight in log files already on disk (oldest first) into the history; returns how many"""
     h = History(paths)
+    h.load_types(paths.account_saved_files())
     n = 0
     for path in files:
         tr = Tracker()
@@ -151,7 +159,7 @@ def _keep(h: History, tr: Tracker, f) -> int:
         return 0
     learn_cooldowns(f, tr.me, h.book(tr.me))     # saved once, at the end of the replay
     known = _fight_id(f) in h.ids()
-    s = summarize(f, tr.me, tr.me_name, h.book(tr.me), [x for x in h.fights if x.get("id") != _fight_id(f)])
+    s = summarize(f, tr.me, tr.me_name, h.book(tr.me), [x for x in h.fights if x.get("id") != _fight_id(f)], h.types)
     if s:
         h.tag(s, tr.me)
         h.add(s)

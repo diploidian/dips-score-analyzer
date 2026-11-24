@@ -530,7 +530,7 @@ class Window(QMainWindow):
     def _show_habits(self):
         h = self.live.history
         me = h.fights[-1]["me"] if h.fights else ""
-        self.habits_page.show_habits(habits(h.fights, h.chars.get(me), h.book(me) if me else None))
+        self.habits_page.show_habits(habits(h.fights, h.chars.get(me), h.book(me) if me else None, h.types))
         self.stack.setCurrentIndex(3)
 
     def _share(self):

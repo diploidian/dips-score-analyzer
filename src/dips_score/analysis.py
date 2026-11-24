@@ -194,7 +194,9 @@ def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
         a.upkeep = measure_upkeep(rd, base=ub)
         for fr in fights:
             fr.upkeep = measure_upkeep(rd, [(fr.fight.start, fr.fight.end)], ub)
-        a.cooldowns, per_fight = measure_cooldowns(rd, History(paths).book(me))
+        h = History(paths)
+        h.load_types(paths.account_saved_files())
+        a.cooldowns, per_fight = measure_cooldowns(rd, h.book(me), h.types)
         for fr, cm in zip(fights, per_fight):
             fr.cooldowns = cm
     if rd.has_combat_log:   # every role

@@ -6,7 +6,9 @@ same `summarize`, and its cooldown rows are used here. Which ready time is excus
 target nearly dead, ...) is decided in live/readiness.py. How long each spell's cooldown is comes from
 your character's spell book, which the live view learns from your casts (spells.json); this run's casts
 add to a copy of it. Lost damage is the free seconds divided by the cooldown (the casts missed) times the
-spell's average hit. A cooldown of a minute or more held outside a boss fight isn't counted.
+spell's average hit. A cooldown of a minute or more held outside a boss fight isn't counted. A spell that
+only works on some targets or after an avoided attack (usable.py) is excused while it couldn't be used, the
+enemy types coming from the add-on (types); its chances are summed over the fights that know them.
 """
 from __future__ import annotations
 
@@ -24,6 +26,7 @@ class CooldownRow:
     free: float      # seconds it sat ready with no excuse
     missed: float    # casts that was worth
     lost: float      # damage that cost
+    chances: int | None = None   # its chances (usable.py), None for a spell any target allows or unknown
 
 
 @dataclass
@@ -48,12 +51,16 @@ def _sum(parts: list[dict]) -> CooldownMetrics:
             x.free += r["free"]
             x.missed += r["free"] / r["cd"]
             x.lost += r["lost"]
+            if r.get("chances") is not None:
+                x.chances = (x.chances or 0) + r["chances"]
     out = sorted(rows.values(), key=lambda r: -r.lost)
     return CooldownMetrics(sum(r.lost for r in out), sum(s["damage"] for s in parts), out)
 
 
-def measure_cooldowns(rd: RunData, book: dict[str, dict]) -> tuple[CooldownMetrics, list[CooldownMetrics]]:
-    """(the whole run, each fight in rd.fights). book: your spell book (left as it was)."""
+def measure_cooldowns(rd: RunData, book: dict[str, dict],
+                      types: dict | None = None) -> tuple[CooldownMetrics, list[CooldownMetrics]]:
+    """(the whole run, each fight in rd.fights). book: your spell book (left as it was); types: enemy name ->
+    creature type"""
     me = rd.player_guid
     tr = Tracker()
     tr.me = me
@@ -65,7 +72,7 @@ def measure_cooldowns(rd: RunData, book: dict[str, dict]) -> tuple[CooldownMetri
         learn_cooldowns(f, me, cds)
     per: list[list[dict]] = [[] for _ in rd.fights]
     for f in found:
-        s = summarize(f, me, "", cds, [])
+        s = summarize(f, me, "", cds, [], types)
         t = rd.rel(f.start)
         i = next((i for i, w in enumerate(rd.fights) if w.start <= t <= w.end), None)
         if s and i is not None:

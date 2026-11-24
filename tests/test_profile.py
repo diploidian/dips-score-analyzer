@@ -94,17 +94,17 @@ class Figures(unittest.TestCase):
         self.assertEqual(n["unused"], [])                                           # none of them met
         n = profile(fs, char, book, [], T0, {"Ghoul": "Undead", "Imp": "Demon", "Wolf": "Beast"})["now"]
         self.assertEqual(n["unused"], ["Exorcism", "Turn Undead"])
-        self.assertEqual(n["restricted"], {"Exorcism": {"types": ["Undead", "Demon"], "foes": 5, "fights": 2},
-                                           "Turn Undead": {"types": ["Undead"], "foes": 3, "fights": 1}})
+        self.assertEqual(n["restricted"], {"Exorcism": {"chances": 5, "fights": 2},
+                                           "Turn Undead": {"chances": 3, "fights": 1}})
 
     def test_restricted_with_plain_unused(self):
         char = {"spells": {"Exorcism": {"harm": True}, "Holy Wrath": {"harm": True}, "Turn Undead": {"harm": True},
-                           "Hammer of Wrath": {"harm": True}}}
+                           "Consecration": {"harm": True}}}
         fs = [fight(2, foes=[["Imp", 2], ["Wolf", 1]]), fight(2, foes=[["Bandit", 3]])]
         n = profile(fs, char, {}, [], T0, {"Imp": "Demon", "Wolf": "Beast"})["now"]       # Bandit has no type
-        self.assertEqual(n["unused"], ["Exorcism", "Holy Wrath", "Hammer of Wrath"])        # no undead: Turn Undead out
+        self.assertEqual(n["unused"], ["Exorcism", "Holy Wrath", "Consecration"])           # no undead: Turn Undead out
         self.assertEqual(set(n["restricted"]), {"Exorcism", "Holy Wrath"})
-        self.assertEqual(n["restricted"]["Exorcism"], {"types": ["Undead", "Demon"], "foes": 2, "fights": 1})
+        self.assertEqual(n["restricted"]["Exorcism"], {"chances": 2, "fights": 1})
 
     def test_opener(self):
         o = ["A", "B", "C"]
@@ -143,9 +143,20 @@ class Figures(unittest.TestCase):
         self.assertEqual((sig["basis"], sig["top"][0]["name"], sig["top"][0]["share"]), ("casts", "Heal", 0.9))
 
     def test_unused(self):
-        char = {"spells": {"Hammer of Wrath": {"harm": True}, "Smite": {"harm": True}, "Heal": {"harm": False}}}
+        char = {"spells": {"Consecration": {"harm": True}, "Smite": {"harm": True}, "Heal": {"harm": False}}}
         book = {"Smite": {"last": (T0 - DAY).isoformat()}}
-        self.assertEqual(profile([fight(2)], char, book, [], T0)["now"]["unused"], ["Hammer of Wrath"])
+        self.assertEqual(profile([fight(2)], char, book, [], T0)["now"]["unused"], ["Consecration"])
+
+    def test_unused_health_and_reactive(self):
+        char = {"spells": {"Hammer of Wrath": {"harm": True}, "Overpower": {"harm": True}}}
+        self.assertEqual(profile([fight(2)], char, {}, [], T0)["now"]["unused"], [])     # chances unknown: left out
+        fs = [fight(2, chances={"Hammer of Wrath": 0, "Overpower": 0})]
+        self.assertEqual(profile(fs, char, {}, [], T0)["now"]["unused"], [])             # none: nothing to use
+        fs += [fight(2, chances={"Hammer of Wrath": 3, "Overpower": 7})]
+        n = profile(fs, char, {}, [], T0)["now"]
+        self.assertEqual(n["unused"], ["Hammer of Wrath", "Overpower"])
+        self.assertEqual(n["restricted"], {"Hammer of Wrath": {"chances": 3, "fights": 1},
+                                           "Overpower": {"chances": 7, "fights": 1}})
 
 
 class Label(unittest.TestCase):
@@ -240,20 +251,20 @@ class View(unittest.TestCase):
     def test_plate_order(self):
         clicky = [run(1, by_key=60, by_click=40)]
         cd = [{"possible": 10, "missed": 6}]
-        char = {"spells": {"Hammer of Wrath": {"harm": True}}}
+        char = {"spells": {"Consecration": {"harm": True}}}
         deadly = many(2, result="you died", cooldowns=cd) + many(8, cooldowns=cd)
         self.assertEqual(page(deadly, clicky, char).plate.title, "You click instead of pressing keys")
         self.assertEqual(page(deadly, char=char).plate.title, "You leave your cooldowns unused")
         self.assertEqual(page(many(2, result="you died") + many(8), char=char).plate.title,
-                         "You know Hammer of Wrath and have never cast it")
+                         "You know Consecration and have never cast it")
         p = page(many(2, result="you died") + many(8)).plate
         self.assertEqual((p.title, p.figure, p.button), ("You die in 20% of your fights", "2 deaths", "Open Habits"))
 
     def test_plate_why(self):
-        char = {"spells": {"Hammer of Wrath": {"harm": True}}}
+        char = {"spells": {"Consecration": {"harm": True}}}
         ab = [{"name": "Smite", "casts": 3, "damage": 300}, {"name": "Seal", "casts": 1, "damage": 0}]
         self.assertEqual(page(many(abilities=ab), char=char).plate.why,
-                         "Smite and Seal carry your casts. Hammer of Wrath is the harmful spell left on the bench.")
+                         "Smite and Seal carry your casts. Consecration is the harmful spell left on the bench.")
         self.assertEqual(page(many(cooldowns=[{"possible": 10, "missed": 6}])).plate.why,
                          "60 uses of a ready cooldown went unspent.")
         self.assertEqual(page(many(2, result="you died") + many(8)).plate.why,
@@ -415,6 +426,14 @@ class View(unittest.TestCase):
         self.assertEqual(v.plate.why, "Smite carries your casts. Exorcism works on undead and demons. "
                                       "You fought 24 of them in 6 fights and cast it 0 times.")
         self.assertNotEqual(page(fs, char=char).plate.title, "You know Exorcism and have never cast it")
+
+    def test_reactive_and_health_plate(self):
+        char = {"spells": {"Overpower": {"harm": True}, "Execute": {"harm": True}}}
+        fs = many(3, chances={"Overpower": 4, "Execute": 2}) + many(7, chances={"Overpower": 0, "Execute": 0})
+        self.assertEqual(build_profile(profile(fs, char, {}, [], T0), []).plate.why,
+                         "Smite carries your casts. Overpower works after the target dodges you. You had 12 dodges "
+                         "in 3 fights and cast it 0 times. Execute works on enemies under 20% health. You fought 6 "
+                         "of them in 3 fights and cast it 0 times.")
 
     def test_inks(self):
         v = page(many(kind="Dungeon"), [run(1)])
