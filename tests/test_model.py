@@ -321,6 +321,8 @@ class Activity(unittest.TestCase):
         m = self.measure(self.swings(), [(10, "CK", 9)])
         self.assertAlmostEqual(m.uptime, 1.0)
         self.assertAlmostEqual(m.swinging_time, 58.5)          # all but the one GCD
+        m = self.measure(self.swings(), [(t, "CK", 9) for t in range(0, 60, 3)])
+        self.assertAlmostEqual(m.swinging_time, 0.0)           # 1.5 s between abilities: under 2.5 s, not counted
 
     def shots(self, sid=75, every=3.0, skip=lambda t: False):
         out = []

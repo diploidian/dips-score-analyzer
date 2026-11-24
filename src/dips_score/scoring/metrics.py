@@ -5,7 +5,8 @@ lines), so walking between pulls doesn't count against you.
 
 Busy time is casting, channeling, the GCD (1.0 s for energy users, else 1.5 s), and auto-attack running:
 melee swings and ranged shots (Auto Shot, wand Shoot; each keeps you busy until the next one, at most one
-swing or shot). Swinging or shooting with no ability is busy, not idle ("swinging_time" says how much).
+swing or shot). Swinging or shooting with no ability is busy, not idle ("swinging_time" says how much: the
+auto-attack inside gaps of IDLE_GAP+ between abilities, as the live fight counts it).
 A next-swing ability (NEXT_SWING: Heroic Strike...) takes the place of the swing it replaces, so that swing
 is not lost. Shots lost are measured like swings lost, but a gap while moving doesn't count, and a shot
 clipped by a cast (a hard cast; for a wand, any cast, since casting stops the wand) is counted apart, and
@@ -467,9 +468,9 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
     ability_busy, _ = busy_intervals([ln for ln in lines if not (ln.code in ("CB", "CK", "CF", "CI", "CC", "CE")
                                                                   and ln.num(0) in AUTO_REPEAT)],
                                      ENERGY_GCD if m.power_type == ENERGY else GCD)
-    ability = total(clip(ability_busy, windows))
     busy = union(busy + running)
-    m.swinging_time = total(clip(busy, windows)) - ability
+    # as the live fight counts it: auto-attack inside the gaps of 2.5 s+ between abilities
+    m.swinging_time = total(clip(busy, gaps(ability_busy, windows, IDLE_GAP)))
 
     # starved (rage/energy): your power below your cheapest ability's cost
     starved: list[Interval] = []

@@ -230,7 +230,8 @@ def _idle_detail(idle: list[str], win: list[dict], types: dict | None) -> str:
     for n in names:
         if r := usable.rule(n):
             c = usable.window_chances(n, win, types)
-            out.append(f"You know {n} and used it 0 of {c['chances']:,} chances ({c['chances']:,} {r['chance']} in "
+            out.append(f"You know {n} and used it 0 of {c['chances']:,} chance{'' if c['chances'] == 1 else 's'} "
+                       f"({usable.counted(c['chances'], r)} in "
                        f"{c['fights']} fight{'' if c['fights'] == 1 else 's'})")
     return ". ".join(out) + ("." if len(out) > bool(plain) else "")
 

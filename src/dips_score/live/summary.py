@@ -18,7 +18,8 @@ reason not to (see readiness.py):
     melee swings lost      gaps in your auto-attacks longer than 1.6 swings, while you weren't casting; a
                            next-swing ability (Heroic Strike, metrics.NEXT_SWING) fills the swing it replaces
     shots lost             the same for Auto Shot and wand Shoot, less time moving or with no enemy alive;
-                           shots clipped by a cast (a hard cast; any cast for a wand) are counted apart
+                           shots clipped by a cast (a hard cast; any cast for a wand) are counted apart;
+                           a wand's shots in a priced idle gap aren't lost again
     idle time              gaps of 2.5 s+ with no ability used, while you weren't moving or stunned and had
                            the resource to cast (half counted: not every gap is a mistake). Of that, the
                            part with auto-attack running is "no ability used while swinging" (or shooting),
@@ -116,6 +117,18 @@ def owned(name: str, damage: dict[str, float], cast: set[str]) -> float:
     cast themselves ("Judgement" owns "Judgement of Command")"""
     return damage.get(name, 0) + sum(v for n, v in damage.items() if n.startswith(name + " ") and n not in cast
                                      and not n.endswith(" (pet)"))
+
+
+def _spans(marks: list[float], at_pull: bool, dur: float) -> list[tuple[float, float]]:
+    """when an aura was on you, from its applied (t) / removed (-t) marks; at_pull: on when the fight began"""
+    out, since = [], (0.0 if at_pull else None)
+    for m in marks:
+        if m >= 0:
+            since = m if since is None else since
+        elif since is not None:
+            out.append((since, -m))
+            since = None
+    return out + ([(since, dur)] if since is not None else [])
 
 
 def filler(entry: dict) -> bool:
@@ -373,7 +386,10 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     # ---- when the spells that need a target type, a low target or an avoided attack could be used
     foe_list = [(fo.name, _rel(fo.first, start), _rel(fo.died, start) if fo.died else None, foe_hp.get(fo.guid, []))
                 for fo in f.foes.values()]
-    chances = {n: usable.fight_chances(r, dur, foe_list, types, avoided) for n, r in usable.RULES.items()}
+    # a stance first seen leaving was on from the pull
+    stances = {n: _spans(auras.get(n, []), n in f.buffs_at_pull or auras[n][0] < 0, dur) for n in usable.STANCES
+               if n in auras or n in f.buffs_at_pull}
+    chances = {n: usable.fight_chances(r, dur, foe_list, types, avoided, stances) for n, r in usable.RULES.items()}
 
     # ---- cooldowns: when each damage cooldown sat ready while you were free to use it
     cd_rows, cd_lost = [], 0.0
@@ -416,6 +432,30 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                         **({"held": True} if held else {})})
     cd_rows.sort(key=lambda r: -r["lost"])
 
+    # ---- idle: gaps with no cast and no GCD running (before auto attacks: a wand's shots skip the priced ones)
+    busy = sorted(bars)
+    idle_res = idle_out = idle_moving = 0.0
+    typical_cost = statistics.median([c for *_, c in casts if c]) if any(c for *_, c in casts) else 0
+    first_power = f.start_power
+    cur = 0.0
+    gaps_idle = []
+    for a, b in busy + [(dur, dur)]:
+        if a - cur >= IDLE_GAP:
+            gaps_idle.append((cur, a))
+        cur = max(cur, b)
+    priced = []                   # per gap with resource, its time not excused (moving, cc, lull)
+    for a, b in gaps_idle:
+        p_then = next((pw for t, pw in reversed(power) if t <= a), first_power)
+        low = typical_cost and p_then is not None and p_then < 0.08
+        if low:
+            idle_out += b - a
+            continue
+        excused = sum(max(0.0, min(b, y) - max(a, x)) for x, y in ctx.moving + ctx.cc + ctx.lulls)
+        idle_moving += min(b - a, excused)
+        idle_res += max(0.0, b - a - excused)
+        priced.append(gaps(ctx.moving + ctx.cc + ctx.lulls, [(a, b)], 0.0))
+    has_filler = any(filler(e) for e in book.values())
+
     # ---- auto attacks
     auto = None
     swing_lost = shot_lost = 0.0
@@ -434,60 +474,25 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         # moving, or no enemy alive, isn't a lost shot
         alive = union([(a, b if b is not None else dur) for a, b, _ in ctx.foes])
         wand = shot_ids.most_common(1)[0][0] == WAND
+        # a wand stops for every cast: an idle gap priced as idle isn't charged again as lost shots
+        idle_paid = [x for sp in priced for x in sp] if wand and has_filler else []
         shot_speed, clipped, n_lost = swing_stats(shots, ctx.bars if wand else hard, None,
-                                                  ctx.moving + gaps(alive, [(0.0, dur)], 0.0))
+                                                  ctx.moving + gaps(alive, [(0.0, dur)], 0.0) + idle_paid)
         shot_lost = n_lost * (statistics.mean(shot_dmg) if shot_dmg else 0)
         ranged.update(shots=len(shots), speed=shot_speed, shots_lost=n_lost, clipped=clipped, damage_lost=shot_lost)
     running = auto_running(slots, speed) + auto_running(shots, shot_speed)
     shooting = len(shots) > len(slots)          # the word: "while shooting" or "while swinging"
 
-    # ---- idle: gaps with no cast and no GCD running
-    busy = []
-    for t, sid, _, began, _ in casts:
-        if sid in AUTO:
-            continue
-        a = began if began is not None else t
-        busy.append((a, max(t, a + GCD)))
-    busy.sort()
-    idle_res = idle_out = 0.0
-    typical_cost = statistics.median([c for *_, c in casts if c]) if any(c for *_, c in casts) else 0
-    first_power = f.start_power
-    cur = 0.0
-    gaps_idle = []
-    for a, b in busy + [(dur, dur)]:
-        if a - cur >= IDLE_GAP:
-            gaps_idle.append((cur, a))
-        cur = max(cur, b)
-    idle_moving = swing_res = 0.0
-    for a, b in gaps_idle:
-        p_then = next((pw for t, pw in reversed(power) if t <= a), first_power)
-        low = typical_cost and p_then is not None and p_then < 0.08
-        if low:
-            idle_out += b - a
-            continue
-        excused = sum(max(0.0, min(b, y) - max(a, x)) for x, y in ctx.moving + ctx.cc + ctx.lulls)
-        idle_moving += min(b - a, excused)
-        idle_res += max(0.0, b - a - excused)
-        swing_res += total(clip(running, gaps(ctx.moving + ctx.cc + ctx.lulls, [(a, b)], 0.0)))
+    swing_res = sum(total(clip(running, sp)) for sp in priced)
     swing_res = min(swing_res, idle_res)
     swinging = total(clip(running, gaps_idle))
     spell_dps = (damage - sum(swing_dmg) - sum(shot_dmg)) / dur if dur else 0      # ability damage only
-    has_filler = any(filler(e) for e in book.values())
     idle_lost = 0.5 * idle_res * spell_dps if has_filler else 0.0
 
     # ---- buffs on you: uptime over the fight
     buffs = []
     for name, marks in auras.items():
-        up, since = 0.0, (0.0 if name in f.buffs_at_pull else None)
-        for m in marks:
-            if m >= 0:
-                since = m if since is None else since
-            else:
-                if since is not None:
-                    up += -m - since
-                    since = None
-        if since is not None:
-            up += dur - since
+        up = total(_spans(marks, name in f.buffs_at_pull, dur))
         if up > 0:
             buffs.append({"name": name, "uptime": min(1.0, up / dur)})
     for name in f.buffs_at_pull:

@@ -409,6 +409,18 @@ class AutoAttack(unittest.TestCase):
         r = summarize(f, tr.me, tr.me_name, {}, [])["ranged"]
         self.assertEqual((r["shots_lost"], r["clipped"]), (2, 0))
 
+    def test_wand_idle_gap_is_lost_once(self):
+        times = [x * 1.5 for x in range(21) if not 2 < x < 13]       # no shot 3 to 19.5 s, no cast 1.5 to 21 s
+        log = [*[shot(t, 5019, "Shoot", 50) for t in times], *bites(),
+               *[x for t in (0, 21) for x in (cast(t, 585, "Smite"), dmg(t + 0.01, ME, MOB, 585, "Smite", 200))]]
+        tr, f = one_fight(log)
+        book = {"Smite": {**entry(1.0, avg=200), "gaps": [], "spam": True}}
+        s = summarize(f, tr.me, tr.me_name, book, [])
+        self.assertGreater(s["idle"]["lost"], 0)             # priced as idle
+        self.assertEqual(s["ranged"]["shots_lost"], 0)        # not again as lost shots
+        unpriced = summarize(f, tr.me, tr.me_name, {}, [])     # no filler: the gap isn't idle, the shots are lost
+        self.assertGreater(unpriced["ranged"]["shots_lost"], 5)
+
     def test_caster_without_auto_is_unchanged(self):
         tr, f = one_fight([cast(0, 8092, "Mind Blast"), dmg(0.1, ME, MOB, 8092, "Mind Blast", 300), *bites(30)])
         s = summarize(f, tr.me, tr.me_name, {"Smite": {**entry(1.0, avg=100), "gaps": [], "spam": True}}, [])

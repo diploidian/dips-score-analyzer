@@ -52,10 +52,31 @@ class Chances(unittest.TestCase):
 
     def test_reactive(self):
         avoided = {("target", "dodge"): [3.0, 5.0], ("you", "parry"): [10.0], ("you", "block"): [18.0]}
-        self.assertEqual(usable.fight_chances(R["Overpower"], 20, [], None, avoided), ([(3.0, 10.0)], 2))
+        self.assertEqual(usable.fight_chances(R["Mongoose Bite"], 20, [], None, avoided), ([(3.0, 10.0)], 2))
         self.assertEqual(usable.fight_chances(R["Riposte"], 20, [], None, avoided), ([(10.0, 15.0)], 1))
-        self.assertEqual(usable.fight_chances(R["Revenge"], 20, [], None, avoided), ([(10.0, 15.0), (18.0, 20)], 2))
+        on = {"Defensive Stance": [(0.0, 20)]}
+        self.assertEqual(usable.fight_chances(R["Revenge"], 20, [], None, avoided, on),
+                         ([(10.0, 15.0), (18.0, 20)], 2))
         self.assertEqual(usable.fight_chances(R["Counterattack"], 20, [], None, {}), ([], 0))    # none: known, 0
+
+    def test_stance(self):
+        avoided = {("target", "dodge"): [3.0, 12.0]}
+        over = lambda stances: usable.fight_chances(R["Overpower"], 20, [], None, avoided, stances)  # noqa: E731
+        self.assertEqual(over({}), (None, None))                              # no stance seen: unknown
+        self.assertEqual(over({"Berserker Stance": [(0.0, 20)]}), ([], 0))
+        self.assertEqual(over({"Battle Stance": [(5.0, 10.0)]}), ([(5.0, 8.0)], 1))     # danced in at 5 s
+
+    def test_creature_types(self):
+        foes = [("Wolf", 0.0, None, []), ("Imp", 0.0, None, [])]
+        types = {"Wolf": "Beast", "Imp": "Demon"}
+        for name in ("Scare Beast", "Soothe Animal", "Tame Beast", "Enslave Demon"):
+            self.assertEqual(usable.fight_chances(R[name], 20, foes, types, {})[1], 1, name)
+
+    def test_counted(self):
+        self.assertEqual([usable.counted(n, R["Revenge"]) for n in (1, 2)],
+                         ["1 block, dodge or parry", "2 blocks, dodges and parries"])
+        self.assertEqual(usable.counted(1, R["Execute"]), "1 enemy under 20% health")
+        self.assertEqual(usable.counted(1, R["Exorcism"]), "1 undead or demon")
 
     def test_window_over_saved_fights(self):
         fs = [{"foes": [["Imp", 2], ["Wolf", 1]], "chances": {"Execute": 3}}, {"foes": [["Bandit", 4]]},
@@ -74,6 +95,10 @@ class Chances(unittest.TestCase):
         self.assertAlmostEqual(why["nothing to answer"], 14.0, delta=0.15)
         free_any, _ = readiness.judge([(0, 20)], ctx, False, 0)
         self.assertAlmostEqual(free_any, 17.0, delta=0.15)          # today: only the first second and the end
+
+
+def stance(sec, name, on=True):
+    return line(sec, f"SPELL_AURA_{'APPLIED' if on else 'REMOVED'},{ME},{ME},2457,\"{name}\",0x1,BUFF")
 
 
 class InTheFight(unittest.TestCase):
@@ -104,14 +129,28 @@ class InTheFight(unittest.TestCase):
         self.assertNotIn("Hammer of Wrath", s["chances"])
 
     def test_reactive(self):
-        s, row = self.fight("Overpower", line(10, f"SWING_MISSED,{ME},{MOB},DODGE,nil"))
+        s, row = self.fight("Overpower", stance(0, "Battle Stance"), line(10, f"SWING_MISSED,{ME},{MOB},DODGE,nil"))
         self.assertEqual((row["chances"], s["chances"]["Overpower"]), (1, 1))
         self.assertAlmostEqual(row["free"], 4.0, delta=0.15)
         self.assertEqual(row["possible"], 1)
         self.assertIn("Overpower sat ready 4.0 s across 1 chance while you were free ≈ ", s["improve"][0])
-        s, _ = self.fight("Revenge", line(4, f"SWING_MISSED,{MOB},{ME},PARRY,nil"),
+        s, _ = self.fight("Revenge", stance(0, "Defensive Stance"), line(4, f"SWING_MISSED,{MOB},{ME},PARRY,nil"),
                           line(6, f"SWING_DAMAGE,{MOB},{ME},20,20,-1,1,0,8,0,nil,nil,nil"))     # a partial block
         self.assertEqual(s["chances"]["Revenge"], 2)
+
+    def test_stance(self):
+        dodge, parry = line(10, f"SWING_MISSED,{ME},{MOB},DODGE,nil"), line(4, f"SWING_MISSED,{MOB},{ME},PARRY,nil")
+        for spell in ("Overpower", "Revenge"):            # Fury, all in Berserker Stance: nothing to answer
+            s, row = self.fight(spell, stance(0, "Berserker Stance"), dodge, parry)
+            self.assertEqual((row["chances"], row["free"], s["chances"][spell]), (0, 0, 0))
+            s, row = self.fight(spell, dodge, parry)              # no stance in the log: unknown, as today
+            self.assertNotIn("chances", row)
+            self.assertNotIn(spell, s["chances"])
+            self.assertGreater(row["free"], 20)
+        # first seen leaving: it was on from the pull, so the dodge at 10 s counts, the one at 20 s doesn't
+        s, _ = self.fight("Overpower", dodge, stance(15, "Battle Stance", False), stance(15, "Berserker Stance"),
+                          line(20, f"SWING_MISSED,{ME},{MOB},DODGE,nil"))
+        self.assertEqual(s["chances"]["Overpower"], 1)
 
     def test_run_rows_sum_chances(self):
         rows = lambda n: {"damage": 10, "cooldowns": [{"name": "Overpower", "free": 4, "cd": 5, "lost": 9,  # noqa: E731

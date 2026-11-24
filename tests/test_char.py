@@ -144,6 +144,10 @@ class BuildCards(unittest.TestCase):
                          "You know Exorcism and used it 0 of 12 chances (12 undead and demons in 3 fights). "
                          "You know Hammer of Wrath and used it 0 of 10 chances (10 enemies under 20% health in 4 "
                          "fights).")
+        one = habits([dict(f, foes=[["Ghoul", 1]] if i == 0 else []) for i, f in enumerate(self.fights)],
+                     char(spells=spells, gear=gear), self.book, {"Ghoul": "Undead"})
+        self.assertIn("Exorcism and used it 0 of 1 chance (1 undead or demon in 1 fight)",
+                      {c["title"]: c for c in one["cards"]}["Spells you never use"]["detail"])
         self.assertEqual(cards["Gear slots to fill"]["detail"], "Empty gear slots: ring 2")
         self.assertEqual(titles(h)["Gear slots to fill"], "build")
         self.assertEqual(h["char"], {"class": "PRIEST", "race": "Undead", "level": 33, "spec": "Shadow", "gear": 30})

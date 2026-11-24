@@ -5,6 +5,8 @@
              any enemy under the line, not only your target, since the log doesn't say what you targeted
     after    works only for `window` seconds after an attack was avoided: "target" the target avoided yours
              (Overpower after a dodge), "you" you avoided an enemy's (Revenge after a block, dodge or parry)
+    stance   works only in this stance (a warrior's): a chance counts only while its aura is on you; with no
+             stance aura seen (taken before the log began) the chances are unknown
     chance   what one chance is, as the call-outs say it ("0 of 37 chances: 37 undead and demons")
     works    "Exorcism works on undead and demons."
 
@@ -14,10 +16,16 @@ foe health in the log, a fight saved before chances were counted): such a spell 
 """
 from __future__ import annotations
 
+import re
+
 RULES: dict[str, dict] = {
     "Exorcism": {"types": ("Undead", "Demon"), "chance": "undead and demons", "works": "on undead and demons"},
     "Holy Wrath": {"types": ("Undead", "Demon"), "chance": "undead and demons", "works": "on undead and demons"},
     "Turn Undead": {"types": ("Undead",), "chance": "undead", "works": "on undead"},
+    "Scare Beast": {"types": ("Beast",), "chance": "beasts", "works": "on beasts"},
+    "Soothe Animal": {"types": ("Beast",), "chance": "beasts", "works": "on beasts"},
+    "Tame Beast": {"types": ("Beast",), "chance": "beasts", "works": "on beasts"},
+    "Enslave Demon": {"types": ("Demon",), "chance": "demons", "works": "on demons"},
     "Shackle Undead": {"types": ("Undead",), "chance": "undead", "works": "on undead"},
     "Hibernate": {"types": ("Beast", "Dragonkin"), "chance": "beasts and dragonkin",
                   "works": "on beasts and dragonkin"},
@@ -28,10 +36,13 @@ RULES: dict[str, dict] = {
     "Execute": {"below": 0.20, "chance": "enemies under 20% health", "works": "on enemies under 20% health"},
     "Hammer of Wrath": {"below": 0.20, "chance": "enemies under 20% health",
                         "works": "on enemies under 20% health"},
-    "Overpower": {"after": ("dodge",), "by": "target", "window": 5.0, "chance": "dodges",
-                  "works": "after the target dodges you"},
-    "Revenge": {"after": ("block", "dodge", "parry"), "by": "you", "window": 5.0,
-                "chance": "blocks, dodges and parries", "works": "after you block, dodge or parry"},
+    "Overpower": {"after": ("dodge",), "by": "target", "window": 5.0, "stance": "Battle Stance",
+                  "chance": "dodges", "works": "after the target dodges you, in Battle Stance"},
+    "Mongoose Bite": {"after": ("dodge",), "by": "target", "window": 5.0, "chance": "dodges",
+                      "works": "after the target dodges you"},
+    "Revenge": {"after": ("block", "dodge", "parry"), "by": "you", "window": 5.0, "stance": "Defensive Stance",
+                "chance": "blocks, dodges and parries",
+                "works": "after you block, dodge or parry, in Defensive Stance"},
     "Riposte": {"after": ("parry",), "by": "you", "window": 5.0, "chance": "parries", "works": "after you parry"},
     "Counterattack": {"after": ("parry",), "by": "you", "window": 5.0, "chance": "parries",
                       "works": "after you parry"},
@@ -41,6 +52,14 @@ RULES: dict[str, dict] = {
 def across(n: int | None) -> str:
     """" across 3 chances" after a "sat ready" figure; "" when the spell needs no chance or they're unknown"""
     return "" if n is None else f" across {n} chance{'' if n == 1 else 's'}"
+
+
+def counted(n: int, r: dict) -> str:
+    """"37 undead and demons", "1 undead or demon" """
+    what = r["chance"]
+    if n == 1:
+        what = re.sub(r"s\b", "", re.sub(r"ies\b", "y", what)).replace(" and ", " or ")
+    return f"{n:,} {what}"
 
 
 def rule(name: str) -> dict | None:
@@ -66,10 +85,16 @@ def _merge(spans: list[tuple[float, float]]) -> list[tuple[float, float]]:
     return out
 
 
+STANCES = ("Battle Stance", "Defensive Stance", "Berserker Stance")
+
+
 def fight_chances(r: dict, dur: float, foes: list[tuple], types: dict | None,
-                  avoided: dict[tuple[str, str], list[float]]) -> tuple[list[tuple[float, float]] | None, int | None]:
+                  avoided: dict[tuple[str, str], list[float]],
+                  stances: dict[str, list[tuple[float, float]]] | None = None
+                  ) -> tuple[list[tuple[float, float]] | None, int | None]:
     """(when it could be used, how many chances) in one fight; (None, None) when that cannot be known.
-    foes: (name, first seen, died or None, [(t, health share)]); avoided: ("target"|"you", "dodge"|...) -> times"""
+    foes: (name, first seen, died or None, [(t, health share)]); avoided: ("target"|"you", "dodge"|...) -> times;
+    stances: {stance: [(on, off)]} for the stances seen on you in the fight (empty: none seen)"""
     if "types" in r:
         known = [n for n, *_ in foes if (types or {}).get(n)]
         if not known:
@@ -98,7 +123,13 @@ def fight_chances(r: dict, dur: float, foes: list[tuple], types: dict | None,
         n = sum(any(v is not None and v < r["below"] for _, v in hp) for *_, hp in foes)
         return _merge(spans), n
     times = sorted(t for kind in r["after"] for t in avoided.get((r["by"], kind), []))
-    return _merge([(t, min(dur, t + r["window"])) for t in times]), len(times)
+    spans = [[(t, min(dur, t + r["window"]))] for t in times]
+    if "stance" in r:
+        if not stances:
+            return None, None          # no stance aura seen: which one you were in is unknown
+        on = stances.get(r["stance"], [])
+        spans = [[(max(t, a), min(e, b)) for a, b in on if min(e, b) > max(t, a)] for [(t, e)] in spans]
+    return _merge([x for sp in spans for x in sp]), sum(map(bool, spans))
 
 
 def window_chances(name: str, fights: list[dict], types: dict | None) -> dict | None:

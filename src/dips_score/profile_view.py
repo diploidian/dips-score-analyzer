@@ -132,7 +132,7 @@ def _and(names: list[str]) -> str:
 def _works(name: str, c: dict) -> str:
     """"Exorcism works on undead and demons. You fought 37 of them in 12 fights and cast it 0 times." """
     r = usable.RULES[name]
-    had = f"You had {c['chances']:,} {r['chance']}" if "after" in r else f"You fought {c['chances']:,} of them"
+    had = f"You had {usable.counted(c['chances'], r)}" if "after" in r else f"You fought {c['chances']:,} of them"
     return f"{name} works {r['works']}. {had} in {_plural(c['fights'], 'fight')} and cast it 0 times."
 
 

@@ -431,8 +431,8 @@ class View(unittest.TestCase):
         char = {"spells": {"Overpower": {"harm": True}, "Execute": {"harm": True}}}
         fs = many(3, chances={"Overpower": 4, "Execute": 2}) + many(7, chances={"Overpower": 0, "Execute": 0})
         self.assertEqual(build_profile(profile(fs, char, {}, [], T0), []).plate.why,
-                         "Smite carries your casts. Overpower works after the target dodges you. You had 12 dodges "
-                         "in 3 fights and cast it 0 times. Execute works on enemies under 20% health. You fought 6 "
+                         "Smite carries your casts. Overpower works after the target dodges you, in Battle Stance. "
+                         "You had 12 dodges in 3 fights and cast it 0 times. Execute works on enemies under 20% health. You fought 6 "
                          "of them in 3 fights and cast it 0 times.")
 
     def test_inks(self):
