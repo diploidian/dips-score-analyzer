@@ -515,6 +515,7 @@ class ShellTests(unittest.TestCase):
             self.assertTrue(w.mode_habits.isChecked())
             self.assertEqual(w.stack.currentIndex(), 3)
             for f in fights[10:]:
+                f["damage"] = 100
                 f["cooldowns"] = [{"name": n, "lost": 9 - k, "counted": 1} for k, n in enumerate(("Judge", "Conse", "Strike"))]
             w._show_profile()
             self.assertEqual((page.plate.title, page.plate.rows),

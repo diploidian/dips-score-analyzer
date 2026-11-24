@@ -22,12 +22,13 @@ NA = "–"
 CHIP_MIN = 5                # percentage points a share row must move against Before to get a chip
 # the plate rule table: first that applies (see _plate)
 PLATE_DEATHS = 0.15         # dying in this share or more of fights
+PLATE_LOST = 0.01           # the ability's damage lost, this share or more of your damage
 PLATE_CLOSE = 5             # fights with a close call and a defensive ready, at least
 PLATE_OVERHEAL = 0.40       # a healer's overheal, this share or more of the healing cast
 PLATE_COOLDOWNS = 0.50      # cooldowns used under this share of possible
 PLATE_CLICKS = 0.60         # clicking this share or more of keyed + clicked presses,
-PLATE_REFUSED = 0.40        # or this share or more of presses refused,
-PLATE_PRESSES = 500         # with this many presses or more (and see _badly)
+PLATE_REFUSED = 0.40        # or this share or more of casts tried refused,
+PLATE_PRESSES = 500         # with this many of them or more (and see _badly)
 DOING = {"damage": "dealing damage", "healer": "healing", "tank": "tanking"}
 ROLE_MOVE = {"damage": "damage dealing", "healer": "healing", "tank": "tanking"}    # "more healing"
 GRADED_AS = {"damage": "damage dealer", "healer": "healer", "tank": "tank"}
@@ -83,7 +84,7 @@ class TraitRow:
     note: str                   # "between one fight and the next"
     bar: float                  # its score 0..1
     tier: str = ""              # its epithet "Relentless", "" under the first tier
-    next: str = ""              # "Deathless at 105, you are at 97", "" at the top tier
+    next: str = ""              # "Unfallen at 126, you are at 97", "" at the top tier
 
 
 @dataclass
@@ -177,25 +178,24 @@ def _count(n: int, word: str) -> str:
     return f"{n:,} {word}{'' if n == 1 else 's'}"
 
 
-def _sat_ready(losses: list[dict], damage) -> Plate:
+def _sat_ready(losses: list[dict], gain: float) -> Plate:
     """the ability whose ready time lost the most damage, and the next two"""
     top = losses[0]
     missed = f"{_count(top['missed'], 'cast')} missed " if top["missed"] else ""
     chances = f"in {_count(top['chances'], 'chance')}, " if top["chances"] else ""
     rule = usable.rule(top["name"])
-    why = (f"It works {rule['works']}. " if rule else "") + "Press it when it comes up"
-    if damage:
-        gain = top["lost"] / damage
-        why += f": that is {_pct(gain) if gain >= .005 else 'under 1'}% more damage over these 15 days"
+    why = (f"It works {rule['works']}. " if rule else "") + \
+        f"Press it when it comes up: that is about {_pct(gain)}% more damage over these 15 days."
     return Plate(f"{top['name']} sat ready", f"about {top['lost']:,.0f} damage",
-                 f"{missed}{chances}in {_count(top['fights'], 'fight')}", why + ".",
+                 f"{missed}{chances}in {_count(top['fights'], 'fight')}", why,
                  next=[(s["name"], f"{s['lost']:,.0f} damage") for s in losses[1:3]])
 
 
 def _plate(now: dict, before: dict | None) -> Plate:
-    """the first rule that applies: deaths, the ability that lost the most damage (not in a window at CLEAN or
-    better), close calls with a defensive ready, spells never cast, a healer's overheal, cooldowns, input when it is
-    badly wrong. None: a clean window says so, else "Nothing stands out" with the efficiency, else the fights"""
+    """the first rule that applies: deaths, the ability that lost the most damage (not for a healer, nor in a window
+    that reads CLEAN or better), close calls with a defensive ready, spells never cast, a healer's overheal, cooldowns, input when it is
+    badly wrong. None: a clean window says so from MIN_FIGHTS judged fights, else "Nothing stands out" with the
+    efficiency, else the fights"""
     n, h, t = now["fights"], now.get("hands") or {}, now["temperament"]
     fights = f"in your last {_plural(n, 'fight')}"
     cds, unused = t.get("cooldowns_share"), now.get("unused")
@@ -204,13 +204,14 @@ def _plate(now: dict, before: dict | None) -> Plate:
         return Plate(f"You die in {_pct(dying)}% of your fights", _plural(t["deaths"], "death"), fights,
                      f"{t['deaths']} of your last {n} fights ended with you dead.")
     eff, losses = now.get("efficiency"), now.get("losses") or []
-    clean = eff is not None and eff >= CLEAN
-    if losses and not clean:
-        return _sat_ready(losses, now.get("damage"))
+    clean = eff is not None and int(_pct(eff)) >= round(CLEAN * 100)        # as the plate would show it
+    gain = losses[0]["lost"] / now["damage"] if losses else 0
+    if gain >= PLATE_LOST and not clean and now["main_role"] != "healer":
+        return _sat_ready(losses, gain)
     close = now.get("close_calls") or {}
     if close.get("unused", 0) >= PLATE_CLOSE:
         return Plate(f"{close['spell']} sat ready in {_count(close['count'], 'close call')}",
-                     f"{close['count']:,} of {_count(close['fights'], 'close call')}", fights,
+                     f"{close['count']:,} of {close['unused']:,}", f"close calls with a defensive ready, {fights}",
                      "Press it when your health runs low.")
     if unused:
         names, one = unused[:3], len(unused[:3]) == 1
@@ -235,25 +236,25 @@ def _plate(now: dict, before: dict | None) -> Plate:
                      f"{t['cooldowns_used']:,} of {t['cooldowns_possible']:,} possible, {fights}",
                      f"{_plural(left, 'use')} of a ready cooldown went unspent.")
     runs = _plural(h.get("runs") or 0, "recorded run")
-    if _badly(now, before, "click_share", PLATE_CLICKS):
+    if _badly(now, before, "click_share", PLATE_CLICKS, ("by_key", "by_click")):
         return Plate("You click instead of pressing keys", f"{_pct(h['click_share'])}% clicks",
                      f"{h['by_click']:,} of {h['by_key'] + h['by_click']:,} presses, in {runs}",
                      "Bind the spells you click most to keys.")
-    if _badly(now, before, "refused_share", PLATE_REFUSED):
+    if _badly(now, before, "refused_share", PLATE_REFUSED, ("casts", "failed")):
         return Plate("The game turns down your presses", f"{_pct(h['refused_share'])}% refused",
-                     f"{h['failed']:,} of {h['casts'] + h['failed']:,} presses, in {runs}")
-    if eff is None:
+                     f"{h['failed']:,} of {h['casts'] + h['failed']:,} casts tried, in {runs}")
+    if eff is None or clean and now["judged"] < MIN_FIGHTS:
         return Plate("Nothing stands out", _plural(n, "fight"), "in the last 15 days")
     return Plate("Your last 15 days were clean" if clean else "Nothing stands out", f"{_pct(eff)}% of possible damage",
                  f"in {_count(now['judged'], 'fight')} where you did damage")
 
 
-def _badly(now: dict, before: dict | None, key: str, limit: float) -> bool:
-    """input badly wrong: the share at its limit or over it with enough presses, and not already so in the window
-    before at the same displayed figure or a worse one"""
+def _badly(now: dict, before: dict | None, key: str, limit: float, of: tuple[str, str]) -> bool:
+    """input badly wrong: the share at its limit or over it, of enough (the counts it is a share of), and not already
+    so in the window before at the same displayed figure or a worse one"""
     def wrong(f):
         h = (f or {}).get("hands") or {}
-        return h[key] if h.get(key) is not None and h[key] >= limit and h["presses"] >= PLATE_PRESSES else None
+        return h[key] if h.get(key) is not None and h[key] >= limit and sum(h[k] for k in of) >= PLATE_PRESSES else None
     a, b = wrong(now), wrong(before)
     return a is not None and (b is None or int(_pct(a)) > int(_pct(b)))
 

@@ -81,7 +81,7 @@ TRAITS: tuple[Trait, ...] = (
        "Patient, Enduring, Everlasting", "wears enemies down"),
     _t("Marathon", "Pace", "Longest sitting", 40, 200, 30, "n", "fights in your longest sitting",
        "Dogged, Unresting, Undying", "plays long sittings"),
-    _t("Streak", "Pace", "Longest run without a death", 15, 120, 30, "n", "fights in a row without falling",
+    _t("Streak", "Pace", "Longest run without a death", 15, 200, 30, "n", "fights in a row without falling",
        "Surviving, Unfallen, Deathless", "goes long without falling"),
 
     _t("Edge", "Nerve", "Wins on the edge", .05, .25, 30, "%", "of your wins came after dropping under 35% health",

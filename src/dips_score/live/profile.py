@@ -40,12 +40,12 @@ figures(...) keys (shares are fractions 0..1; None when there is nothing to divi
                    unused that need a chance
   damage           damage done in the fights Habits judges (not healing, some damage done), None when it adds to 0
   efficiency       damage over potential across those of them that saved both; judged: how many did
-  losses           their cooldowns that sat ready, most damage first (habits.cooldown_losses, under 1 damage left
+  losses           the cooldowns that sat ready in those that saved their damage, most damage first (habits.cooldown_losses, under 1 damage left
                    out, equal losses by name): {"name", "lost", "fights", "missed", "chances"}; a spell in
                    usable.RULES only from fights with a known chance (its ready time elsewhere may be time it
                    could not be used)
-  close_calls      {"fights" (your health got low, in fights that say whether you answered it), "unused" (a defensive sat ready in it),
-                   "spell" (the one that did most often, by name on a tie), "count" (fights it did)}, the last two
+  close_calls      {"fights" (your health got low, in fights that say whether you answered it), "unused" (of them, a
+                   defensive sat ready), "spell" (the one that did most often, by name on a tie), "count" (fights it did)}, the last two
                    None when unused is 0
   overheal         {"fights", "healing", "overheal"} of the healer fights, None when they healed nothing
   label            label(figures), None without fights (shown for slices saved without a title)
@@ -223,7 +223,7 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
            "unused": unused, "restricted": restricted,
            "damage": sum(f.get("damage") or 0 for f in dmg) or None,
            "efficiency": _share(sum(f["damage"] for f in both), sum(f["potential"] for f in both)),
-           "judged": len(both), "losses": _losses(dmg), "close_calls": _close_calls(win),
+           "judged": len(both), "losses": _losses([f for f in dmg if f.get("damage")]), "close_calls": _close_calls(win),
            "overheal": _overheal([f for f in win if _role(f, cls) == "healer"])}
     out["label"] = label(out) if win else None
     sc = traits.scores(win, out, book)

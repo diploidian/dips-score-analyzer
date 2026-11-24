@@ -86,7 +86,10 @@ class Anchors(unittest.TestCase):
         s = score_of(BY_KEY["Tempo"], [(36.07, 446)])
         self.assertEqual(traits.needs(s["next"], BY_KEY["Tempo"]), [("30", "s")])           # 30.75 s, falling
         s = score_of(BY_KEY["Streak"], [(97, 446)])
-        self.assertEqual(traits.needs(s["next"], BY_KEY["Streak"]), [("105", "")])          # 104.25, rising
+        self.assertEqual(traits.needs(s["next"], BY_KEY["Streak"]), [("126", "")])
+        s = score_of(BY_KEY["Streak"], [(130, 446)])
+        self.assertEqual(traits.needs(s["next"], BY_KEY["Streak"]), [("173", "")])          # 172.25, rising
+        self.assertEqual([score_of(BY_KEY["Streak"], [(n, 446)])["score"] for n in (15, 200)], [0, 1])
         s = score_of(BY_KEY["Edge"], [(.10, 446)])
         self.assertEqual(traits.needs(s["next"], BY_KEY["Edge"]), [("12", "%")])
 
@@ -352,7 +355,7 @@ class Page(unittest.TestCase):
         pace = dict(v.traits)["Pace"]
         self.assertEqual((pace[0].tier, pace[0].bar, pace[0].next), ("Relentless", 1, ""))
         streak = next(r for r in pace if r.key == "Streak")
-        self.assertEqual(streak.next, "Surviving at 52, you are at 40")
+        self.assertEqual(streak.next, "Surviving at 80, you are at 40")
         self.assertEqual(v.traits_title, f"All traits ({sum(len(r) for _, r in v.traits)})")
 
     def test_next_and_now_never_read_the_same(self):
@@ -360,9 +363,9 @@ class Page(unittest.TestCase):
         self.assertEqual(of(36), "Relentless at 30s, you are at 36s")
         edge = many(38) + many(2, result="you died")        # Finish 95.0%, its top tier at 92.95%
         self.assertEqual(dict(self.page(edge).traits)["Victory"][0].next, "")
-        streak = plain(52)                                  # Surviving at 51.75
+        streak = plain(80)                                  # Surviving at 79.75
         self.assertEqual(next(r for r in dict(self.page(streak[1:]).traits)["Pace"] if r.key == "Streak").next,
-                         "Surviving at 52, you are at 51")
+                         "Surviving at 80, you are at 79")
         low = plain(1000, result="killed")
         for f in low[:119]:
             f["lowest_hp"] = .3                             # 11.9% of wins, shown 12%; Daring at 12%

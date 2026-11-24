@@ -805,12 +805,13 @@ most recently. It needs 10 fights in those 15 days; with fewer it says how many 
   you fight most and your main role. A "Before:" line shows the label from days 16 to 30 when it
   differs.
 - Worth changing names the first thing that applies: you die in 15% or more of your fights; the ability
-  that lost the most damage by sitting ready, with what it cost and the next two under it; a defensive
-  that sat ready in 5 or more close calls; a harmful spell you know and have not cast; a healer's overheal
-  of 40% or more; under half your possible cooldowns used; input gone badly wrong (60% or more of your
-  presses clicked, or 40% or more refused, in 500 presses or more, and worse than in days 16 to 30 if it
-  was so then). At 90% or more of your possible damage the ability is left out, and with nothing else to
-  say the plate says your last 15 days were clean. Otherwise it says "Nothing stands out".
+  that lost the most damage by sitting ready (1% of your damage or more, and not for a healer), with what
+  it cost and the next two under it; 5 or more close calls with a defensive ready; a harmful spell you
+  know and have not cast; a healer's overheal of 40% or more; under half your possible cooldowns used;
+  input gone badly wrong (60% or more of 500 or more key and click presses clicked, or 40% or more of
+  500 or more casts tried refused, and worse than in days 16 to 30 if it was so then). At 90% or more of
+  your possible damage the ability is left out, and with nothing else to say and 10 judged fights or more
+  the plate says your last 15 days were clean. Otherwise it says "Nothing stands out".
   Damage lost counts only fights where you did damage and weren't healing; a spell that needs a chance
   counts only the fights where its chances are known.
 - Signature is your top five spells by share of damage (by share of casts for a healer), with melee
