@@ -43,8 +43,8 @@ cast after a cooldown reset can't set it; a spell ever cast twice within SPAM se
 Seal of Command hit, which the log writes as your cast) are not casts, here or in the fight's numbers.
 
 A death is one the game means: Feign Death is logged as one too, told apart as in model/deaths.py.
-healing_others, dispels_others: what went to a friendly unit other than you and your pets (a dispel of an enemy is a
-purge, not help). helped: others than your group (players, their pets, friendly NPCs) did more than HELPED of your
+healing_others, dispels_others: what went to a friendly unit other than you, a pet or a guardian (whose it is, the log
+doesn't always say; a dispel of an enemy is a purge, not help). The group members' healing_others is theirs the same way. helped: others than your group (players, their pets, friendly NPCs) did more than HELPED of your
 damage to your enemies.
 
 The result is a plain dict, so it can be saved as JSON and shown later.
@@ -62,10 +62,10 @@ from ..scoring import usable
 from ..scoring.classes import DEFENSIVES
 from ..scoring.metrics import NEXT_SWING, WAND, auto_running, clip, count_hit, gaps, hit_table, swing_stats, \
     total, union
-from ..sources.combatlog import Event
+from ..sources.combatlog import TYPE_GUARDIAN, TYPE_PET, Event
 from . import readiness
 from .tracker import NOT_HOSTILE as NOT_FIGHTING
-from .tracker import FightData, is_foe, is_group
+from .tracker import FightData, affiliation, is_foe, is_group
 
 GCD = 1.5
 AUTO = {5019, 75}                      # wand Shoot, Auto Shot
@@ -211,6 +211,11 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     def mine(guid: str) -> bool:
         return guid == me or guid in pets or (guid.startswith(("Pet-", "Creature-")) and guid in pets)
 
+    def other(src: str, e: Event) -> bool:
+        """the event's target is a friendly unit other than src, no pet or guardian, and not one of yours when src is you"""
+        return e.dst != src and not is_foe(e.dst, e.dst_flags) and not e.dst_flags & (TYPE_PET | TYPE_GUARDIAN) \
+            and not (src == me and affiliation(e.dst_flags) == 0x1)
+
     dmg_by_foe: Counter = Counter()
     spells: dict[str, dict] = {}
     casts: list[tuple[float, int, str, float | None, int]] = []   # t, spell id, name, began, cost
@@ -286,7 +291,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 party_dmg[who_p] += e.amount
             elif ev.endswith("_HEAL") and e.src == who_p:
                 party_heal[who_p] += max(0, e.amount - e.overheal)
-                if e.dst != who_p and owner.get(e.dst) != who_p:
+                if other(who_p, e):
                     party_heal_others[who_p] += max(0, e.amount - e.overheal)
         elif e.dst in f.foes and e.src not in f.foes and not mine(e.src) and ev.endswith("_DAMAGE") \
                 and not ev.endswith("_LANDED") and not is_group(e.src, e.src_flags) \
@@ -327,7 +332,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
             elif ev.endswith("_HEAL") and e.src == me:
                 heal += max(0, e.amount - e.overheal)
                 overheal += e.overheal
-                if not mine(e.dst) and not is_foe(e.dst, e.dst_flags):
+                if other(me, e):
                     heal_others += max(0, e.amount - e.overheal)
             elif ev == "SPELL_CAST_START" and e.src == me:
                 starts[e.spell_id] = t
@@ -350,7 +355,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 interrupts += 1
             elif ev.endswith("_DISPEL"):
                 dispels += 1
-                dispels_others += not mine(e.dst) and not is_foe(e.dst, e.dst_flags)
+                dispels_others += other(me, e)
         if e.dst == me and ev in ("SWING_DAMAGE", "SWING_MISSED") and is_foe(e.src, e.src_flags):
             count_hit(taken_swings, e)
         # avoided attacks, for the spells that answer them (usable.py): any attack, swing or spell

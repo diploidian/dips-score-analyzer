@@ -573,6 +573,14 @@ class FeignDeath(unittest.TestCase):
         self.assertEqual([self.s(*x, flag="")["result"] for x in ((), (acts,), (rez, acts))],
                          ["you died", "they got away", "you died"])
 
+    def test_buffs_stay_on_through_a_feign(self):
+        buff = line(0, f"SPELL_AURA_APPLIED,{ME},{ME},13165,\"Aspect of the Hawk\",0x2,BUFF")
+        for flag, own in (("1", ["Aspect of the Hawk"]), ("0", [])):
+            log = [buff, dmg(1, ME, MOB, 75, "Arcane Shot", 300), line(3, f"UNIT_DIED,{NONE},{ME},{flag}"),
+                   line(4, f"UNIT_DIED,{NONE},{MOB},0"), dmg(40, ME, MOB2, 75, "Arcane Shot", 300)]
+            _, f = one_fight(log)
+            self.assertEqual((f.own_buffs_at_pull, f.buffs_at_pull), (own, own))
+
     def test_the_groups_and_a_foes(self):
         self.assertEqual([self.s(who=PAL, flag=x)["group"]["deaths"] for x in (",0", ",1")], [["Pal"], []])
         self.assertEqual([self.s(line(31, f"UNIT_DIED,{NONE},{MOB},0"), who=MOB, flag=x)["result"] for x in (",0", ",1")],
@@ -607,6 +615,22 @@ class Others(unittest.TestCase):
         self.assertEqual((s["dispels"], s["dispels_others"]), (3, 1))
         m, = s["group"]["members"]
         self.assertEqual((m["healing"], m["healing_others"]), (80, 40))
+
+    def test_pets_summoned_before_the_fight_are_not_others(self):
+        heal = lambda src, dst: line(3, f"SPELL_HEAL,{src},{dst},1,\"Demonic Energies\",0x2,50,50,10,0,nil")  # noqa: E731
+        free = lambda dst: line(3, f"SPELL_DISPEL,{ME},{dst},527,\"Cleanse\",0x2,118,\"Polymorph\",0x40,DEBUFF")  # noqa: E731
+        mine, theirs, totem = ('Pet-0-1-1-1-1-1,"Imp",0x1111,0x80000000', 'Pet-0-1-1-1-1-2,"Imp",0x1112,0x80000000',
+                               'Creature-0-1-1-1-300-1,"Totem",0x2111,0x80000000')
+        ward = 'Creature-0-1-1-1-300-2,"Ward",0x911,0x80000000'          # yours by its affiliation, no pet type
+        s = self.s(*[heal(ME, x) for x in (mine, theirs, totem, ward)], *[free(x) for x in (mine, theirs, ward)],
+                   heal(PAL, theirs), heal(PAL, mine), heal(PAL, ME))
+        self.assertEqual((s["healing_others"], s["dispels_others"]), (0, 0))
+        m, = s["group"]["members"]
+        self.assertEqual((m["healing"], m["healing_others"]), (120, 40))
+        # the helped rule goes by the source's group: a pet of yours or a member's from before the fight is no outsider
+        self.assertEqual([self.s(dmg(3, x, MOB, 1, "Firebolt", 999))["helped"] for x in (mine, theirs, totem, ward)],
+                         [False] * 4)
+        self.assertTrue(self.s(dmg(3, theirs.replace("0x1112", "0x1118"), MOB, 1, "Firebolt", 999))["helped"])
 
 
 class Verdict(unittest.TestCase):

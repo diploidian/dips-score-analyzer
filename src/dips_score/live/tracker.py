@@ -237,7 +237,7 @@ class Tracker:
                 since = self._resting.pop(e.spell_name, None)
                 if since:
                     self._rest += (e.ts - since).total_seconds()
-            elif e.event == "UNIT_DIED":
+            elif e.event == "UNIT_DIED" and not e.feign:     # without the log's word a feign can't be told from a death yet
                 self.buffs.clear()
                 self._resting.clear()
 
