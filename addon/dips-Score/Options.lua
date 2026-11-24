@@ -1,4 +1,4 @@
--- dips-Score: the settings panel (Esc > Options > AddOns) and the /dscore command
+-- projectArthas: the settings panel (Esc > Options > AddOns) and the /dscore command
 local ADDON, ns = ...
 
 local db
@@ -169,10 +169,10 @@ ns.OnLoad(function()
         for _, cb in ipairs(toggles) do cb.refresh() end
     end)
     if Settings and Settings.RegisterCanvasLayoutCategory then
-        category = Settings.RegisterCanvasLayoutCategory(panel, "dips-Score")
+        category = Settings.RegisterCanvasLayoutCategory(panel, "projectArthas")
         Settings.RegisterAddOnCategory(category)
     elseif InterfaceOptions_AddCategory then
-        panel.name = "dips-Score"
+        panel.name = "projectArthas"
         InterfaceOptions_AddCategory(panel)
     end
 end)

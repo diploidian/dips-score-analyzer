@@ -1,4 +1,4 @@
--- dips-Score: the log - flat text lines in dipsScoreLog (saved per character).
+-- projectArthas: the log - flat text lines in dipsScoreLog (saved per character).
 --
 -- Plain strings, not little tables: a table per event would cost ~10x the memory and make the
 -- game's save on /reload or logout slow; strings save as one quoted line each.

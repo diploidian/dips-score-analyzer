@@ -27,12 +27,12 @@ class Paths:
         return self.wow / "WTF" / "Account"
 
     def saved_files(self) -> list[Path]:
-        """Every character's dips-Score saved file, most recently saved first."""
+        """Every character's projectArthas saved file, most recently saved first."""
         files = self.accounts.glob("*/*/*/SavedVariables/dips-Score.lua")
         return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)
 
     def account_saved_files(self) -> list[Path]:
-        """Each account's account-wide dips-Score saved file (dipsScoreDB: settings, enemy creature types)."""
+        """Each account's account-wide projectArthas saved file (dipsScoreDB: settings, enemy creature types)."""
         return sorted(self.accounts.glob("*/SavedVariables/dips-Score.lua"))
 
     def found(self) -> bool:

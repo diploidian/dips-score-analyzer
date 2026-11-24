@@ -1,4 +1,4 @@
-# dips score redesign: mock-up spec
+# projectArthas redesign: mock-up spec
 
 Status: draft for alignment. This round produces HTML mock-ups only. No app code changes.
 Product truth: `PRODUCT.md`. Approved plan: `C:\Users\jkncg\.claude\plans\pages-like-this-are-peaceful-scone.md`.
@@ -63,7 +63,7 @@ The log has no positions, so "with the group" means *joined the fight in time*, 
 
 ## Real numbers for the mock-ups
 
-From `dips-score.pyw report 6` (Blackfathom Deeps, 18 Nov 22:27, 69:45 long, 32:57 in combat, **64 fights**):
+From `projectArthas.pyw report 6` (Blackfathom Deeps, 18 Nov 22:27, 69:45 long, 32:57 in combat, **64 fights**):
 
 **Score 75 (B) as DPS.** The counted weight totals 75. Points lost per category = weight × (100 − score) / 75.
 

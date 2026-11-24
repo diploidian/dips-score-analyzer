@@ -1,4 +1,4 @@
--- dips-Score: intent - what you pressed and when, and the game events around it.
+-- projectArthas: intent - what you pressed and when, and the game events around it.
 --
 -- Key or click? Every action button press runs UseAction, but UseAction doesn't say how it was
 -- pressed. Our hooks run *after* the game's own code, and in this order within the same frame:

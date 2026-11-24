@@ -1,4 +1,4 @@
--- dips-Score: the small helpers the other files share. The add-on needs no other add-on.
+-- projectArthas: the small helpers the other files share. The add-on needs no other add-on.
 local ADDON, ns = ...
 
 -- Newer clients hide some values from add-ons ("secret" values): they can be shown, not compared.
@@ -18,7 +18,7 @@ function ns.DeepCopy(v)
 end
 
 function ns.Print(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffdips-Score|r " .. msg)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffprojectArthas|r " .. msg)
 end
 
 ----------------------------------------------------------------------

@@ -4,10 +4,11 @@ The colours come from tokens.py. `apply()` picks a token set and fills the modul
 that paints reads them when it paints, so applying a theme switches the whole look at once (the window then
 re-shows what's open so widgets with their own styles pick it up).
 """
+import ctypes
 import sys
 from pathlib import Path
 
-from PyQt6.QtGui import QColor, QFontDatabase
+from PyQt6.QtGui import QColor, QFontDatabase, QIcon
 
 from . import tokens
 
@@ -22,6 +23,7 @@ HAND_FONT = "Caveat"             # the handwritten notes
 TITLE_FONT = FONT                # titles and names (older pages read this)
 
 FONTS_DIR = Path(__file__).parent / "fonts"
+ICON_FILE = Path(__file__).parent / "icon.ico"
 _fonts_loaded = False
 
 # ---- legacy names: filled from T by apply(), so pages not yet redesigned follow the theme ----
@@ -88,6 +90,17 @@ def tok(key: str) -> QColor:
     return QColor(T[key])
 
 
+def app_icon() -> QIcon:
+    return QIcon(str(ICON_FILE))
+
+
+def set_app_icon(app) -> None:
+    # run from source, Windows groups the window under python.exe and shows Python's taskbar icon
+    if sys.platform == "win32" and not getattr(sys, "frozen", False):
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("dot.orbital.projectArthas")
+    app.setWindowIcon(app_icon())
+
+
 def load_fonts() -> None:
     """register the bundled Barlow / Barlow Condensed / Caveat files (needs a QApplication); once"""
     global _fonts_loaded
@@ -95,7 +108,7 @@ def load_fonts() -> None:
         return
     for f in sorted(FONTS_DIR.glob("*.ttf")):
         if QFontDatabase.addApplicationFont(str(f)) < 0:
-            print(f"dips score: couldn't load font {f.name}", file=sys.stderr)
+            print(f"projectArthas: couldn't load font {f.name}", file=sys.stderr)
     _fonts_loaded = True
 
 

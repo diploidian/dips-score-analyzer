@@ -1,11 +1,11 @@
 """Live: follows the combat log while the app runs, sums up each fight as it ends, shows the overlay and tells
-the Fights page. Also the tray-only mode (`dips-score.pyw live`): just the overlay, in the background."""
+the Fights page. Also the tray-only mode (`projectArthas.pyw live`): just the overlay, in the background."""
 from __future__ import annotations
 
 import sys
 
-from PyQt6.QtCore import QObject, QRectF, Qt, QTimer, pyqtSignal
-from PyQt6.QtGui import QAction, QFont, QGuiApplication, QIcon, QPainter, QPixmap
+from PyQt6.QtCore import QObject, QTimer, pyqtSignal
+from PyQt6.QtGui import QAction, QGuiApplication
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from ..config import Paths
@@ -97,28 +97,13 @@ class LiveController(QObject):
             self.show_last()
 
 
-def tray_icon() -> QIcon:
-    pm = QPixmap(64, 64)
-    pm.fill(Qt.GlobalColor.transparent)
-    p = QPainter(pm)
-    p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-    p.setBrush(theme.tok("rail"))       # the rail's mark: called after apply_look, so it is in the look in use
-    p.setPen(theme.tok("rail-ac"))
-    p.drawEllipse(4, 4, 56, 56)
-    f = QFont("Segoe UI", 28)
-    f.setBold(True)
-    p.setFont(f)
-    p.drawText(QRectF(0, 0, 64, 62), Qt.AlignmentFlag.AlignCenter, "d")
-    p.end()
-    return QIcon(pm)
-
-
 def run_tray(paths: Paths) -> int:
     """the overlay alone, from the system tray"""
     from .app import Window, apply_look
     from ..scoring.classes import load_upkeep
     from ..scoring.score import load_weights
     app = QApplication.instance() or QApplication(sys.argv)
+    theme.set_app_icon(app)
     app.setQuitOnLastWindowClosed(False)
     settings = app_settings.load(paths)
     apply_look(paths, settings)
@@ -137,10 +122,10 @@ def run_tray(paths: Paths) -> int:
         holder["w"].raise_()
         holder["w"].activateWindow()
 
-    tray = QSystemTrayIcon(tray_icon())
-    tray.setToolTip("dips score - watching the combat log")
+    tray = QSystemTrayIcon(theme.app_icon())
+    tray.setToolTip("projectArthas - watching the combat log")
     menu = QMenu()
-    for text, fn in (("Open dips score", open_window), ("Show the last fight", ctl.show_last)):
+    for text, fn in (("Open projectArthas", open_window), ("Show the last fight", ctl.show_last)):
         act = QAction(text, menu)
         act.triggered.connect(fn)
         menu.addAction(act)
@@ -161,7 +146,7 @@ def run_tray(paths: Paths) -> int:
     tray.activated.connect(lambda reason: open_window() if reason == QSystemTrayIcon.ActivationReason.DoubleClick
                            else None)
     tray.show()
-    tray.showMessage("dips score", "Watching the combat log. An overlay will sum up each fight.",
+    tray.showMessage("projectArthas", "Watching the combat log. An overlay will sum up each fight.",
                      QSystemTrayIcon.MessageIcon.Information, 4000)
     holder["tray"] = tray
     return app.exec()

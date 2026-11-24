@@ -2,7 +2,7 @@
 
     PYTHONPATH=<folder with PyQt6> python scripts/shoot.py --run 6 --tab Group --look classical,night --out x.png
 
---run is the number `python dips-score.pyw runs` prints (with --tab Fights: the run loaded behind it, whose timeline
+--run is the number `python projectArthas.pyw runs` prints (with --tab Fights: the run loaded behind it, whose timeline
 its Show on the timeline goes to). --saved picks a dips-Score.lua (default: the game's).
 Settings and history live in a temp APPDATA, so yours are never touched (--fight-json and --spells-json copy
 yours into it).

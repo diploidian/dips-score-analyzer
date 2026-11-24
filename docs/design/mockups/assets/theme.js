@@ -1,4 +1,4 @@
-// dips score mock-ups: theme + day/night toggle, number ticker, entrance trigger.
+// projectArthas mock-ups: theme + day/night toggle, number ticker, entrance trigger.
 // Load in <head> without defer so the theme applies before first paint.
 (function () {
   var KEY = "dips-score-theme";

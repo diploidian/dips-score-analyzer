@@ -1,4 +1,4 @@
--- dips-Score: runs - when recording starts and stops.
+-- projectArthas: runs - when recording starts and stops.
 --
 -- A run starts when you enter an instance of a kind turned on in the settings (dungeons by
 -- default) and ends when you leave it. A /reload inside keeps the run going in a new segment

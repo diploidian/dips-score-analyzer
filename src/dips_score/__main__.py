@@ -1,4 +1,4 @@
-"""dips-score
+"""projectArthas
 
     python -m dips_score              the window (follows new runs as the game saves them)
     python -m dips_score runs         list the saved runs
@@ -23,7 +23,7 @@ def _fmt_time(s: float) -> str:
 def cmd_runs(p) -> int:
     saved, runs = analysis.load_saved(p)
     if not runs:
-        print("No dips-Score runs found under", p.accounts)
+        print("No projectArthas runs found under", p.accounts)
         return 1
     print(f"{saved}\n")
     for i, r in enumerate(runs, 1):
@@ -56,7 +56,7 @@ def _fight_detail(fr, role: str) -> str:
 def cmd_report(p, n: int | None, role: str) -> int:
     _, runs = analysis.load_saved(p)
     if not runs:
-        print("No dips-Score runs found under", p.accounts)
+        print("No projectArthas runs found under", p.accounts)
         return 1
     run = runs[(n or len(runs)) - 1]
     a = analysis.analyze(run, p, role)
@@ -99,7 +99,7 @@ def cmd_report(p, n: int | None, role: str) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="dips-score", description="Scores dungeon runs recorded by dips-Score.")
+    ap = argparse.ArgumentParser(prog="projectArthas", description="Scores dungeon runs recorded by projectArthas.")
     ap.add_argument("--wow", help="the WoW folder with WTF and Logs in it (default: the _forever_ install)")
     sub = ap.add_subparsers(dest="cmd")
     sub.add_parser("runs", help="list saved runs")

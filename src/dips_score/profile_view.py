@@ -30,7 +30,7 @@ PLACE_INK = {"Dungeon": "place-dungeon", "Raid": "place-raid", "World": "place-w
 PLACE_MOVE = {"Dungeon": ("more dungeons", "fewer dungeons"), "Raid": ("more raids", "fewer raids"),
               "World": ("more open world", "less open world"), "PvP": ("more PvP", "less PvP")}
 MELEE = "Melee (auto attack)"
-NO_HANDS = "Hands needs a recorded run: play with the dips-Score add-on on, then reload."
+NO_HANDS = "Hands needs a recorded run: play with the projectArthas add-on on, then reload."
 
 
 @dataclass

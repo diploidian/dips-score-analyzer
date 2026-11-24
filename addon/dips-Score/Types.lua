@@ -1,4 +1,4 @@
--- dips-Score: the creature type of each enemy you meet, by name, saved at dipsScoreDB.types (account-wide)
+-- projectArthas: the creature type of each enemy you meet, by name, saved at dipsScoreDB.types (account-wide)
 -- so the analyzer can tell whether a spell that only works on some types (Exorcism: undead and demons)
 -- had anything to work on. types = {["Risen Ghoul"] = "Undead", ...}, plain strings, at most MAX names.
 --

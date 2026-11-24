@@ -5,7 +5,7 @@ primary_target: "docs/design/mockups/debrief.html"
 related_targets: ["docs/design/mockups/fight-card.html","docs/design/mockups/history.html","docs/design/mockups/group.html"]
 ---
 
-# Surface brief: dips score redesign mock-ups
+# Surface brief: projectArthas redesign mock-ups
 
 Scope: four mock-up pages (run debrief, after-fight card, dungeon history, group) under docs/design/mockups/. Visitor mode: Operate (the fight card is a glance surface over the game).
 Audience and job: a WoW player alt-tabbed or on a second monitor, a few seconds between runs; learn the one fix, then the grade and where the points went.

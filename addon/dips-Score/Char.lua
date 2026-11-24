@@ -1,4 +1,4 @@
--- dips-Score: the character snapshot - what the game knows about you, saved at dipsScoreLog.char
+-- projectArthas: the character snapshot - what the game knows about you, saved at dipsScoreLog.char
 -- for the analyzer (spells and their base cooldowns, gear, talent points).
 --
 -- This client mixes API generations and not every call is known to work, so each one is looked for

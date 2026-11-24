@@ -257,7 +257,7 @@ class SettingsDialog(QDialog):
         saved = len(self.paths.saved_files()) if self.paths.accounts.is_dir() else 0
         bad = [] if (self.paths.wow / "WTF").is_dir() else ["no WTF folder in the game folder"]
         self.folder_note.setText("  ·  ".join(bad + [f"{logs} combat log{'s' if logs != 1 else ''}",
-                                                    f"{saved} dips-Score saved file{'s' if saved != 1 else ''}"]))
+                                                    f"{saved} projectArthas saved file{'s' if saved != 1 else ''}"]))
 
     def _import(self):
         from ..live.history import replay

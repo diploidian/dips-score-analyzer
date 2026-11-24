@@ -1,11 +1,11 @@
 # First run: from installed to your first scorecard
 
-You have installed the app and the dips-Score add-on. This page takes you from there to your first
+You have installed the app and the projectArthas add-on. This page takes you from there to your first
 scored run. Everything happens in the game or in the app, and it takes one dungeon.
 
 ## 1. Check the add-on in the game
 
-1. At the character screen, click **AddOns** and make sure **dips-Score** is ticked. If it says
+1. At the character screen, click **AddOns** and make sure **projectArthas** is ticked. If it says
    "out of date", tick **Load out of date AddOns**.
 2. Log in. If the combat log was off, chat says "turned the combat log on for the analyzer." (no
    line means it was already on). If chat tells you to turn on Advanced Combat Logging yourself,
@@ -17,7 +17,7 @@ scored run. Everything happens in the game or in the app, and it takes one dunge
 
 ## 2. Open the app and point it at the game
 
-Open **dips score** from the Start menu (or, without the installer, double-click `dips-score.pyw` in the
+Open **projectArthas** from the Start menu (or, without the installer, double-click `projectArthas.pyw` in the
 app's folder).
 
 The first time, if the app can't find the game, it asks for the game folder. Pick the
@@ -27,7 +27,7 @@ itself works too. The app remembers your choice.
 You can check or change the folder any time: click the cog (⚙) at the bottom left, next to Reload, and the
 folders are at the top under **Game folders**: the game folder, and the combat log folder if yours isn't the
 game's own `Logs`. A change takes effect right away; the line under them says how many combat logs and
-dips-Score saved files it finds there.
+projectArthas saved files it finds there.
 
 With nothing recorded yet, the bottom of the window says "No runs yet". That's expected.
 
@@ -75,7 +75,7 @@ combat logs**. Those fights then show on the **Fights** and **Habits** pages.
 
 | What you see | What to do |
 |---|---|
-| Double-clicking `dips-score.pyw` does nothing | Python or PyQt6 isn't installed. Go back to [Setting it up](GUIDE.md#setting-it-up). |
+| Double-clicking `projectArthas.pyw` does nothing | Python or PyQt6 isn't installed. Go back to [Setting it up](GUIDE.md#setting-it-up). |
 | "Game folder not found" at the bottom of the window | Click the cog, then **Browse...** next to World of Warcraft under Game folders, and pick `_forever_`. |
 | "No runs yet" after a dungeon | You haven't saved since the run. Type `/reload` in the game. `/dscore status` says how many runs are saved. |
 | `/dscore` is an unknown command | The add-on isn't loaded. Check the AddOns list at the character screen (step 1). |

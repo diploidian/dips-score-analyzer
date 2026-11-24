@@ -1,4 +1,4 @@
--- dips-Score: the clock anchor.
+-- projectArthas: the clock anchor.
 --
 -- Lines are timed with debugprofilestop() (milliseconds, precise, but counted from nothing in
 -- particular). WoWCombatLog.txt is timed with your PC's wall clock. An anchor ties the two together:

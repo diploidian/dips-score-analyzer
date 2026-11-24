@@ -441,7 +441,7 @@ class View(unittest.TestCase):
         v = page(many())
         self.assertEqual(len(v.hands), 1)
         self.assertEqual((v.hands[0].value, v.hands[0].note),
-                         ("–", "Hands needs a recorded run: play with the dips-Score add-on on, then reload."))
+                         ("–", "Hands needs a recorded run: play with the projectArthas add-on on, then reload."))
         self.assertNotIn(" who ", v.label)
 
     def test_hands_with_runs(self):

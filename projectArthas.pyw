@@ -1,8 +1,8 @@
-"""Double-click to open dips score (no terminal window).
+"""Double-click to open projectArthas (no terminal window).
 
 From any folder, in any shell:
-    python "D:\\projects\\dips-score-analyzer\\dips-score.pyw" report
-    python "D:\\projects\\dips-score-analyzer\\dips-score.pyw" runs
+    python "D:\\projects\\projectArthas\\projectArthas.pyw" report
+    python "D:\\projects\\projectArthas\\projectArthas.pyw" runs
 """
 import sys
 from pathlib import Path

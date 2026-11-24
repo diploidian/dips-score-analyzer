@@ -37,7 +37,7 @@ def share(w: QWidget, folder: Path, name: str) -> Path:
     img = snapshot(page_widget(w))
     QApplication.clipboard().setImage(img)
     folder.mkdir(parents=True, exist_ok=True)
-    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", name).strip(" .") or "dips-score"   # what Windows refuses
+    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", name).strip(" .") or "projectArthas"   # what Windows refuses
     path = folder / f"{name}-{datetime.now():%Y%m%d-%H%M%S}.png"
     if not img.save(str(path)):
         raise OSError(f"couldn't write {path}")

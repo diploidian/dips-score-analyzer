@@ -235,5 +235,5 @@ class Overlay(QWidget):
                 cx += 14 + line(p, cf, tok("tx2"), cx + 14, y, 17, chip) + 14
             y += 17
         y += 6
-        line(p, font(11, 700, num=True, spacing=0.14), tok("tx2"), x, y, 16, "DIPS SCORE")
+        line(p, font(11, 700, num=True, spacing=0.14), tok("tx2"), x, y, 16, "projectArthas")
         return y + 16 + 10

@@ -1,4 +1,4 @@
-"""The dips-Score addon's saved log (dipsScoreLog), as runs, segments, anchors and lines.
+"""The projectArthas addon's saved log (dipsScoreLog), as runs, segments, anchors and lines.
 
 The line format is defined at the top of dips-Score/Log.lua; times in Clock.lua.
 """

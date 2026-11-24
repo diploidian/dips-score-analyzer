@@ -6,7 +6,7 @@
 
 ---
 
-**Project:** dips score
+**Project:** projectArthas
 **Generated:** 2026-11-19 14:28:18
 **Category:** Gaming
 **Token files:** `tokens.json` (W3C Design Tokens Community Group JSON).

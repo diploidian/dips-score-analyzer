@@ -1,38 +1,45 @@
-; Inno Setup script for the dips score desktop app. Build with packaging\build.ps1.
+; Inno Setup script for the projectArthas desktop app. Build with packaging\build.ps1.
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
 
 [Setup]
 AppId={{6F2C1B7A-3D4E-4A8B-9C1D-2E5F7A9B0C3D}
-AppName=dips score
+AppName=projectArthas
 AppVersion={#AppVersion}
 AppPublisher=dot.orbital
-DefaultDirName={autopf}\dips score
-DefaultGroupName=dips score
+DefaultDirName={autopf}\projectArthas
+DefaultGroupName=projectArthas
 DisableProgramGroupPage=yes
 ; "Only for me" by default, with the "all users" choice offered on a page
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\dist
-OutputBaseFilename=dips-score-setup-{#AppVersion}
+OutputBaseFilename=projectArthas-setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-UninstallDisplayIcon={app}\dips-score.exe
+SetupIconFile=..\src\dips_score\ui\icon.ico
+UninstallDisplayIcon={app}\projectArthas.exe
 ChangesEnvironment=yes
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "..\build\pyinstaller\dips-score\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\build\pyinstaller\projectArthas\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; the in-game add-on goes in too, so one installer is all a player needs
 Source: "..\addon\dips-Score\*"; DestDir: "{code:WowDir}\Interface\AddOns\dips-Score"; Flags: ignoreversion recursesubdirs createallsubdirs; Check: AddonNotLinked
 
+[InstallDelete]
+; an upgrade from when the app was called dips score
+Type: files; Name: "{app}\dips-score.exe"
+Type: files; Name: "{autoprograms}\dips score.lnk"
+Type: files; Name: "{autodesktop}\dips score.lnk"
+
 [Icons]
-Name: "{autoprograms}\dips score"; Filename: "{app}\dips-score.exe"
-Name: "{autodesktop}\dips score"; Filename: "{app}\dips-score.exe"; Tasks: desktopicon
+Name: "{autoprograms}\projectArthas"; Filename: "{app}\projectArthas.exe"
+Name: "{autodesktop}\projectArthas"; Filename: "{app}\projectArthas.exe"; Tasks: desktopicon
 
 [Registry]
 ; the app reads the game folder from DIPS_WOW (see src/dips_score/config.py)
@@ -40,7 +47,7 @@ Root: HKCU; Subkey: "Environment"; ValueType: string; ValueName: "DIPS_WOW"; Val
 
 [Run]
 ; the installer's own environment predates DIPS_WOW, so hand the folder over directly
-Filename: "{app}\dips-score.exe"; Parameters: "--wow ""{code:WowDir}"""; Description: "{cm:LaunchProgram,dips score}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\projectArthas.exe"; Parameters: "--wow ""{code:WowDir}"""; Description: "{cm:LaunchProgram,projectArthas}"; Flags: nowait postinstall skipifsilent
 
 [Code]
 var

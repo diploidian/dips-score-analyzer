@@ -1,5 +1,5 @@
--- dips-Score: records your inputs (action presses and their source, key holds, movement, casts)
--- in dungeons, as flat text lines the dips-score analyzer lines up with WoWCombatLog.txt.
+-- projectArthas: records your inputs (action presses and their source, key holds, movement, casts)
+-- in dungeons, as flat text lines the projectArthas app lines up with WoWCombatLog.txt.
 -- Config: settings and loading.
 local ADDON, ns = ...
 

@@ -75,7 +75,7 @@ class Window(QMainWindow):
         self.warm_timer.timeout.connect(self._warm_up)
         names.load(paths.names_file)
         removed.load(paths.removed_file)
-        self.setWindowTitle("dips score")
+        self.setWindowTitle("projectArthas")
         self.resize(1500, 950)
 
         # ---- left: dungeons and their visits
@@ -160,7 +160,7 @@ class Window(QMainWindow):
             view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             view.customContextMenuRequested.connect(lambda pos, v=view: self._rename_menu(v, pos))
         self.share_folder = Path(QStandardPaths.writableLocation(QStandardPaths.StandardLocation.PicturesLocation),
-                                 "dips-score")
+                                 "projectArthas")
         self.weights: WeightsDialog | None = None
         self.settings_dialog: SettingsDialog | None = None
         # opened from the tray: share the controller's settings, so changes here reach the overlay
@@ -882,6 +882,7 @@ def apply_look(paths: Paths, settings: dict):
 
 def run_app(paths: Paths) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
+    theme.set_app_icon(app)
     settings = app_settings.load(paths)
     if not paths.found():       # first start, or the game moved: ask rather than show an empty window
         found = app_settings.pick_wow(None, paths.wow)

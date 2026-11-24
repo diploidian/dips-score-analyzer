@@ -1,4 +1,4 @@
--- dips-Score: the record button - a small pill that shows whether a run is recording and for how
+-- projectArthas: the record button - a small pill that shows whether a run is recording and for how
 -- long. Left-click starts or stops recording, right-click opens a menu, drag it to move it
 -- (unless it's locked).
 local ADDON, ns = ...

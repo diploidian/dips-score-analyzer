@@ -1,14 +1,15 @@
-# dips-score
+# projectArthas
 
 Scores a WoW dungeon run. New here? Start with [what the app does for you](docs/APP-GUIDE.md), then
 the [guide](docs/GUIDE.md) for setup, what it tracks and
 how the grade works, or [First run](docs/FIRST-RUN.md) once it's installed. It merges two data sources:
 
-- **dips-Score** (the addon: its source is in `addon/dips-Score` here; copy that folder into
+- **projectArthas** (the addon: its source is in `addon/dips-Score` here; copy that folder into
   `Interface/AddOns/`, it needs no other add-on; `/dscore` opens its settings, and `/dscore status`,
   `start`, `stop`, `mark`, `watch`, `button`, `clear` and `char` do the rest): what you pressed and when. That
   covers key vs click, key holds, movement, cast starts, finishes, refusals and interrupts, and
   combat start and end. It saves to `WTF/.../SavedVariables/dips-Score.lua` on `/reload` or logout.
+  The add-on's folder, its saved files and `%APPDATA%\dips-score` keep the old name, so nothing saved is lost.
 - **The combat log** (`/combatlog`, with Advanced Combat Logging on): what actually happened.
   That covers damage, healing, kills, your health, and why a cast was refused.
 
@@ -17,12 +18,12 @@ combat log to correct the remaining few milliseconds.
 
 ## Run it
 
-Double-click `dips-score.pyw` for the window. From any folder, in PowerShell, cmd or bash:
+Double-click `projectArthas.pyw` for the window. From any folder, in PowerShell, cmd or bash:
 
 ```
-python "D:\projects\dips-score-analyzer\dips-score.pyw" runs        # list saved runs
-python "D:\projects\dips-score-analyzer\dips-score.pyw" report      # latest run's scorecard
-python "D:\projects\dips-score-analyzer\dips-score.pyw" report 5    # run 5 from `runs`
+python "D:\projects\projectArthas\projectArthas.pyw" runs        # list saved runs
+python "D:\projects\projectArthas\projectArthas.pyw" report      # latest run's scorecard
+python "D:\projects\projectArthas\projectArthas.pyw" report 5    # run 5 from `runs`
 ```
 
 The window reloads by itself when the game saves (after `/reload` or logout). New runs open
@@ -226,7 +227,7 @@ when Raids is ticked in its options (`/dscore`); it is off by default. A raid th
 under Raids by itself.
 
 Share (beside Settings and Reload, or Ctrl+Shift+C) copies the page showing to the clipboard as a
-picture, all of it, the part scrolled off screen too, and saves it as a PNG in `Pictures\dips-score`.
+picture, all of it, the part scrolled off screen too, and saves it as a PNG in `Pictures\projectArthas`.
 Paste it into Discord or a chat. The picture is as wide as the window, lists that scroll inside a page
 show only their visible rows, and the dips-Core texture is left out.
 

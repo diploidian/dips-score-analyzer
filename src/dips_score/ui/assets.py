@@ -2,7 +2,7 @@
 
 The app looks in two folders, every file in any sub-folder, and knows the files by their in-game names
 (the folder layout doesn't matter):
-    <project>/assets                 next to dips-score.pyw
+    <project>/assets                 next to projectArthas.pyw
     %APPDATA%/dips-score/assets
 
     font            frizqt__.ttf (Friz Quadrata)

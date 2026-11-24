@@ -1,5 +1,5 @@
 ---
-name: dips score
+name: projectArthas
 description: A post-run race sheet that grades what a WoW player controls and names the one fix.
 colors:
   timeless-day-bg: "#EFE5D3"
@@ -271,13 +271,13 @@ components:
     width: "200px"
 ---
 
-# Design System: dips score
+# Design System: projectArthas
 
 ## Overview
 
 **Creative North Star: "The Race Sheet"**
 
-dips score reads like the sheet a coach hands a driver after a session: one giant result, one fix, and the laps that need a second look marked by hand. Every page is a ruled sheet on a warm ivory or near-black ground, divided by hairlines into modules, each module named by a small boxed tracked-caps label. Exactly one surface per screen is a solid colour plate, and it always holds the thing to change next. The system refuses the equal-weight widget wall of analytics dashboards: sizes are deliberately unequal, so the score numeral at 150px dwarfs everything and the eye has nowhere else to land first.
+projectArthas reads like the sheet a coach hands a driver after a session: one giant result, one fix, and the laps that need a second look marked by hand. Every page is a ruled sheet on a warm ivory or near-black ground, divided by hairlines into modules, each module named by a small boxed tracked-caps label. Exactly one surface per screen is a solid colour plate, and it always holds the thing to change next. The system refuses the equal-weight widget wall of analytics dashboards: sizes are deliberately unequal, so the score numeral at 150px dwarfs everything and the eye has nowhere else to land first.
 
 The world ships as two themes, each with a day and a night mode, all four as complete token sets. **Timeless** is ivory with a dark walnut rail, an olive plate, rust and teal measures, and an amber highlighter that glows at night. **Classical** is soft ivory with a pale rail, a burgundy plate, gold leaf and forest, and a hot-rose highlighter; its night mode is warm near-black with lifted burgundy. Timeless is the default theme. Day or night defaults to Auto, which follows the OS setting; the "Look" group at the foot of the rail holds both toggles, and a choice is remembered. Theme and mode are a first-class part of the system: no colour exists outside the four sets.
 
@@ -403,7 +403,7 @@ The one solid block. `plate` fill, 22px × 18px padding, a Title-size fix senten
 An 8×8 grid of 74px cells with 1px `ln` gaps and a 1px gold frame. Each `panel` cell carries the fight number and clock time (11px muted), the score and grade letter in the grade's ink (21px), and a 42 × 14 sparkline. A 6px `tx` square in the corner marks a boss. The fights to review are circled over the grid in 5px highlighter strokes at 0.8 opacity, joined by 1.8px routes in review order, with a Caveat note.
 
 ### Fight card
-The overlay card shown over the game about 2s after combat: 380 × 236, `panel` fill, 1px `tx` border, square. Header in tracked caps (fight type) with time; the damage share in Metric with a measure bar and its 90 "clean" tick; a one-sentence verdict at 15px; a small plate band for the biggest gap or death; measure chips with 8px ink swatches; footer with the "dips score" mark and Dismiss.
+The overlay card shown over the game about 2s after combat: 380 × 236, `panel` fill, 1px `tx` border, square. Header in tracked caps (fight type) with time; the damage share in Metric with a measure bar and its 90 "clean" tick; a one-sentence verdict at 15px; a small plate band for the biggest gap or death; measure chips with 8px ink swatches; footer with the "projectArthas" mark and Dismiss.
 
 ### Tags and chips
 - **Tag:** 1px gold border, gold text, Barlow 600 11px, 0.1em, uppercase, 2px × 6px. Marks "preview" measures and "Boss kill".

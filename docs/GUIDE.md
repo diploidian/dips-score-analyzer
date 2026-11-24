@@ -1,17 +1,17 @@
-# The dips-score guide
+# The projectArthas guide
 
-dips-score tells you how well you played, and what to change next time. It looks at the parts of
+projectArthas tells you how well you played, and what to change next time. It looks at the parts of
 your play you control: what you pressed, when you pressed it, whether the game accepted it, how
 quickly you reacted when someone in your group got into trouble, and which cooldowns you left
 sitting on your bar.
 
 It has two parts that work together:
 
-- The dips-Score add-on runs inside the game. It records your own inputs while you play: action
+- The projectArthas add-on runs inside the game. It records your own inputs while you play: action
   presses and whether each came from a key or a mouse click, how long you held keys, when you
   started and stopped moving, and every stage of every cast. It also saves a snapshot of your
   character (level, spells, gear and talents) and prints a short line in chat after each fight.
-- The dips-score app runs on your desktop. It reads what the add-on saved, lines it up with the
+- The projectArthas app runs on your desktop. It reads what the add-on saved, lines it up with the
   game's combat log to within a few milliseconds, and turns the two into a scorecard with a grade
   from S to F and a short list of things to work on. While you play, it also follows the combat
   log and shows a card for each fight about 2 seconds after the kill.
@@ -97,7 +97,7 @@ This takes about ten minutes the first time.
    still show up on the Fights page, because those come from the combat log alone.
 7. Save. The game only writes add-on data to disk when you `/reload` or log out. Do one of those
    after the run. The record button's right-click menu has "Save now (reload)".
-8. Double-click `dips-score.pyw`. It finds your newest run and opens it.
+8. Double-click `projectArthas.pyw`. It finds your newest run and opens it.
 
 Installed and want the short version, with fixes for common problems? See [First run](FIRST-RUN.md).
 
@@ -824,10 +824,10 @@ refreshed (see [Upgrading to 0.16.0](#upgrading-to-0160)).
 
 ### Tray mode and the command line
 
-Run `dips-score.pyw live` to keep the app in the system tray while you play, with the overlay. Its
+Run `projectArthas.pyw live` to keep the app in the system tray while you play, with the overlay. Its
 menu opens the main window or shows the last fight again.
 
-On the command line, `dips-score.pyw runs` lists saved runs, `report` prints the latest run's
+On the command line, `projectArthas.pyw runs` lists saved runs, `report` prints the latest run's
 scorecard (`report 5` for run 5, `--role healer`, `--role dps` or `--role tank` to choose a card),
 and `replay` adds fights from old combat logs to the Fights page and learns your spell book from
 them.
@@ -843,8 +843,8 @@ rebuild your spell books from old combat logs.
 
 ## If you already use a log parser
 
-A log parser and dips-score read the same combat log, so for damage, healing and deaths they agree.
-What dips-score adds comes from the add-on, and none of it is in the log:
+A log parser and projectArthas read the same combat log, so for damage, healing and deaths they agree.
+What projectArthas adds comes from the add-on, and none of it is in the log:
 
 - presses, including the ones the game refused, with the reason paired from the log
 - key versus click, key hold times and mashing bursts

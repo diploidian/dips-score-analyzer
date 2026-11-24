@@ -1,6 +1,6 @@
-# dips score: a coach that watches your hands
+# projectArthas: a coach that watches your hands
 
-Most WoW tools tell you what happened in a fight. dips score also tells you what you did to make
+Most WoW tools tell you what happened in a fight. projectArthas also tells you what you did to make
 it happen: which buttons you pressed, which ones the game refused, how long you stood still with
 nothing cast, how many seconds the tank sat at 40% before your heal started, and which cooldown
 spent the boss fight lit up on your bar. Then it grades the run from S to F and names the two or
@@ -32,7 +32,7 @@ were out of range. Maybe you were mashing a spell that was still on cooldown. Th
 separate these, because it only records what reached the game world. Your presses, refusals and
 the gap between "someone got hit" and "you started casting" never reach it.
 
-dips score records that missing half from inside the game, joins it to the combat log, and turns
+projectArthas records that missing half from inside the game, joins it to the combat log, and turns
 both into a score you can improve on purpose. The score is judged against fixed numbers, not
 against other players, so an 82 in an easy run means the same as an 82 in a hard one. That makes
 it a fair way to race yourself.
@@ -60,14 +60,14 @@ add-on.
 
 ## Installing the app
 
-The app comes as a normal Windows installer, `dips-score-setup-<version>.exe`. You don't need
+The app comes as a normal Windows installer, `projectArthas-setup-<version>.exe`. You don't need
 Python, a terminal or any packages: everything the app needs is inside it.
 
 1. Run the setup file. It installs for your Windows account only unless you choose all users, so
    it doesn't need administrator rights.
 2. It asks where the game is. Pick the `_forever_` folder, the one with `Logs`, `WTF` and
    `Interface` in it. If the folder has no `WTF` inside, the installer warns you before it goes on.
-3. Choose whether you want a desktop icon. The app is in the Start menu as "dips score" either way.
+3. Choose whether you want a desktop icon. The app is in the Start menu as "projectArthas" either way.
 4. Copy the `addon/dips-Score` folder into the game's `Interface/AddOns/` folder.
 5. Log in to the game and type `/dscore watch`, then press a few abilities with keys and a few
    with the mouse. Chat prints "key" or "click" for each one, which confirms the add-on is working.
@@ -80,7 +80,7 @@ glance that it is looking in the right place.
 For the overlay to show over the game, set the game to borderless fullscreen. Exclusive fullscreen
 draws over everything, the card included.
 
-If you'd rather run it from source, double-click `dips-score.pyw` with Python 3.13 and PyQt6
+If you'd rather run it from source, double-click `projectArthas.pyw` with Python 3.13 and PyQt6
 installed. It's the same app.
 
 ## What it tracks, and how
@@ -89,7 +89,7 @@ The app has two sources and lines them up on one timeline.
 
 ### The add-on: your side of the keyboard
 
-The dips-Score add-on writes one short line per event, with a millisecond timestamp. It records:
+The projectArthas add-on writes one short line per event, with a millisecond timestamp. It records:
 
 - every action button press, with the slot, the spell or item, and whether it came from a key or a
   mouse click
@@ -238,7 +238,7 @@ under 85, the card says "Nothing stands out - nice run."
 
 ## After every fight
 
-Keep the app open, or in the system tray (start it with `live`, as in `dips-score.pyw live`), and each fight gets a card about 2
+Keep the app open, or in the system tray (start it with `live`, as in `projectArthas.pyw live`), and each fight gets a card about 2
 seconds after the last enemy dies. It works in the open world too, since it only needs the combat
 log.
 
@@ -315,7 +315,7 @@ when Raids is ticked in its options (`/dscore`); it is off by default. A raid th
 under Raids by itself.
 
 Share (beside Settings and Reload, or Ctrl+Shift+C) copies the page showing to the clipboard as a
-picture, all of it, the part scrolled off screen too, and saves it as a PNG in `Pictures\dips-score`.
+picture, all of it, the part scrolled off screen too, and saves it as a PNG in `Pictures\projectArthas`.
 Paste it into Discord or a chat. The picture is as wide as the window, lists that scroll inside a page
 show only their visible rows, and the dips-Core texture is left out.
 
@@ -485,8 +485,8 @@ Swarm, Rake and Rip.
 
 ## How it compares with a log parser
 
-A log parser and dips score read the same combat log, so they agree on damage, healing and deaths.
-dips score adds what only an add-on can see: refused presses with their reasons, key versus click,
+A log parser and projectArthas read the same combat log, so they agree on damage, healing and deaths.
+projectArthas adds what only an add-on can see: refused presses with their reasons, key versus click,
 key hold times, mashing, the moment you started moving, your own combat start and end, and cast
 timing matched to the log within a few milliseconds. It also carries your spell list, gear,
 talents and durability, which this client's log doesn't contain.

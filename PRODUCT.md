@@ -18,11 +18,11 @@ World of Warcraft players who want to get better at their own play in dungeons. 
 
 ## Product Purpose
 
-dips score grades what a player controls in a dungeon run: what they pressed and when, refused presses, reaction time, cooldowns left unused, movement, interrupts. An in-game add-on records inputs; the desktop app lines them up with the combat log and produces a 0-100 score, an S-F grade by role (healer, DPS, tank), and a short list of what to work on. Success is the player knowing, within seconds of a run or a fight, the one thing to change next time.
+projectArthas grades what a player controls in a dungeon run: what they pressed and when, refused presses, reaction time, cooldowns left unused, movement, interrupts. An in-game add-on records inputs; the desktop app lines them up with the combat log and produces a 0-100 score, an S-F grade by role (healer, DPS, tank), and a short list of what to work on. Success is the player knowing, within seconds of a run or a fight, the one thing to change next time.
 
 ## Positioning
 
-Damage meters rank output; dips score judges decisions. It sees the player's own keypresses and refusals (from the add-on), not just the combat log, so it can say "Consecration sat ready 75s while you were free to use it" rather than "your DPS was 54".
+Damage meters rank output; projectArthas judges decisions. It sees the player's own keypresses and refusals (from the add-on), not just the combat log, so it can say "Consecration sat ready 75s while you were free to use it" rather than "your DPS was 54".
 
 ## Operating Context
 
