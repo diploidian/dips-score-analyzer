@@ -10,6 +10,7 @@ Base.lua
 Config.lua
 Log.lua
 Char.lua
+Types.lua
 Clock.lua
 Runs.lua
 Intent.lua

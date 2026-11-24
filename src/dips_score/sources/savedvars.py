@@ -189,3 +189,17 @@ def load_char(path: str | Path) -> dict | None:
             "spells": _spells(_as_list(c.get("spells"))), "gear": gear, "talents": talents,
             "pulls": _pulls(_as_list(log.get("pulls"))),
             "spec": max(points, key=lambda t: t[1])[0] or None if points else None}
+
+
+def load_types(path: str | Path) -> dict[str, str]:
+    """enemy name -> creature type ("Undead", "Demon", ...) from the account-wide saved file's dipsScoreDB.types
+    (Types.lua); {} when the file or the table is missing or broken. Paths.account_saved_files() lists the files.
+    The Profile page is to call it (one dict merged over every account) when it counts a window's foes by type."""
+    try:
+        db = luadata.load(path).get("dipsScoreDB")
+    except (OSError, ValueError):
+        return {}
+    types = db.get("types") if isinstance(db, dict) else None
+    if not isinstance(types, dict):
+        return {}
+    return {k: v for k, v in types.items() if isinstance(k, str) and isinstance(v, str) and k and v}

@@ -31,6 +31,10 @@ class Paths:
         files = self.accounts.glob("*/*/*/SavedVariables/dips-Score.lua")
         return sorted(files, key=lambda p: p.stat().st_mtime, reverse=True)
 
+    def account_saved_files(self) -> list[Path]:
+        """Each account's account-wide dips-Score saved file (dipsScoreDB: settings, enemy creature types)."""
+        return sorted(self.accounts.glob("*/SavedVariables/dips-Score.lua"))
+
     def found(self) -> bool:
         return (self.wow / "WTF").is_dir()
 

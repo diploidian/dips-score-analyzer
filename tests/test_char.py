@@ -14,7 +14,7 @@ from dips_score.live.history import History  # noqa: E402
 from dips_score.live.summary import cooldown, learn_cooldowns, summarize  # noqa: E402
 from dips_score.sources import luadata  # noqa: E402
 from dips_score.sources.combatlog import UnitInfo  # noqa: E402
-from dips_score.sources.savedvars import load_char  # noqa: E402
+from dips_score.sources.savedvars import load_char, load_types  # noqa: E402
 from test_habits import T0, fight, titles  # noqa: E402
 from test_live import ME, MOB, bites, cast, dmg, entry, one_fight  # noqa: E402
 
@@ -170,6 +170,35 @@ class GearWear(unittest.TestCase):
                          ("build", "Lowest durability under 20% in 2 of your last 3 fights (worst 12%)"))
         self.assertFalse({"Pulling with broken gear", "Gear nearly broken"} & set(self.cards()))
         self.assertFalse({"Pulling with broken gear", "Gear nearly broken"} & set(self.cards((at(0), 90, 0))))
+
+
+class LoadTypes(unittest.TestCase):
+    """dipsScoreDB.types in the account-wide file (Types.lua): enemy name -> creature type"""
+
+    def read(self, text):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "dips-Score.lua"
+            path.write_text(text, encoding="utf-8")
+            return load_types(path)
+
+    def test_reads_types_beside_the_settings(self):
+        text = 'dipsScoreDB = {\n["maxRuns"] = 15,\n["types"] = {\n["Risen Ghoul"] = "Undead",\n' \
+               '["Felguard, Elite"] = "Demon",\n["Odd"] = 3,\n},\n}\n'
+        self.assertEqual(self.read(text), {"Risen Ghoul": "Undead", "Felguard, Elite": "Demon"})
+
+    def test_empty_when_missing_or_broken(self):
+        self.assertEqual(self.read('dipsScoreDB = {\n["maxRuns"] = 15,\n}\n'), {})
+        self.assertEqual(self.read('dipsScoreDB = {\n["types"] = {},\n}\n'), {})
+        self.assertEqual(self.read('dipsScoreDB = {\n["types"] = "x"\n'), {})   # cut off mid-write
+        self.assertEqual(load_types(Path(tempfile.gettempdir()) / "no-such-dir" / "dips-Score.lua"), {})
+
+    def test_account_files_sit_beside_the_realms(self):
+        with tempfile.TemporaryDirectory() as d:
+            acc = Path(d) / "WTF" / "Account" / "ACC"
+            for f in (acc / "SavedVariables", acc / "Realm" / "Char" / "SavedVariables"):
+                f.mkdir(parents=True)
+                (f / "dips-Score.lua").write_text("", encoding="utf-8")
+            self.assertEqual(Paths(wow=Path(d)).account_saved_files(), [acc / "SavedVariables" / "dips-Score.lua"])
 
 
 if __name__ == "__main__":
