@@ -256,6 +256,12 @@ def _melee(m: Metrics) -> bool:
     return m.swings >= TUNING["melee_swings"] and m.swings > m.hard_casts
 
 
+def _shooter(m: Metrics) -> bool:
+    """you fight with ranged auto shots (a hunter, or a wand user): a fair number of shots, more than hard casts,
+    and not a melee fighter"""
+    return m.shots >= TUNING["melee_swings"] and m.shots > m.hard_casts and not _melee(m)
+
+
 def _pooling_casting(m: Metrics, w: float) -> Category:
     """Casting for dps and tanks: a rage or energy user pressing before the power is there is
     pooling, not a mistake"""
@@ -274,6 +280,10 @@ def _activity(m: Metrics, w: int) -> Category:
         tip = (f"Always be attacking: you were doing nothing {1 - m.uptime:.0%} of combat and lost "
                f"{m.swings_lost} swings while not casting. Stay in reach of your target and fill gaps "
                f"with an ability.")
+    elif _shooter(m):
+        tip = (f"Always be shooting: you were doing nothing {1 - m.uptime:.0%} of combat and lost "
+               f"{m.shots_lost or 0} shots while not casting or moving. Stand still in range and keep your "
+               f"auto shot going between abilities.")
     else:
         tip = (f"Always be casting: you were doing nothing {1 - m.uptime:.0%} of combat. "
                f"Fill gaps with an instant, a DoT refresh or your wand.")
@@ -282,6 +292,10 @@ def _activity(m: Metrics, w: int) -> Category:
         f"busy {m.uptime:.0%} of {m.combat_time:.0f}s in combat; {len(m.idle_gaps)} gaps of 2.5s+"
         + (f", longest {longest:.1f}s" if m.idle_gaps else "")
         + (f"; {m.swings} swings, {m.swings_lost} lost while not casting" if m.swings else "")
+        + (f"; {m.shots} shots, {m.shots_lost} lost, {m.shots_clipped} clipped by casts"
+           if m.shots and m.shots_lost is not None else "")
+        + (f"; {m.swinging_time:.0f}s of it auto-attack with no ability" if m.swinging_time and m.swinging_time >= 0.5
+           else "")
         + (f"; waiting for {word} {m.starved_time:.0f}s" if word and m.starved_time >= 0.5 else ""),
         tip if s < 85 else None)
 

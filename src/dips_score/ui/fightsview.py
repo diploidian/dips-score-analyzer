@@ -350,6 +350,11 @@ def _details(f: dict) -> list[tuple[str, list[QWidget]]]:
         out.append(("Auto attacks", [_text(f"{a['swings']} swings every {a['speed']:.1f} s; {a['lost']} lost "
                                            f"({a['lost_casting']} while casting, {a['lost_other']} other), about "
                                            f"{_n(a['damage_lost'])} damage.")]))
+    r = f.get("ranged") or {}
+    if r.get("shots"):        # saved before shots were measured: no line
+        out.append(("Auto shots", [_text(f"{r['shots']} shots every {r['speed']:.1f} s; {r['shots_lost']} lost while "
+                                         f"not shooting, about {_n(r['damage_lost'])} damage; {r['clipped']} clipped "
+                                         f"by casts.")]))
     if f.get("buffs"):
         out.append(("Your buffs", [_table(["Name", "Uptime"],
                                           [[b["name"], f"{b['uptime']:.0%}"] for b in f["buffs"]])]))
@@ -361,6 +366,8 @@ def _details(f: dict) -> list[tuple[str, list[QWidget]]]:
         f"{idle.get('total', 0):.1f} s idle (gaps of 2.5 s or more with nothing cast): "
         f"{idle.get('with_resource', 0):.1f} s free, {idle.get('moving', 0):.1f} s moving, stunned or with nothing to "
         f"hit, {idle.get('out_of_resource', 0):.1f} s out of resource. "
+        + (f"Of it, {idle['swinging']:.1f} s with no ability used while "
+           f"{'shooting' if idle.get('shooting') else 'swinging'} (the rest idle). " if idle.get("swinging") else "")
         + ("You have no filler spell to press between cooldowns, so idle time isn't counted."
            if idle.get("filler") is False else "Only the free part counts."))]))
     res = f.get("resource") or {}

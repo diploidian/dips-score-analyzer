@@ -6,11 +6,12 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from .debrief import fmt_time
+from .live.summary import idle_words
 from .scoring.group import ordinal
 from .scoring.usable import across
 
 CLEAN, LOW = 0.90, 0.60      # efficiency from which a fight is clean (gS), and under which it's poor (gD)
-SWINGS, IDLE = "Swings lost", "Idle with resource"
+SWINGS, SHOTS, IDLE = "Swings lost", "Shots lost", "Idle with resource"
 
 
 @dataclass
@@ -62,6 +63,12 @@ def _losses(d: dict) -> tuple[list[tuple[str, str, float, str]], tuple[str, ...]
         out.append((SWINGS, f"×{n}", auto["damage_lost"], f"{n} swing{'s' if n != 1 else ''} lost while you weren't "
                                                           "attacking"))
         own.append(f"{n} swing")
+    rng = d.get("ranged") or {}
+    if rng.get("damage_lost", 0) > 0:
+        n = rng["shots_lost"]
+        out.append((SHOTS, f"×{n}", rng["damage_lost"], f"{n} shot{'s' if n != 1 else ''} lost while you weren't "
+                                                        "shooting"))
+        own.append(f"{n} shot")
     for c in d.get("cooldowns") or []:
         if c.get("lost", 0) > 0 and not c.get("held"):
             free = c.get("free")      # None: saved before ready time was measured
@@ -72,8 +79,9 @@ def _losses(d: dict) -> tuple[list[tuple[str, str, float, str]], tuple[str, ...]
     idle = d.get("idle") or {}
     if idle.get("lost", 0) > 0:       # in the potential too, so the rows add up to what was left on the table
         s = f"{idle['with_resource']:.1f} s"
-        out.append((IDLE, s, idle["lost"], f"{s} idle with resource to spare"))
-        own.append(f"{s} idle")
+        out.append((IDLE, s, idle["lost"], idle_words(idle["with_resource"], idle.get("swinging_free"),
+                                                      idle.get("shooting", False)) + " with resource to spare"))
+        own += (f"{s} idle", "No ability used for ")
     return sorted(out, key=lambda r: -r[2]), tuple(own)
 
 

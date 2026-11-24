@@ -182,6 +182,19 @@ class FightViewTests(unittest.TestCase):
                          [("Swings lost", "×12"), ("Idle with resource", "12.3 s")])
         self.assertEqual(v.also, [])
 
+    def test_swinging_idle_and_lost_shots(self):
+        f = dict(ORACLE, cooldowns=[], auto=None, potential=ORACLE["damage"] + 1400.0,
+                 ranged={"shots": 30, "speed": 3.0, "shots_lost": 4, "clipped": 1, "damage_lost": 500.0},
+                 idle={"total": 30.0, "with_resource": 12.3, "out_of_resource": 0.0, "moving": 0.0, "lost": 900.0,
+                       "filler": True, "swinging": 20.0, "swinging_free": 10.0, "shooting": False},
+                 improve=["No ability used for 10.0 s while swinging and 2.3 s idle with a target, standing, with "
+                          "resource to spare ≈ 900 damage", "4 shots lost while not shooting ≈ 500 damage"])
+        v = build_fight(f)
+        self.assertEqual([(label, detail) for label, detail, _ in v.rows],
+                         [("Idle with resource", "12.3 s"), ("Shots lost", "×4")])
+        self.assertEqual(v.gap[0], "No ability used for 10.0 s while swinging and 2.3 s idle with resource to spare")
+        self.assertEqual(v.also, [])
+
     def test_group_deaths_and_ties(self):
         f = dict(ORACLE, damage=3040, group=dict(ORACLE["group"], deaths=["Shizuka Tsuruta"]))
         v = build_fight(f)

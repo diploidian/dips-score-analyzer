@@ -356,6 +356,58 @@ class Cooldowns(unittest.TestCase):
             self.assertEqual([f["id"] for f in History(Paths(Path(d))).fights], ["1", "3"])
 
 
+def shot(sec, sid=75, name="Auto Shot", amount=100):
+    return line(sec, f"RANGE_DAMAGE,{ME},{MOB},{sid},\"{name}\",0x1,{amount},{amount},-1,1,0,0,0,nil,nil,nil,ST")
+
+
+class AutoAttack(unittest.TestCase):
+    """swinging between abilities isn't idle, next-swing abilities fill their swing, lost and clipped shots"""
+    def test_heroic_strike_fills_its_swing(self):
+        base = [swing(t, ME, MOB, 100) for t in range(0, 31, 2) if t != 6]
+        hs = [cast(6, 25286, "Heroic Strike"), dmg(6.01, ME, MOB, 25286, "Heroic Strike", 300)]
+        for extra, lost in (([], 1), (hs, 0)):
+            tr, f = one_fight(base + extra)
+            self.assertEqual(summarize(f, tr.me, tr.me_name, {}, [])["auto"]["lost_other"], lost)
+
+    def test_swinging_between_abilities_is_not_idle(self):
+        tr, f = one_fight([*[swing(t, ME, MOB, 100) for t in range(0, 31, 2)],
+                           *[x for t in (0, 20) for x in (cast(t, 1752, "Sinister Strike"),
+                                                          dmg(t + 0.01, ME, MOB, 1752, "Sinister Strike", 200))]])
+        book = {"Sinister Strike": {**entry(1.0, avg=200), "gaps": [], "spam": True}}
+        idle = (s := summarize(f, tr.me, tr.me_name, book, []))["idle"]
+        self.assertGreater(idle["with_resource"], 10)
+        self.assertAlmostEqual(idle["swinging_free"], idle["with_resource"])
+        self.assertAlmostEqual(idle["swinging"], idle["total"])
+        self.assertGreater(idle["lost"], 0)          # still the ability damage you could have added
+        said = next(x for x in s["improve"] if "while swinging" in x)
+        self.assertTrue(said.startswith(f"No ability used for {idle['with_resource']:.1f} s while swinging with"))
+
+    def test_hunter_lost_and_clipped_shots(self):
+        times = [t for t in range(0, 31, 3) if t not in (12, 15, 21, 24)]    # 9-18 an Aimed Shot, 18-27 nothing
+        tr, f = one_fight([*[shot(t) for t in times], *bites(),
+                           line(12, f"SPELL_CAST_START,{ME},{MOB},20904,\"Aimed Shot\",0x1"),
+                           cast(15, 20904, "Aimed Shot")])
+        s = summarize(f, tr.me, tr.me_name, {}, [])
+        r = s["ranged"]
+        self.assertEqual((r["shots"], r["speed"], r["shots_lost"], r["clipped"]), (len(times), 3.0, 2, 2))
+        self.assertEqual(r["damage_lost"], 200)
+        self.assertAlmostEqual(s["potential"], s["damage"] + 200)
+        self.assertIn("2 shots lost while not shooting ≈ 200 damage", s["improve"])
+
+    def test_wand_shots_clipped_by_any_cast(self):
+        times = [x * 1.5 for x in range(21) if x != 10]          # Smite (an instant here) at 15
+        tr, f = one_fight([*[shot(t, 5019, "Shoot", 50) for t in times], cast(15, 585, "Smite"),
+                           dmg(15.01, ME, MOB, 585, "Smite", 200), *bites()])
+        r = summarize(f, tr.me, tr.me_name, {}, [])["ranged"]
+        self.assertEqual((r["shots_lost"], r["clipped"]), (0, 1))
+
+    def test_caster_without_auto_is_unchanged(self):
+        tr, f = one_fight([cast(0, 8092, "Mind Blast"), dmg(0.1, ME, MOB, 8092, "Mind Blast", 300), *bites(30)])
+        s = summarize(f, tr.me, tr.me_name, {"Smite": {**entry(1.0, avg=100), "gaps": [], "spam": True}}, [])
+        self.assertEqual((s["auto"], s["ranged"], s["idle"]["swinging"]), (None, None, 0))
+        self.assertTrue(any(x.startswith(f"{s['idle']['with_resource']:.1f} s idle with") for x in s["improve"]))
+
+
 class Defensives(unittest.TestCase):
     def test_ready_and_unused_when_low(self):
         tr, f = one_fight([dmg(0, ME, MOB, 8092, "Mind Blast", 300), cast(15, 498, "Divine Protection"), *bites(30)])

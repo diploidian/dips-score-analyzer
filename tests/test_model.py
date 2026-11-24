@@ -309,6 +309,54 @@ class Activity(unittest.TestCase):
         self.assertEqual(m.swings_lost, 4)
         self.assertEqual(m.idle_gaps, [(22.0, 30.0)])
 
+    def test_heroic_strike_fills_its_swing(self):
+        hole = self.swings(lambda t: t == 20)                  # 18 then 22: one swing lost...
+        self.assertEqual(self.measure(hole).swings_lost, 1)
+        hs = ev(20, "SPELL_CAST_SUCCESS", ME, MOB1, "Heroic Strike")
+        m = self.measure(hole + [hs])                           # ...unless Heroic Strike took its place
+        self.assertEqual((m.swings_lost, m.swings), (0, 29))
+
+    def test_swinging_with_no_ability_is_busy(self):
+        m = self.measure(self.swings(), [(10, "CK", 9)])
+        self.assertAlmostEqual(m.uptime, 1.0)
+        self.assertAlmostEqual(m.swinging_time, 58.5)          # all but the one GCD
+
+    def shots(self, sid=75, every=3.0, skip=lambda t: False):
+        out = []
+        for i in range(int(60 / every)):
+            if not skip(i * every):
+                e = ev(i * every, "RANGE_DAMAGE", ME, MOB1, "Auto Shot", amount=100)
+                e.spell_id = sid
+                out.append(e)
+        return out
+
+    def test_hunter_lost_and_clipped_shots(self):
+        from dips_score.scoring.score import score_dps
+        aimed = [ev(12, "SPELL_CAST_START", ME, MOB1, "Aimed Shot"),
+                 ev(15, "SPELL_CAST_SUCCESS", ME, MOB1, "Aimed Shot")]
+        m = self.measure(self.shots(skip=lambda t: t in (12, 15, 30, 33, 45, 48)) + aimed,
+                         [(45.5, "M", 1), (50.5, "M", 0)])     # 9-18 casting, 27-36 nothing, 42-51 moving
+        self.assertEqual((m.shots, m.shot_speed, m.shots_lost, m.shots_clipped), (14, 3.0, 2, 2))
+        self.assertAlmostEqual(m.uptime, 14 * 3 / 60)          # each shot busy until the next, at most one shot
+        cats = {c.name: c for c in score_dps(m).categories}
+        self.assertIn("14 shots, 2 lost, 2 clipped by casts", cats["Activity"].summary)
+
+    def test_wand_clipped_by_any_cast(self):
+        smite = ev(15, "SPELL_CAST_SUCCESS", ME, MOB1, "Smite")
+        m = self.measure(self.shots(5019, 1.5, lambda t: t == 15) + [smite])
+        self.assertEqual((m.shots_lost, m.shots_clipped), (0, 1))
+        m = self.measure(self.shots(75, 1.5, lambda t: t == 15) + [smite])   # an instant doesn't stop Auto Shot
+        self.assertEqual((m.shots_lost, m.shots_clipped), (1, 0))
+
+    def test_shooter_tip(self):
+        from dips_score.scoring.metrics import Metrics
+        from dips_score.scoring.score import _activity
+        m = Metrics(combat_time=60, busy_time=20, shots=20, shots_lost=6, shots_clipped=0, shot_speed=3.0)
+        self.assertTrue(_activity(m, 30).tip.startswith("Always be shooting"))
+        self.assertIn("lost 6 shots", _activity(m, 30).tip)
+        old = Metrics(combat_time=60, busy_time=20)            # an old analysis: no shots measured
+        self.assertTrue(_activity(old, 30).tip.startswith("Always be casting"))
+
     def test_energy_gcd(self):
         info = [me_info(ev(5, "SPELL_ENERGIZE", ME, ME), 3, 50)]
         self.assertAlmostEqual(self.measure(info, [(10, "CK", 9)]).busy_time, 1.0)

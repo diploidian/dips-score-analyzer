@@ -3,8 +3,12 @@
 Everything is measured over combat time: the windows the player was in combat (the addon's R
 lines), so walking between pulls doesn't count against you.
 
-Busy time is casting, channeling, the GCD (1.0 s for energy users, else 1.5 s), wand shots and
-melee swings (each swing keeps you busy until the next one, at most one swing). For rage and
+Busy time is casting, channeling, the GCD (1.0 s for energy users, else 1.5 s), and auto-attack running:
+melee swings and ranged shots (Auto Shot, wand Shoot; each keeps you busy until the next one, at most one
+swing or shot). Swinging or shooting with no ability is busy, not idle ("swinging_time" says how much).
+A next-swing ability (NEXT_SWING: Heroic Strike...) takes the place of the swing it replaces, so that swing
+is not lost. Shots lost are measured like swings lost, but a gap while moving doesn't count, and a shot
+clipped by a cast (a hard cast; for a wand, any cast, since casting stops the wand) is counted apart. For rage and
 energy users (Advanced Combat Logging), time you couldn't afford your cheapest ability is
 "starved": not busy, but not held against you either. The other side is "capped": time your rage
 or energy sat at its maximum (more coming in was lost), counted from the same readings.
@@ -29,6 +33,10 @@ MOVE_INTERRUPT_S = 0.6  # an interrupted cast this soon after you started moving
 SPAM_WINDOW = 1.0       # the same button this many times inside this many seconds is a burst
 SPAM_COUNT = 3
 LOW_HP = 0.35
+WAND = 5019             # Shoot (wands): any cast stops it, so any cast clips a shot
+# next-swing abilities, by name: they replace your next swing (SPELL_DAMAGE instead of SWING_DAMAGE), so
+# their cast fills that swing's slot in the lost-swing count
+NEXT_SWING = frozenset({"Heroic Strike", "Cleave", "Raptor Strike", "Maul"})
 
 Interval = tuple[float, float]
 
@@ -83,23 +91,30 @@ def inside(t: float, windows: list[Interval]) -> bool:
 
 # ----------------------------------------------------------------------------- the pieces
 def swing_stats(swings: list[float], casting: list[Interval],
-                windows: list[Interval] | None = None) -> tuple[float, int, int]:
+                windows: list[Interval] | None = None, excused: list[Interval] = ()) -> tuple[float, int, int]:
     """(swing speed, swings lost while casting, swings lost otherwise) from your sorted melee swing
-    times. Speed is the median gap between swings; a gap of n speeds loses int(n - 0.6) swings,
-    put down to casting when a hard cast (casting) overlaps it. With windows, only gaps inside one
-    window count (the time between two fights isn't a lost swing)."""
+    (or shot) times. Speed is the median gap between swings; a gap of n speeds loses int(n - 0.6)
+    swings, put down to casting when a hard cast (casting) overlaps it. With windows, only gaps inside
+    one window count (the time between two fights isn't a lost swing); time in `excused` (moving, no
+    enemy alive) is taken off each gap first."""
     pairs = [(a, b) for a, b in zip(swings, swings[1:])
              if windows is None or any(wa <= a and b <= wb for wa, wb in windows)]
     speed = statistics.median([b - a for a, b in pairs]) if pairs else 0.0
     lost_casting = lost_other = 0
     for a, b in pairs:
-        n_lost = int((b - a) / speed - SWING_SLACK) if speed else 0
+        n_lost = int((b - a - total(clip(excused, [(a, b)]))) / speed - SWING_SLACK) if speed else 0
         if n_lost > 0:
             if any(s <= b and e >= a for s, e in casting):
                 lost_casting += n_lost
             else:
                 lost_other += n_lost
     return speed, lost_casting, lost_other
+
+
+def auto_running(times: list[float], speed: float) -> list[Interval]:
+    """when auto-attack was running: each swing or shot (sorted times) until the next, at most one speed"""
+    ends = times[1:] + [times[-1] + speed] if times else []
+    return [(t, t + min(speed, max(0.0, nxt - t))) for t, nxt in zip(times, ends)]
 
 
 def hit_table() -> dict:
@@ -197,6 +212,12 @@ class Metrics:
     swings: int = 0            # your melee swings (hits and misses)
     swings_lost: int = 0       # swings lost while not casting
     swing_speed: float = 0.0
+    swinging_time: float | None = None  # auto-attack running (swings or shots) with no ability: busy, not idle
+    shots: int = 0             # your ranged auto shots (Auto Shot, wand Shoot, Throw), hits and misses
+    # None in analyses saved before shots were measured
+    shots_lost: int | None = None      # lost while not casting, not moving
+    shots_clipped: int | None = None   # lost to a cast
+    shot_speed: float | None = None
     # hit tables (see hit_table); None in analyses saved before they were counted
     melee: dict | None = None          # your swings
     ranged: dict | None = None         # your Auto Shot / Shoot / Throw (RANGE_ events)
@@ -369,7 +390,11 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
     power: list[tuple[float, int]] = []
     full: list[bool] = []             # for each power reading: at its maximum
     swings: list[float] = []
+    slots: list[float] = []           # next-swing ability casts: each takes a swing's place
+    shots: list[float] = []
+    shot_ids: Counter = Counter()
     casting: list[Interval] = []      # your hard casts: cast start to cast success
+    bars: list[Interval] = []         # every cast (not auto): its cast time or GCD
     starts: dict[int, float] = {}
     for e in events:
         t = rd.rel(e.ts)
@@ -386,6 +411,8 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
             count_hit(m.melee, e)
         elif ev in ("RANGE_DAMAGE", "RANGE_MISSED") and e.src == me:
             count_hit(m.ranged, e)
+            shots.append(t)
+            shot_ids[e.spell_id] += 1
         elif ev == "SPELL_EXTRA_ATTACKS" and e.src == me:
             m.extra_attacks[e.spell_name] = m.extra_attacks.get(e.spell_name, 0) + e.extra_count
         elif ev == "SPELL_CAST_START" and rd.mine(e):
@@ -394,6 +421,11 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
             began = starts.pop(e.spell_id, None)
             if began is not None and t - began < 10:
                 casting.append((began, t))
+            if e.src == me and e.spell_id not in AUTO_REPEAT:
+                a = began if began is not None and t - began < 10 else t
+                bars.append((a, max(t, a + GCD)))
+            if e.src == me and e.spell_name in NEXT_SWING:
+                slots.append(t)
         if ev in ("SWING_DAMAGE", "SWING_MISSED") and rd.to_me(e) and e.src != me:
             count_hit(m.swings_taken, e)
         if ev.endswith("_DAMAGE") and not ev.endswith("_LANDED"):
@@ -412,13 +444,16 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
             if p1 < LOW_HP:
                 m.low_hp_time += min(t2 - t1, 5.0)
 
-    # melee: each swing keeps you busy until the next one, at most one swing (like wand shots)
-    m.swing_speed, _, m.swings_lost = swing_stats(swings, casting, windows)
-    m.swings, m.hard_casts = len(swings), len(casting)
-    for i, t in enumerate(swings):
-        nxt = swings[i + 1] if i + 1 < len(swings) else t + m.swing_speed
-        busy.append((t, t + min(m.swing_speed, max(0.0, nxt - t))))
-    busy = union(busy)
+    # auto-attack: each swing or shot keeps you busy until the next one, at most one swing or shot
+    slots = sorted(swings + slots)
+    m.swing_speed, _, m.swings_lost = swing_stats(slots, casting, windows)
+    m.swings, m.hard_casts, m.shots = len(swings), len(casting), len(shots)
+    wand = shot_ids.most_common(1)[0][0] == WAND if shot_ids else False
+    m.shot_speed, m.shots_clipped, m.shots_lost = swing_stats(shots, bars if wand else casting, windows, moving)
+    running = auto_running(slots, m.swing_speed) + auto_running(shots, m.shot_speed)
+    ability = total(clip(busy, windows))
+    busy = union(busy + running)
+    m.swinging_time = total(clip(busy, windows)) - ability
 
     # starved (rage/energy): your power below your cheapest ability's cost
     starved: list[Interval] = []

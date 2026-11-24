@@ -15,9 +15,14 @@ reason not to (see readiness.py):
                            A spell that only works on some targets or after a dodge, block or parry
                            (scoring/usable.py) is excused while it couldn't be used; its row says its
                            chances, and possible counts only the casts that fit in those chances.
-    melee swings lost      gaps in your auto-attacks longer than 1.6 swings, while you weren't casting
-    idle time              gaps of 2.5 s+ with nothing cast, while you weren't moving or stunned and had
-                           the resource to cast (half counted: not every gap is a mistake). Only if you
+    melee swings lost      gaps in your auto-attacks longer than 1.6 swings, while you weren't casting; a
+                           next-swing ability (Heroic Strike, metrics.NEXT_SWING) fills the swing it replaces
+    shots lost             the same for Auto Shot and wand Shoot, less time moving or with no enemy alive;
+                           shots clipped by a cast (a hard cast; any cast for a wand) are counted apart
+    idle time              gaps of 2.5 s+ with no ability used, while you weren't moving or stunned and had
+                           the resource to cast (half counted: not every gap is a mistake). Of that, the
+                           part with auto-attack running is "no ability used while swinging" (or shooting),
+                           the rest is idle; both cost the ability damage you could have added. Only if you
                            have a filler: a damage spell you cast back to back (twice within SPAM seconds,
                            or a confirmed cooldown under MIN_COOLDOWN). Without one there was nothing to
                            press, and a ready cooldown is already counted by its own row.
@@ -46,7 +51,8 @@ from datetime import datetime, timedelta
 from ..model.roster import clean_name
 from ..scoring import usable
 from ..scoring.classes import DEFENSIVES
-from ..scoring.metrics import count_hit, hit_table, swing_stats
+from ..scoring.metrics import NEXT_SWING, WAND, auto_running, clip, count_hit, gaps, hit_table, swing_stats, \
+    total, union
 from ..sources.combatlog import Event
 from . import readiness
 from .tracker import NOT_HOSTILE as NOT_FIGHTING
@@ -153,6 +159,15 @@ def unused_defensives(at: float, casts: list[tuple], book: dict[str, dict], f: F
     return out
 
 
+def idle_words(free: float, swinging: float | None, shooting: bool = False) -> str:
+    """the free time with no ability used, split: "No ability used for 8.0 s while swinging and 3.0 s idle"; a
+    fight saved before the split (swinging None) is all idle"""
+    if not swinging or swinging < 0.05:
+        return f"{free:.1f} s idle"
+    said = f"No ability used for {swinging:.1f} s while {'shooting' if shooting else 'swinging'}"
+    return said + (f" and {free - swinging:.1f} s idle" if free - swinging >= 0.05 else "")
+
+
 def spoken(text: str) -> str:
     """a finding as a sentence a voice can read"""
     return text.replace(" ≈ ", ", about ") + "."
@@ -175,6 +190,10 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     starts: dict[int, float] = {}
     swings: list[float] = []
     swing_dmg: list[int] = []
+    slots: list[float] = []                                      # next-swing ability casts (Heroic Strike...)
+    shots: list[float] = []
+    shot_dmg: list[int] = []
+    shot_ids: Counter = Counter()
     melee, ranged, taken_swings = hit_table(), hit_table(), hit_table()   # hit tables (see hit_table)
     avoided: dict[tuple[str, str], list[float]] = defaultdict(list)    # ("target"|"you", "dodge"...) -> times
     extra_hits: Counter = Counter()                              # extra swings by the spell that gave them
@@ -263,6 +282,10 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 count_hit(melee, e)
             elif ev in ("RANGE_DAMAGE", "RANGE_MISSED") and e.src == me and is_foe(e.dst, e.dst_flags):
                 count_hit(ranged, e)
+                shots.append(t)
+                shot_ids[e.spell_id] += 1
+                if ev == "RANGE_DAMAGE":
+                    shot_dmg.append(e.amount)
             elif ev.endswith("_HEAL") and e.src == me:
                 heal += max(0, e.amount - e.overheal)
                 overheal += e.overheal
@@ -275,6 +298,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 if cost and e.spell_id:
                     costs[name].append(cost)
                 casts.append((t, e.spell_id or 0, name, began if began is not None and t - began < 10 else None, cost))
+                if name in NEXT_SWING:
+                    slots.append(t)
             elif ev == "SPELL_CAST_FAILED" and e.src == me:
                 fails[(e.spell_name, e.reason or "unknown")] += 1
                 if (e.reason or "").startswith("Can't do that while"):
@@ -393,15 +418,28 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
 
     # ---- auto attacks
     auto = None
-    swing_lost = 0.0
+    swing_lost = shot_lost = 0.0
+    hard = [(b, t) for t, _, _, b, _ in casts if b is not None]
+    slots = sorted(swings + slots)
+    speed = 0.0
     if len(swings) >= 2:
-        bars = [(b, t) for t, _, _, b, _ in casts if b is not None]
-        speed, lost_while_casting, lost_other = swing_stats(swings, bars)
+        speed, lost_while_casting, lost_other = swing_stats(slots, hard)
         avg = statistics.mean(swing_dmg) if swing_dmg else 0
         swing_lost = lost_other * avg
         auto = {"swings": len(swings), "speed": speed, "lost": lost_while_casting + lost_other,
                 "lost_casting": lost_while_casting, "lost_other": lost_other, "damage_lost": swing_lost,
                 **melee, "extra": dict(extra_hits)}
+    shot_speed = 0.0
+    if len(shots) >= 2:
+        # moving, or no enemy alive, isn't a lost shot
+        alive = union([(a, b if b is not None else dur) for a, b, _ in ctx.foes])
+        wand = shot_ids.most_common(1)[0][0] == WAND
+        shot_speed, clipped, n_lost = swing_stats(shots, ctx.bars if wand else hard, None,
+                                                  ctx.moving + gaps(alive, [(0.0, dur)], 0.0))
+        shot_lost = n_lost * (statistics.mean(shot_dmg) if shot_dmg else 0)
+        ranged.update(shots=len(shots), speed=shot_speed, shots_lost=n_lost, clipped=clipped, damage_lost=shot_lost)
+    running = auto_running(slots, speed) + auto_running(shots, shot_speed)
+    shooting = len(shots) > len(slots)          # the word: "while shooting" or "while swinging"
 
     # ---- idle: gaps with no cast and no GCD running
     busy = []
@@ -420,7 +458,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         if a - cur >= IDLE_GAP:
             gaps_idle.append((cur, a))
         cur = max(cur, b)
-    idle_moving = 0.0
+    idle_moving = swing_res = 0.0
     for a, b in gaps_idle:
         p_then = next((pw for t, pw in reversed(power) if t <= a), first_power)
         low = typical_cost and p_then is not None and p_then < 0.08
@@ -430,7 +468,10 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         excused = sum(max(0.0, min(b, y) - max(a, x)) for x, y in ctx.moving + ctx.cc + ctx.lulls)
         idle_moving += min(b - a, excused)
         idle_res += max(0.0, b - a - excused)
-    spell_dps = (damage - sum(swing_dmg)) / dur if dur else 0
+        swing_res += total(clip(running, gaps(ctx.moving + ctx.cc + ctx.lulls, [(a, b)], 0.0)))
+    swing_res = min(swing_res, idle_res)
+    swinging = total(clip(running, gaps_idle))
+    spell_dps = (damage - sum(swing_dmg) - sum(shot_dmg)) / dur if dur else 0      # ability damage only
     has_filler = any(filler(e) for e in book.values())
     idle_lost = 0.5 * idle_res * spell_dps if has_filler else 0.0
 
@@ -470,10 +511,10 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     healing_role = heal > damage
     unjudged = healing_role or damage == 0
     if unjudged:
-        cd_lost = swing_lost = idle_lost = 0.0
+        cd_lost = swing_lost = shot_lost = idle_lost = 0.0
     if damage == 0:
         cd_rows = []                   # a healing fight keeps its rows to look at; with no damage they're noise
-    potential = damage + cd_lost + swing_lost + idle_lost
+    potential = damage + cd_lost + swing_lost + shot_lost + idle_lost
     efficiency = damage / potential if potential else 1.0
     dps = damage / max(dur, 1.5)
 
@@ -534,9 +575,13 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     if auto and auto["lost_other"] and not unjudged:
         improve.append((swing_lost, f"{auto['lost_other']} swing{'s' if auto['lost_other'] != 1 else ''} lost while "
                                     f"not attacking ≈ {_fmt(swing_lost)} damage"))
+    if ranged.get("shots_lost") and not unjudged:
+        n = ranged["shots_lost"]
+        improve.append((shot_lost, f"{n} shot{'s' if n != 1 else ''} lost while not shooting "
+                                   f"≈ {_fmt(shot_lost)} damage"))
     if has_filler and idle_res >= IDLE_GAP and not unjudged:
-        improve.append((idle_lost, f"{idle_res:.1f} s idle with a target, standing, with resource to spare "
-                                   f"≈ {_fmt(idle_lost)} damage"))
+        improve.append((idle_lost, idle_words(idle_res, swing_res, shooting) +
+                        f" with a target, standing, with resource to spare ≈ {_fmt(idle_lost)} damage"))
     for row_ in failed:
         if row_["reason"] not in MASHING and not row_["reason"].startswith("Can't do that while"):
             improve.append((0.1, f"{row_['spell']}: {row_['reason']} ×{row_['count']}"))
@@ -580,7 +625,9 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         "swings_taken": taken_swings if taken_swings["landed"] or taken_swings["misses"] else None,
         "idle": {"total": idle_res + idle_out + idle_moving, "with_resource": idle_res,
                  "out_of_resource": idle_out, "moving": idle_moving, "lost": idle_lost,
-                 "filler": has_filler},
+                 "filler": has_filler,
+                 # of total, and of with_resource: auto-attack running ("no ability used while swinging")
+                 "swinging": swinging, "swinging_free": swing_res, "shooting": shooting},
         "group": group,
         "buffs": buffs, "failed": failed,
         "resource": {"start": f.start_power, "end": power[-1][1] if power else None,
