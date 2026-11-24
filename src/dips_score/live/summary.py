@@ -251,7 +251,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 if ev.startswith("SWING") and e.src == me:
                     swings.append(t)
             elif ev == "SPELL_EXTRA_ATTACKS" and e.src == me:
-                extra_hits[e.spell_name] += e.amount
+                extra_hits[e.spell_name] += e.extra_count
             if ev in ("SWING_DAMAGE", "SWING_MISSED") and e.src == me and is_foe(e.dst, e.dst_flags):
                 count_hit(melee, e)
             elif ev in ("RANGE_DAMAGE", "RANGE_MISSED") and e.src == me and is_foe(e.dst, e.dst_flags):

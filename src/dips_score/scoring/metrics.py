@@ -387,7 +387,7 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
         elif ev in ("RANGE_DAMAGE", "RANGE_MISSED") and e.src == me:
             count_hit(m.ranged, e)
         elif ev == "SPELL_EXTRA_ATTACKS" and e.src == me:
-            m.extra_attacks[e.spell_name] = m.extra_attacks.get(e.spell_name, 0) + e.amount
+            m.extra_attacks[e.spell_name] = m.extra_attacks.get(e.spell_name, 0) + e.extra_count
         elif ev == "SPELL_CAST_START" and rd.mine(e):
             starts[e.spell_id] = t
         elif ev == "SPELL_CAST_SUCCESS" and rd.mine(e):

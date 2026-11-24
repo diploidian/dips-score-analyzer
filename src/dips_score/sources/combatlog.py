@@ -107,7 +107,9 @@ class Event:
     blocked: int = 0
     glancing: bool = False   # _DAMAGE (melee): a glancing or crushing blow
     crushing: bool = False
-    miss_type: str = ""      # _MISSED: MISS, DODGE, PARRY, ABSORB, ... (amount: the amount missed, if any)
+    miss_type: str = ""      # _MISSED: MISS, DODGE, PARRY, ABSORB, ...
+    missed_amount: int = 0   # _MISSED: the amount blocked, absorbed or resisted, if any
+    extra_count: int = 0     # SPELL_EXTRA_ATTACKS: how many extra swings
     # _MISSED only: this client marks off-hand on misses but not on _DAMAGE lines, so swings stay one stream
     off_hand: bool = False
     reason: str = ""         # SPELL_CAST_FAILED: "Not yet recovered", ...
@@ -198,9 +200,9 @@ def parse_line(line: str) -> Event | None:
     elif ev.endswith("_MISSED") and s:
         # miss type, is off-hand, amount missed (BLOCK, ABSORB, RESIST), critical
         e.miss_type, e.off_hand = s[0], len(s) > 1 and s[1] == "1"
-        e.amount = _int(s[2]) if len(s) > 2 else 0
+        e.missed_amount = _int(s[2]) if len(s) > 2 else 0
     elif ev == "SPELL_EXTRA_ATTACKS" and s:
-        e.amount = _int(s[0])    # how many extra swings
+        e.extra_count = _int(s[0])
     elif ev == "SPELL_CAST_FAILED" and s:
         e.reason = s[0]
     elif ev.endswith(("_INTERRUPT", "_DISPEL", "_STOLEN", "_AURA_BROKEN_SPELL")) and s:

@@ -297,7 +297,8 @@ class Activity(unittest.TestCase):
         miss = ev(59, "SWING_MISSED", ME, MOB1)
         miss.miss_type = "PARRY"
         taken = ev(5, "SWING_DAMAGE", MOB1, ME, amount=30)
-        extra = ev(7, "SPELL_EXTRA_ATTACKS", ME, ME, "Windfury Attack", 1)
+        extra = ev(7, "SPELL_EXTRA_ATTACKS", ME, ME, "Windfury Attack")
+        extra.extra_count = 1
         m = self.measure(self.swings() + [miss, taken, extra])
         self.assertEqual((m.melee["landed"], m.melee["misses"]), (30, {"parry": 1}))
         self.assertEqual((m.swings_taken["landed"], m.extra_attacks), (1, {"Windfury Attack": 1}))

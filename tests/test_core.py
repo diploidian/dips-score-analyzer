@@ -115,10 +115,10 @@ class AutoAttacks(unittest.TestCase):
 
     def test_swing_missed(self):
         e = combatlog.parse_line(SWING_DODGE)
-        self.assertEqual((e.miss_type, e.off_hand, e.amount), ("DODGE", False, 0))
+        self.assertEqual((e.miss_type, e.off_hand, e.missed_amount, e.amount), ("DODGE", False, 0, 0))
         self.assertTrue(combatlog.parse_line(SWING_OFFHAND_MISS).off_hand)
-        self.assertEqual(combatlog.parse_line(SWING_BLOCK).amount, 24)
-        self.assertEqual(combatlog.parse_line(SWING_ABSORB).amount, 43)
+        self.assertEqual(combatlog.parse_line(SWING_BLOCK).missed_amount, 24)
+        self.assertEqual(combatlog.parse_line(SWING_ABSORB).missed_amount, 43)
 
     def test_ranged(self):
         e = combatlog.parse_line(RANGE_CRIT)
@@ -128,7 +128,7 @@ class AutoAttacks(unittest.TestCase):
 
     def test_extra_attacks(self):
         e = combatlog.parse_line(EXTRA)
-        self.assertEqual((e.spell_name, e.amount), ("Reckoning", 2))
+        self.assertEqual((e.spell_name, e.extra_count, e.amount), ("Reckoning", 2, 0))
 
     def test_hit_table(self):
         t = metrics.hit_table()
