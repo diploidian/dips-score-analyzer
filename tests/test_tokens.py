@@ -40,6 +40,16 @@ class TokensTest(unittest.TestCase):
         for look, t in tokens.TOKENS.items():
             self.assertGreaterEqual(contrast(t["tx"], t["panel"]), 4.5, look)
 
+    def test_trait_inks_read_at_their_sizes(self):
+        """the Profile's figures (20px bold and up) and hand notes (24px) are large text: 3:1 on panel and bg in all four
+        looks"""
+        from dips_score import profile_view as pv
+        inks = {*pv.FAMILY_INK.values(), *pv.KEY_INK.values(), *pv.ROLE_INK.values(), *pv.PLACE_INK.values(), "hl-note"}
+        for look, t in tokens.TOKENS.items():
+            for ink in inks:
+                for bg in ("panel", "bg"):
+                    self.assertGreaterEqual(contrast(t[ink], t[bg]), 3, (look, ink, bg))
+
     def test_rail_text_reads_on_rail(self):
         """the rail's run tree and fight list: rail-tx (names) and rail-mu (muted line, tags) reach 4.5:1 on the rail
         and on the picked row (rail-on) in all four looks"""

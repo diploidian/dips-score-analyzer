@@ -176,6 +176,11 @@ def shown(kind: str, v: float, fine: bool = False) -> tuple[str, str]:
     return f"{scaled:,.{(kind == 'n1') + fine}f}", {"%": "%", "s": "s"}.get(kind, "")
 
 
+def written(value: str, unit: str) -> str:
+    """a figure with its unit: 86%, 25 s, 47% auto attack"""
+    return f"{value}{unit}" if unit[:1] in ("", "%") else f"{value} {unit}"
+
+
 def foes(f: dict) -> list:
     return f.get("foes") or []
 

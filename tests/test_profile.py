@@ -349,6 +349,11 @@ def page(fs, runs=(), char=None, book=None, earlier=()):
     return build_profile(profile(fs, char, book or {}, list(runs), T0), list(earlier))
 
 
+def title_of(v):
+    """the plate's title, None without a plate"""
+    return v.plate and v.plate.title
+
+
 def row(rows, name):
     return next(r for r in rows if r.name == name)
 
@@ -399,7 +404,8 @@ class View(unittest.TestCase):
         runs[0].update(by_key=499, by_click=1)
         self.assertEqual(title(), "The game turns down your presses")
         runs[0].update(failed=100)
-        self.assertEqual(title(), "Your last 15 days were clean")
+        self.assertEqual(title(), "Your healing lands")                                     # nothing to change
+        self.assertEqual(title(spec="Retribution"), "Your last 15 days were clean")
 
     def test_plate_sat_ready(self):
         cd = lambda n, lost, counted, **kw: {"name": n, "lost": lost, "counted": counted, **kw}  # noqa: E731
@@ -413,7 +419,7 @@ class View(unittest.TestCase):
         p = one(10)                                                             # 1% of the damage
         self.assertEqual((p.caption, p.next), ("1 cast missed in 1 fight", []))
         self.assertIn("about 1% more damage", p.why)
-        self.assertEqual([one(9.9).title, one(5).title], ["Nothing stands out"] * 2)
+        self.assertEqual([(one(x).title, one(x).tab) for x in (9.9, 5)], [("Nothing stands out", "Going well")] * 2)
         p = page(many(damage=100, cooldowns=[{"name": "Conse", "lost": 4}])).plate      # old fights: no casts
         self.assertEqual((p.title, p.caption), ("Conse sat ready", "in 10 fights"))
         p = page(many(damage=100, potential=150, cooldowns=[cd("Exorcism", 5, 1, chances=2)])).plate
@@ -426,10 +432,10 @@ class View(unittest.TestCase):
         p = page(many(damage=90, potential=100, cooldowns=cd)).plate                  # exactly 90%
         self.assertEqual((p.title, p.figure, p.caption), ("Your last 15 days were clean", "90% of possible damage",
                                                           "in 10 fights where you did damage"))
-        title = lambda damage, n=10: page(many(n, damage=damage, potential=1000, cooldowns=cd) + many(10 - n)).plate.title  # noqa: E731
+        self.assertEqual(p.tab, "Going well")
+        title = lambda damage, n=10: title_of(page(many(n, damage=damage, potential=1000, cooldowns=cd) + many(10 - n)))  # noqa: E731
         self.assertEqual([title(894), title(896), title(899)], ["Conse sat ready"] + ["Your last 15 days were clean"] * 2)
-        p = page(many(9, damage=950, potential=1000, cooldowns=cd) + many(1)).plate      # too few to call clean
-        self.assertEqual((p.title, p.figure), ("Nothing stands out", "10 fights"))
+        self.assertIsNone(page(many(9, damage=950, potential=1000, cooldowns=cd) + many(1)).plate)  # too few to call clean
 
     def test_plate_healer_with_one_solo_fight(self):
         solo = fight(damage=100, potential=150, cooldowns=[{"name": "Smite", "lost": 50, "counted": 5}])
@@ -446,22 +452,26 @@ class View(unittest.TestCase):
         p = page(many(3, danger={**low, "unused": ["Wall"]}) + many(4, danger=two) + many(2, danger=low) + many(3, danger=safe)).plate
         self.assertEqual((p.title, p.figure), ("Wall sat ready in 7 close calls", "7 of 9"))
         old = {"unused": ["Shield"]}                                    # summed up before "answered": not counted
-        self.assertEqual(page(many(4, danger=low) + many(6, danger=old)).plate.title, "Nothing stands out")
-        self.assertEqual(page(many(4, danger=low) + many(6)).plate.title, "Nothing stands out")
+        self.assertIsNone(page(many(4, danger=low) + many(6, danger=old)).plate)
+        self.assertIsNone(page(many(4, danger=low) + many(6)).plate)
 
     def test_plate_overheal_is_a_healers(self):
         kw = dict(healing=60, overheal=40)
         p = page(many(healing_role=True, **kw)).plate
-        self.assertEqual((p.figure, p.caption), ("40% overheal", "400 of 1,000 healing, in 10 healing fights"))
-        self.assertEqual(page(many(healing_role=True, healing=61, overheal=40)).plate.title, "Nothing stands out")
-        self.assertEqual(page(many(4, healing_role=True, **kw) + many(6)).plate.title, "Nothing stands out")
+        self.assertEqual((p.tab, p.figure, p.caption), ("Worth changing", "40% overheal",
+                                                        "400 of 1,000 healing, in 10 healing fights"))
+        p = page(many(healing_role=True, healing=61, overheal=40)).plate
+        self.assertEqual((p.tab, p.title, p.figure, p.caption), ("Going well", "Your healing lands", "40% overheal",
+                                                                 "400 of 1,010 healing, in 10 healing fights"))
+        self.assertIsNone(page(many(healing_role=True)).plate)                              # no overheal known
+        self.assertIsNone(page(many(4, healing_role=True, **kw) + many(6)).plate)
 
     def test_plate_input_only_when_badly_wrong(self):
         def title(now, before=None, n=500):
             hands = lambda days, share, n: run(days, presses=n, by_key=n - round(n * share), by_click=round(n * share))  # noqa: E731
             runs = [hands(1, now, n)] + ([hands(20, *before)] if before else [])
-            return page(many() + many(days_ago=20), runs).plate.title
-        bad, none = "You click instead of pressing keys", "Nothing stands out"
+            return title_of(page(many() + many(days_ago=20), runs))
+        bad, none = "You click instead of pressing keys", None
         self.assertEqual([title(.6), title(.59), title(.6, n=499)], [bad, none, none])     # 500 of the known presses
         self.assertEqual([title(.7, (.7, 500)), title(.7, (.8, 500)), title(.7, (.69, 500))], [none, none, bad])
         self.assertEqual([title(.7, (.8, 499)), title(.7, (.5, 500))], [bad, bad])        # not shown in Before
@@ -469,14 +479,14 @@ class View(unittest.TestCase):
         p = page(many(), [run(1, presses=100, failed=200, casts=300)]).plate                # 500 casts tried
         self.assertEqual((p.title, p.figure, p.caption), ("The game turns down your presses", "40% refused",
                                                           "200 of 500 casts tried, in 1 recorded run"))
-        self.assertEqual(page(many(), [run(1, presses=900, failed=200, casts=299)]).plate.title, none)
+        self.assertIsNone(page(many(), [run(1, presses=900, failed=200, casts=299)]).plate)
 
     def test_plate_without_the_new_figures(self):
         p = profile(many() + many(days_ago=20), None, {}, [run(1)], T0)
         for f in (p["now"], p["before"]):
             for k in ("damage", "efficiency", "judged", "losses", "close_calls", "overheal"):
                 del f[k]
-        self.assertEqual(build_profile(p, [slice_(15)]).plate.title, "Nothing stands out")
+        self.assertIsNone(build_profile(p, [slice_(15)]).plate)
 
     def test_old_history_file_still_loads(self):
         """a profile_history.json saved by 0.16 or 0.17: kept as it is, shown, and added to"""
@@ -505,15 +515,13 @@ class View(unittest.TestCase):
                          "60 uses of a ready cooldown went unspent.")
         self.assertEqual(page(many(2, result="you died") + many(8)).plate.why,
                          "2 of your last 10 fights ended with you dead.")
-        self.assertEqual(page(many()).plate.why, "")
+        self.assertEqual(page(many(damage=80, potential=100)).plate.why, "")
 
     def test_nothing_stands_out(self):
         keys = [run(1, by_key=99, by_click=1)]
-        p = page(many(cooldowns=[{"possible": 10, "missed": 1}]), keys).plate       # never keys, clicks or presses
-        self.assertEqual((p.title, p.figure, p.caption, p.next), ("Nothing stands out", "10 fights",
-                                                                  "in the last 15 days", []))
+        self.assertIsNone(page(many(cooldowns=[{"possible": 10, "missed": 1}]), keys).plate)    # no figure, no plate
         p = page(many(damage=80, potential=100), keys).plate
-        self.assertEqual((p.title, p.figure), ("Nothing stands out", "80% of possible damage"))
+        self.assertEqual((p.tab, p.title, p.figure), ("Going well", "Nothing stands out", "80% of possible damage"))
 
     def test_chip_threshold_and_sign(self):
         def dungeon(now, before):       # of 100 fights
@@ -592,9 +600,7 @@ class View(unittest.TestCase):
 
     def test_hands_without_runs(self):
         v = page(many())
-        self.assertEqual(len(v.hands), 1)
-        self.assertEqual((v.hands[0].value, v.hands[0].note),
-                         ("–", "Hands needs a recorded run: play with the projectArthas add-on on, then reload."))
+        self.assertEqual(v.hands, [])
         self.assertNotIn(" who ", v.label)
 
     def test_hands_with_runs(self):
@@ -671,6 +677,7 @@ class View(unittest.TestCase):
         self.assertEqual((v.caption, v.sig_header, v.spells_header),
                          ("of fight time healing", "share of your casts", "share of casts"))
         self.assertEqual((v.signature[0].name, v.signature[0].value, v.signature[0].bar), ("Heal", "90", 0.9))
+        self.assertEqual({r.ink for r in v.signature}, {"m-cast"})
         self.assertEqual(v.spells_title, "All spells (2)")
 
     def test_damage_signature_no_damage_row(self):
@@ -690,7 +697,7 @@ class View(unittest.TestCase):
         self.assertEqual(v.plate.title, "You know Exorcism and have not cast it")
         self.assertEqual(v.plate.why, "Smite carries your casts. Exorcism works on undead and demons. "
                                       "You fought 24 of them in 6 fights and cast it 0 times.")
-        self.assertNotEqual(page(fs, char=char).plate.title, "You know Exorcism and have not cast it")
+        self.assertIsNone(page(fs, char=char).plate)
 
     def test_reactive_and_health_plate(self):
         char = {"spells": {"Overpower": {"harm": True}, "Execute": {"harm": True}}}

@@ -1,11 +1,11 @@
 """What the Profile page shows, as plain data (no Qt), from live.profile.profile() and the saved 15-day slices
 (live.profile_history): the crest (title, second line, deeds), the hero (the title's trait, or the main role's share
-without one) and the label, the "Before:" line, the Worth changing plate, How you fight, every trait, Signature (no per-row note but "no damage of its own" for a "–" share), Hands (no chip, never marked), Role mix, Where you fight, the chips and the one highlighter mark (Now against
+without one) and the label, the "Before:" line, the Worth changing plate, How you fight, every trait, Signature (no per-row note but "no damage of its own" for a "–" share), Hands (no chip, never marked; no rows without a recorded run), Role mix, Where you fight, the chips and the one highlighter mark (Now against
 Before: a trait's tier that Before had not reached, else the largest move, on a tie the increase, then page order), the
 Earlier rows and every empty state. A
 value that cannot be known renders "–", never a guess.
 
-Inks are token names: Signature bars "m-dmg", Role mix bars ROLE_INK, Where you fight bars PLACE_INK, other
+Inks are token names: Signature bars "m-dmg" (a share of casts "m-cast"), traits and How you fight _ink, Role mix bars ROLE_INK, Where you fight bars PLACE_INK, other
 figures "tx". A Role mix grade letter and
 score take theme.grade_color(letter), which the painter applies (there is no token per grade)."""
 from dataclasses import dataclass, field
@@ -15,7 +15,7 @@ from .dungeon_view import visits
 from .fight_view import CLEAN
 from .habits_view import MINUS, _meta, _plural
 from .live.profile_history import MIN_FIGHTS
-from .live.traits import BY_KEY, needs, shown
+from .live.traits import BY_KEY, needs, shown, written
 from .scoring import usable
 
 NA = "–"
@@ -39,7 +39,18 @@ PLACE_MOVE = {"Dungeon": ("more dungeons", "fewer dungeons"), "Raid": ("more rai
               "World": ("more open world", "less open world"), "PvP": ("more PvP", "less PvP")}
 MELEE = "Melee (auto attack)"
 OUTDATED = "Based on older fight records. Import your combat logs in Settings for the full picture."
-NO_HANDS = "Hands needs a recorded run: play with the projectArthas add-on on, then reload."
+WORTH, WELL = "Worth changing", "Going well"     # the plate's tab: a fix, or nothing to fix
+# one ink per trait or How you fight row, wherever its figure shows; the rest (Victory, Company, Break) take the main role's
+FAMILY_INK = {"Pace": "m-pace", "Nerve": "m-surv", "Weapon": "m-dmg", "Healing": "role-heal", "Tanking": "role-tank",
+              "Road": "place-world"}
+KEY_INK = {"Edgewise": "m-dmg", "split": "m-dmg", "Ready": "m-cd", "Planted": "m-cast", "cut": "m-cast", "Primed": "m-upk",
+           "Mercy": "role-heal", "overheal": "role-heal", "heal_share": "role-heal", "dispels": "role-heal",
+           "pull": "role-tank", "taken": "m-surv", "lowest": "m-surv", "War": "place-pvp", "broken_off": "place-pvp",
+           "length": "place-pvp", "pvp_deaths": "place-pvp"}
+GUARD_NAME = {"%": "Average lowest health", "n1": "Deaths per 100 fights"}      # by the figure that scores it
+# How you fight rows whose caption only says their name again
+RESTATED = {"Tempo", "Swift", "Marathon", "Streak", "Brink", "Guard", "lowest", "Duel", "Finish", "Hound", "Boss", "War",
+            "Edgewise", "Ready", "Primed", "Lone", "Bond", "Menagerie", "Crit", "pvp_deaths"}
 
 
 @dataclass
@@ -65,6 +76,7 @@ class Plate:
     why: str = ""               # one plain sentence from real figures; "" when there is nothing real to say
     button: str = "Open Habits"
     next: list[tuple[str, str]] = field(default_factory=list)       # the next two abilities: (name, "51,884 damage")
+    tab: str = WORTH
 
 
 @dataclass
@@ -85,6 +97,7 @@ class TraitRow:
     bar: float                  # its score 0..1
     tier: str = ""              # its epithet "Relentless", "" under the first tier
     next: str = ""              # "Unfallen at 126, you are at 97", "" at the top tier
+    ink: str = "tx"             # its figure's and bar's
 
 
 @dataclass
@@ -104,18 +117,19 @@ class ProfileView:
     need_line: str = ""
     crest: Crest | None = None
     outdated: str = ""          # the line under the crest when most fights were summed up by an older version
-    ring: str | None = None     # the page's one ring, "new: Relentless", and its trait; no row is marked then, but the
-    ring_key: str | None = None     # How you fight row of that trait
+    ring: str | None = None     # a new tier's note, "new: Relentless", and its trait: then no other row is marked, but
+    ring_key: str | None = None     # the How you fight row of that trait, for the page to ring with All traits shut
     card: list[Row] = field(default_factory=list)       # How you fight, the title's own row first
     traits_title: str = "All traits (0)"
     traits: list[tuple[str, list[TraitRow]]] = field(default_factory=list)      # by family, those that score
     hero: str = NA              # the title's trait "25", or the main role's share "98"
     hero_unit: str = "%"
+    hero_ink: str = "tx"
     caption: str = ""           # "between one fight and the next"
     chip: str | None = None     # the hero figure's change, when it is a share; chip_ink its box
     chip_ink: str = "ln"
-    label: str = ""             # "World damage dealer who keybinds."
-    before: str | None = None   # "Before: hoarding dungeon damage dealer."
+    label: str = ""             # "Careful world damage dealer."
+    before: str | None = None   # "Before: Tireless Crusader of Stranglethorn Vale"
     plate: Plate | None = None
     sig_header: str = ""        # "share of your damage" / "share of your casts"
     signature: list[Row] = field(default_factory=list)
@@ -190,11 +204,11 @@ def _sat_ready(losses: list[dict], gain: float) -> Plate:
                  next=[(s["name"], f"{s['lost']:,.0f} damage") for s in losses[1:3]])
 
 
-def _plate(now: dict, before: dict | None) -> Plate:
+def _plate(now: dict, before: dict | None) -> Plate | None:
     """the first rule that applies: deaths, the ability that lost the most damage (not for a healer, nor in a window
     that reads CLEAN or better), close calls with a defensive ready, spells never cast, a healer's overheal, cooldowns, input when it is
-    badly wrong. None: a clean window says so from MIN_FIGHTS judged fights, else "Nothing stands out" with the
-    efficiency, else the fights"""
+    badly wrong. Else, under its own tab, what goes well: a healer's overheal, a clean window from
+    MIN_FIGHTS judged fights, "Nothing stands out" with the efficiency; None without a figure"""
     n, h, t = now["fights"], now.get("hands") or {}, now["temperament"]
     fights = f"in your last {_plural(n, 'fight')}"
     cds, unused = t.get("cooldowns_share"), now.get("unused")
@@ -242,10 +256,13 @@ def _plate(now: dict, before: dict | None) -> Plate:
     if _badly(now, before, "refused_share", PLATE_REFUSED, ("casts", "failed")):
         return Plate("The game turns down your presses", f"{_pct(h['refused_share'])}% refused",
                      f"{h['failed']:,} of {h['casts'] + h['failed']:,} casts tried, in {runs}")
+    if now.get("main_role") == "healer" and cast:
+        return Plate("Your healing lands", f"{_pct(o['overheal'] / cast)}% overheal",
+                     f"{o['overheal']:,} of {cast:,} healing, in {_count(o['fights'], 'healing fight')}", tab=WELL)
     if eff is None or clean and now["judged"] < MIN_FIGHTS:
-        return Plate("Nothing stands out", _plural(n, "fight"), "in the last 15 days")
+        return None
     return Plate("Your last 15 days were clean" if clean else "Nothing stands out", f"{_pct(eff)}% of possible damage",
-                 f"in {_count(now['judged'], 'fight')} where you did damage")
+                 f"in {_count(now['judged'], 'fight')} where you did damage", tab=WELL)
 
 
 def _badly(now: dict, before: dict | None, key: str, limit: float, of: tuple[str, str]) -> bool:
@@ -282,15 +299,20 @@ def _who(p: dict) -> str:
     return ", ".join(x for x in (kind, f"level {level}" if level else "") if x)
 
 
-def _trait_row(t: dict) -> TraitRow:
+def _ink(key: str, main: str | None) -> str:
+    return KEY_INK.get(key) or FAMILY_INK.get(BY_KEY[key].family) or ROLE_INK.get(main, "tx")
+
+
+def _trait_row(t: dict, main: str | None) -> TraitRow:
     tr = BY_KEY[t["key"]]
     value, unit = shown(t["kind"], t["figure"])
-    r = TraitRow(t["key"], tr.name, value, unit, t["caption"], t["score"], t["epithet"] or "")
+    name = GUARD_NAME[t["kind"]] if tr.key == "Guard" else tr.name
+    r = TraitRow(tr.key, name, value, unit, t["caption"], t["score"], t["epithet"] or "", ink=_ink(tr.key, main))
     if t["next"]:
         need = needs(t["next"], tr)
         # the same rounded figure: one decimal more
         at = shown(t["kind"], t["figure"], fine=(value, unit) in need)
-        r.next = f"{t['next']['epithet']} at {_and([v + u for v, u in need])}, you are at {''.join(at)}"
+        r.next = f"{t['next']['epithet']} at {_and([written(*x) for x in need])}, you are at {written(*at)}"
     return r
 
 
@@ -332,8 +354,9 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     v.outdated = OUTDATED if now["outdated"] else ""
     if hero:
         v.hero, v.hero_unit, v.caption = hero["figure"], hero["unit"], hero["caption"]
+        v.hero_ink = v.chip_ink = _ink(hero["key"], main)
     elif main:
-        v.hero, v.caption = _pct(now["roles"][main]), f"of fight time {DOING[main]}"
+        v.hero, v.caption, v.hero_ink = _pct(now["roles"][main]), f"of fight time {DOING[main]}", ROLE_INK[main]
     else:
         v.hero_unit, v.caption = "", "no fight time in these fights"
     v.label = now["label"]
@@ -347,7 +370,8 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     for k in now["pack"] + cut:
         r = now["rows"][k]
         value, unit = shown(r["kind"], r["figure"])
-        row = Row(r["name"], value, f"{unit} {r['unit']}".strip(), r["note"], bar=r["figure"] if r["share"] else None)
+        row = Row(GUARD_NAME[r["kind"]] if k == "Guard" else r["name"], value, f"{unit} {r['unit']}".strip(),
+                  "" if k in RESTATED else r["note"], _ink(k, main), r["figure"] if r["share"] else None)
         if r["share"]:
             # a trait of two figures may be the other one in Before
             share(row, lambda f, k=k: r2["figure"] if (r2 := f["rows"].get(k) or {}).get("share") else None,
@@ -361,7 +385,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     for t in scored:
         if not v.traits or v.traits[-1][0] != t["family"]:
             v.traits.append((t["family"], []))
-        v.traits[-1][1].append(_trait_row(t))
+        v.traits[-1][1].append(_trait_row(t, main))
     v.traits_title = f"All traits ({len(scored)})"
 
     sig = now["signature"]
@@ -378,7 +402,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     for s in sig["top"]:
         has = bool(s["share"])
         name, count = name_count(s)
-        v.signature.append(Row(name, _pct(s["share"]) if has else NA, "%" if has else "", ink="m-dmg",
+        v.signature.append(Row(name, _pct(s["share"]) if has else NA, "%" if has else "", ink="m-cast" if casts else "m-dmg",
                                bar=s["share"] if has else None, casts=count,
                                note="" if has else "no damage of its own"))
     if not sig["top"]:
@@ -402,8 +426,6 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
                 note=f"over {_hm(combat)} of combat in recorded runs"),
             Row("Refused presses", _pct(refused), "%" if refused is not None else "",
                 f"{h['failed']:,} presses the game turned down, in recorded runs")]
-    else:
-        v.hands = [Row("Keys, clicks and presses", note=NO_HANDS)]
 
     for role in ("damage", "healer", "tank"):
         sh, gr = now["roles"][role], (now.get("grades") or {}).get(role)

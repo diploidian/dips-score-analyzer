@@ -8,6 +8,7 @@ nothing more than a repaint.
 """
 import math
 from dataclasses import dataclass
+from itertools import groupby
 
 from PyQt6.QtCore import QEvent, QPointF, QRect, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPen, QPolygonF, QTextLayout
@@ -273,6 +274,7 @@ class Hero(Part):
         self.big, self.suffix, self.caption, self.chip, self.verdict = "–", None, None, None, ""
         self.unit = (64, 54, 700, 6, 2)     # a unit's px (narrow px), weight, and dx, dy from the number's top right
         self.bar: tuple[float, str] | None = None     # a bullet bar under the caption: its share (0..1) and ink
+        self.ink = "tx"                     # the number's
         self.chip_ink: str | None = None    # the chip's box, its text then in tx (None: both in gD or gS by its sign)
         self.verdict_look = (15, 400, "tx2")     # the verdict's px, weight and ink
 
@@ -287,7 +289,7 @@ class Hero(Part):
         top, lh = 8, px * 0.8
         x = adv(f, self.big)      # the final width, so what's beside it doesn't move while the number ticks
         if p:
-            ink = tok("mu") if self.big == "–" else tok("tx")       # "–": nothing to show, so it reads as a dash
+            ink = tok("mu") if self.big == "–" else tok(self.ink)   # "–": nothing to show, so it reads as a dash
             text_at(p, f, ink, 0, baseline(f, top, lh), ticker(self.big, self.p))
         if self.suffix in GRADES:
             gpx, pv, ph = (46, 4, 10) if self.narrow else (56, 5, 12)
@@ -400,15 +402,16 @@ class Plate(Part):
         price = [(self.price, font(self.price_px, 700, num=True), tok("plate-ac"))] if self.price else []
         gap = 12 if n else 18
         if self.price_words and self.price:     # "about 7,298 damage", 7px apart
-            words = [(s, font(self.price_px, 700, num=True), tok("plate-ac")) if any(c.isdigit() for c in s)
-                     else (s, font(13), tok("plate-mu")) for s in self.price.split()]
+            words = [(" ".join(ws), *((font(self.price_px, 700, num=True), tok("plate-ac")) if big else
+                                      (font(13), tok("plate-mu"))))
+                     for big, ws in groupby(self.price.split(), lambda s: any(c.isdigit() for c in s))]
             y += flow(p, words, x, y, cw, 7, 2) + 2
             price, gap = [], 7
-        price += [(s, font(13), tok("plate-mu")) for s in (self.caption or "").split(" · ") if s]
-        if len(price) == 1 and adv(price[0][1], price[0][0]) > cw:
-            y += wrapped(p, price[0][1], price[0][2], x, y, cw, 13 * 1.4, price[0][0])
-        elif price:
-            y += flow(p, price, x, y, cw, gap, 2)
+        words = [(s, font(13), tok("plate-mu")) for s in (self.caption or "").split(" · ") if s]
+        if not price and len(words) == 1 and adv(font(13), words[0][0]) > cw:       # a caption alone, longer than its line
+            y += wrapped(p, font(13), tok("plate-mu"), x, y, cw, 13 * 1.4, words[0][0])
+        elif price + words:
+            y += flow(p, price + words, x, y, cw, gap, 2)
         if self.body and self.body_last:
             y += 6 + wrapped(p, font(13), tok("plate-mu"), x, y + 6, cw, 13 * 1.4, self.body)
         if self.has_button:

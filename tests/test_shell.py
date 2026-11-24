@@ -4,6 +4,7 @@ PYTHONPATH=<folder with PyQt6> python -m unittest discover -s tests"""
 import importlib.util
 import io
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -484,10 +485,9 @@ class ShellTests(unittest.TestCase):
             self.assertTrue(page.need.isHidden())
             self.assertEqual((page.page.title, page.hero.big, page.hero.verdict),
                              ("A", "100", "Careful world damage dealer."))
-            self.assertEqual(page.plate.title, "Nothing stands out")
+            self.assertEqual((page.plate.label, page.plate.title), ("Going well", "Nothing stands out"))
             self.assertEqual([r.name for r in page.roles.rows], ["Damage", "Healer", "Tank"])
-            self.assertIn("Hands needs a recorded run", page.hands.rows[0].note)
-            self.assertEqual((page.hands_drawer.label, page.hands.isHidden()), ("HANDS (0)", True))
+            self.assertEqual((page.hands.rows, page.hands_fold.isHidden()), ([], True))     # no recorded run
             self.assertEqual((page.crest.crest.title, page.outdated.isHidden()), ("Slayer of Blackfathom Deeps", False))
             self.assertEqual(len(page.earlier.rows), 1)
             for part in (page.crest, page.hero, page.need, page.signature, page.table, page.card, page.hands, page.roles,
@@ -520,77 +520,167 @@ class ShellTests(unittest.TestCase):
                 f["damage"] = 100
                 f["cooldowns"] = [{"name": n, "lost": 9 - k, "counted": 1} for k, n in enumerate(("Judge", "Conse", "Strike"))]
             w._show_profile()
+            self.assertFalse(page.plate.isHidden())
             self.assertEqual((page.plate.title, page.plate.rows),
                              ("Judge sat ready", [("Conse", "80 damage"), ("Strike", "70 damage")]))
             self.assertTrue(page.plate.accessibleName().startswith("Worth changing: Judge sat ready. about 90 damage. "))
             self.assertTrue(page.plate.accessibleName().endswith("Next: Conse 80 damage, Strike 70 damage"))
 
-    def test_profile_parts(self):
-        """the crest's title never cut, the ring's place, the drawers, the outdated line, and nothing sideways"""
+    def profile_page(self):
+        """a ProfilePage in motion off and a view to show on it"""
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
         from PyQt6.QtWidgets import QApplication
-        app = QApplication.instance() or QApplication([])
+        self.app = QApplication.instance() or QApplication([])
+        from dips_score.profile_view import OUTDATED, Crest, Plate, ProfileView, Row, TraitRow
+        from dips_score.ui.profileview import ProfilePage
+        tempo = Row("Time between fights", "25", "s", ink="m-pace", mark="new: Relentless", chip="+6 pts vs the 15 days before")
+        edge = Row("Possible damage reached", "86", "%", ink="m-dmg", bar=.86, chip="+6 pts vs the 15 days before")
+        split = Row("Auto attack or abilities", "47", "% auto attack", "44% abilities, 9% procs and items", "m-dmg")
+        pace = [TraitRow("Tempo", "Time between fights", "25", "s", "", .9, "Relentless", ink="m-pace"),
+                TraitRow("Streak", "Longest run without a death", "97", "", "", .44, "Surviving",
+                         "Unfallen at 126, you are at 97", "m-pace")]
+        nerve = [TraitRow(k, f"Nerve {k}", "9", "%", "", .4, "Daring", "Fearless at 17%, you are at 9%", "m-surv") for k in "abc"]
+        v = ProfileView(title="Bao", crest=Crest("Undead Paladin, level 37", "the Lone Storm, Crusader of the Wilds", "Wins on the edge.",
+                                                 ["won after dropping to 2% health against Bloodscalp Berserker"]),
+                        outdated=OUTDATED, ring="new: Relentless", ring_key="Tempo", card=[tempo, edge, split], hero="25", hero_unit="s",
+                        plate=Plate("Nothing stands out", "80% of possible damage", "in 300 fights where you did damage", tab="Going well"),
+                        hands=[Row("Keys or clicks", "99", "% keys"), Row("Presses per minute", "21.2"), Row("Refused presses")],
+                        traits=[("Pace", pace), ("Nerve", nerve), ("Road", nerve[:2])])
+        page = ProfilePage()
+        page.settings = {"motion": False}
+        page.show_view(v)
+        page.enter()
+        return page, v
+
+    def show_at(self, page, w):
+        page.resize(w, 800)
+        page.show()
+        for _ in range(4):
+            self.app.processEvents()
+        self.assertFalse(page.widget().grab().isNull())     # the scrolled-off parts too
+
+    def test_profile_title(self):
+        """never cut, "of the" with its word, a line more only when it makes the title that much bigger"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841
         from dips_score.live.titles import NOUNS, THE
         from dips_score.live.traits import NAMED, TRAITS
-        from dips_score.profile_view import OUTDATED, Crest, Plate, ProfileView, Row, TraitRow
+        from dips_score.ui import theme
         from dips_score.ui.kit import adv, font
-        from dips_score.ui.profileview import ProfilePage, fit_title
+        from dips_score.ui.profileview import broken, fit_title
+        theme.load_fonts()
         longest = lambda xs: max(xs, key=len)  # noqa: E731
         noun, place = longest(n for t in NOUNS.values() for n in t.values()), "the " + longest(THE)
-        titles = [f"{longest(e for t in TRAITS for e in t.epithets)} {noun} of {place}", f"{longest(n for *_, n in NAMED)}, {noun} of {place}",
-                  f"{longest(n for *_, n in NAMED)}, {noun}, Scourge of the Twilight's Hammer", "Slayer"]
+        named = longest(n for *_, n in NAMED)
+        titles = [f"{longest(e for t in TRAITS for e in t.epithets)} {noun} of {place}", f"{named}, {noun} of {place}",
+                  f"{named}, {noun}, Scourge of the Twilight's Hammer", "Slayer"]
         for title in titles:
-            for w in (200, 340, 410, 620):
+            for w in (200, 340, 406, 620):
                 with self.subTest(title=title, w=w):
                     px, lines = fit_title(title, w)
                     self.assertEqual(" ".join(lines), title)
                     self.assertTrue(all(adv(font(px, 700, num=True), x) <= w for x in lines))
                     self.assertLessEqual(len(lines), 4)
-        self.assertEqual(fit_title("Relentless Crusader of the Arathi Highlands", 410)[1],
-                         ["Relentless Crusader", "of the Arathi Highlands"])
-        self.assertEqual(fit_title("The Unfelled, Rimecaller of the Wilds", 410)[1][0], "The Unfelled,")
-        self.assertEqual(fit_title("Slayer", 620)[0], 74)
+                    self.assertFalse(any(x.endswith((" of", " the")) for x in lines))
+                    if len(lines) > 2:          # one line fewer is at least 15% smaller
+                        f = font(int(px / 1.15) + 1, 700, num=True)
+                        few = broken(re.findall(r"(?:(?:of|the) )*\S+", title), f, w)
+                        self.assertTrue(len(few) >= len(lines) or max(adv(f, x) for x in few) > w)
+        self.assertEqual(fit_title("The Unfelled, Rimecaller of the Wilds", 700)[1][0], "The Unfelled,")
+        self.assertEqual([fit_title("Slayer", w)[0] for w in (620, 406, 204)], [74, 56, 44])
 
-        deed = "won after dropping to 2% health against Bloodscalp Berserker"
-        tempo = Row("Time between fights", "25", "s", "between one fight and the next", mark="new: Relentless")
-        edge = Row("Possible damage reached", "86", "%", "of possible damage reached", bar=.86, chip="+6 pts vs the 15 days before")
-        v = ProfileView(title="Bao", crest=Crest("Undead Paladin, level 37", "the Lone Storm, Crusader of the Wilds", "Wins on the edge.", [deed]),
-                        outdated=OUTDATED, plate=Plate("Nothing stands out", "80% of possible damage", "in 300 fights where you did damage"), ring="new: Relentless", ring_key="Tempo", card=[tempo, edge], hero="25", hero_unit="s",
-                        hands=[Row("Keys or clicks", "99", "% keys"), Row("Presses per minute", "21.2"), Row("Refused presses")],
-                        traits=[("Pace", [TraitRow("Tempo", "Time between fights", "25", "s", "", .9, "Relentless"),
-                                          TraitRow("Streak", "Longest run without a death", "97", "", "", .44, "Surviving",
-                                                   "Unfallen at 126, you are at 97")])])
-        page = ProfilePage()
-        page.settings = {"motion": False}
-        page.show_view(v)
-        page.enter()
+    def test_profile_parts(self):
+        """accessible names, the ring's place, the drawers, what is hidden when there is nothing to show"""
+        from dips_score.profile_view import ProfileView
+        page, v = self.profile_page()
+        self.show_at(page, 1200)
         self.assertEqual((page.crest.p, page.card.p), (1.0, 1.0))
         self.assertEqual(page.crest.accessibleName(),
                          "Crest: Undead Paladin, level 37. The Lone Storm, Crusader of the Wilds. Wins on the edge. "
                          "Won after dropping to 2% health against Bloodscalp Berserker")
-        self.assertIn("new: Relentless", page.card.accessibleName())
         self.assertIn("Longest run without a death 97, Surviving, Unfallen at 126, you are at 97", page.traits.accessibleName())
-        self.assertEqual((page.traits_drawer.accessibleName(), page.hands_drawer.accessibleName()), ("All traits (2)", "Hands (2)"))
-        self.assertFalse(page.traits_drawer.open or page.hands_drawer.open)
-        self.assertEqual((page.crest.note, page.outdated.isHidden()), ("", False))      # the card's row has the ring
-        tempo.mark = None
+        self.assertIn("Time between fights 25 s, new: Relentless", page.traits.accessibleName())
+        self.assertEqual((page.traits_drawer.accessibleName(), page.hands_drawer.accessibleName()), ("All traits (7)", "Hands (3)"))
+        self.assertTrue(page.plate.accessibleName().startswith("Going well: Nothing stands out"))
+        self.assertEqual(page.plate.label, "Going well")
+        self.assertEqual((page.traits_drawer.open, page.hands_drawer.open), (True, False))
+
+        # All traits open: the ring goes round its chip, inside the table, and on no other part
+        self.assertEqual((page.traits.new, page.card.marks, page.crest.note), ("Tempo", False, ""))
+        ring, tier = page.traits.ring, page.traits.tier
+        self.assertTrue(ring.contains(tier))
+        self.assertGreaterEqual(ring.left(), 0)
+        self.assertLessEqual(ring.width() - tier.width(), 24)
+        # shut: round the card's figure, never its chip
+        page.traits_drawer.flip()
+        self.show_at(page, 1200)
+        self.assertEqual((page.traits.new, page.card.marks, page.crest.note), (None, True, ""))
+        ring, figure = page.card.ring, page.card.figure
+        self.assertTrue(ring.contains(figure))
+        self.assertLess(ring.height(), 48)          # one line tall: the chip is a line lower
+        self.assertLess(ring.right(), page.card.width() - 17)       # in the card's frame, its 17px in
+        # on no row: only the note, on the crest's second line
+        v.card[0].mark = None
         page.show_view(v)
         self.assertEqual(page.crest.note, "new: Relentless")
         self.assertIn("new: Relentless", page.crest.accessibleName())
-        for d in (page.traits_drawer, page.hands_drawer, page.spells_drawer):
+        self.show_at(page, 1200)
+        before = page.crest.height()
+        v.ring = None
+        page.show_view(v)
+        self.show_at(page, 1200)
+        self.assertEqual((page.crest.note, page.crest.height()), ("", before))      # and it takes no room
+
+        self.assertFalse(page.outdated.isHidden() or page.card.isHidden() or page.traits_fold.isHidden())
+        v.outdated, v.card, v.traits, v.hands, v.plate = "", [], [], [], None
+        page.show_view(v)
+        self.assertTrue(all(x.isHidden() for x in (page.outdated, page.card, page.traits_fold, page.hands_fold, page.plate)))
+        self.assertEqual(page.outdated.accessibleName(), "")
+        self.show_at(page, 1200)
+        page.show_view(ProfileView(need="Your profile needs 10 fights"))
+        self.assertTrue(page.crest.isHidden() and page.body.isHidden())
+        page.show_view(v)
+        self.assertFalse(page.crest.isHidden() or page.body.isHidden())
+        page.hide()
+
+    def test_profile_stacks_and_widens_back(self):
+        """the columns, the plate and All traits across the stacking width both ways, with nothing sideways; the entrance
+        and the keyboard focus stay where they were"""
+        page, v = self.profile_page()
+        for d in (page.hands_drawer, page.spells_drawer):
             d.flip()
-        for w, stacked, tight in ((1200, False, False), (960, True, False), (430, True, True), (278, True, True)):
+        self.show_at(page, 1200)
+        page.activateWindow()
+        page.traits_drawer.setFocus()
+        page.set_progress(0.5)
+        top = lambda x: x.mapTo(page.widget(), x.rect().topLeft()).y()  # noqa: E731
+        for w, stacked, tight in ((1200, False, False), (960, True, False), (430, True, True), (278, True, True),
+                                  (960, True, False), (1200, False, False)):
             with self.subTest(w):
-                page.resize(w, 800)
-                page.show()
-                app.processEvents()
+                self.show_at(page, w)
                 self.assertEqual(page.fit[1:], (stacked, tight))
                 self.assertEqual(page.horizontalScrollBar().maximum(), 0)
-                self.assertFalse(page.grab().isNull())
-                top = lambda x: x.mapTo(page.widget(), x.rect().topLeft()).y()  # noqa: E731
+                self.assertEqual(page.traits_drawer.open, not stacked)
                 self.assertEqual(top(page.side) > top(page.hands), stacked)
                 self.assertEqual(top(page.plate) > top(page.hero), tight)
-                self.assertLess(top(page.crest), top(page.hero))
+                self.assertGreater(top(page.traits_fold), top(page.card))
+                self.assertEqual(page.traits_fold.width(), page.body.width())
+                self.assertEqual((page.roles.p, page.card.p, page.focusWidget()), (0.5, 0.5, page.traits_drawer))
+        self.assertEqual(page.side.width(), 460)
+        cols = page.traits.columns(1100)
+        self.assertEqual((len(cols), [f for col in cols for f, _ in col]), (2, ["Pace", "Nerve", "Road"]))
+        self.assertEqual([len(c) for c in page.traits.columns(699)], [3])
+        page.traits_drawer.flip()           # shut by you: it stays shut
+        self.show_at(page, 600)
+        self.show_at(page, 1200)
+        self.assertFalse(page.traits_drawer.open)
+        # the crest and All traits stand still in the entrance unless something in them is drawn on
+        for note, new, moves in (("", None, False), ("new: X", "Tempo", True)):
+            page.crest.note, page.traits.new = note, new
+            with mock.patch.object(page.crest, "update") as crest, mock.patch.object(page.traits, "update") as traits:
+                page.set_progress(0.7)
+            self.assertEqual((crest.called, traits.called, page.crest.p), (moves, moves, 0.7))
         page.hide()
 
     def test_profile_saves_own_data_only(self):

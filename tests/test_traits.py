@@ -12,7 +12,7 @@ from dips_score.live import profile_history as ph  # noqa: E402
 from dips_score.live import titles, traits  # noqa: E402
 from dips_score.live.profile import profile  # noqa: E402
 from dips_score.live.traits import BY_KEY, NAMED, TRAITS, pick, raw, score_of, scores  # noqa: E402
-from dips_score.profile_view import OUTDATED, build_profile  # noqa: E402
+from dips_score.profile_view import OUTDATED, _ink, build_profile  # noqa: E402
 
 T0 = datetime(2026, 11, 23, 12, 0, 0)
 DAY = timedelta(days=1)
@@ -395,7 +395,7 @@ class Page(unittest.TestCase):
 
     def test_next_and_now_never_read_the_same(self):
         of = lambda v: dict(self.page(many(40, pull={"since_last": v})).traits)["Pace"][0].next  # noqa: E731
-        self.assertEqual(of(36), "Relentless at 30s, you are at 36s")
+        self.assertEqual(of(36), "Relentless at 30 s, you are at 36 s")
         edge = many(38) + many(2, result="you died")        # Finish 95.0%, its top tier at 92.95%
         self.assertEqual(dict(self.page(edge).traits)["Victory"][0].next, "")
         streak = plain(80)                                  # Surviving at 79.75
@@ -409,13 +409,38 @@ class Page(unittest.TestCase):
 
     def test_hero_falls_back_to_the_role(self):
         v = self.page(many(12))
-        self.assertEqual((v.hero, v.hero_unit, v.caption), ("100", "%", "of fight time dealing damage"))
+        self.assertEqual((v.hero, v.hero_unit, v.caption, v.hero_ink), ("100", "%", "of fight time dealing damage", "role-dmg"))
+
+    def test_one_ink_per_trait(self):
+        keys = ("Tempo", "Edge", "Blade", "Edgewise", "Ready", "Planted", "Primed", "Break", "Finish", "Lone", "Mercy", "War",
+                "Travel", "Wall", "Lifeline", "taken", "split", "cut", "overheal", "pull", "pvp_deaths")
+        self.assertEqual([_ink(k, "tank") for k in keys],
+                         ["m-pace", "m-surv", "m-dmg", "m-dmg", "m-cd", "m-cast", "m-upk", "role-tank", "role-tank", "role-tank",
+                          "role-heal", "place-pvp", "place-world", "role-tank", "role-heal", "m-surv", "m-dmg", "m-cast", "role-heal",
+                          "role-tank", "place-pvp"])
+        self.assertEqual((_ink("Finish", "damage"), _ink("Lone", None)), ("role-dmg", "tx"))
+        for k in {*BY_KEY, *titles.rows([], {}, {}), *(k for p in titles.PACKS.values() for k in p)}:
+            _ink(k, "damage")                                                       # every row has one
+        v = self.page(plain(40, pull={"since_last": 15}))
+        self.assertEqual([v.hero_ink, v.card[0].ink, dict(v.traits)["Pace"][0].ink], ["m-pace"] * 3)
+
+    def test_notes_that_restate_the_name_are_dropped(self):
+        v = self.page(plain(90, pull={"since_last": 30}, potential=400))
+        notes = {r.name: r.note for r in v.card}
+        self.assertEqual((notes["Time between fights"], notes["Possible damage reached"]), ("", ""))
+        self.assertTrue(notes["Wins on the edge"])
+        low = self.page(plain(40, lowest_hp=.8, pull={"since_last": 60}))
+        self.assertEqual(next((r.value, r.note) for r in low.card if r.name == "Average lowest health"), ("80", ""))
+        dying = plain(40, lowest_hp=.9, pull={"since_last": 60})
+        for f in dying[:3]:
+            f["result"] = "you died"
+        self.assertIn("Deaths per 100 fights", {r.name for _, rows in self.page(dying).traits for r in rows})
 
     def test_packs(self):
         pack = lambda fs, **kw: [r.name for r in self.page(fs, **kw).card]  # noqa: E731
         fs = plain(40, pull={"since_last": 60}, potential=400)
         self.assertEqual(pack(fs), ["Time between fights", "Auto attack or abilities", "Possible damage reached",
-                                    "Abilities that count", "Deaths and lowest health"])     # 26 wins: no Edge
+                                    "Abilities that count", "Average lowest health"])     # 26 wins: no Edge
         self.assertEqual(pack(plain(90, pull={"since_last": 30}))[:4],
                          ["Time between fights", "Wins on the edge", "Wins against three or more",
                           "Auto attack or abilities"])
@@ -457,7 +482,7 @@ class Page(unittest.TestCase):
         before = self.before(lowest_hp=.9)
         for f in before[:10]:
             f["result"] = "you died"
-        row = next(r for r in self.page(before + now).card if r.name == "Deaths and lowest health")
+        row = next(r for r in self.page(before + now).card if r.name == "Average lowest health")
         self.assertEqual((row.value, row.chip), ("70", None))
 
     def test_slices(self):

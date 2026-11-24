@@ -60,6 +60,19 @@ class KitTests(unittest.TestCase):
         plate.price_px = 46                  # the fight page's bigger price
         self.assertGreater(plate.heightForWidth(400), h)
 
+    def test_plate_wraps_a_long_caption_and_only_that(self):
+        from dips_score.ui.kit import Plate
+        plate = Plate("Going well")
+        plate.price_words = True
+        plate.set("Clean", "94%", "in 300 fights where you did damage", None, [])
+        self.assertGreater(plate.heightForWidth(218), plate.heightForWidth(400))
+        self.paints(plate)
+        plate.set("Clean", "94%", "in 3 fights", None, [])
+        self.assertEqual(plate.heightForWidth(218), plate.heightForWidth(400))      # it fits: as before
+        words = Plate("Fix")                # a price with no caption keeps its own line, whatever its width
+        words.set("Fix", "1,234,567 damage", None, None, [])
+        self.assertEqual(words.heightForWidth(120), words.heightForWidth(800))
+
     def test_hero_caption_and_chip_take_room(self):
         from dips_score.ui.kit import Hero
         hero = Hero()
