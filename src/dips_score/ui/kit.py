@@ -273,6 +273,8 @@ class Hero(Part):
         self.big, self.suffix, self.caption, self.chip, self.verdict = "–", None, None, None, ""
         self.unit = (64, 54, 700, 6, 2)     # a unit's px (narrow px), weight, and dx, dy from the number's top right
         self.bar: tuple[float, str] | None = None     # a bullet bar under the caption: its share (0..1) and ink
+        self.chip_ink: str | None = None    # the chip's box, its text then in tx (None: both in gD or gS by its sign)
+        self.verdict_look = (15, 400, "tx2")     # the verdict's px, weight and ink
 
     def set(self, big: str, suffix: str | None, caption: str | None, chip: str | None, verdict: str):
         """suffix: a grade letter (boxed) or a unit ("%", "K", "pulls"); chip: a change, "−…" in gD, else gS"""
@@ -309,11 +311,12 @@ class Hero(Part):
         if self.chip:
             cf, ch = font(14, 600, num=True), 14 * 1.2 + 6
             if p:
-                ink = tok("gD" if self.chip.startswith((MINUS, "-")) else "gS")
+                ink = tok(self.chip_ink or ("gD" if self.chip.startswith((MINUS, "-")) else "gS"))
                 box(p, QRectF(0, y, adv(cf, self.chip) + 18, ch), ink)
-                line(p, cf, ink, 9, y + 3, 14 * 1.2, self.chip)
+                line(p, cf, tok("tx") if self.chip_ink else ink, 9, y + 3, 14 * 1.2, self.chip)
             y += ch + 8
-        return y + wrapped(p, font(15), tok("tx2"), 0, y, w, 21, self.verdict)
+        px, weight, ink = self.verdict_look
+        return y + wrapped(p, font(px, weight), tok(ink), 0, y, w, px * 1.4, self.verdict)
 
     def _bar(self, p, w, y) -> float:
         """the bullet bar from y: 10px on track, filled to its share, the 2px tx tick at 90% overhanging 4px with
@@ -346,6 +349,7 @@ class Plate(Part):
         self.wrap = True           # the rows wrap; the page sets False when that wouldn't fit its height
         self.price_px = 32         # the price's size (the fight page's is 46)
         self.title_px = None       # the title's size (None: 23, narrow 21; the history plate's is 34)
+        self.body_last = False     # True: the body under the price, not under the title
         self.price_words = False   # True: only the price's figure big, its words muted, the caption on its own line
         self.button_y = self.next_y = 0.0
 
@@ -391,7 +395,7 @@ class Plate(Part):
         y = 12 + 22
         tpx = self.title_px or (21 if n else 23)
         y += wrapped(p, font(tpx, 600, num=True), tok("plate-tx"), x, y, cw, tpx * 1.15, self.title) + 8
-        if self.body:
+        if self.body and not self.body_last:
             y += wrapped(p, font(14), tok("plate-mu"), x, y, cw, 14 * 1.45, self.body) + 4
         price = [(self.price, font(self.price_px, 700, num=True), tok("plate-ac"))] if self.price else []
         gap = 12 if n else 18
@@ -403,6 +407,8 @@ class Plate(Part):
         price += [(s, font(13), tok("plate-mu")) for s in (self.caption or "").split(" · ") if s]
         if price:
             y += flow(p, price, x, y, cw, gap, 2)
+        if self.body and self.body_last:
+            y += 6 + wrapped(p, font(13), tok("plate-mu"), x, y + 6, cw, 13 * 1.4, self.body)
         if self.has_button:
             self.button_y = y + 10
             y = self.button_y + self.button.sizeHint().height()

@@ -18,7 +18,7 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("--saved")
 ap.add_argument("--run", type=int)
-ap.add_argument("--tab", default="Debrief", help="a run tab, a rail page (Dungeons, Fights, Habits), or a dungeon tab "
+ap.add_argument("--tab", default="Debrief", help="a run tab, a rail page (Dungeons, Fights, Habits, Profile), or a dungeon tab "
                                                 "(History, Bosses, Records: the page of --run's dungeon)")
 ap.add_argument("--look", default="timeless,day", help="<theme>,<mode>")
 ap.add_argument("--click-look", help="<theme>,<mode>: click the rail's Look buttons after the window is up")
@@ -89,7 +89,7 @@ w = ui.Window(paths)
 width, height = (int(v) for v in args.size.lower().split("x"))
 w.resize(width, height)
 w.show()
-PAGES = {"dungeons": w.mode_dungeons, "fights": w.mode_fights, "habits": w.mode_habits}
+PAGES = {"dungeons": w.mode_dungeons, "fights": w.mode_fights, "habits": w.mode_habits, "profile": w.mode_profile}
 TABS = {w.tabs.tabText(i).lower(): i for i in range(w.tabs.count())}
 DUNGEON = {w.dungeon.tabText(i).lower(): i for i in range(w.dungeon.count())}    # the page of --run's dungeon
 want = {"score": "debrief", "summary": "group"}.get(args.tab.lower(), args.tab.lower())   # the old names

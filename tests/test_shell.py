@@ -24,6 +24,9 @@ class ShellTests(unittest.TestCase):
         inline = mock.patch.object(Loader, "threaded", False)      # a run is in as soon as it's asked for
         inline.start()
         self.addCleanup(inline.stop)
+        rows = mock.patch("dips_score.ui.app.run_row", return_value={"me": None, "name": ""})     # stub analyses
+        rows.start()
+        self.addCleanup(rows.stop)
 
     def test_tabs_and_show_on_timeline(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -436,6 +439,72 @@ class ShellTests(unittest.TestCase):
             w.habits_page.plate.button.click()
             self.assertTrue(w.mode_fights.isChecked())
             self.assertEqual((w.stack.currentIndex(), w.left_stack.currentIndex()), (2, 1))
+
+    def test_profile_page(self):
+        """Profile: no fight list, the view's text, refreshed as a fight is saved, Open Habits; a finished slice is
+        saved only once every run's figures are in"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from datetime import timedelta
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        from test_fight_view import ORACLE
+        from test_profile import fight
+        now = datetime.now()
+
+        def at(days):
+            return {**ORACLE, **fight(start=(now - timedelta(days=days)).isoformat(), abilities=ORACLE["abilities"])}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            page, fights = w.profile_page, [at(20) for _ in range(10)] + [at(1) for _ in range(9)]
+            w.live.history.fights = fights
+            w.by_id = {"r1": None}          # a run still to come in
+            w._fight = lambda: {"id": "picked"}
+            w.mode_profile.click()
+            self.assertEqual(w.stack.currentIndex(), 5)
+            self.assertIsNot(w.left_stack.currentWidget(), w.fight_list)
+            self.assertIsNone(w._rename_id())
+            del w._fight
+            self.assertEqual(page.need.head, "Your profile needs 10 fights from the last 15 days (9 so far).")
+            self.assertTrue(page.body.isHidden())
+            saved = w.paths.data_dir / "profile_history.json"
+            self.assertFalse(saved.exists())
+            self.assertTrue(page.foot.isHidden())
+
+            w.run_rows["r1"] = None         # it came in (it couldn't be analysed)
+            fights.append(at(0.5))
+            w.live.fight.emit(fights[-1])
+            self.assertTrue(saved.exists())
+            self.assertFalse(page.body.isHidden() or page.foot.isHidden())
+            self.assertTrue(page.need.isHidden())
+            self.assertEqual((page.page.title, page.hero.big, page.hero.verdict),
+                             ("A", "100", "Careful world damage dealer."))
+            self.assertEqual(page.plate.title, "Nothing stands out")
+            self.assertEqual([r.name for r in page.roles.rows], ["Damage", "Healer", "Tank"])
+            self.assertIn("Hands needs a recorded run", page.hands.rows[0].note)
+            self.assertEqual(len(page.earlier.rows), 1)
+            before = saved.stat().st_mtime_ns
+            w._redraw()                     # a look change: shown again, nothing new to save
+            self.assertEqual((w.stack.currentIndex(), saved.stat().st_mtime_ns), (5, before))
+
+            w.settings["motion"] = False    # reduced motion: settled at once
+            w.stack.setCurrentIndex(0)
+            w.mode_profile.click()
+            self.assertEqual(page.roles.p, 1.0)
+            w.settings["motion"] = True
+            w.stack.setCurrentIndex(0)
+            w.mode_profile.click()          # one entrance a visit, not one a refresh
+            self.assertEqual(page.roles.p, 0.0)
+            page.entrance.stop()
+            page.set_progress(0.5)
+            w.mode_profile.click()
+            self.assertEqual(page.roles.p, 0.5)
+            w._show_habits = lambda: w.stack.setCurrentIndex(3)      # these fights lack what Habits reads
+            page.plate.button.click()
+            self.assertTrue(w.mode_habits.isChecked())
+            self.assertEqual(w.stack.currentIndex(), 3)
 
     def loading_window(self, tmp, runs):
         """a window whose runs are asked for but don't come in until _arrived is called (the loader's thread)"""

@@ -9,6 +9,7 @@ score take theme.grade_color(letter), which the painter applies (there is no tok
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
+from .dungeon_view import visits
 from .habits_view import MINUS, _meta, _plural
 from .live.profile_history import MIN_FIGHTS
 from .scoring import usable
@@ -39,9 +40,9 @@ class Row:
     note: str = ""              # the line under the row
     ink: str = "tx"             # the value's (and bar's) colour token
     bar: float | None = None    # bar length 0..1; None for a figure row or a share that cannot be known
-    chip: str | None = None     # "+12 vs the 15 days before"
+    chip: str | None = None     # "+12 pts vs the 15 days before"
     mark: str | None = None     # the highlighter's note; on one row of the page at most
-    casts: str = ""             # Signature: "1,665"
+    casts: str = ""             # Signature: "1,665", "–" with none (a proc)
     grade: str = ""             # Role mix: mean score "72", or "–"
     letter: str = ""            # Role mix: grade letter "B"
 
@@ -73,6 +74,8 @@ class ProfileView:
     hero: str = NA              # main role share, "98"
     hero_unit: str = "%"
     caption: str = ""           # "of fight time dealing damage"
+    chip: str | None = None     # the main role's change, as on its Role mix row; chip_ink its box
+    chip_ink: str = "ln"
     label: str = ""             # "World damage dealer who keybinds."
     before: str | None = None   # "Before: hoarding dungeon damage dealer."
     plate: Plate | None = None
@@ -179,6 +182,23 @@ def _plate(now: dict) -> Plate:
     return Plate("Nothing stands out", figure, caption)
 
 
+def run_row(a) -> dict:
+    """what live.profile needs of a recorded run, from its analysis: the dungeon page's score for it (None: not
+    compared), the role it was scored as (None: nothing to tell it from), its presses and its casts"""
+    run, m, visit = a.data.run, a.metrics, visits([(a.data.run, a)])[0]
+    known = visit.score is not None and a.me and a.me.role
+    return {"me": a.data.player_guid, "name": run.player_name, "start": run.start_time,
+            "role": {"dps": "damage"}.get(a.role, a.role) if known else None, "score": visit.score,
+            "grade": visit.grade, "presses": m.presses, "by_key": m.by_key, "by_click": m.by_click,
+            "failed": m.failed, "casts": m.casts, "combat_time": m.combat_time, "moving_time": m.moving_time,
+            "move_interrupts": m.move_interrupts, "wasted_cast_time": m.wasted_cast_time}
+
+
+def mine(rows, me: str, name: str) -> list[dict]:
+    """the run rows of one character: by guid, by name for a run without a combat log (its guid unknown)"""
+    return [r for r in rows if r["me"] == me or (r["me"] is None and r["name"] == name)]
+
+
 def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     """the page for live.profile.profile(...)'s result and this character's saved slices"""
     now, before = p.get("now"), p.get("before")
@@ -188,7 +208,8 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     v.earlier_title = f"Earlier ({len(v.earlier)})"
     if n < MIN_FIGHTS:
         v.need = f"Your profile needs {MIN_FIGHTS} fights from the last 15 days ({n} so far)."
-        v.need_line = "Play a few more fights and it fills in. Who you were in earlier slices is below."
+        v.need_line = "Play a few more fights and it fills in." + (
+            " Who you were in earlier slices is below." if v.earlier else "")
         return v
     moves = []      # (row, points, highlighter note) for every share row that got a chip, in page order
 
@@ -197,7 +218,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
         points are the difference of the displayed (rounded) figures"""
         a, b = key(now), key(before) if before else None
         if a is not None and b is not None and abs(d := int(_pct(a)) - int(_pct(b))) >= CHIP_MIN:
-            row.chip = f"{'+' if d > 0 else MINUS}{abs(d)} vs the 15 days before"
+            row.chip = f"{'+' if d > 0 else MINUS}{abs(d)} pts vs the 15 days before"
             moves.append((row, d, up if d > 0 else down))
         return row
 
@@ -216,11 +237,11 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     v.sig_header = "share of your casts" if casts else "share of your damage"
     v.spells_header = "share of casts" if casts else "share of damage"
     def name_count(s) -> tuple[str, str]:
-        """Melee shows as auto attack with its swings (none shown when not every fight saved a count)"""
+        """a row's name and its casts; Melee shows as auto attack with its swings. "–": none (a proc), or no count"""
         if s["name"] != "Melee":
-            return s["name"], f"{s['casts']:,}"
+            return s["name"], f"{s['casts']:,}" if s["casts"] else NA
         swings = s.get("swings")
-        return MELEE, "" if swings is None else f"{swings:,} swings"
+        return MELEE, NA if swings is None else f"{swings:,} swings"
 
     for s in sig["top"]:
         has = bool(s["share"])
@@ -271,6 +292,8 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
         else:
             row.grade, row.note = NA, f"no run graded as {GRADED_AS[role]} yet"
         v.roles.append(share(row, lambda f, r=role: f["roles"][r], f"more {ROLE_MOVE[role]}", f"less {ROLE_MOVE[role]}"))
+        if role == main:
+            v.chip, v.chip_ink = row.chip, row.ink
 
     places = now["places"]
     for place in sorted(places, key=lambda k: -(places[k] or 0)):

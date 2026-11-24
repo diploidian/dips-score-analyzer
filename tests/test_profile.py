@@ -5,12 +5,13 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace as NS
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from dips_score.live import profile_history as ph  # noqa: E402
 from dips_score.live.profile import label, profile  # noqa: E402
-from dips_score.profile_view import build_profile  # noqa: E402
+from dips_score.profile_view import build_profile, mine, run_row  # noqa: E402
 
 T0 = datetime(2026, 11, 23, 12, 0, 0)
 DAY = timedelta(days=1)
@@ -201,7 +202,8 @@ class History(unittest.TestCase):
         saved = {}
         ph.update(saved, fs, None, {}, [], T0)
         first = json.dumps(saved["A"][0])
-        self.assertEqual(ph.update(saved, fs, None, {}, [], T0), [])          # the block ending at now is Now
+        for later in (timedelta(0), timedelta(milliseconds=20), timedelta(hours=11)):     # opened again the same day
+            self.assertEqual(ph.update(saved, fs, None, {}, [], T0 + later), [])          # the block ending today is Now
         fs2 = fs + [fight(-0.5 - i * 0.1) for i in range(3)]                  # fights after T0 stay out of the slice
         added = ph.update(saved, fs2, None, {}, [], T0 + DAY)                 # 15 days since the last slice's end
         self.assertEqual(len(added), 1)
@@ -240,6 +242,11 @@ def slice_(to_days_ago, lab="Careful world damage dealer.", main=0.9, dph=2.0, c
 
 
 class View(unittest.TestCase):
+    def test_hero_chip(self):
+        v = page(many(healing_role=True) + many(days_ago=20) + many(10, 20, healing_role=True))
+        self.assertEqual((v.hero, v.chip, v.chip_ink), ("100", "+50 pts vs the 15 days before", "role-heal"))
+        self.assertIsNone(page(many()).chip)
+
     def test_hero_meta_label(self):
         char = {"class": "PALADIN", "race": "Scourge", "level": 36, "spec": None}
         v = page(many(), char=char)
@@ -282,19 +289,19 @@ class View(unittest.TestCase):
         cd = lambda used: [{"possible": 100, "missed": 100 - used}]  # noqa: E731
         v = page(many(cooldowns=cd(60)) + many(days_ago=20, cooldowns=cd(55)))
         c = row(v.temperament, "Cooldowns used")
-        self.assertEqual((c.chip, c.mark), ("+5 vs the 15 days before", "more cooldowns"))
+        self.assertEqual((c.chip, c.mark), ("+5 pts vs the 15 days before", "more cooldowns"))
         v = page(many(cooldowns=cd(60)) + many(days_ago=20, cooldowns=cd(56)))
         self.assertIsNone(row(v.temperament, "Cooldowns used").chip)
         v = page(many(cooldowns=cd(40)) + many(days_ago=20, cooldowns=cd(52)))
-        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "−12 vs the 15 days before")
+        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "−12 pts vs the 15 days before")
         self.assertIsNone(row(v.temperament, "Deaths per hour").chip)      # per-hour figures get no chip
 
     def test_chip_from_displayed_figures(self):
         cd = lambda used: [{"possible": 1000, "missed": 1000 - used}]  # noqa: E731
         v = page(many(cooldowns=cd(546)) + many(days_ago=20, cooldowns=cd(504)))      # 55 against 50: raw 4.2
-        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "+5 vs the 15 days before")
+        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "+5 pts vs the 15 days before")
         v = page(many(cooldowns=cd(554)) + many(days_ago=20, cooldowns=cd(496)))      # 55 against 50: raw 5.8
-        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "+5 vs the 15 days before")
+        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "+5 pts vs the 15 days before")
         v = page(many(cooldowns=cd(544)) + many(days_ago=20, cooldowns=cd(496)))      # 54 against 50: raw 4.8
         self.assertIsNone(row(v.temperament, "Cooldowns used").chip)
 
@@ -302,7 +309,7 @@ class View(unittest.TestCase):
         v = page(many(healing_role=True) + many(days_ago=20))
         # damage -100 and healer +100 tie: Damage is first on the page
         self.assertEqual((row(v.roles, "Damage").mark, row(v.roles, "Healer").chip),
-                         ("less damage dealing", "+100 vs the 15 days before"))
+                         ("less damage dealing", "+100 pts vs the 15 days before"))
         v = page(many() + many(days_ago=20, kind="Dungeon"))
         self.assertEqual(row(v.places, "World").mark, "more open world")
 
@@ -316,7 +323,7 @@ class View(unittest.TestCase):
         self.assertEqual(len(marks), 1)
         self.assertEqual(v.places[0].name, "Dungeon")          # equal shares keep Dungeon, World, PvP order
         self.assertEqual((marks[0].name, marks[0].mark), ("Dungeon", "more dungeons"))
-        self.assertEqual(row(v.places, "World").chip, "−50 vs the 15 days before")
+        self.assertEqual(row(v.places, "World").chip, "−50 pts vs the 15 days before")
 
     def test_no_before(self):
         v = page(many(kind="Dungeon"))
@@ -336,6 +343,23 @@ class View(unittest.TestCase):
         self.assertIsNone(v.plate)
         self.assertEqual(build_profile(profile([], None, {}, [], T0), []).need,
                          "Your profile needs 10 fights from the last 15 days (0 so far).")
+
+    def test_run_rows(self):
+        def a(guid="A", role="dps", combat=600.0, me=NS(role="DPS"), grade="B", total=72.0):
+            run_ = NS(start_time=T0, id="r", parts=["r"], player_name="Bao")
+            m = NS(combat_time=combat, presses=9, by_key=8, by_click=1, failed=2, casts=7, moving_time=1.5,
+                   move_interrupts=1, wasted_cast_time=0.5)
+            card = NS(empty=False, grade=grade, total=total, role=role, categories=[], points_lost=lambda: [])
+            return NS(data=NS(run=run_, player_guid=guid, duration=900.0), metrics=m, card=card, summary=None,
+                      deaths=[], wipes=[], me=me, role=role)
+        r = run_row(a())
+        self.assertEqual(r, {"me": "A", "name": "Bao", "start": T0, "role": "damage", "score": 72.0, "grade": "B",
+                             "presses": 9, "by_key": 8, "by_click": 1, "failed": 2, "casts": 7, "combat_time": 600.0,
+                             "moving_time": 1.5, "move_interrupts": 1, "wasted_cast_time": 0.5})
+        short, unknown = run_row(a(combat=20.0)), run_row(a(guid=None, role="healer", me=None))
+        self.assertEqual((short["role"], short["score"]), (None, None))     # too short to compare: no grade
+        self.assertIsNone(unknown["role"])                                  # no combat log: "healer" is only a default
+        self.assertEqual(mine([r, unknown, run_row(a("B"))], "A", "Bao"), [r, unknown])
 
     def test_hands_without_runs(self):
         v = page(many())
@@ -392,7 +416,8 @@ class View(unittest.TestCase):
         # a fight without a swing count (one swing saves none) leaves the others' sum
         v = page(fs[:9] + many(1, abilities=ab))
         self.assertEqual(v.signature[0].casts, "180 swings")
-        self.assertEqual(page(many(abilities=ab)).signature[0].casts, "")      # no count anywhere: none shown
+        self.assertEqual(page(many(abilities=ab)).signature[0].casts, "–")     # no count anywhere: none shown
+        self.assertEqual(row(v.signature, "Seal of Command").casts, "–")        # a proc isn't cast
 
     def test_roles_grade(self):
         v = page(many(), [run(1)])

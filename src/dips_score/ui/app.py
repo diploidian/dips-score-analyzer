@@ -1,7 +1,7 @@
 """The window.
 
-Left, the rail: Dungeons, Raids, Fights and Habits, then the dungeons, each opening into its visits. Right: picking a
-dungeon shows its page (your score on every visit); picking a visit shows its tabs (Debrief, Timeline, Pulls,
+Left, the rail: Dungeons, Raids, Fights, Habits and Profile, then the dungeons, each opening into its visits. Right:
+picking a dungeon shows its page (your score on every visit); picking a visit shows its tabs (Debrief, Timeline, Pulls,
 Spells, Group). The window watches the add-on's saved file and reloads when the game saves (/reload, logout);
 a new visit opens by itself.
 """
@@ -23,6 +23,7 @@ from ..config import Paths
 from ..debrief import DebriefView
 from ..fight_view import run_window
 from ..model.roster import Overrides
+from ..profile_view import build_profile, mine, run_row
 from ..scoring.classes import load_upkeep
 from ..scoring.score import load_weights
 from ..sources.savedvars import Run
@@ -37,11 +38,14 @@ from .spells import SpellsTab
 from .timelinetab import TimelineTab
 from .settings import SettingsDialog
 from .tokens import THEMES
+from ..live import profile_history
 from ..live.habits import habits
+from ..live.profile import profile
 from ..live.tail import LogTail
 from .fightsview import FightDetail, FightList
 from .habitsview import HabitsPage
 from .live_ui import LiveController
+from .profileview import ProfilePage
 from .weights import WeightsDialog
 
 RUN_ROLE = Qt.ItemDataRole.UserRole
@@ -58,6 +62,7 @@ class Window(QMainWindow):
         self.cache: dict[tuple, Analysis] = {}     # the runs asked for, by key (one per run, the newest)
         self.keys: dict[str, tuple] = {}           # run id -> its key, worked out once (see _key)
         self.scores: dict[tuple, str] = {}         # a warmed-up run's score for its rail row; its analysis is on disk
+        self.run_rows: dict[str, dict | None] = {}     # each run that came in, for the Profile (None: it failed)
         self.wanted: set[str] = set()              # runs asked for to be shown: theirs stay in memory when in
         self.failed: set[tuple] = set()            # keys that couldn't be analysed, until that's shown
         self.waiting: tuple | None = None          # (run ids, redo): what the loading page waits for, and shows it
@@ -86,7 +91,8 @@ class Window(QMainWindow):
         self.mode_raids = QPushButton("Raids")
         self.mode_fights = QPushButton("Fights")
         self.mode_habits = QPushButton("Habits")
-        for b in (self.mode_dungeons, self.mode_raids, self.mode_fights, self.mode_habits):
+        self.mode_profile = QPushButton("Profile")
+        for b in (self.mode_dungeons, self.mode_raids, self.mode_fights, self.mode_habits, self.mode_profile):
             b.setCheckable(True)
             b.setProperty("nav", "1")           # flat text items, themed in theme.stylesheet
             nav.addWidget(b)
@@ -96,6 +102,7 @@ class Window(QMainWindow):
         self.mode_raids.clicked.connect(lambda: self._mode("raids"))
         self.mode_fights.clicked.connect(lambda: self._mode("fights"))
         self.mode_habits.clicked.connect(lambda: self._mode("habits"))
+        self.mode_profile.clicked.connect(lambda: self._mode("profile"))
         ll = QVBoxLayout()
         ll.setContentsMargins(8, 12, 8, 0)
         nav.addLayout(ll, 1)
@@ -103,7 +110,7 @@ class Window(QMainWindow):
         self.left_stack = QStackedWidget()
         self.left_stack.addWidget(self.tree)
         self.left_stack.addWidget(self.fight_list)
-        self.left_stack.addWidget(QWidget())        # 2: Habits sums up every fight, so no list
+        self.left_stack.addWidget(QWidget())        # 2: Habits and Profile sum up the fights, so no list
         ll.addWidget(self.left_stack, 1)
         ll.addSpacing(10)                       # the lists sit on the rail: keep a cut-off last row off the status
         self.status = dim_label()               # what's loaded, then the log delay (see _status)
@@ -207,6 +214,10 @@ class Window(QMainWindow):
         wl.addWidget(self.wait_bar)
         wl.addStretch(1)
         self.stack.addWidget(self.wait_page)
+        self.profile_page = ProfilePage()
+        self.profile_page.settings = self.settings
+        self.profile_page.open_habits.connect(lambda: self._mode("habits"))
+        self.stack.addWidget(self.profile_page)          # 5
         self.habits_page.open_fights.connect(lambda: self._mode("fights"))     # R8: the list stays unfiltered
         self.fight_list.picked.connect(self._show_fight)
         self.fight_detail.show_me.connect(self._fight_on_timeline)     # Show on the timeline (R7: the loaded run)
@@ -233,6 +244,7 @@ class Window(QMainWindow):
         self.live = live or LiveController(paths, self.settings)
         self.live.fight.connect(self.fight_list.add_fight)
         self.live.fight.connect(lambda _f: self._show_habits() if self.stack.currentIndex() == 3 else None)
+        self.live.fight.connect(lambda _f: self._show_profile() if self.stack.currentIndex() == 5 else None)
         self.live.fight.connect(lambda _f: self._status())
         self.fight_list.set_fights(self.live.history.fights)
 
@@ -379,11 +391,13 @@ class Window(QMainWindow):
         wanted = rid in self.wanted
         self.wanted.discard(rid)
         if a is None:
+            self.run_rows[rid] = None
             if wanted:
                 sys.stderr.write(err)       # as traceback.print_exc did
                 self.failed.add(key)
         else:
             analysis.rescore(a)             # the store's were scored with the weights of their day
+            self.run_rows[rid] = run_row(a)
             self.scores = {k: v for k, v in self.scores.items() if k[0] != rid}
             if wanted:
                 for old in [k for k in self.cache if k[0] == rid]:    # one analysis per run, the newest
@@ -395,6 +409,8 @@ class Window(QMainWindow):
         if self.waiting and rid in self.waiting[0]:
             redo, self.waiting = self.waiting[1], None
             redo()
+        if not self.warming and self.stack.currentIndex() == 5:     # the last of the runs it waits for
+            self._show_profile()
         self._status()
 
     def _warm_up(self):
@@ -412,7 +428,7 @@ class Window(QMainWindow):
             return
         self.keys.clear()               # a pick: a run whose log still grows gets its key anew (not _arrived's redo)
         key = it.data(0, RUN_ROLE) or ""
-        if self.left_stack.currentIndex() != 0:     # Fights or Habits: a reload's visit still loads behind the page,
+        if self.left_stack.currentIndex() != 0:     # no tree: a reload's visit still loads behind the page,
             if key in self.by_id:                   # so its fights get Show on the timeline (R7)
                 page = self.stack.currentIndex()
 
@@ -492,9 +508,15 @@ class Window(QMainWindow):
         self.mode_raids.setChecked(which == "raids")
         self.mode_fights.setChecked(which == "fights")
         self.mode_habits.setChecked(which == "habits")
-        self.left_stack.setCurrentIndex({"fights": 1, "habits": 2}.get(which, 0))
+        self.mode_profile.setChecked(which == "profile")
+        self.left_stack.setCurrentIndex({"fights": 1, "habits": 2, "profile": 2}.get(which, 0))
         if which == "habits":
             self._show_habits()
+        elif which == "profile":
+            visit = self.stack.currentIndex() != 5
+            self._show_profile()
+            if visit:
+                self.profile_page.enter()
         elif which == "fights":
             self.stack.setCurrentIndex(2)
             if self.fight_list.currentRow() < 0 and self.fight_list.count():
@@ -533,6 +555,25 @@ class Window(QMainWindow):
         self.habits_page.show_habits(habits(h.fights, h.chars.get(me), h.book(me) if me else None, h.types))
         self.stack.setCurrentIndex(3)
 
+    def _show_profile(self):
+        h, now = self.live.history, datetime.now()
+        last = h.fights[-1] if h.fights else {"me": ""}
+        me = last["me"]
+        char, book = h.chars.get(me), h.book(me) if me else None
+        runs = mine([r for rid, r in self.run_rows.items() if r and rid in self.by_id], me, last.get("me_name", ""))
+        path = profile_history.file(self.paths)
+        saved = profile_history.load(path)
+        # a saved slice is never rewritten, so it waits until every run's figures are in
+        if self.run_rows.keys() >= self.by_id.keys() and \
+                profile_history.update(saved, h.fights, char, book, runs, now, h.types):
+            try:
+                profile_history.save(path, saved)
+            except OSError as e:      # shown anyway, and saved next time
+                self._status(f"Couldn't save the profile's history ({e})")
+        self.profile_page.show_view(build_profile(profile(h.fights, char, book, runs, now, h.types),
+                                                  saved.get(me, [])))
+        self.stack.setCurrentIndex(5)
+
     def _share(self):
         """the page showing (the tab picked, on a page of tabs) on the clipboard and saved as a PNG"""
         page, tab = self.stack.currentWidget(), ""
@@ -563,7 +604,7 @@ class Window(QMainWindow):
             it = self.tree.currentItem()
             key = it.data(0, RUN_ROLE) if it else None
             return key if key in self.by_id else None
-        if self.left_stack.currentIndex() == 2:     # Habits: no list, nothing picked to rename or delete
+        if self.left_stack.currentIndex() == 2:     # Habits, Profile: no list, nothing picked to rename or delete
             return None
         f = self._fight()
         return f.get("id") if f else None
@@ -666,7 +707,8 @@ class Window(QMainWindow):
     def _imported(self):
         self.live.history.load()
         self.fight_list.set_fights(self.live.history.fights)
-        self._mode("habits" if self.mode_habits.isChecked() else "fights")
+        self._mode("habits" if self.mode_habits.isChecked() else
+                   "profile" if self.mode_profile.isChecked() else "fights")
 
     def _redraw(self):
         """re-show what's open, so widgets that set their own colors pick up the theme"""
@@ -675,6 +717,8 @@ class Window(QMainWindow):
         self.fight_list.set_fights(self.live.history.fights)
         if self.stack.currentIndex() == 3:
             self._show_habits()
+        elif self.stack.currentIndex() == 5:
+            self._show_profile()
         elif self.stack.currentIndex() == 2:
             self._show_fight(self._fight())
         elif self.stack.currentIndex() == 1 and self.current:
@@ -696,6 +740,7 @@ class Window(QMainWindow):
         keeping the Debrief's fight, the Timeline's view and a spell lit from Spells"""
         for a in self.cache.values():
             analysis.rescore(a)
+            self.run_rows[a.data.run.id] = run_row(a)
         self.scores.clear()             # the warmed-up runs' are scored again from disk, once the sliders rest
         if self.loader.threaded:
             self.warm_timer.start()
