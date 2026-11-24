@@ -811,7 +811,7 @@ most recently. It needs 10 fights in those 15 days; with fewer it says how many 
   input gone badly wrong (60% or more of 500 or more key and click presses clicked, or 40% or more of
   500 or more casts tried refused, and worse than in days 16 to 30 if it was so then). At 90% or more of
   your possible damage the ability is left out, and with nothing else to say and 10 judged fights or more
-  the plate says your last 15 days were clean. Otherwise it says "Nothing stands out".
+  the plate says your last 15 days were clean. Otherwise there is no plate.
   Damage lost counts only fights where you did damage and weren't healing; a spell that needs a chance
   counts only the fights where its chances are known.
 - Signature is your top five spells by share of damage (by share of casts for a healer), with melee

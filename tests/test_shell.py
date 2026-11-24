@@ -485,7 +485,7 @@ class ShellTests(unittest.TestCase):
             self.assertTrue(page.need.isHidden())
             self.assertEqual((page.page.title, page.hero.big, page.hero.verdict),
                              ("A", "100", "Careful world damage dealer."))
-            self.assertEqual((page.plate.label, page.plate.title), ("Going well", "Nothing stands out"))
+            self.assertTrue(page.plate.isHidden())             # under 90% of possible damage: no plate
             self.assertEqual([r.name for r in page.roles.rows], ["Damage", "Healer", "Tank"])
             self.assertEqual((page.hands.rows, page.hands_fold.isHidden()), ([], True))     # no recorded run
             self.assertEqual((page.crest.crest.title, page.outdated.isHidden()), ("Slayer of Blackfathom Deeps", False))

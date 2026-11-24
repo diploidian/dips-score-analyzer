@@ -208,7 +208,7 @@ def _plate(now: dict, before: dict | None) -> Plate | None:
     """the first rule that applies: deaths, the ability that lost the most damage (not for a healer, nor in a window
     that reads CLEAN or better), close calls with a defensive ready, spells never cast, a healer's overheal, cooldowns, input when it is
     badly wrong. Else, under its own tab, what goes well: a healer's overheal, a clean window from
-    MIN_FIGHTS judged fights, "Nothing stands out" with the efficiency; None without a figure"""
+    MIN_FIGHTS judged fights; None under CLEAN or without a figure"""
     n, h, t = now["fights"], now.get("hands") or {}, now["temperament"]
     fights = f"in your last {_plural(n, 'fight')}"
     cds, unused = t.get("cooldowns_share"), now.get("unused")
@@ -259,9 +259,9 @@ def _plate(now: dict, before: dict | None) -> Plate | None:
     if now.get("main_role") == "healer" and cast:
         return Plate("Your healing lands", f"{_pct(o['overheal'] / cast)}% overheal",
                      f"{o['overheal']:,} of {cast:,} healing, in {_count(o['fights'], 'healing fight')}", tab=WELL)
-    if eff is None or clean and now["judged"] < MIN_FIGHTS:
+    if not clean or now["judged"] < MIN_FIGHTS:        # under 90% or no figure there is a gap to look at, not a plate
         return None
-    return Plate("Your last 15 days were clean" if clean else "Nothing stands out", f"{_pct(eff)}% of possible damage",
+    return Plate("Your last 15 days were clean", f"{_pct(eff)}% of possible damage",
                  f"in {_count(now['judged'], 'fight')} where you did damage", tab=WELL)
 
 

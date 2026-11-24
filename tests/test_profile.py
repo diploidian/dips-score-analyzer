@@ -419,7 +419,7 @@ class View(unittest.TestCase):
         p = one(10)                                                             # 1% of the damage
         self.assertEqual((p.caption, p.next), ("1 cast missed in 1 fight", []))
         self.assertIn("about 1% more damage", p.why)
-        self.assertEqual([(one(x).title, one(x).tab) for x in (9.9, 5)], [("Nothing stands out", "Going well")] * 2)
+        self.assertEqual([one(x) for x in (9.9, 5)], [None] * 2)             # 80% of possible damage: nothing to show
         p = page(many(damage=100, cooldowns=[{"name": "Conse", "lost": 4}])).plate      # old fights: no casts
         self.assertEqual((p.title, p.caption), ("Conse sat ready", "in 10 fights"))
         p = page(many(damage=100, potential=150, cooldowns=[cd("Exorcism", 5, 1, chances=2)])).plate
@@ -515,13 +515,15 @@ class View(unittest.TestCase):
                          "60 uses of a ready cooldown went unspent.")
         self.assertEqual(page(many(2, result="you died") + many(8)).plate.why,
                          "2 of your last 10 fights ended with you dead.")
-        self.assertEqual(page(many(damage=80, potential=100)).plate.why, "")
+        self.assertEqual(page(many(damage=95, potential=100)).plate.why, "")
 
     def test_nothing_stands_out(self):
         keys = [run(1, by_key=99, by_click=1)]
         self.assertIsNone(page(many(cooldowns=[{"possible": 10, "missed": 1}]), keys).plate)    # no figure, no plate
-        p = page(many(damage=80, potential=100), keys).plate
-        self.assertEqual((p.tab, p.title, p.figure), ("Going well", "Nothing stands out", "80% of possible damage"))
+        self.assertIsNone(page(many(damage=80, potential=100), keys).plate)              # under 90%: no plate
+        self.assertIsNone(page(many(damage=89, potential=100), keys).plate)
+        p = page(many(damage=95, potential=100), keys).plate
+        self.assertEqual((p.tab, p.title, p.figure), ("Going well", "Your last 15 days were clean", "95% of possible damage"))
 
     def test_chip_threshold_and_sign(self):
         def dungeon(now, before):       # of 100 fights
