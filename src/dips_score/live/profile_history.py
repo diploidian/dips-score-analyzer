@@ -4,7 +4,7 @@ profile_history.json (beside fights.jsonl), {character guid: [slice, ...] oldest
 
 file(paths) is the path; load(path) -> dict ({} when missing or unreadable); update(saved, fights, char, book,
 runs, now, types=None) adds the slices that have finished for the newest fight's character and returns them; save(path,
-saved) writes atomically. The block ending today is Now and is never saved. A slice with fewer than MIN_FIGHTS
+saved) writes atomically. A block is saved once its end is 15 days back, so it has left Now. A slice with fewer than MIN_FIGHTS
 fights is skipped.
 """
 from __future__ import annotations
@@ -58,7 +58,7 @@ def update(saved: dict, fights: list[dict], char: dict | None, book: dict | None
     added = []
     if slices:          # carry on from the last saved slice's end, one block at a time, while a block has finished
         hi = datetime.fromisoformat(slices[-1]["to"]) + SLICE
-        while hi.date() < now.date():       # ending today: still Now (the first run's must not close at once)
+        while hi <= now - SLICE:            # it has left Now
             if s := _slice(mine, char, book, runs, hi - SLICE, hi, types):
                 added.append(s)
             hi += SLICE

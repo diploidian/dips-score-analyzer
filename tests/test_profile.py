@@ -197,18 +197,20 @@ class History(unittest.TestCase):
         ph.update(saved, self.fights(12, 9), None, {}, [], T0)
         self.assertEqual(saved, {})
 
-    def test_slice_added_after_15_days_and_not_rewritten(self):
+    def test_slice_added_exactly_15_days_later_and_not_rewritten(self):
         fs = self.fights(12, 10)
         saved = {}
         ph.update(saved, fs, None, {}, [], T0)
-        first = json.dumps(saved["A"][0])
-        for later in (timedelta(0), timedelta(milliseconds=20), timedelta(hours=11)):     # opened again the same day
-            self.assertEqual(ph.update(saved, fs, None, {}, [], T0 + later), [])          # the block ending today is Now
+        first = json.dumps(saved)
+        # opened again the same day, the day after, or up to the last moment: still in Now, the file unchanged
+        for later in (timedelta(0), timedelta(milliseconds=20), timedelta(hours=11), DAY, 15 * DAY - timedelta(seconds=1)):
+            self.assertEqual(ph.update(saved, fs, None, {}, [], T0 + later), [])
+        self.assertEqual(json.dumps(saved), first)
         fs2 = fs + [fight(-0.5 - i * 0.1) for i in range(3)]                  # fights after T0 stay out of the slice
-        added = ph.update(saved, fs2, None, {}, [], T0 + DAY)                 # 15 days since the last slice's end
+        added = ph.update(saved, fs2, None, {}, [], T0 + 15 * DAY)
         self.assertEqual(len(added), 1)
         self.assertEqual((added[0]["fights"], added[0]["to"]), (12, T0.isoformat()))
-        self.assertEqual(json.dumps(saved["A"][0]), first)
+        self.assertEqual(json.dumps({"A": saved["A"][:1]}), first)
         self.assertEqual(len(saved["A"]), 2)
 
     def test_save_and_load(self):
