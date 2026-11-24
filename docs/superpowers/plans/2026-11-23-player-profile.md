@@ -193,3 +193,47 @@ reuse the entrance code the Debrief already has before writing any.
 - The impeccable finish and motion reviews have no open material finding.
 - Phase 2: after a play session and `/reload`, the saved file holds the new lines and the page
   shows the time budget.
+
+## Amendment, 23 Nov: the user's mock-up review (binding; overrides earlier text)
+
+1. **No hands part in the label.** The label is `<temperament> <place> <role>` only. Clicking shows up only as
+   the plate, when clicks are 30% or more of keyed + clicked presses.
+2. **Cut short by moving, not time moving.** The Hands row is "Cut short by moving": casts the game cut because
+   you started to move, and the cast time lost (`Metrics.move_interrupts`, `Metrics.wasted_cast_time`; the run
+   dicts gain `move_interrupts` and `wasted_cast_time`). Share for chips: cut casts of all casts.
+3. **Raids are told apart.** `summarize` saves the fight's `difficulty` (the tracker already reads it; replay
+   fills old fights). Places are Dungeon, Raid, World, PvP: a fight in an instance with a raid difficulty is
+   Raid, any other instance is Dungeon. A Boss fight sorts into the instance it was in; a boss outside an
+   instance (world bosses, Dalaran) is World. Raid difficulty ids live in one table in `live/profile.py`.
+4. **Keys or clicks** stays one Hands row ("Keys or clicks"), with a chip when it moves 5 points. It is not in
+   the label.
+5. **Colour across the page**, as the Debrief does:
+   - scored rows take their measure's ink (`m-cd` cooldowns used, `m-cast` refused presses and cut short by
+     moving, `m-surv` deaths and lowest health, `m-act` presses per minute);
+   - grade letters and scores take their grade ink (`theme.grade_color`);
+   - Role mix bars take new role inks `role-dmg`, `role-heal`, `role-tank`; Where you fight bars take new place
+     inks `place-dungeon`, `place-raid`, `place-world`, `place-pvp`. Each new token is added to all four
+     theme-mode sets at once (DESIGN.md's Four Sets Rule), in `assets/theme.css`, `ui/tokens.py` and DESIGN.md,
+     each clearing 4.5:1 on `panel` where it colours text and 3:1 where it is only a bar;
+   - Signature bars take `m-dmg`.
+6. **Melee and procs count.** Signature ranks by share of your damage across everything in the fight's
+   `abilities`, including "Melee" (auto attack; shown as "Melee (auto attack)" with its swings, not casts) and
+   procs (item, racial and seal procs keep their own names). Shares add up to 100% across the All spells list;
+   the top-5 rows show the share of all your damage. Spells with no damage still list in All spells with "–".
+7. **Restricted spells.** A spell that only works on some enemy types (Exorcism and Holy Wrath: undead and demons;
+   Turn Undead: undead; a small table in `live/profile.py`, matched by name) is never named as "never cast"
+   unless you met enemies it works on. With creature types recorded (item 8), the plate reads, for example:
+   "Exorcism works on undead and demons. You fought 37 of them in 12 fights and cast it 0 times." Without
+   creature types for the window, restricted spells are left out of the "never cast" plate.
+8. **The add-on records enemy creature types.** New `addon/dips-Score/Types.lua`: on target change, mouseover
+   and nameplate added, for a hostile non-player unit, save `name -> creatureType` (`UnitCreatureType`, probed
+   and run under `pcall` as `Char.lua` does) in `dipsScoreDB.types` (account-wide, capped at 2000 names, plain
+   strings). `sources/savedvars.py` reads it; the profile counts a window's enemies by type from each fight's
+   `foes` names. Checked by reading (no Lua here) and then in game by the user.
+9. **Earlier rows** show the main role by name with its share ("Damage 96%"), not a bare percent under "Main role".
+10. **Look follows the built Habits page** (the PyQt page at `projectArthas`, captured with `scripts/shoot.py
+    --tab Habits`): its hero, chip ("+1 pts vs the 9 before" style, boxed in the measure or grade ink), plate,
+    and the Fix / Build / Keep card styling where the profile lists traits. The mock-up is revised to match it
+    before the page is built.
+11. **Out of this plan:** deeper melee and auto-attack tracking across the whole app for every class is its own
+    workstream.
