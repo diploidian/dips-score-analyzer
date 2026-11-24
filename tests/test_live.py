@@ -606,6 +606,15 @@ class Others(unittest.TestCase):
         self.assertFalse(hit(MOB2, 999))                                                  # an enemy
         self.assertFalse(self.s()["helped"])
 
+    def test_helped_by_heals_over_a_tenth_of_the_damage_taken(self):
+        def got(src, n, over=0, dst=ME):                        # 300 damage taken
+            return self.s(line(3, f"SPELL_HEAL,{src},{dst},2050,\"Heal\",0x2,{n},{n},{over},0,nil"))["helped"]
+        self.assertEqual([got(self.OUT, 30), got(self.OUT, 31), got(self.OUT, 31, 1)], [False, True, False])
+        self.assertTrue(got('Pet-0-1-1-1-1-1,"Wolfie",0x1118,0x80000000', 31))              # their pet
+        self.assertEqual([got(x, 999) for x in (self.GUARD, PAL, ME, 'Pet-0-1-1-1-1-1,"Mine",0x1111,0x80000000')],
+                         [False] * 4)                           # a friendly NPC, your group, you, your pet
+        self.assertFalse(got(self.OUT, 999, dst=PAL))
+
     def test_healing_and_dispels_on_others(self):
         heal = lambda src, dst: line(3, f"SPELL_HEAL,{src},{dst},2050,\"Lesser Heal\",0x2,50,50,10,0,nil")  # noqa: E731
         free = lambda dst: line(3, f"SPELL_DISPEL,{ME},{dst},527,\"Cleanse\",0x2,118,\"Polymorph\",0x40,DEBUFF")  # noqa: E731

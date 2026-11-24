@@ -13,7 +13,8 @@ What the figures count, where the saved fields need care:
   foes       every enemy of one whole combat, the next ones that joined it included: never "at once". With a group they
              are the group's, so Crowd counts fights alone (a tank's too: there they are on you)
   group      None also when nobody else did anything in the fight
-  helped     others than your group did some of the damage; a fight without it counts as alone by its group (see alone)
+  helped     others than your group did some of the damage, or players outside it healed you; a fight without it counts
+             as alone by its group (see alone)
   abilities  a row with no casts is a proc or item, unless a longer name of a cast spell ("Judgement of Command" belongs
              to Judgement); pet rows end with " (pet)"
   pull.own   the buffs you cast on yourself that the log has seen go up; one kept through a login is not in it
@@ -81,7 +82,7 @@ TRAITS: tuple[Trait, ...] = (
     _t("Endure", "Pace", "Fight length", 45, 120, 30, "s", "is your usual fight",
        "Patient, Enduring, Everlasting", "wears enemies down"),
     _t("Marathon", "Pace", "Longest sitting", 40, 200, 30, "n", "fights in your longest sitting",
-       "Dogged, Unresting, Undying", "plays long sittings"),
+       "Dogged, Unresting, Unwearied", "plays long sittings"),
     _t("Streak", "Pace", "Longest run without a death", 15, 200, 30, "n", "fights in a row survived",
        "Surviving, Unfallen, Deathless", "survives fight after fight"),
 
@@ -104,7 +105,7 @@ TRAITS: tuple[Trait, ...] = (
     _t("Hound", "Victory", "Nobody got away", .80, .99, 30, "%", "of fights end with nobody getting away",
        "Dogging, Hunting, Inescapable", "lets few get away"),
     _t("Boss", "Victory", "Boss kills", 3, 25, 10, "n", "bosses beaten",
-       "Giant-Felling, Kingslaying, Worldbreaking", "brings down bosses"),
+       "Giant-Felling, Throne-Toppling, Mountain-Breaking", "brings down bosses"),
     _t("War", "Victory", "Player fights won", .35, .75, 10, "%", "of fights against players won",
        "Feared, Dreaded, Warlike", "wins against players"),
     _t("Scourge", "Victory", "Most beaten enemy", .08, .30, 30, "%", "of the enemies you beat are of one kind",
@@ -126,13 +127,13 @@ TRAITS: tuple[Trait, ...] = (
        "Charged, Crackling, Storm-Touched", "strikes with procs and items", FIGHTERS),
 
     _t("Edgewise", "Craft of play", "Possible damage reached", .75, .95, 30, "%", "of possible damage reached",
-       "Honed, Precise, Flawless", "wastes little damage", FIGHTERS),
+       "Honed, Precise, Flawless", "reaches most of its damage", FIGHTERS),
     _t("Ready", "Craft of play", "Cooldowns used", .50, .90, 50, "%", "of possible cooldowns used",
        "Prompt, Eager, Unsparing", "uses cooldowns as they come", FIGHTERS),
     _t("Planted", "Craft of play", "Casts not cut short", .97, 1, 200, "%", "of casts not cut short by moving",
        "Grounded, Unmoved, Rooted", "stands still to cast"),
     _t("Primed", "Craft of play", "Pulled with your usual buffs", .70, .98, 30, "%", "of fights pulled with your usual buffs",
-       "Ready-Armed, Blessed, Oathbound", "pulls with every buff up"),
+       "Ready-Armed, Blessed, Oathbound", "pulls with its usual buffs"),
     _t("Break", "Craft of play", "Interrupts", 5, 40, 20, "n1", "interrupts per 100 group fights",
        "Watchful, Silencing, Spellbreaking", "interrupts often"),
 

@@ -42,7 +42,7 @@ def _name(d: dict) -> str:
 def _death(d: dict) -> tuple[str, str]:
     """when you died (fight time; the end when there's no health data) and the defensives that were ready"""
     danger = d.get("danger") or {}
-    unused = danger.get("unused") or []
+    unused = danger.get("unused") or [] if "answered" in danger else []     # see fight_view._danger
     ready = f"{' and '.join(unused[:2])} {'was' if len(unused) == 1 else 'were'} ready" if unused else ""
     return f"Died at {fmt_time(danger.get('t', d['duration']))}" + (" ·" if ready else ""), ready
 

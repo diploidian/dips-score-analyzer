@@ -71,7 +71,7 @@ ORACLE = {
     "resource": {"start": 0.9260476581758422, "end": 1.0, "start_hp": 1.0, "type": 0}, "level": 23,
     "interrupts": 0, "dispels": 1,
 }
-DANGER = {"t": 75.758, "hp": 0.2393617021276596, "unused": ["Divine Protection", "Lay on Hands"],
+DANGER = {"t": 75.758, "hp": 0.2393617021276596, "answered": False, "unused": ["Divine Protection", "Lay on Hands"],
           "hits": [{"who": "Aku'mai", "spell": "Melee", "amount": 1160},
                    {"who": "Murkshallow Snapclaw", "spell": "Rend", "amount": 77},
                    {"who": "Aku'mai", "spell": "Melee", "amount": 155}]}
@@ -163,6 +163,8 @@ class FightViewTests(unittest.TestCase):
             ("", "Murkshallow Snapclaw: Rend 77"), ("Ready, not used", "Divine Protection, Lay on Hands")])
         bare = build_fight(dict(ORACLE, danger=dict(DANGER, unused=[], hits=DANGER["hits"][:1]))).danger
         self.assertEqual(bare, [("Lowest health", "24% at 1:15"), ("Hits", "Aku'mai: Melee 1,160")])
+        old = {k: v for k, v in DANGER.items() if k != "answered"}      # not known whether one was pressed
+        self.assertNotIn("Ready, not used", [label for label, _ in build_fight(dict(ORACLE, danger=old)).danger])
 
     def test_nothing_left_on_the_table(self):
         """under 1 left (or a potential under the damage): no total, as the old page's >= 1"""

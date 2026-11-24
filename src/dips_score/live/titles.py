@@ -15,10 +15,10 @@ MIXED = 0.60                # the main role under this share of fight time: mixe
 NOUNS = {                   # class -> talent tree -> noun
     "WARRIOR": {"Arms": "Warblade", "Fury": "Reaver", "Protection": "Ironwall"},
     "PALADIN": {"Holy": "Lightmender", "Protection": "Shieldsworn", "Retribution": "Crusader"},
-    "HUNTER": {"Beast Mastery": "Packleader", "Marksmanship": "Deadeye", "Survival": "Trailstalker"},
-    "ROGUE": {"Assassination": "Nightblade", "Combat": "Swashblade", "Subtlety": "Shadowstep"},
+    "HUNTER": {"Beast Mastery": "Packwarden", "Marksmanship": "Deadeye", "Survival": "Trailstalker"},
+    "ROGUE": {"Assassination": "Nightblade", "Combat": "Swashblade", "Subtlety": "Veilwalker"},
     "PRIEST": {"Discipline": "Oathkeeper", "Holy": "Dawnkeeper", "Shadow": "Duskcaller"},
-    "SHAMAN": {"Elemental": "Stormcaller", "Enhancement": "Thunderfist", "Restoration": "Tidemender"},
+    "SHAMAN": {"Elemental": "Stormbinder", "Enhancement": "Thunderfist", "Restoration": "Tidemender"},
     "MAGE": {"Arcane": "Spellweaver", "Fire": "Emberwright", "Frost": "Rimecaller"},
     "WARLOCK": {"Affliction": "Hexbinder", "Demonology": "Pactkeeper", "Destruction": "Cinderlord"},
     "DRUID": {"Balance": "Starcaller", "Feral": "Wildfang", "Feral Combat": "Wildfang", "Restoration": "Grovekeeper"},
@@ -29,7 +29,7 @@ ROLE_NOUN = {               # spec unknown: class -> role -> noun
     "PALADIN": {"damage": "Crusader", "healer": "Lightmender", "tank": "Shieldsworn"},
     "HUNTER": {"damage": "Deadeye"}, "ROGUE": {"damage": "Nightblade"},
     "PRIEST": {"damage": "Duskcaller", "healer": "Dawnkeeper"},
-    "SHAMAN": {"damage": "Stormcaller", "healer": "Tidemender"},
+    "SHAMAN": {"damage": "Stormbinder", "healer": "Tidemender"},
     "MAGE": {"damage": "Spellweaver"}, "WARLOCK": {"damage": "Hexbinder"},
     "DRUID": {"damage": "Starcaller", "healer": "Grovekeeper", "tank": FERAL_TANK},
 }
@@ -144,7 +144,7 @@ def deeds(win: list[dict], fig: dict) -> list[str]:
         out.append(((v - low) / (high - low), text))
 
     def foe(f, word="against "):
-        t = f.get("target")
+        t = f.get("target") if f.get("kind") != "PvP" else None       # a player's name is a person's
         return f" {word}{t}" if t and t != "?" else ""
 
     def company(f):

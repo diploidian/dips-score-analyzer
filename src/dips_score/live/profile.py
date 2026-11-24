@@ -76,7 +76,7 @@ OLD_PLACE = {"Dungeon": "Dungeon", "Boss": "Dungeon", "World": "World"}     # fi
 RAID_DIFFICULTIES = {3, 4, 5, 6, 7, 9, 14, 15, 16, 17, 33, 148, 151, 175, 176, 185, 186, 193, 198, 215, 226}
 TALENT = {"TANK": "tank", "HEALER": "healer", "DPS": "damage"}
 TOP = 5
-CURRENT = "chances"         # a fight summed up before 0.16.0 has none
+CURRENT = "helped"          # a fight summed up before 0.18.0 has none
 
 # the label rule table: <temperament> <place> <role>
 ROLE_WORD = {"damage": "damage dealer", "healer": "healer", "tank": "tank"}

@@ -805,11 +805,11 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   level. Under it is your title, large (see [How the Profile makes your title](#how-the-profile-makes-your-title)),
   then a second line that names your next two strongest traits in plain words ("Fights without pause,
   wins one on one."). Under that are up to two feats from the window, best first, each with its enemy
-  where it is known: your closest win ("won after dropping to 2% health against Bloodscalp Berserker"),
+  where it is known (never a player's name): your closest win ("won after dropping to 2% health against Bloodscalp Berserker"),
   your biggest pull beaten, your longest run without a death, boss kills, your best damage per second,
   fights won against players, levels gained, your longest sitting. A feat has to be good by its own
   measure to show, so there may be one or none. Under the crest, when most of the window's fights were
-  summed up by an older version, a quiet line says "Based on older fight records. Import your combat
+  summed up by an older version (before 0.18.0), a quiet line says "Based on older fight records. Import your combat
   logs in Settings for the full picture."
 - The hero figure is the number behind your title: the figure of the trait that gives it its epithet,
   with what it is ("25 s between one fight and the next"). A chip beside it says how far it moved
@@ -905,7 +905,7 @@ and the weaker one scores, and "or" means the better known one scores.
 | Pace | Time between fights | between one fight and the next | 120 s to 15 s | 30 | Steady, Tireless, Relentless | all |
 | Pace | Wins under 15 seconds | of your wins took under 15 seconds | 10% to 45% | 30 | Quick, Swift, Lightning | all |
 | Pace | Fight length | is your usual fight | 45 s to 120 s | 30 | Patient, Enduring, Everlasting | all |
-| Pace | Longest sitting | fights in your longest sitting | 40 to 200 | 30 | Dogged, Unresting, Undying | all |
+| Pace | Longest sitting | fights in your longest sitting | 40 to 200 | 30 | Dogged, Unresting, Unwearied | all |
 | Pace | Longest run without a death | fights in a row survived | 15 to 200 | 30 | Surviving, Unfallen, Deathless | all |
 | Nerve | Wins on the edge | of your wins came after dropping under 35% health | 5% to 25% | 30 | Daring, Fearless, Unyielding | all |
 | Nerve | Wins under 10% health | wins after dropping under 10% health | 2 to 15 | 30 | Lucky, Defiant, Death-Cheating | all |
@@ -915,7 +915,7 @@ and the weaker one scores, and "or" means the better known one scores.
 | Nerve | Wins one on one | of fights one on one won | 70% to 97% | 20 | Sure, Deadly, Peerless | all |
 | Victory | Fights won | of your fights end with the kill | 70% to 97% | 30 | Proven, Victorious, Conquering | all |
 | Victory | Nobody got away | of fights end with nobody getting away | 80% to 99% | 30 | Dogging, Hunting, Inescapable | all |
-| Victory | Boss kills | bosses beaten | 3 to 25 | 10 | Giant-Felling, Kingslaying, Worldbreaking | all |
+| Victory | Boss kills | bosses beaten | 3 to 25 | 10 | Giant-Felling, Throne-Toppling, Mountain-Breaking | all |
 | Victory | Player fights won | of fights against players won | 35% to 75% | 10 | Feared, Dreaded, Warlike | all |
 | Victory | Most beaten enemy | of the enemies you beat are of one kind | 8% to 30% | 30 | Vengeful, Merciless, Exterminating | all |
 | Weapon | Melee share | of your damage is your weapon's own swing | 30% to 65% | 30 | Iron, Steel, Blade-Sworn | damage, tank |
@@ -949,10 +949,10 @@ Your title is `<epithet> <class noun> of <where>`:
 |---|---|
 | Warrior | Arms: Warblade, Fury: Reaver, Protection: Ironwall |
 | Paladin | Holy: Lightmender, Protection: Shieldsworn, Retribution: Crusader |
-| Hunter | Beast Mastery: Packleader, Marksmanship: Deadeye, Survival: Trailstalker |
-| Rogue | Assassination: Nightblade, Combat: Swashblade, Subtlety: Shadowstep |
+| Hunter | Beast Mastery: Packwarden, Marksmanship: Deadeye, Survival: Trailstalker |
+| Rogue | Assassination: Nightblade, Combat: Swashblade, Subtlety: Veilwalker |
 | Priest | Discipline: Oathkeeper, Holy: Dawnkeeper, Shadow: Duskcaller |
-| Shaman | Elemental: Stormcaller, Enhancement: Thunderfist, Restoration: Tidemender |
+| Shaman | Elemental: Stormbinder, Enhancement: Thunderfist, Restoration: Tidemender |
 | Mage | Arcane: Spellweaver, Fire: Emberwright, Frost: Rimecaller |
 | Warlock | Affliction: Hexbinder, Demonology: Pactkeeper, Destruction: Cinderlord |
 | Druid | Balance: Starcaller, Feral: Wildfang (Thornhide when you tank), Restoration: Grovekeeper |
@@ -1012,8 +1012,9 @@ Titles are saved with each finished 15-day block, so Earlier reads as a history 
 
 ### What the Profile counts
 
-- Alone means no group and no more than 10% of your damage done by others (players, their pets or
-  friendly characters). A fight with outside help is a helped fight, not an alone one, even without a
+- Alone means no group, no more than 10% of your damage done by others (players, their pets or
+  friendly characters), and no more than 10% of the damage you took healed by players outside your
+  group or their pets. A fight with outside help is a helped fight, not an alone one, even without a
   group. Fights alone and fights in a group feed Fights alone, Fights in a group, Wins one on one and
   Wins against three or more.
 - Help for others (dispels, healing and your share of it) leaves out yourself, your pets and your
@@ -1024,13 +1025,13 @@ Titles are saved with each finished 15-day block, so Earlier reads as a history 
   only if you answered it or a defensive sat ready.
 - Feign Death is not a death. This client logs it as one, but the app removes it, so it doesn't count
   in deaths per hour, longest run without a death, deaths and lowest health or the plate's 15% rule,
-  and your buffs stay on through it for Pulled with your usual buffs.
+  and your buffs stay on through it for Pulled with your usual buffs and Upkeep.
 - Time between fights counts gaps inside a sitting only. A gap of 30 minutes or more starts a new
   sitting, which Longest sitting counts.
 - A fight won is one where every enemy died and you lived. Nobody got away is the rest of the fights
   you lived through, an enemy you ran past included, so it leaves out fights where you did no damage.
-- Fights saved by an older version lack some of what the traits need (a group, help, chances,
-  difficulty). Those traits have no score until the fights are summed up again, and the page says so under
+- Fights saved by an older version (before 0.18.0) lack some of what the traits need (a group, help,
+  chances, difficulty). Those traits have no score until the fights are summed up again, and the page says so under
   the crest. In Settings, press **Add fights from my old combat logs** once (or run `replay`). It sums up
   again every saved fight whose combat log is still in the Logs folder, and it also adds fights you played
   while the app was closed, so the history grows past what the app saw live. It can only use the logs you

@@ -662,6 +662,13 @@ class Upkeep(unittest.TestCase):
                           ev(30, "UNIT_DIED", "", MOB1))
         self.assertAlmostEqual(um.rows[0].uptime, 0.5)
 
+    def test_feign_death_keeps_buffs(self):
+        for feign, uptime in ((True, 1.0), (None, 0.5), (False, 0.5)):
+            died = ev(30, "UNIT_DIED", "", ME)
+            died.feign = feign
+            um = self.measure("ROGUE", sp(0, "SPELL_AURA_APPLIED", ME, ME, "Slice and Dice", 1, aura="BUFF"), died)
+            self.assertAlmostEqual(um.rows[0].uptime, uptime)
+
     def test_unapplied_and_unknown_class_not_judged(self):
         from dips_score.scoring.metrics import Metrics
         from dips_score.scoring.score import score_dps

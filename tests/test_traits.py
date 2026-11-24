@@ -350,6 +350,9 @@ class Deeds(unittest.TestCase):
         self.assertEqual(titles.deeds([low], FIG), ["won after dropping to 2% health against Imp"])
         self.assertEqual(titles.deeds([low | {"helped": True}], FIG),
                          ["won after dropping to 2% health against Imp, with help"])
+        self.assertEqual(titles.deeds([low | {"kind": "PvP"}, seven | {"kind": "PvP", "target": "Bob"}], FIG),
+                         ["won after dropping to 2% health", "beat seven in one fight, alone"])     # no player's name
+        self.assertEqual(titles.deeds([fight(0, kind="PvP", target="Bob", dps=99)], FIG), ["99 damage per second"])
         self.assertEqual(titles.deeds([low | {"lowest_hp": .005}], FIG), [])        # would read 0%
         self.assertEqual(titles.deeds([low | {"lowest_hp": .0051}], FIG), ["won after dropping to 1% health against Imp"])
         pvp = many(6, kind="PvP")
@@ -458,8 +461,12 @@ class Page(unittest.TestCase):
         self.assertEqual(pack(pvp)[1:], ["Player fights won", "Broken off", "Fight length", "Wins on the edge"])
 
     def test_outdated(self):
-        old = [{k: v for k, v in f.items() if k != "chances"} for f in many(7)]
+        old = [{k: v for k, v in f.items() if k != "helped"} for f in many(7)]      # 0.16 and 0.17: chances, no helped
         self.assertEqual(self.page(old + many(6)).outdated, OUTDATED)
+        low = [{k: v for k, v in f.items() if k not in ("healing_others", "dispels_others")}
+               | {"danger": {"unused": ["Shield"]}, "group": grouped()} for f in old * 6]
+        v = self.page(low)                                          # with Wary and Mercy unknown
+        self.assertEqual((v.outdated, {r.key for _, rows in v.traits for r in rows} & {"Wary", "Mercy"}), (OUTDATED, set()))
         self.assertEqual(self.page(old + many(7)).outdated, "")
 
     def before(self, n=40, **kw):

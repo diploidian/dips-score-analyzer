@@ -324,8 +324,8 @@ are both at tier 2 or better you get a named title instead ("the Lone Storm, Cru
 Highlands"). The [reference guide](GUIDE.md#how-the-profile-makes-your-title) lists every trait, epithet
 and named title.
 
-What counts: you are alone with no group and no more than 10% of your damage done by others. Help for
-others leaves out yourself and your pets. A close call is health under 35% that you answered with a
+What counts: you are alone with no group, no more than 10% of your damage done by others and no more
+than 10% of the damage you took healed by players outside your group. Help for others leaves out yourself and your pets. A close call is health under 35% that you answered with a
 defensive within 10 seconds, or that you could have. Feign Death is not a death. Fights saved by an
 older version lack some of this until you press **Add fights from my old combat logs** in Settings,
 which also adds fights you played while the app was closed.

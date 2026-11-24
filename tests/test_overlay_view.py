@@ -48,7 +48,7 @@ DIED = {
     "target": "Blindlight Muckdweller", "more": 1, "result": "you died", "damage": 5547, "dps": 45.11773557281712,
     "healing": 1163, "taken": 2343, "efficiency": 0.9083471672307534, "healing_role": False,
     "verdict": "Killed by Blindlight Muckdweller: Melee for 68.",
-    "danger": {"t": 109.446, "hp": 0.0, "unused": [],
+    "danger": {"t": 109.446, "hp": 0.0, "answered": False, "unused": [],
                "hits": [{"who": "Blindlight Muckdweller", "spell": "Melee", "amount": 68},
                         {"who": "Blindlight Oracle", "spell": "Melee", "amount": 61}]},
     "cooldowns": [{"name": "Consecration", "cd": 12.07, "free": 8.399999999999986, "lost": 114.03479701739832}],
@@ -102,6 +102,8 @@ class CardViewTests(unittest.TestCase):
         self.assertEqual(ready.gap, ("Died at 1:49 ·", "Divine Protection and Lay on Hands were ready"))
         one = build_card(dict(DIED, danger=dict(DIED["danger"], unused=["Divine Protection"])))
         self.assertEqual(one.gap, ("Died at 1:49 ·", "Divine Protection was ready"))
+        old = {"t": 109.446, "unused": ["Divine Protection"]}           # not known whether one was pressed
+        self.assertEqual(build_card(dict(DIED, danger=old)).gap, ("Died at 1:49", ""))
         self.assertEqual(build_card(dict(DIED, danger=None)).gap, ("Died at 2:02", ""))    # no health data: the end
 
     def test_card_minimal_dict(self):

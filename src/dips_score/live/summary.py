@@ -44,8 +44,9 @@ Seal of Command hit, which the log writes as your cast) are not casts, here or i
 
 A death is one the game means: Feign Death is logged as one too, told apart as in model/deaths.py.
 healing_others, dispels_others: what went to a friendly unit other than you, a pet or a guardian (whose it is, the log
-doesn't always say; a dispel of an enemy is a purge, not help). The group members' healing_others is theirs the same way. helped: others than your group (players, their pets, friendly NPCs) did more than HELPED of your
-damage to your enemies.
+doesn't always say; a dispel of an enemy is a purge, not help). The group members' healing_others is theirs the same way.
+helped: others than your group (players, their pets, friendly NPCs) did more than HELPED of your damage to your enemies,
+or players outside it (or their pets) healed you for more than HELPED of the damage you took.
 
 The result is a plain dict, so it can be saved as JSON and shown later.
 """
@@ -83,7 +84,7 @@ CLEAN = 0.90                           # efficiency from which a fight is called
 DEFENSIVE_WINDOW = 10.0                # a defensive cast this long before or after your lowest moment answered it
 DEFENSIVE_CD = 300.0                   # a defensive's cooldown when the spell book doesn't know it
 FORBEARANCE_LASTS = 60.0
-HELPED = 0.10                          # of your damage, done by outsiders: more and you were helped
+HELPED = 0.10                          # of your damage done, or of the damage you took healed, by outsiders: more is help
 NOBODY = ("", "0000000000000000")
 FORBEARANCE = ("Divine Protection", "Divine Shield", "Blessing of Protection")      # not castable under it
 # not pressing one of these in a fight you lived through is no mistake: you can't attack under it, or it ends the fight
@@ -236,7 +237,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     power: list[tuple[float, float]] = []
     fails: Counter = Counter()
     heal = overheal = heal_others = 0
-    interrupts = dispels = dispels_others = outside = 0
+    interrupts = dispels = dispels_others = outside = outside_heal = 0
     auras: dict[str, list[float]] = defaultdict(list)            # buff name -> [applied, removed, ...] times
     own_auras: set[str] = set()                                  # the ones you put on yourself
     pos: list[tuple[float, float, float]] = []                   # your position (Advanced Combat Logging)
@@ -298,6 +299,9 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 and (e.src.startswith(("Player-", "Pet-")) or
                      e.src.startswith("Creature-") and not is_foe(e.src, e.src_flags)):
             outside += e.amount
+        elif e.dst == me and ev.endswith("_HEAL") and not mine(e.src) and e.src.startswith(("Player-", "Pet-")) \
+                and not is_group(e.src, e.src_flags):
+            outside_heal += max(0, e.amount - e.overheal)
         if ev == "UNIT_DIED" and e.dst in party and id(e) not in feigned:
             party_deaths.append((t, party[e.dst]))
         if mine(e.src):
@@ -684,7 +688,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         "level": level,
         "pull": {"since_last": f.since_last, "buffs": f.buffs_at_pull, "own": f.own_buffs_at_pull, "rest": f.rest},
         "interrupts": interrupts, "dispels": dispels,
-        "healing_others": heal_others, "dispels_others": dispels_others, "helped": outside > HELPED * damage,
+        "healing_others": heal_others, "dispels_others": dispels_others,
+        "helped": outside > HELPED * damage or outside_heal > HELPED * total_taken,
         # chances of the spells that answer health or avoided attacks (usable.py), where known; creature-type
         # chances are counted from "foes"
         "chances": {n: c for n, (_, c) in chances.items() if c is not None and "types" not in usable.RULES[n]},

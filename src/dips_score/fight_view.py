@@ -143,7 +143,8 @@ def _danger(d: dict) -> list[tuple[str, str]]:
         by.setdefault(h["who"], []).append(f"{h['spell']} {_n(h['amount'])}")
     out = [("Lowest health", f"{danger['hp']:.0%} at {fmt_time(danger['t'])}")]
     out += [("" if k else "Hits", f"{who}: {', '.join(hits)}") for k, (who, hits) in enumerate(by.items())]
-    if unused := danger.get("unused"):
+    # without "answered" it was summed up when a defensive pressed at the low moment still counted as unused
+    if "answered" in danger and (unused := danger.get("unused")):
         out.append(("Ready, not used", ", ".join(unused)))
     return out
 

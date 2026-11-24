@@ -2,8 +2,8 @@
 is classes.py). All from the basic combat log.
 
 Your aura intervals: one starts at your SPELL_AURA_APPLIED of the spell (matched by name) and ends at
-the matching SPELL_AURA_REMOVED on the same unit, that unit's death, or the end of the run; a REFRESH
-or a new stack keeps it up.
+the matching SPELL_AURA_REMOVED on the same unit, that unit's death (a Feign Death is none), or the end
+of the run; a REFRESH or a new stack keeps it up.
     self     the aura is on you: uptime is the share of combat time it was up.
     target   the aura is on an enemy: uptime is the share of combat time at least one enemy carried
              it (the union over enemies). In a dungeon you can't keep a DoT on everything, so "on
@@ -63,7 +63,7 @@ def upkeep_base(rd: RunData, cls: str | None) -> UpkeepBase:
                 open_.setdefault((e.spell_name, e.dst), t)
         elif ev == "SPELL_AURA_REMOVED" and (e.spell_name, e.dst) in open_:
             close((e.spell_name, e.dst), t)
-        elif ev == "UNIT_DIED":
+        elif ev == "UNIT_DIED" and not e.feign:
             for key in [k for k in open_ if k[1] == e.dst]:
                 close(key, t)
     for key in list(open_):

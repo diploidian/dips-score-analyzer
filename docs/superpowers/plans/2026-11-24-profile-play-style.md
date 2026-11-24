@@ -42,7 +42,7 @@ to support it is cut and listed in the report, never faked.
 | Tempo | median s between fights in a sitting | 120 -> 15 | Steady, Tireless, Relentless |
 | Swift | share of wins under 15 s | 10 -> 45% | Quick, Swift, Lightning |
 | Endure | median fight length | 45 -> 120 s | Patient, Enduring, Everlasting |
-| Marathon | longest sitting, fights | 40 -> 200 | Dogged, Unresting, Undying |
+| Marathon | longest sitting, fights | 40 -> 200 | Dogged, Unresting, Unwearied |
 | Streak | longest run without a death | 15 -> 120 | Surviving, Unfallen, Deathless |
 
 **Nerve**
@@ -62,7 +62,7 @@ to support it is cut and listed in the report, never faked.
 |---|---|---|---|
 | Finish | fights won by the kill | 70 -> 97% | Proven, Victorious, Conquering |
 | Hound | fights where nobody got away | 80 -> 99% | Dogging, Hunting, Inescapable |
-| Boss | boss kills | 3 -> 25 | Giant-Felling, Kingslaying, Worldbreaking |
+| Boss | boss kills | 3 -> 25 | Giant-Felling, Throne-Toppling, Mountain-Breaking |
 | War | player fights won, 10 or more fought | 35 -> 75% | Feared, Dreaded, Warlike |
 | Scourge | one enemy name's share of kills | 8 -> 30% | Vengeful, Merciless, Exterminating |
 
@@ -122,10 +122,10 @@ paladins differ:
 |---|---|
 | Warrior | Arms Warblade, Fury Reaver, Protection Ironwall |
 | Paladin | Holy Lightmender, Protection Shieldsworn, Retribution Crusader |
-| Hunter | Beast Mastery Packleader, Marksmanship Deadeye, Survival Trailstalker |
-| Rogue | Assassination Nightblade, Combat Swashblade, Subtlety Shadowstep |
+| Hunter | Beast Mastery Packwarden, Marksmanship Deadeye, Survival Trailstalker |
+| Rogue | Assassination Nightblade, Combat Swashblade, Subtlety Veilwalker |
 | Priest | Discipline Oathkeeper, Holy Dawnkeeper, Shadow Duskcaller |
-| Shaman | Elemental Stormcaller, Enhancement Thunderfist, Restoration Tidemender |
+| Shaman | Elemental Stormbinder, Enhancement Thunderfist, Restoration Tidemender |
 | Mage | Arcane Spellweaver, Fire Emberwright, Frost Rimecaller |
 | Warlock | Affliction Hexbinder, Demonology Pactkeeper, Destruction Cinderlord |
 | Druid | Balance Starcaller, Feral Wildfang (tank: Thornhide), Restoration Grovekeeper |
