@@ -101,6 +101,8 @@ The dips-Score add-on writes one short line per event, with a millisecond timest
 - boss pulls and ends, keystone start and completion
 - each group member's name, class, race and group finder role
 - notes you drop with `/dscore mark`
+- the name and creature type of each hostile non-player unit you target, mouse over or see a nameplate
+  for (no chat, no player names)
 
 It only sees your own character. No add-on can read another player's keyboard.
 
@@ -251,6 +253,20 @@ stunned, healing someone who was low, or a target that was nearly dead are all e
 is counted the same way: 2.5 seconds or more with nothing cast while you could have acted, and only
 when you had a filler spell to press.
 
+Melee and ranged auto attacks are tracked as well. The Spells page gives the Melee row, and Auto Shot
+or wand Shoot, a hit table: swings, speed, how many landed, crit and glancing, and what was missed,
+dodged or parried. When melee or shots make up 10% or more of your damage, the card and the Debrief
+say so in a line over the losses, in words, since it isn't a loss. Time with no ability used is split
+into swinging (or shooting) and idle. Heroic Strike, Cleave, Raptor Strike and Maul fill the swing
+they replace. Gaps in your swings or shots are counted as lost, and shots a cast pushed back as
+clipped.
+
+Call-outs count real chances. Exorcism has nothing to work on in a fight with no undead or demons,
+Execute needs an enemy under 20% health, Overpower needs a dodge and Revenge a block, dodge or
+parry, in the right stance. Time outside a chance is excused, and the card says how many chances
+there were. The enemy creature types come from the add-on, so they reach the app on `/reload` or
+logout. Fights from before this need `replay` to get their chances.
+
 Settings has a section for the card, under "After each fight":
 
 - Keep it up, so the card stays on screen and updates in place after each fight instead of fading.
@@ -266,6 +282,16 @@ see them.
 
 ## Over weeks of play
 
+The Profile page shows who you are over the last 15 days: your main role's share of fight time, a
+label ("Careful dungeon healer"), the one thing most worth changing, your top spells with melee
+included, how you use your hands (keys against clicks, presses per minute, refused presses, casts cut
+short by moving), your role mix, where you fight (dungeons, raids, open world, PvP) and your
+temperament (deaths, pull size, health, cooldowns). Hands needs a recorded run. A chip on a share
+that moved 5 points or more against days 16 to 30 says by how much, and the biggest move gets a ring.
+Earlier, at the foot, keeps each 15-day block once it has left the current window, never rewritten;
+a block under 10 fights isn't kept. The app saves them in `profile_history.json` and
+`profile_runs.json` in its data folder.
+
 The Habits page reads the last 40 fights of the character you played most recently. It opens with
 who you are ("Mapomimi, level 33 Undead Priest, Shadow, gear 31") and your session: fights, kills
 per hour, average rest between pulls, and average health and mana at the pull.
@@ -278,7 +304,7 @@ you fought. So when your damage goes up 15%, you can see how much of that you ea
 
 Other cards catch the slow leaks: the cooldown that costs you the most, your most common refusal,
 pull buffs you usually have but sometimes forget, mana at the pull when it averages under 70%,
-damage spells you know and never use, empty gear slots, and gear that went into a pull broken or
+damage spells you know and never use (when you had a chance to use them), swings not landing, empty gear slots, and gear that went into a pull broken or
 under 20% durability.
 
 ## Raids, sharing and names

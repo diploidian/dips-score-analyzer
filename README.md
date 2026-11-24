@@ -174,11 +174,33 @@ Cards are green (keep doing it), orange (fix) or blue (build). The ones it can s
 - DPS up or down 5% or more between the two halves, split into the part from your play (the change
   in efficiency) and the rest, which moved with gear, level and what you fought.
 - Cooldowns with damage lost, and swings lost per minute for melee.
+- Swings not landing: 10% or more of at least 50 swings missed, were dodged or parried.
 - The most common failed-cast reason, and pull buffs you often start without.
 - Deaths, and mana at the pull when it averages under 70%.
 - A defensive that was ready when you were low.
 - Harmful spells you know and have not cast in these fights (up to 3 are named), and empty gear slots.
 - Gear at the pull: broken, or under 20% durability.
+
+## Melee, ranged and chances
+
+Melee swings and ranged shots get a hit table on the Spells page (count, speed, landed, crit, glancing,
+missed, dodged, parried). Melee or shots at 10% or more of your damage get a words-only line over the
+losses on the Fight page and the Debrief. No-ability time is split into swinging (or shooting) and idle;
+Heroic Strike, Cleave, Raptor Strike and Maul fill the swing they replace; lost and clipped shots are
+counted apart.
+
+A call-out about a spell that can't always be used counts real chances: an enemy of the right creature type,
+an enemy under 20% health, or an avoided attack in the right stance. The add-on's `Types.lua` records the name
+and creature type of hostile non-player units you target, mouse over or see a nameplate for (no chat); they
+reach the app on `/reload` or logout. Old fights need `replay` to get their chances.
+
+## Profile
+
+The last 15 days of the character you played most recently: main role share and label, Worth changing,
+Signature (melee included), Hands (needs a recorded run), Role mix, Where you fight (dungeon, raid, world,
+PvP) and Temperament. Chips compare with days 16 to 30 and the biggest move is ringed. Earlier keeps each
+15-day block once it has left the current window, never rewritten; blocks under 10 fights aren't kept.
+Needs 10 fights in the 15 days.
 
 ## Character snapshot
 
@@ -219,7 +241,8 @@ erased from the game's saved file, which the game rewrites. A box asks first, as
 ## Data the app keeps
 
 In `%APPDATA%\dips-score`: `weights.json`, `classes.json` and `names.json` (yours), `removed.json` (the visits and
-fights you deleted), `fights.jsonl` (the last 5000 fights) and `spells.json` (a spell book per character).
+fights you deleted), `fights.jsonl` (the last 5000 fights) and `spells.json` (a spell book per character), `profile_history.json` (the Profile page's Earlier blocks) and
+`profile_runs.json` (its run figures, kept 60 days).
 `spells.json` replaced `cooldowns.json`, which is no longer read; the `replay` command learns the spell books again
 from your old combat logs. `cache\analysis` holds every run analysed, one file each (a few MB a run, up to about
 60 MB for the longest: about 350 MB for 25 runs); it is safe to delete, as the runs are analysed again when next opened.

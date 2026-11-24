@@ -144,9 +144,19 @@ records:
 - boss pulls and boss ends (with whether the boss died), and keystone start and completion
 - each group member's name, class, race and group finder role
 - markers you add with `/dscore mark`
+- the name and creature type of each hostile non-player unit you target, mouse over or see a
+  nameplate for (see [Enemy creature types](#enemy-creature-types))
 
 It records your own character only. Other players' inputs are never visible to an add-on, and pet
 casts aren't recorded.
+
+### Enemy creature types
+
+A second part of the add-on, `Types.lua`, saves the name and creature type of every hostile
+non-player unit you target, mouse over or see a nameplate for ("Risen Ghoul" is Undead). It reads
+nothing from chat and saves no player names. It keeps up to 2000 names, account-wide. The app uses
+them to tell whether a spell that only works on some types had anything to work on (see
+[Chances](#chances)). Like everything the add-on saves, they reach the app on `/reload` or logout.
 
 ### The character snapshot
 
@@ -475,6 +485,47 @@ had the resource to act. Half of it counts as lost damage, and only if you have 
 spell you cast twice within 2 seconds, or a confirmed cooldown under 4 seconds. Without a filler
 there was nothing to press, so nothing is lost.
 
+### Auto attacks
+
+Your melee swings and your ranged shots (Auto Shot, wand Shoot) are read from the combat log.
+
+- On the Spells page the Melee row, and the Auto Shot or Shoot row, have a hit table line: how many
+  swings or shots, their speed, the share that landed (with crit and glancing among the landed ones,
+  as the Crit column), and the share missed, dodged, parried, blocked and so on. Extra swings are
+  listed by the spell that gave them. Only swings at enemies count.
+- When melee or shots are 10% or more of your damage, the Fight page and the Debrief say so in one
+  line over the losses ("Melee 46% of your damage"). It is words only: it is not a loss.
+- Time with no ability used is split. The part where auto attack was running is "no ability used
+  while swinging" (or shooting); the rest is idle. Both cost the damage an ability could have added,
+  and only if you have a filler.
+- Heroic Strike, Cleave, Raptor Strike and Maul replace the next swing, so they fill the swing they
+  take. A gap in your swings longer than 1.6 swings, while you weren't casting, is swings lost. For
+  Auto Shot and wands it is shots lost, less time moving or with no enemy alive. A shot that a cast
+  pushed back is counted apart, as "Shots clipped by casts" (a hard cast, or any cast for a wand).
+  A wand's shots inside an idle gap that was already priced aren't lost a second time.
+
+### Chances
+
+A spell that can't always be used is only called out when you had a chance to use it. A chance is:
+
+- for a spell that works on some creature types (Exorcism, Holy Wrath, Turn Undead, Shackle Undead,
+  Enslave Demon, Banish, Hibernate, Polymorph, Scare Beast, Soothe Animal, Tame Beast), one enemy of
+  those types in the fight;
+- for a spell that needs a low target (Execute, Hammer of Wrath), an enemy that dropped under 20%
+  health, which needs Advanced Combat Logging;
+- for a spell that answers an avoided attack (Overpower and Mongoose Bite after the target dodges
+  you; Revenge, Riposte and Counterattack after you block, dodge or parry), one such attack, with 5
+  seconds to answer. Overpower counts only in Battle Stance and Revenge only in Defensive Stance, so
+  a chance only counts while that stance was on you. With no stance seen in the fight, the chances
+  are unknown.
+
+Ready time outside a chance is excused, and the fight cards say how many chances there were ("sat
+ready 12 s across 3 chances"). When the chances can't be known (no creature types loaded, no enemy
+health in the log, a fight saved before chances were counted), the spell is never called out as
+unused. Enemy types come from the add-on, so an enemy it never recorded is unknown, and new types
+need a `/reload` or logout to reach the app. Fights saved before this existed get their chances when
+you run `replay`.
+
 ### The danger box and defensives
 
 When your health falls under 35%, the card shows a danger box with the hits that did it. It also
@@ -515,11 +566,12 @@ The cards are green (keep doing it), orange (fix it) or blue (build on it). The 
 - Damage per second up or down 5% or more between the two halves, split into the part from your
   play (the change in efficiency) and the rest, which moved with gear, level and what you fought.
 - The cooldowns that lost the most damage, and swings lost per minute for melee.
+- Swings not landing: when 10% or more of at least 50 swings missed, were dodged or parried.
 - Your most common failed-cast reason, and the pull buffs you usually have but sometimes forget.
 - Deaths, and mana at the pull when it averages under 70%.
 - A defensive that was ready when you were low.
 - Damage spells you know and haven't cast in these fights (up to 3 are named), and empty gear
-  slots.
+  slots. A spell that needs a chance is only named when you had one (see [Chances](#chances)).
 - Gear at the pull that was broken or under 20% durability.
 
 The damage split is the most useful card for a levelling character. Damage per second is the damage
@@ -728,6 +780,35 @@ never takes focus from the game.
 
 Covered in [Habits](#habits) above. While it is open, it refreshes after every fight.
 
+### The Profile page
+
+The Profile page is who you are as a player over the last 15 days, for the character you played
+most recently. It needs 10 fights in those 15 days; with fewer it says how many it has.
+
+- At the top, your main role's share of fight time (98% of fight time dealing damage) and a label
+  such as "Careful dungeon healer", from your deaths per hour, usual pull size, cooldowns used, where
+  you fight most and your main role. A "Before:" line shows the label from days 16 to 30 when it
+  differs.
+- Worth changing names the first thing that applies: you click 30% or more of your presses, you use
+  under half your possible cooldowns, you know a harmful spell and never cast it, you die in 15% or
+  more of your fights. Otherwise it says "Nothing stands out" and shows your best trait.
+- Signature is your top five spells by share of damage (by share of casts for a healer), with melee
+  shown as "Melee (auto attack)" and its swings, and your usual opening of three casts.
+- Hands is keys against clicks, presses per minute, refused presses and casts cut short by moving.
+  It needs a recorded run: play with the add-on on and `/reload`. Without one it says so.
+- Role mix is your share of fight time as damage, healer and tank, with the average score of your
+  graded runs in each. Where you fight is the share in dungeons, raids (by difficulty), the open
+  world and PvP.
+- Temperament is deaths per hour, usual pull, average lowest health and cooldowns used.
+
+A chip such as "+12 pts vs the 15 days before" sits on a share that moved 5 points or more against
+days 16 to 30. The one biggest move of the page gets a ring round it (on a tie, the increase).
+
+Earlier, at the foot, lists your finished 15-day blocks: dates, label, main role, deaths per hour and
+cooldowns used. A block is saved once its end is 15 days back, when it has left the current window,
+and never rewritten. A block with fewer than 10 fights isn't saved. A block waits until every run's
+figures have been read.
+
 ### Tray mode and the command line
 
 Run `dips-score.pyw live` to keep the app in the system tray while you play, with the overlay. Its
@@ -742,6 +823,8 @@ them.
 
 Everything is in `%APPDATA%\dips-score`: `weights.json` and `classes.json` (your settings),
 `fights.jsonl` (the last 5,000 fights) and `spells.json` (a spell book per character).
+`profile_history.json` holds the Earlier blocks of the Profile page, and `profile_runs.json` what it
+takes from each recorded run, kept 60 days because the add-on keeps only its last runs.
 `spells.json` replaced the older `cooldowns.json`, which is no longer read. Run `replay` once to
 rebuild your spell books from old combat logs.
 
