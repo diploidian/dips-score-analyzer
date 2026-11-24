@@ -29,7 +29,9 @@ reason not to (see readiness.py):
                            press, and a ready cooldown is already counted by its own row.
 Danger is your lowest health under 35%, with the hits that put you there and the defensives (classes.py, any
 class: only names in your spell book count) that sat ready and unused: off cooldown at that moment (your death,
-if you died) and not cast in the DEFENSIVE_WINDOW seconds before it.
+if you died). None sat unused when you answered it: cast one on yourself within DEFENSIVE_WINDOW seconds before or
+after that moment (your health is lowest just before the one that saves you). Forbearance rules out the paladin's
+shields, and one that stops your own attacks or takes you out of the fight (HALTS) counts only when you died.
 The verdict is one sentence about the fight: how you died, else (healing) what went well, else "no damage
 done", else the biggest finding when it cost VERDICT_SHARE of your damage (or anything, below CLEAN of what
 was possible), else how close you came to the most you could have done.
@@ -72,8 +74,11 @@ RECENT = timedelta(days=7)             # a cooldown not cast for longer than thi
 HELD = 60.0                            # cooldowns this long are saved for bosses
 VERDICT_SHARE = 0.03
 CLEAN = 0.90                           # efficiency from which a fight is called clean
-DEFENSIVE_WINDOW = 10.0                # a defensive cast this long before your lowest moment was used
+DEFENSIVE_WINDOW = 10.0                # a defensive cast this long before or after your lowest moment answered it
 DEFENSIVE_CD = 300.0                   # a defensive's cooldown when the spell book doesn't know it
+FORBEARANCE = ("Divine Protection", "Divine Shield", "Blessing of Protection")      # not castable under it
+# not pressing one of these in a fight you lived through is no mistake: you can't attack under it, or it ends the fight
+HALTS = ("Divine Protection", "Blessing of Protection", "Ice Block", "Feign Death", "Vanish")
 MASHING = {"Not yet recovered", "Another action is in progress", "Interrupted", "Spell not ready yet",
            "Item is not ready yet", "Can't do that while moving", "Your target is dead", "No target"}
 
@@ -155,16 +160,16 @@ def procs(f: FightData, me: str) -> set[int]:
     return out
 
 
-def unused_defensives(at: float, casts: list[tuple], book: dict[str, dict], f: FightData) -> list[str]:
-    """defensives in your spell book that were off cooldown at `at` (seconds into the fight) and not cast in
-    the DEFENSIVE_WINDOW seconds before it"""
+def unused_defensives(at: float, casts: list[tuple], book: dict[str, dict], f: FightData, died: bool,
+                      forbearance: list[tuple[float, float]]) -> list[str]:
+    """defensives in your spell book that were off cooldown at `at` (seconds into the fight), could be cast and
+    were worth it (see Danger in the module docstring)"""
     out = []
     for name in dict.fromkeys(n for names in DEFENSIVES.values() for n in names):
-        if name not in book:
+        if name not in book or (name in HALTS and not died) or (
+                name in FORBEARANCE and any(a <= at <= b for a, b in forbearance)):
             continue
         times = [t for t, _, n, _, _ in casts if n == name and t <= at]
-        if times and times[-1] >= at - DEFENSIVE_WINDOW:
-            continue
         before = f.cast_before.get(name)
         last = times[-1] if times else (_rel(before, f.start) if before else None)
         if last is None or last + (cooldown(book[name]) or DEFENSIVE_CD) <= at:
@@ -201,6 +206,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     spells: dict[str, dict] = {}
     casts: list[tuple[float, int, str, float | None, int]] = []   # t, spell id, name, began, cost
     starts: dict[int, float] = {}
+    defended: list[float] = []                                   # defensives cast on yourself
+    defensives = {n for names in DEFENSIVES.values() for n in names}
     swings: list[float] = []
     swing_dmg: list[int] = []
     slots: list[float] = []                                      # next-swing ability casts (Heroic Strike...)
@@ -313,6 +320,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 casts.append((t, e.spell_id or 0, name, began if began is not None and t - began < 10 else None, cost))
                 if name in NEXT_SWING:
                     slots.append(t)
+                if name in defensives and not (e.dst.startswith("Player-") and e.dst != me):
+                    defended.append(t)
             elif ev == "SPELL_CAST_FAILED" and e.src == me:
                 fails[(e.spell_name, e.reason or "unknown")] += 1
                 if (e.reason or "").startswith("Can't do that while"):
@@ -507,8 +516,12 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         if low < 0.35:
             hits = sorted((h for h in taken if t_low - 3 <= h[0] <= t_low), key=lambda h: -h[1])[:5]
             if hits:
+                at = died_at if i_died else t_low
+                answered = any(abs(t - at) <= DEFENSIVE_WINDOW for t in defended)
+                forbearance = _spans(auras.get("Forbearance", []), "Forbearance" in f.buffs_at_pull, dur)
                 danger = {"t": t_low, "hp": low, "hits": [{"who": w, "spell": s, "amount": a} for _, a, s, w in hits],
-                          "unused": unused_defensives(died_at if i_died else t_low, casts, book, f)}
+                          "answered": answered, "unused": [] if answered else
+                          unused_defensives(at, casts, book, f, i_died, forbearance)}
 
     failed = [{"spell": s, "reason": r, "count": n} for (s, r), n in fails.most_common()]
     # mostly healing, or no damage at all (a stray hit you never joined in): damage you "could have done"

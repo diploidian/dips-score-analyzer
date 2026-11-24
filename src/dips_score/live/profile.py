@@ -44,7 +44,7 @@ figures(...) keys (shares are fractions 0..1; None when there is nothing to divi
                    out, equal losses by name): {"name", "lost", "fights", "missed", "chances"}; a spell in
                    usable.RULES only from fights with a known chance (its ready time elsewhere may be time it
                    could not be used)
-  close_calls      {"fights" (your health got low with the defensives judged), "unused" (a defensive sat ready in it),
+  close_calls      {"fights" (your health got low, in fights that say whether you answered it), "unused" (a defensive sat ready in it),
                    "spell" (the one that did most often, by name on a tie), "count" (fights it did)}, the last two
                    None when unused is 0
   overheal         {"fights", "healing", "overheal"} of the healer fights, None when they healed nothing
@@ -172,7 +172,8 @@ def _losses(dmg: list[dict]) -> list[dict]:
 
 
 def _close_calls(win: list[dict]) -> dict:
-    danger = [f["danger"]["unused"] for f in win if "unused" in (f.get("danger") or {})]
+    # "answered": without it the fight was summed up when a defensive pressed at the low moment still counted as unused
+    danger = [f["danger"]["unused"] for f in win if "answered" in (f.get("danger") or {})]
     seen = Counter(n for names in danger for n in set(names or ()))
     spell = min(seen, key=lambda n: (-seen[n], n), default=None)
     return {"fights": len(danger), "unused": sum(map(bool, danger)), "spell": spell, "count": seen.get(spell)}

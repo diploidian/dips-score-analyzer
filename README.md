@@ -143,7 +143,9 @@ twice within 2 seconds of each other, or a confirmed cooldown under 4 seconds. W
 there was nothing to press.
 
 The danger block (your health under 35%) names the defensives that sat ready and unused: off cooldown
-at your lowest moment and not cast in the 10 seconds before it. Only spells in your spell book are
+at your lowest moment, with none cast on yourself within 10 seconds of it. Forbearance rules out the
+paladin's shields, and one that stops your own attacks or ends the fight (Blessing of Protection, Divine
+Protection, Ice Block, Feign Death, Vanish) counts only when you died. Only spells in your spell book are
 judged. A defensive the book has no cooldown for is assumed to have 300 seconds.
 
 The spell book is kept per character and by spell name, since every rank has its own id. A

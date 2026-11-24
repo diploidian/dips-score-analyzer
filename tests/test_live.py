@@ -495,18 +495,41 @@ class AutoAttack(unittest.TestCase):
 
 class Defensives(unittest.TestCase):
     def test_ready_and_unused_when_low(self):
-        tr, f = one_fight([dmg(0, ME, MOB, 8092, "Mind Blast", 300), cast(15, 498, "Divine Protection"), *bites(30)])
+        tr, f = one_fight([dmg(0, ME, MOB, 8092, "Mind Blast", 300), cast(5, 498, "Divine Protection"), *bites(30)])
         low = next(e for e in f.events if e.event == "SWING_DAMAGE" and (e.ts - f.start).total_seconds() == 20)
         low.info = UnitInfo("Player-1-A", 100, 1000, 0, 100, 100, 0.0, 0.0, 0, 0.0, 33)       # 10% health at 20 s
         f.cast_before["Lay on Hands"] = f.start - timedelta(seconds=60)
         book = {"Divine Shield": entry(300.0, avg=0),                   # never cast: ready
-                "Divine Protection": entry(300.0, avg=0),               # cast 5 s before: used
+                "Divine Protection": entry(300.0, avg=0),               # cast 15 s before: on cooldown
                 "Lay on Hands": {**entry(1.0, avg=0), "gaps": []},      # cooldown unknown (300 s), cast 80 s ago
                 "Smite": entry(1.0)}                                    # not a defensive
         s = summarize(f, tr.me, tr.me_name, book, [])                   # Evasion: not in the book
         self.assertEqual(s["danger"]["unused"], ["Divine Shield"])
         self.assertIn("Dropped to 10% health with Divine Shield ready", s["improve"])
         self.assertFalse([x for x in s["improve"] if x.startswith("Dropped to 10% health (")])
+
+
+    def low_at(self, cast_lines, book, at=20, died=False, buffs=()):
+        tr, f = one_fight([dmg(0, ME, MOB, 8092, "Mind Blast", 300), *cast_lines, *bites(30),
+                           *([line(30.5, f"UNIT_DIED,{NONE},{ME},0")] if died else [])])
+        e = next(e for e in f.events if e.event == "SWING_DAMAGE" and (e.ts - f.start).total_seconds() == at)
+        e.info = UnitInfo("Player-1-A", 100, 1000, 0, 100, 100, 0.0, 0.0, 0, 0.0, 33)
+        f.buffs_at_pull = list(buffs)
+        return summarize(f, tr.me, tr.me_name, {n: entry(300.0, avg=0) for n in book}, [])["danger"]
+
+    def test_answered_just_after_the_low(self):
+        d = self.low_at([cast(22, 642, "Divine Shield")], ["Divine Shield", "Lay on Hands"])
+        self.assertEqual((d["answered"], d["unused"]), (True, []))          # the lowest reading is before the save
+        d = self.low_at([cast(5, 642, "Divine Shield")], ["Divine Shield", "Lay on Hands"])
+        self.assertEqual((d["answered"], d["unused"]), (False, ["Lay on Hands"]))      # 15 s before: not for this
+
+    def test_forbearance_rules_out_the_shields(self):
+        d = self.low_at([], ["Divine Shield", "Lay on Hands"], buffs=["Forbearance"])
+        self.assertEqual((d["answered"], d["unused"]), (False, ["Lay on Hands"]))
+
+    def test_one_that_stops_your_attacks_only_when_you_died(self):
+        self.assertEqual(self.low_at([], ["Blessing of Protection"])["unused"], [])
+        self.assertEqual(self.low_at([], ["Blessing of Protection"], 30, True)["unused"], ["Blessing of Protection"])
 
 
 class Verdict(unittest.TestCase):

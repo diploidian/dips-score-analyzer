@@ -138,7 +138,9 @@ class Figures(unittest.TestCase):
         self.assertEqual((s["lost"], s["fights"], s["chances"]), (100, 1, 3))
 
     def test_close_calls_and_overheal(self):
-        fs = [fight(1, danger={"unused": ["B", "A"]}), fight(1, danger={"unused": []}), fight(1, danger={"t": 1}),
+        fs = [fight(1, danger={"unused": ["B", "A"], "answered": False}), fight(1, danger={"unused": [], "answered": True}),
+              fight(1, danger={"t": 1}), fight(1, danger={"unused": ["A"]}),      # an old one: not known if answered
+             
               fight(1, danger=None), fight(1, healing_role=True, healing=60, overheal=40), fight(1, healing=9, overheal=9)]
         n = profile(fs, None, {}, [], T0)["now"]
         self.assertEqual(n["close_calls"], {"fights": 2, "unused": 1, "spell": "A", "count": 1})
@@ -370,7 +372,7 @@ class View(unittest.TestCase):
     def test_plate_order(self):
         """each fight does everything wrong; taking away the rule that applies shows the next one"""
         kw = dict(cooldowns=[{"name": "Judge", "lost": 10, "counted": 1, "possible": 10, "missed": 6}], damage=30,
-                  potential=40, danger={"unused": ["Divine Shield"]}, healing=50, overheal=50, spec="Holy")
+                  potential=40, danger={"unused": ["Divine Shield"], "answered": False}, healing=50, overheal=50, spec="Holy")
         char = {"class": "PALADIN", "spells": {"Consecration": {"harm": True}}}
         runs = [run(1, presses=500, by_key=200, by_click=300, failed=40, casts=60)]
         fs = many(2, result="you died", **kw) + many(8, **kw)
@@ -419,7 +421,7 @@ class View(unittest.TestCase):
         self.assertEqual(page(many(damage=899, potential=1000, cooldowns=cd)).plate.title, "Conse sat ready")
 
     def test_plate_close_calls(self):
-        low, safe = {"unused": ["Shield"]}, {"unused": []}
+        low, safe = {"unused": ["Shield"], "answered": False}, {"unused": [], "answered": True}
         p = page(many(5, danger=low) + many(3, danger=safe) + many(5)).plate
         self.assertEqual((p.title, p.figure), ("Shield sat ready in 5 close calls", "5 of 8 close calls"))
         self.assertEqual(page(many(4, danger=low) + many(6)).plate.title, "Nothing stands out")

@@ -541,9 +541,12 @@ you run `replay`.
 ### The danger box and defensives
 
 When your health falls under 35%, the card shows a danger box with the hits that did it. It also
-names the defensives that sat ready and unused: off cooldown at your lowest moment, and not cast in
-the 10 seconds before it. Only spells in your spell book are judged, so a defensive you don't have
-costs nothing. A defensive the book has no cooldown for is assumed to have 300 seconds.
+names the defensives that sat ready and unused: off cooldown at your lowest moment. It names none when
+you cast one on yourself within 10 seconds of that moment, before or after. Forbearance rules out the
+paladin's shields. One that stops your own attacks or ends the fight for you (Blessing of Protection,
+Divine Protection, Ice Block, Feign Death, Vanish) is named only when you died. Only spells in your
+spell book are judged, so a defensive you don't have costs nothing. A defensive the book has no
+cooldown for is assumed to have 300 seconds.
 
 ### Your spell book
 
