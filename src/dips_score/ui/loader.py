@@ -66,7 +66,7 @@ class Loader(QObject):
             self.queued.clear()
 
     def stop(self):
-        """drop the queue and end the thread (the tests: nothing left holding their temp folder)"""
+        """drop the queue and end the thread, once the job running is done (the next ask starts another)"""
         self.drop()
         if self.thread:
             self.jobs.put((-1, -1, None))

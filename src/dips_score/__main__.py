@@ -122,8 +122,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "replay":
         from .live.history import replay
         from .sources import combatlog
-        n = replay(p, combatlog.find_logs(p.logs))
-        print(f"Added {n} fights.")
+        added, again = replay(p, combatlog.find_logs(p.logs))
+        print(f"Added {added} fights, refreshed {again}.")
         return 0
     if args.cmd == "live":
         from .ui.live_ui import run_tray

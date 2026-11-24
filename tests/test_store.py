@@ -38,6 +38,16 @@ class Store(unittest.TestCase):
             store.prune(folder, [])                                  # no runs read (no game folder): all stay
             self.assertEqual(len(list(folder.iterdir())), 2)
 
+    def test_clear_drops_the_runs_files_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp)
+            store.clear(folder / "never made")
+            for rid in ("1763-Nikana", "1765-Bao"):
+                store.save(folder, rid, (rid,), 1)
+            (folder / "other.txt").write_text("not the store's", encoding="utf-8")
+            store.clear(folder)
+            self.assertEqual([f.name for f in folder.iterdir()], ["other.txt"])
+
 
 if __name__ == "__main__":
     unittest.main()

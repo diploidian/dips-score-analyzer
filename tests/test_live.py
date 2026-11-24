@@ -1,5 +1,6 @@
 """The live fight tracker and summaries, on a small made-up log."""
 import copy
+import json
 import sys
 import tempfile
 import unittest
@@ -9,10 +10,11 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dips_score import removed  # noqa: E402
+from dips_score import removed, store  # noqa: E402
 from dips_score.live.summary import cooldown, learn_cooldowns, summarize  # noqa: E402
 from dips_score.config import Paths  # noqa: E402
-from dips_score.live.history import History  # noqa: E402
+from dips_score.live import history  # noqa: E402
+from dips_score.live.history import History, replay  # noqa: E402
 from dips_score.live.tracker import Tracker  # noqa: E402
 from dips_score.sources.combatlog import UnitInfo  # noqa: E402
 
@@ -354,6 +356,69 @@ class Cooldowns(unittest.TestCase):
             removed.IDS.add("2")
             self.assertFalse(h.add({"id": "2"}))
             self.assertEqual([f["id"] for f in History(Paths(Path(d))).fights], ["1", "3"])
+
+
+class Replay(unittest.TestCase):
+    """a replay over saved fights, in a data folder of its own"""
+    LOG = [x for at in (0, 60) for x in (
+        *[dmg(at + t, ME, MOB, 8092, "Mind Blast", 300) for t in (1, 3, 5, 7)], line(at + 8, f"UNIT_DIED,{NONE},{MOB},0"))]
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        env = patch.dict("os.environ", {"APPDATA": tmp.name})
+        env.start()
+        self.addCleanup(env.stop)
+        self.paths = Paths(Path(tmp.name) / "no game")
+        self.log = Path(tmp.name) / "WoWCombatLog.txt"
+        self.log.write_text("".join(f"{x}\n" for x in self.LOG), encoding="utf-8")
+
+    def rewrite(self, fights):
+        (self.paths.data_dir / "fights.jsonl").write_text("".join(json.dumps(f) + "\n" for f in fights), encoding="utf-8")
+
+    def test_keeps_spec_and_gear_sorts_and_drops_the_analyses(self):
+        self.assertEqual(replay(self.paths, [self.log]), (2, 0))
+        first, second = History(self.paths).fights
+        self.assertNotIn("spec", first)
+        # as the live app saved it, the first one missing
+        second = {**second, "spec": "Shadow", "gear": 31, "damage": -1}
+        self.rewrite([second])
+        store.save(self.paths.analysis_dir, "1763-Nikana", ("k",), 1)
+        self.assertEqual(replay(self.paths, [self.log]), (1, 1))
+        a, b = History(self.paths).fights
+        self.assertEqual((a["id"], b["id"]), (first["id"], second["id"]))    # the older one was added last
+        self.assertEqual((b["spec"], b["gear"], b["damage"]), ("Shadow", 31, 1200))
+        self.assertNotIn("spec", a)
+        self.assertEqual(list(self.paths.analysis_dir.iterdir()), [])
+
+    def test_a_deleted_fight_is_not_counted(self):
+        self.addCleanup(removed.IDS.clear)
+        replay(self.paths, [self.log])
+        first, second = History(self.paths).fights
+        removed.IDS.add(first["id"])
+        self.rewrite([second])
+        self.assertEqual(replay(self.paths, [self.log]), (0, 1))
+        self.assertEqual([f["id"] for f in History(self.paths).fights], [second["id"]])
+
+    def test_no_logs_touch_nothing(self):
+        store.save(self.paths.analysis_dir, "1763-Nikana", ("k",), 1)
+        self.assertEqual(replay(self.paths, []), (0, 0))
+        self.assertEqual(len(list(self.paths.analysis_dir.iterdir())), 1)
+
+    def test_the_oldest_by_time_go_first(self):
+        h = History(self.paths)
+        with patch.object(history, "KEEP", 2):
+            for day in ("02", "03", "01"):
+                h.add({"id": day, "start": f"2026-11-{day}T12:00:00"})
+        self.assertEqual([f["id"] for f in h.fights], ["02", "03"])
+        self.assertEqual([f["id"] for f in History(self.paths).fights], ["02", "03"])
+
+    def test_a_failed_rewrite_leaves_the_file(self):
+        h = History(self.paths)
+        h.add({"id": "1"})
+        with patch("os.replace", side_effect=PermissionError), self.assertRaises(PermissionError):
+            h.remove({"1"})
+        self.assertEqual([f["id"] for f in History(self.paths).fights], ["1"])
 
 
 def shot(sec, sid=75, name="Auto Shot", amount=100):

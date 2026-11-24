@@ -16,9 +16,11 @@ def file(paths) -> Path:
 
 
 def merge(stored: dict, current: dict[str, dict]) -> dict[str, dict]:
-    """the stored rows with the current ones over them, by run id; without the deleted runs, and without a visit's
-    later piece saved alone (the add-on dropped its first) when the whole visit has a row"""
-    rows = {rid: {**r, "start": datetime.fromisoformat(r["start"])} for rid, r in stored.items()} | current
+    """the stored rows with the current ones over them, by run id (a scored one stays over one without a score, as when
+    the run's combat log is gone); without the deleted runs, and without a visit's later piece saved alone (the add-on dropped its first) when the whole visit has a row"""
+    rows = {rid: {**r, "start": datetime.fromisoformat(r["start"])} for rid, r in stored.items()}
+    rows |= {rid: r for rid, r in current.items()
+             if r["score"] is not None or rid not in rows or rows[rid]["score"] is None}
     pieces = {p for r in rows.values() for p in r["parts"][1:]}
     return {rid: r for rid, r in rows.items() if rid not in pieces and not removed.IDS.intersection(r["parts"])}
 

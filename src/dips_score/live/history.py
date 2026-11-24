@@ -9,10 +9,11 @@ the overlay and the Fights page). `replay()` does the same for log files already
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
-from .. import removed
+from .. import removed, store
 from ..config import Paths
 from ..sources.savedvars import load_types
 from .summary import gear_level, learn_cooldowns, new_entry, summarize
@@ -20,6 +21,21 @@ from .tail import LogTail
 from .tracker import Tracker
 
 KEEP = 5000      # fights kept in the file
+
+
+def write_file(path: Path, text: str):
+    """on disk before it takes the old file's place, so a half-written file is never read"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
+def _start(f: dict) -> str:
+    return f.get("start") or ""
 
 
 class History:
@@ -40,6 +56,7 @@ class History:
                     self.fights.append(json.loads(line))
                 except ValueError:
                     continue
+        self.fights.sort(key=_start)       # a replay adds the older ones it finds last
         if self.spells_file.exists():
             try:
                 self.books = json.loads(self.spells_file.read_text(encoding="utf-8"))
@@ -71,21 +88,24 @@ class History:
     def ids(self) -> set[str]:
         return {f.get("id") for f in self.fights}
 
-    def add(self, fight: dict) -> bool:
-        """save a fight; one with the same id (a combat that carried on) replaces it. True if it replaced."""
+    def add(self, fight: dict, save: bool = True) -> bool:
+        """save a fight; one with the same id (a combat that carried on) replaces it. True if it replaced.
+        save=False: only in memory (a replay writes the file once, at its end)"""
         if fight["id"] in removed.IDS:      # deleted: a replay or a carried-on combat doesn't bring it back
             return False
         self.file.parent.mkdir(parents=True, exist_ok=True)
         for i, old in enumerate(self.fights):
             if old.get("id") == fight["id"]:
                 self.fights[i] = fight
-                self._rewrite()
+                if save:
+                    self._rewrite()
                 return True
         self.fights.append(fight)
         if len(self.fights) > KEEP:
-            self.fights = self.fights[-KEEP:]
-            self._rewrite()
-        else:
+            self.fights = sorted(self.fights, key=_start)[-KEEP:]
+            if save:
+                self._rewrite()
+        elif save:
             with open(self.file, "a", encoding="utf-8") as fh:
                 fh.write(json.dumps(fight) + "\n")
         return False
@@ -95,7 +115,7 @@ class History:
         self._rewrite()
 
     def _rewrite(self):
-        self.file.write_text("".join(json.dumps(f) + "\n" for f in self.fights), encoding="utf-8")
+        write_file(self.file, "".join(json.dumps(f) + "\n" for f in self.fights))
 
     def save_books(self):
         self.spells_file.parent.mkdir(parents=True, exist_ok=True)
@@ -136,35 +156,43 @@ class Live:
         return None
 
 
-def replay(paths: Paths, files: list[Path]) -> int:
-    """sum up every fight in log files already on disk (oldest first) into the history; returns how many"""
+def replay(paths: Paths, files: list[Path]) -> tuple[int, int]:
+    """sum up every fight in log files already on disk (oldest first) into the history; returns how many were added and
+    how many saved ones were summed up again. The analysed runs are dropped: they were made with the old spell books."""
     h = History(paths)
     h.load_types(paths.account_saved_files())
-    n = 0
+    before, done = h.ids(), set()
     for path in files:
         tr = Tracker()
         with open(path, encoding="utf-8", errors="replace") as fh:
             for line in fh:
                 for f in tr.feed_lines([line]):
-                    n += _keep(h, tr, f)
+                    done.add(_keep(h, tr, f))
         last = tr.flush()
         if last:
-            n += _keep(h, tr, last)
-    h.save_books()
-    return n
+            done.add(_keep(h, tr, last))
+    if done:
+        h.save_books()
+        h._rewrite()
+        store.clear(paths.analysis_dir)
+    return len(done & (h.ids() - before)), len(done & before)
 
 
-def _keep(h: History, tr: Tracker, f) -> int:
+def _keep(h: History, tr: Tracker, f) -> str | None:
+    """the id of the fight summed up, if it was"""
     if not tr.me:
-        return 0
+        return None
     learn_cooldowns(f, tr.me, h.book(tr.me))     # saved once, at the end of the replay
-    known = _fight_id(f) in h.ids()
     s = summarize(f, tr.me, tr.me_name, h.book(tr.me), [x for x in h.fights if x.get("id") != _fight_id(f)], h.types)
     if s:
         h.tag(s, tr.me)
-        h.add(s)
-        return 0 if known or s["id"] in removed.IDS else 1
-    return 0
+        old = next((x for x in h.fights if x.get("id") == s["id"]), {})
+        for k in ("spec", "gear"):      # a replay has no snapshots: keep what the live fight was tagged with
+            if s.get(k) is None and old.get(k) is not None:
+                s[k] = old[k]
+        h.add(s, save=False)
+        return s["id"]
+    return None
 
 
 def _fight_id(f) -> str:

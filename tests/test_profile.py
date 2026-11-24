@@ -184,7 +184,7 @@ class Label(unittest.TestCase):
 class History(unittest.TestCase):
     def fights(self, *blocks):
         """n fights per 15-day block counted back from T0 (block 0 is Now)"""
-        return sorted((fight(15 * b + 1 + i * 0.1) for b, n in enumerate(blocks) for i in range(n)),
+        return sorted((fight(15 * b + 1 + i * 0.1, difficulty=0) for b, n in enumerate(blocks) for i in range(n)),
                       key=lambda f: f["start"])
 
     def test_first_run_fill_in_and_floor(self):
@@ -215,6 +215,39 @@ class History(unittest.TestCase):
         self.assertEqual((added[0]["fights"], added[0]["to"]), (12, T0.isoformat()))
         self.assertEqual(json.dumps({"A": saved["A"][:1]}), first)
         self.assertEqual(len(saved["A"]), 2)
+
+    def test_fights_from_before_difficulty_save_nothing_until_replayed(self):
+        old = self.fights(12, 10, 11)
+        for f in old:
+            del f["difficulty"]
+        saved = {}
+        self.assertEqual(ph.update(saved, old, None, {}, [], T0), [])
+        self.assertEqual(saved, {})                                           # so the fill-in is tried again
+        ph.update(saved, [{**f, "difficulty": 0} for f in old], None, {}, [], T0)
+        self.assertEqual([s["fights"] for s in saved["A"]], [11, 10])
+
+    def test_a_mixed_block_is_skipped_and_later_ones_save(self):
+        saved = {}
+        fs = self.fights(12, 10)
+        ph.update(saved, fs, None, {}, [], T0)
+        del fs[-1]["difficulty"]                                              # in the block that is Now at T0
+        later = fs + [fight(-1 - i * 0.1, difficulty=0) for i in range(10)]
+        self.assertEqual(ph.update(saved, later, None, {}, [], T0 + 15 * DAY), [])
+        added = ph.update(saved, later, None, {}, [], T0 + 30 * DAY)
+        self.assertEqual([s["to"] for s in added], [(T0 + 15 * DAY).isoformat()])
+        fs[-1]["difficulty"] = 0                                              # replayed too late: unsaved for good
+        self.assertEqual(ph.update(saved, later, None, {}, [], T0 + 30 * DAY), [])
+        self.assertEqual(len(saved["A"]), 2)
+
+    def test_save_is_on_disk_before_it_replaces(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d) / "profile_runs.json"
+            ph.save(path, {"A": []})
+            calls = mock.Mock()
+            with mock.patch("os.fsync", calls.fsync), mock.patch("os.replace", calls.replace):
+                ph.save(path, {"A": [1]})
+            self.assertEqual([c[0] for c in calls.method_calls], ["fsync", "replace"])
+            self.assertEqual(ph.load(path), {"A": []})
 
     def test_save_and_load(self):
         saved = {}
@@ -256,6 +289,10 @@ class History(unittest.TestCase):
         self.assertEqual(merged["r1"]["start"], rows["r1"]["start"])
         # the add-on kept only the visit's second piece: already in the whole visit's row
         self.assertEqual(list(profile_runs.merge(kept, {"r1b": run(40, parts=["r1b"])})), ["r1"])
+        # a score is kept over none (its combat log is gone)
+        self.assertEqual(profile_runs.merge(kept, {"r1": run(40, parts=["r1"], score=None)})["r1"]["score"], 85.0)
+        bare = profile_runs.pack({"r1": run(40, parts=["r1"], score=None)}, T0)
+        self.assertEqual(profile_runs.merge(bare, {"r1": run(40, parts=["r1"], score=None, presses=7)})["r1"]["presses"], 7)
         with mock.patch.object(removed, "IDS", {"r1"}):
             self.assertEqual(profile_runs.merge(kept, {}), {})          # deleted
 
@@ -301,7 +338,7 @@ class View(unittest.TestCase):
         self.assertEqual(page(deadly, clicky, char).plate.title, "You click instead of pressing keys")
         self.assertEqual(page(deadly, char=char).plate.title, "You leave your cooldowns unused")
         self.assertEqual(page(many(2, result="you died") + many(8), char=char).plate.title,
-                         "You know Consecration and have never cast it")
+                         "You know Consecration and have not cast it")
         p = page(many(2, result="you died") + many(8)).plate
         self.assertEqual((p.title, p.figure, p.button), ("You die in 20% of your fights", "2 deaths", "Open Habits"))
 
@@ -486,10 +523,10 @@ class View(unittest.TestCase):
         types = {"Ghoul": "Undead", "Imp": "Demon"}
         fs = many(6, foes=[["Ghoul", 3], ["Imp", 1]]) + many(4)
         v = build_profile(profile(fs, char, {}, [], T0, types), [])
-        self.assertEqual(v.plate.title, "You know Exorcism and have never cast it")
+        self.assertEqual(v.plate.title, "You know Exorcism and have not cast it")
         self.assertEqual(v.plate.why, "Smite carries your casts. Exorcism works on undead and demons. "
                                       "You fought 24 of them in 6 fights and cast it 0 times.")
-        self.assertNotEqual(page(fs, char=char).plate.title, "You know Exorcism and have never cast it")
+        self.assertNotEqual(page(fs, char=char).plate.title, "You know Exorcism and have not cast it")
 
     def test_reactive_and_health_plate(self):
         char = {"spells": {"Overpower": {"harm": True}, "Execute": {"harm": True}}}

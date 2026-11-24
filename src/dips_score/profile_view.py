@@ -166,7 +166,7 @@ def _plate(now: dict) -> Plate:
         bench = (f"{_and(free)} {'is the harmful spell' if len(free) == 1 else 'are the harmful spells'} left on "
                  "the bench." if free else "")
         works = " ".join(_works(x, met[x]) for x in names if x in met)
-        return Plate(f"You know {_and(names)} and have never cast {'it' if one else 'them'}", "0 casts", fights,
+        return Plate(f"You know {_and(names)} and have not cast {'it' if one else 'them'}", "0 casts", fights,
                      " ".join(w.strip() for w in (carry, bench, works) if w))
     if dying is not None and dying >= PLATE_DEATHS:
         return Plate(f"You die in {_pct(dying)}% of your fights", _plural(t["deaths"], "death"), fights,

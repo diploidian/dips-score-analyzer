@@ -416,7 +416,7 @@ class Window(QMainWindow):
             if self.stack.currentIndex() == 5:
                 self._show_profile()
             else:
-                self._profile_runs()
+                self._keep_profile()
         self._status()
 
     def _warm_up(self):
@@ -565,20 +565,26 @@ class Window(QMainWindow):
 
     def _show_profile(self):
         h, now = self.live.history, datetime.now()
-        last = h.fights[-1] if h.fights else {"me": ""}
-        me = last["me"]
-        char, book = h.chars.get(me), h.book(me) if me else None
+        me = h.fights[-1]["me"] if h.fights else ""
+        runs, saved = self._keep_profile()
+        self.profile_page.show_view(build_profile(
+            profile(h.fights, h.chars.get(me), h.book(me) if me else None, runs, now, h.types), saved.get(me, [])))
+        self.stack.setCurrentIndex(5)
+
+    def _keep_profile(self) -> tuple[list[dict] | None, dict]:
+        """save the run rows that came in and the slices that finished; returns the rows and every saved slice"""
+        h, now = self.live.history, datetime.now()
+        last = h.fights[-1] if h.fights else {}
+        me = last.get("me")
         runs, readable = self._profile_runs()
         path = profile_history.file(self.paths)
         saved = profile_history.load(path)
         # a saved slice is never rewritten, so it waits until every run's figures are in
-        if readable and saved is not None and self._own_data(me, last.get("me_name", "")) and \
+        if me and readable and saved is not None and self._own_data(me, last.get("me_name", "")) and \
                 self.run_rows.keys() >= self.by_id.keys() and \
-                profile_history.update(saved, h.fights, char, book, runs, now, h.types):
+                profile_history.update(saved, h.fights, h.chars.get(me), h.book(me), runs, now, h.types):
             self._save_profile(path, saved)
-        self.profile_page.show_view(build_profile(profile(h.fights, char, book, runs, now, h.types),
-                                                  (saved or {}).get(me, [])))
-        self.stack.setCurrentIndex(5)
+        return runs, saved or {}
 
     def _profile_runs(self) -> tuple[list[dict] | None, bool]:
         """the newest fight's character's run rows, the stored ones and those that came in since, which are stored
@@ -597,10 +603,10 @@ class Window(QMainWindow):
         return list(rows.values()) or None, saved is not None
 
     def _own_data(self, me: str, name: str) -> bool:
-        """the profile may be saved: the last reload read the add-on's file and its data is this character's, or there
-        is no file. By guid; by name while no run says whose it is"""
+        """the profile may be saved: the last reload read the add-on's file and its data is this character's, or the
+        game folder is there without a file. By guid; by name while no run says whose it is"""
         if not self.read_ok or self.saved is None:
-            return self.read_ok
+            return self.read_ok and self.paths.found()      # not found: an unplugged drive, the wrong folder
         guids = {r["me"] for rid in self.by_id if (r := self.run_rows.get(rid)) and r["me"]}
         if guids:
             return me in guids
@@ -708,6 +714,7 @@ class Window(QMainWindow):
             d.assets_rescanned.connect(lambda: self._set_theme(self.settings["theme"]))
             d.open_weights.connect(self._open_weights)
             d.test_overlay.connect(self.live.show_last)
+            d.importing.connect(self._importing)
             d.imported.connect(self._imported)
             d.folders_changed.connect(self._folders_changed)
             d.overlay_changed.connect(self.live.refresh)
@@ -743,8 +750,18 @@ class Window(QMainWindow):
             QApplication.restoreOverrideCursor()
         self._redraw()
 
+    def _importing(self):
+        """before a replay: no run half analysed with the old spell books, and those done handed over before _imported"""
+        self.waiting = None
+        self.loader.stop()
+        QApplication.sendPostedEvents()
+
     def _imported(self):
         self.live.history.load()
+        for old in (self.cache, self.scores, self.keys, self.run_rows):     # made with the old spell books and types
+            old.clear()
+        if self.loader.threaded:
+            self.warm_timer.start()
         self.fight_list.set_fights(self.live.history.fights)
         self._mode("habits" if self.mode_habits.isChecked() else
                    "profile" if self.mode_profile.isChecked() else "fights")

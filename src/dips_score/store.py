@@ -40,6 +40,15 @@ def save(folder: Path, run_id: str, key: tuple, a):
     os.replace(tmp, folder / f"{file_name(run_id)}.pkl")     # a half-written file is never read
 
 
+def clear(folder: Path):
+    """drop every run's file: what they were all made from has changed"""
+    for f in folder.glob("*.pkl"):
+        try:
+            f.unlink()
+        except OSError:     # in use
+            pass
+
+
 def prune(folder: Path, keep_ids):
     """drop the files of runs the game no longer has (or you deleted); another character's runs stay"""
     keep = {file_name(i) for i in keep_ids}

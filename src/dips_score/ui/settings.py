@@ -43,6 +43,7 @@ class SettingsDialog(QDialog):
     theme_changed = pyqtSignal(str)
     texture_changed = pyqtSignal()
     test_overlay = pyqtSignal()
+    importing = pyqtSignal()
     imported = pyqtSignal()
     assets_rescanned = pyqtSignal()
     open_weights = pyqtSignal()
@@ -264,10 +265,13 @@ class SettingsDialog(QDialog):
         from PyQt6.QtWidgets import QApplication
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
-            n = replay(self.paths, combatlog.find_logs(self.paths.logs))
+            self.importing.emit()
+            added, again = replay(self.paths, combatlog.find_logs(self.paths.logs))
         finally:
             QApplication.restoreOverrideCursor()
-        self.imp_note.setText(f"Added {n} fight{'s' if n != 1 else ''}." if n else "Nothing new to add.")
+        did = [f"{verb} {n:,} {what}{'s' if n != 1 else ''}" for verb, n, what in
+               (("added", added, "fight"), ("refreshed", again, "saved fight")) if n]
+        self.imp_note.setText(f"{', '.join(did).capitalize()}." if did else "Nothing new to add.")
         self.imported.emit()
 
     def _tex_note(self, following: bool):

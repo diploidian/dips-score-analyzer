@@ -5,15 +5,18 @@ profile_history.json (beside fights.jsonl), {character guid: [slice, ...] oldest
 file(paths) is the path; load(path) -> dict ({} when missing), or None when it can't be read now (locked, or broken
 and set aside): nothing may be saved over it then; update(saved, fights, char, book, runs, now, types=None) adds the
 slices that have finished for the newest fight's character and returns them; save(path, saved) writes atomically. A
-block is saved once its end is 15 days back, so it has left Now. A slice with fewer than MIN_FIGHTS fights is skipped.
+block is saved once its end is 15 days back, so it has left Now. A slice with fewer than MIN_FIGHTS fights is skipped,
+and so is one with a fight that lacks `difficulty` (saved before 0.16.0: no chances either) until a replay has summed it
+up again. While nothing is saved the first-run fill-in is tried again each time, so a replay fills everything in; once
+a slice exists, the incomplete blocks before it stay unsaved for good.
 """
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 
+from .history import write_file
 from .profile import SLICE, figures
 
 MIN_FIGHTS = 10
@@ -42,13 +45,12 @@ def load(path: Path) -> dict | None:
 
 
 def save(path: Path, saved: dict):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(saved), encoding="utf-8")
-    os.replace(tmp, path)          # a half-written file is never read
+    write_file(path, json.dumps(saved))
 
 
 def _slice(mine, char, book, runs, lo: datetime, hi: datetime, types=None) -> dict | None:
+    if any("difficulty" not in f for f in mine if lo < datetime.fromisoformat(f["start"]) <= hi):
+        return None
     fig = figures(mine, char, book, runs, lo, hi, types)
     if fig["fights"] < MIN_FIGHTS:
         return None

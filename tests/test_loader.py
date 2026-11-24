@@ -51,6 +51,24 @@ class LoaderTests(unittest.TestCase):
         self.assertEqual(analyze.call_count, 1)
         self.assertEqual(self.got, [("1763-Nikana", ("1763-Nikana", 1), {"score": 87}, "")] * 2)
 
+    def test_stop_waits_for_the_run_and_its_result_is_there_to_take(self):
+        """as the window does before a replay: nothing comes in after it"""
+        started, gate = threading.Event(), threading.Event()
+
+        def analyze(run, _paths):
+            started.set()
+            gate.wait(10)
+            return run.id
+        with mock.patch("dips_score.analysis.analyze", side_effect=analyze):
+            for rid in ("r1", "r2"):
+                self.loader.want(SimpleNamespace(id=rid), (rid,), urgent=False)
+            started.wait(10)
+            threading.Timer(0.1, gate.set).start()
+            self.loader.stop()
+        self.app.sendPostedEvents()
+        self.assertEqual([out[0] for out in self.got], ["r1"])      # r2 was dropped
+        self.assertTrue((self.loader.paths.analysis_dir / "r1.pkl").exists())     # for the replay to clear
+
     def test_urgent_overtakes_the_warm_up_and_an_ask_twice_runs_once(self):
         started, gate, order = threading.Event(), threading.Event(), []
 

@@ -455,8 +455,10 @@ class ShellTests(unittest.TestCase):
         now = datetime.now()
 
         def at(days):
-            return {**ORACLE, **fight(start=(now - timedelta(days=days)).isoformat(), abilities=ORACLE["abilities"])}
+            return {**ORACLE, **fight(start=(now - timedelta(days=days)).isoformat(), abilities=ORACLE["abilities"],
+                                      difficulty=0)}
         with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            (Path(tmp) / "no game" / "WTF").mkdir(parents=True)
             w = Window(Paths(Path(tmp) / "no game"))
             w.live.timer.stop()
             page, fights = w.profile_page, [at(20) for _ in range(10)] + [at(1) for _ in range(9)]
@@ -530,7 +532,10 @@ class ShellTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
             w = Window(Paths(Path(tmp) / "no game"))
             w.live.timer.stop()
-            w.live.history.fights = [fight(start=(now - timedelta(days=d)).isoformat()) for d in [20] * 10 + [1] * 10]
+            wtf = Path(tmp) / "no game" / "WTF"
+            wtf.mkdir(parents=True)
+            w.live.history.fights = [fight(start=(now - timedelta(days=d)).isoformat(), difficulty=0)
+                                     for d in [20] * 10 + [1] * 10]
             files = [m.file(w.paths) for m in (profile_history, profile_runs)]
 
             def saved(fresh=True):
@@ -557,6 +562,9 @@ class ShellTests(unittest.TestCase):
             self.assertEqual(saved(), [False, False])       # the last reload failed
             w.reload()                                      # no file at all: nothing to wait for
             self.assertEqual(w.saved, None)
+            wtf.rmdir()                                     # the game folder gone (an unplugged drive): can't tell
+            self.assertEqual(saved(), [False, False])
+            wtf.mkdir()
             self.assertEqual(saved(fresh=False), [True, True])
 
             w.run_rows = {}                                 # the next start: the add-on dropped the run, its row stays
@@ -573,6 +581,55 @@ class ShellTests(unittest.TestCase):
             files[1].write_text("{", encoding="utf-8")      # the run rows broken: no slice without them this time
             self.assertEqual(saved(fresh=False), [False, False])
             self.assertEqual(saved(), [True, True])
+
+    def test_slices_are_saved_from_any_page(self):
+        """the last run in saves the finished slices with the run rows, the Profile never opened"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from datetime import timedelta
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.live import profile_history, profile_runs
+        from test_profile import fight, run
+        now = datetime.now()
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}), \
+                mock.patch("dips_score.ui.app.run_row", return_value=run(me="A", name="A", parts=["r1"], start=now)):
+            (Path(tmp) / "no game" / "WTF").mkdir(parents=True)
+            w = self.loading_window(tmp, [self.visit("r1", 1), self.visit("r2", 2)])
+            w.live.history.fights = [fight(start=(now - timedelta(days=d)).isoformat(), difficulty=0)
+                                     for d in [20] * 10 + [1] * 10]
+            w._warm_up()
+            self.arrive(w, "r1")
+            files = [m.file(w.paths) for m in (profile_history, profile_runs)]
+            self.assertEqual([f.exists() for f in files], [False, False])       # r2 still to come
+            self.arrive(w, "r2")
+            self.assertNotEqual(w.stack.currentIndex(), 5)
+            self.assertEqual([f.exists() for f in files], [True, True])
+
+    def test_import_drops_what_was_analysed(self):
+        """Settings' old-logs import: the loader is stopped before the replay, the analyses in memory go after it, and
+        the note says what it did"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            w = self.loading_window(tmp, [self.visit("r1", 1)])
+            self.arrive(w, "r1")
+            w.scores[("r0",)] = "  87"
+            w._open_settings()
+            d = w.settings_dialog
+            for out, note in (((0, 0), "Nothing new to add."), ((0, 1234), "Refreshed 1,234 saved fights."),
+                              ((1, 0), "Added 1 fight."), ((2, 1), "Added 2 fights, refreshed 1 saved fight.")):
+                calls = mock.Mock()
+                calls.replay.return_value = out
+                with mock.patch.object(w.loader, "stop", calls.stop), \
+                        mock.patch("dips_score.live.history.replay", calls.replay), \
+                        mock.patch.object(w.loader, "threaded", True):
+                    d._import()
+                self.assertEqual([c[0] for c in calls.method_calls], ["stop", "replay"])
+                self.assertEqual(d.imp_note.text(), note)
+                self.assertEqual((w.cache, w.scores, w.run_rows), ({}, {}, {}))
+                self.assertTrue(w.warm_timer.isActive())
+            w.warm_timer.stop()
 
     def test_leaving_profile_while_a_run_loads(self):
         """a run that comes in after you left Profile for another page leaves you there; a later failure keeps its

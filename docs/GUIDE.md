@@ -126,6 +126,18 @@ each fight, and turning the combat log on when you log in. The add-on only ever 
 does this once per login, so if you type `/combatlog` to turn it off, it stays off until you log in
 again.
 
+### Upgrading to 0.16.0
+
+1. The add-on has a new file, `Types.lua`. Close the game completely and start it again the first
+   time: `/reload` alone doesn't load a new file.
+2. In the app, open Settings and press **Add fights from my old combat logs** once, before you rely on
+   Earlier on the Profile page. It sums up again every saved fight whose combat log is still in the Logs
+   folder, so old fights get their difficulty (dungeon or raid) and their chances. The runs are analysed
+   again after it, in the background.
+
+Until then, 15-day blocks with older fights in them aren't saved to Earlier. Once a newer block has been
+saved, the older ones are left out for good.
+
 ## What it records, and how
 
 ### What the add-on writes
@@ -514,8 +526,8 @@ A spell that can't always be used is only called out when you had a chance to us
 - for a spell that needs a low target (Execute, Hammer of Wrath), an enemy that dropped under 20%
   health, which needs Advanced Combat Logging;
 - for a spell that answers an avoided attack (Overpower and Mongoose Bite after the target dodges
-  you; Revenge, Riposte and Counterattack after you block, dodge or parry), one such attack, with 5
-  seconds to answer. Overpower counts only in Battle Stance and Revenge only in Defensive Stance, so
+  you; Revenge after you block, dodge or parry; Riposte and Counterattack after you parry), one such
+  attack, with 5 seconds to answer. Overpower counts only in Battle Stance and Revenge only in Defensive Stance, so
   a chance only counts while that stance was on you. With no stance seen in the fight, the chances
   are unknown.
 
@@ -790,7 +802,7 @@ most recently. It needs 10 fights in those 15 days; with fewer it says how many 
   you fight most and your main role. A "Before:" line shows the label from days 16 to 30 when it
   differs.
 - Worth changing names the first thing that applies: you click 30% or more of your presses, you use
-  under half your possible cooldowns, you know a harmful spell and never cast it, you die in 15% or
+  under half your possible cooldowns, you know a harmful spell and have not cast it, you die in 15% or
   more of your fights. Otherwise it says "Nothing stands out" and shows your best trait.
 - Signature is your top five spells by share of damage (by share of casts for a healer), with melee
   shown as "Melee (auto attack)" and its swings, and your usual opening of three casts.
@@ -807,7 +819,8 @@ days 16 to 30. The one biggest move of the page gets a ring round it (on a tie, 
 Earlier, at the foot, lists your finished 15-day blocks: dates, label, main role, deaths per hour and
 cooldowns used. A block is saved once its end is 15 days back, when it has left the current window,
 and never rewritten. A block with fewer than 10 fights isn't saved. A block waits until every run's
-figures have been read.
+figures have been read. A block with a fight saved before 0.16.0 isn't saved until that fight has been
+refreshed (see [Upgrading to 0.16.0](#upgrading-to-0160)).
 
 ### Tray mode and the command line
 
