@@ -1,7 +1,8 @@
 """What the Profile page shows, as plain data (no Qt), from live.profile.profile() and the saved 15-day slices
-(live.profile_history): the hero (main role share and the label), the "Before:" line, the Worth changing plate,
-Signature (no per-row note but "no damage of its own" for a "–" share), Hands, Role mix, Where you fight, Temperament, the chips and the one highlighter mark (Now against
-Before: the largest move, on a tie the increase, then page order), the Earlier rows and every empty state. A
+(live.profile_history): the crest (title, second line, deeds), the hero (the title's trait, or the main role's share
+without one) and the label, the "Before:" line, the Worth changing plate, How you fight, every trait, Signature (no per-row note but "no damage of its own" for a "–" share), Hands, Role mix, Where you fight, Temperament, the chips and the one highlighter mark (Now against
+Before: a trait's tier that Before had not reached, else the largest move, on a tie the increase, then page order), the
+Earlier rows and every empty state. A
 value that cannot be known renders "–", never a guess.
 
 Inks are token names: Signature bars "m-dmg", Role mix bars ROLE_INK, Where you fight bars PLACE_INK, scored
@@ -14,6 +15,7 @@ from .dungeon_view import visits
 from .fight_view import CLEAN
 from .habits_view import MINUS, _meta, _plural
 from .live.profile_history import MIN_FIGHTS
+from .live.traits import BY_KEY, needs, shown
 from .scoring import usable
 
 NA = "–"
@@ -35,6 +37,7 @@ PLACE_INK = {"Dungeon": "place-dungeon", "Raid": "place-raid", "World": "place-w
 PLACE_MOVE = {"Dungeon": ("more dungeons", "fewer dungeons"), "Raid": ("more raids", "fewer raids"),
               "World": ("more open world", "less open world"), "PvP": ("more PvP", "less PvP")}
 MELEE = "Melee (auto attack)"
+OUTDATED = "Based on older fight records. Import your combat logs in Settings for the full picture."
 NO_HANDS = "Hands needs a recorded run: play with the projectArthas add-on on, then reload."
 
 
@@ -64,9 +67,29 @@ class Plate:
 
 
 @dataclass
+class Crest:
+    who: str                    # "Undead Paladin, level 37"
+    title: str                  # "Relentless Crusader of the Arathi Highlands"
+    second: str = ""            # "Wins one on one, lets few get away."
+    deeds: list[str] = field(default_factory=list)      # two at most
+
+
+@dataclass
+class TraitRow:
+    key: str
+    name: str                   # "Time between fights"
+    value: str                  # "25"
+    unit: str                   # "s"
+    note: str                   # "between one fight and the next"
+    bar: float                  # its score 0..1
+    tier: str = ""              # its epithet "Relentless", "" under the first tier
+    next: str = ""              # "Deathless at 105, you are at 97", "" at the top tier
+
+
+@dataclass
 class EarlierRow:
     dates: str                  # "25 Oct to 8 Nov"
-    label: str
+    label: str                  # its title, or its label when it was saved without one
     role: str                   # main role and its share "Damage 96%"
     deaths: str                 # deaths per hour "3.1"
     cooldowns: str              # cooldowns used "49%"
@@ -78,10 +101,17 @@ class ProfileView:
     meta: str = ""              # "level 36 Undead Paladin · gear 31 · last 15 days · 396 fights"
     need: str | None = None     # under MIN_FIGHTS: the headline; the page then shows only it, need_line and Earlier
     need_line: str = ""
-    hero: str = NA              # main role share, "98"
+    crest: Crest | None = None
+    outdated: str = ""          # the line under the crest when most fights were summed up by an older version
+    ring: str | None = None     # the page's one ring, "new: Relentless", and its trait; no row is marked then, but the
+    ring_key: str | None = None     # How you fight row of that trait
+    card: list[Row] = field(default_factory=list)       # How you fight, the title's own row first
+    traits_title: str = "All traits (0)"
+    traits: list[tuple[str, list[TraitRow]]] = field(default_factory=list)      # by family
+    hero: str = NA              # the title's trait "25", or the main role's share "98"
     hero_unit: str = "%"
-    caption: str = ""           # "of fight time dealing damage"
-    chip: str | None = None     # the main role's change, as on its Role mix row; chip_ink its box
+    caption: str = ""           # "between one fight and the next"
+    chip: str | None = None     # the hero figure's change, when it is a share; chip_ink its box
     chip_ink: str = "ln"
     label: str = ""             # "World damage dealer who keybinds."
     before: str | None = None   # "Before: hoarding dungeon damage dealer."
@@ -110,10 +140,6 @@ def _hm(seconds) -> str:
     return f"{h} h {m} min" if h else f"{m} min"
 
 
-def _lower(label: str) -> str:
-    return label if label.startswith("PvP") else label[:1].lower() + label[1:]
-
-
 def _day(iso: str, shift=timedelta()) -> str:
     d = datetime.fromisoformat(iso) + shift
     return f"{d.day} {d:%b}"
@@ -128,7 +154,7 @@ def _earlier(earlier: list[dict]) -> list[EarlierRow]:
         out.append(EarlierRow(
             # the window is (from, to]: its first day is the day after from
             dates=f"{_day(s['from'], timedelta(days=1))} to {_day(s['to'])}",
-            label=(s.get("label") or NA).rstrip("."),
+            label=(s.get("title") or s.get("label") or NA).rstrip("."),
             role=NA if sh is None else f"{ROLE_NAME.get(main, str(main).title())} {_pct(sh)}%",
             deaths=NA if dph is None else f"{dph:.1f}",
             cooldowns=NA if t.get("cooldowns_share") is None else _pct(t["cooldowns_share"]) + "%"))
@@ -249,6 +275,33 @@ def mine(rows: dict[str, dict | None], me: str, name: str) -> dict[str, dict]:
     return {rid: r for rid, r in rows.items() if r and (r["me"] == me or (r["me"] is None and r["name"] == name))}
 
 
+def _who(p: dict) -> str:
+    c = p.get("char") or {}
+    kind = " ".join(x.title() for x in (c.get("race"), c.get("class")) if x)
+    level = c.get("level") or p.get("level")
+    return ", ".join(x for x in (kind, f"level {level}" if level else "") if x)
+
+
+def _trait_row(t: dict) -> TraitRow:
+    tr = BY_KEY[t["key"]]
+    value, unit = shown(t["kind"], t["figure"])
+    r = TraitRow(t["key"], tr.name, value, unit, t["caption"], t["score"], t["epithet"] or "")
+    if t["next"]:
+        need = needs(t["next"], tr)
+        # the same rounded figure: one decimal more
+        at = shown(t["kind"], t["figure"], fine=(value, unit) in need)
+        r.next = f"{t['next']['epithet']} at {_and([v + u for v, u in need])}, you are at {''.join(at)}"
+    return r
+
+
+def _new_tier(now: dict, before: dict | None) -> dict | None:
+    """the trait whose tier Before, where its score is known, had not reached: the title's, else one of How you fight,
+    else the highest"""
+    had = {t["key"]: t["tier"] for t in before["traits"]} if before else {}
+    return max((t for t in now["traits"] if t["key"] in had and t["tier"] > had[t["key"]]), default=None,
+               key=lambda t: (t["key"] == now["lead"], t["key"] in now["pack"], t["tier"], t["score"]))
+
+
 def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     """the page for live.profile.profile(...)'s result and this character's saved slices"""
     now, before = p.get("now"), p.get("before")
@@ -272,15 +325,39 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
             moves.append((row, d, up if d > 0 else down))
         return row
 
-    main = now["main_role"]
-    if main:
+    main, hero = now["main_role"], now["hero"]
+    v.crest = Crest(_who(p), now["title"], now["second"], now["deeds"])
+    v.outdated = OUTDATED if now["outdated"] else ""
+    if hero:
+        v.hero, v.hero_unit, v.caption = hero["figure"], hero["unit"], hero["caption"]
+    elif main:
         v.hero, v.caption = _pct(now["roles"][main]), f"of fight time {DOING[main]}"
     else:
         v.hero_unit, v.caption = "", "no fight time in these fights"
     v.label = now["label"]
-    if before and before["label"] != now["label"]:
-        v.before = f"Before: {_lower(before['label'])}"
+    if before and before["title"] != now["title"]:
+        v.before = f"Before: {before['title']}"
     v.plate = _plate(now, before)
+
+    card = {}
+    for k in now["pack"]:
+        r = now["rows"][k]
+        value, unit = shown(r["kind"], r["figure"])
+        row = Row(r["name"], value, f"{unit} {r['unit']}".strip(), r["note"], bar=r["figure"] if r["share"] else None)
+        if r["share"]:
+            # a trait of two figures may be the other one in Before
+            share(row, lambda f, k=k: r2["figure"] if (r2 := f["rows"].get(k) or {}).get("share") else None,
+                  "higher", "lower")
+        if hero and k == hero["key"]:
+            v.chip = row.chip
+        card[k] = row
+    v.card = list(card.values())
+    card_moves, moves[:] = moves[:], []      # last in page order: on a tie the older row keeps the mark
+    for t in now["traits"]:
+        if not v.traits or v.traits[-1][0] != t["family"]:
+            v.traits.append((t["family"], []))
+        v.traits[-1][1].append(_trait_row(t))
+    v.traits_title = f"All traits ({len(now['traits'])})"
 
     sig = now["signature"]
     casts = sig["basis"] == "casts"
@@ -342,7 +419,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
         else:
             row.grade, row.note = NA, f"no run graded as {GRADED_AS[role]} yet"
         v.roles.append(share(row, lambda f, r=role: f["roles"][r], f"more {ROLE_MOVE[role]}", f"less {ROLE_MOVE[role]}"))
-        if role == main:
+        if role == main and not hero:
             v.chip, v.chip_ink = row.chip, row.ink
 
     places = now["places"]
@@ -368,7 +445,11 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
                   f"possible, in {_plural(n, 'fight')}", ink="m-cd"),
               lambda f: f["temperament"]["cooldowns_share"], "more cooldowns", "fewer cooldowns")]
 
-    if moves:       # the largest move, on a tie the increase, then (max keeps the first) page order
+    if new := _new_tier(now, before):
+        v.ring, v.ring_key = f"new: {new['epithet']}", new["key"]
+        if new["key"] in card:
+            card[new["key"]].mark = v.ring
+    elif moves := moves + card_moves:     # the largest move, on a tie the increase, then (max keeps the first) page order
         row, _, note = max(moves, key=lambda m: (abs(m[1]), m[1]))
         row.mark = note
     return v

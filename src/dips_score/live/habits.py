@@ -63,7 +63,7 @@ def _session(fights: list[dict]) -> dict | None:
 def _damage_fights(win: list[dict]) -> list[dict]:
     """the fights that say how you do damage: not healing, and some damage done (a stray hit you never answered
     has 0% efficiency and says nothing about your play); older saves without "damage" count"""
-    return [f for f in win if not f.get("healing_role") and f.get("damage", 1) > 0]
+    return [f for f in win if not f.get("healing_role") and (f.get("damage", 1) or 0) > 0]
 
 
 def cooldown_losses(rows: list[dict]) -> list[dict]:

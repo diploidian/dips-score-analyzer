@@ -536,10 +536,10 @@ class View(unittest.TestCase):
         self.assertFalse(any(r.chip or r.mark for r in v.hands + v.roles + v.places + v.temperament))
         self.assertIsNone(v.before)
 
-    def test_before_line_only_when_labels_differ(self):
+    def test_before_line_only_when_titles_differ(self):
         self.assertIsNone(page(many() + many(days_ago=20)).before)
         v = page(many() + many(days_ago=20, kind="Dungeon"))
-        self.assertEqual(v.before, "Before: careful dungeon damage dealer.")
+        self.assertEqual(v.before, "Before: Slayer of the Depths")
 
     def test_under_ten_keeps_earlier(self):
         v = page(many(6), earlier=[slice_(20)])

@@ -1,6 +1,7 @@
 """The finished 15-day slices of the profile, saved once and never rewritten: %APPDATA%/dips-score/
 profile_history.json (beside fights.jsonl), {character guid: [slice, ...] oldest first}, each slice
-{"from", "to" (ISO times, the window (from, to]), "fights", "label", "figures" (profile.figures)}.
+{"from", "to" (ISO times, the window (from, to]), "fights", "label", "title", "traits" ({key: score}), "figures"
+(profile.figures)}; one saved before 0.18 has no title and no traits.
 
 file(paths) is the path; load(path) -> dict ({} when missing), or None when it can't be read now (locked, or broken
 and set aside): nothing may be saved over it then; update(saved, fights, char, book, runs, now, types=None) adds the
@@ -55,7 +56,7 @@ def _slice(mine, char, book, runs, lo: datetime, hi: datetime, types=None) -> di
     if fig["fights"] < MIN_FIGHTS:
         return None
     return {"from": lo.isoformat(), "to": hi.isoformat(), "fights": fig["fights"], "label": fig["label"],
-            "figures": fig}
+            "title": fig["title"], "traits": {t["key"]: t["score"] for t in fig["traits"]}, "figures": fig}
 
 
 def update(saved: dict, fights: list[dict], char: dict | None, book: dict | None, runs: list[dict] | None,

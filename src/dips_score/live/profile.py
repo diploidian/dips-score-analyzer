@@ -48,7 +48,13 @@ figures(...) keys (shares are fractions 0..1; None when there is nothing to divi
                    "spell" (the one that did most often, by name on a tie), "count" (fights it did)}, the last two
                    None when unused is 0
   overheal         {"fights", "healing", "overheal"} of the healer fights, None when they healed nothing
-  label            label(figures), None without fights
+  label            label(figures), None without fights (shown for slices saved without a title)
+  traits           [{"key", "family", "epithet" (None under tier 1) and traits.scores' entry}], the known ones, in the
+                   table's order
+  title, second, deeds, lead, epithet     titles.crest; title None without fights
+  hero             {"figure" (text), "unit", "caption", "key"} of the title's trait, None without one
+  rows, pack       titles.rows and the keys of How you fight's rows, in order
+  outdated         fewer than half of the fights carry CURRENT, a key every fight summed up now has
 """
 from __future__ import annotations
 
@@ -59,6 +65,7 @@ from statistics import median
 from ..scoring import usable
 from ..scoring.classes import talent_role
 from ..scoring.score import grade
+from . import titles, traits
 from .habits import _damage_fights, char_block, cooldown_losses, idle_spells
 
 SLICE = timedelta(days=15)
@@ -69,6 +76,7 @@ OLD_PLACE = {"Dungeon": "Dungeon", "Boss": "Dungeon", "World": "World"}     # fi
 RAID_DIFFICULTIES = {3, 4, 5, 6, 7, 9, 14, 15, 16, 17, 33, 148, 151, 175, 176, 185, 186, 193, 198, 215, 226}
 TALENT = {"TANK": "tank", "HEALER": "healer", "DPS": "damage"}
 TOP = 5
+CURRENT = "chances"         # a fight summed up before 0.16.0 has none
 
 # the label rule table: <temperament> <place> <role>
 ROLE_WORD = {"damage": "damage dealer", "healer": "healer", "tank": "tank"}
@@ -218,6 +226,21 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
            "judged": len(both), "losses": _losses(dmg), "close_calls": _close_calls(win),
            "overheal": _overheal([f for f in win if _role(f, cls) == "healer"])}
     out["label"] = label(out) if win else None
+    sc = traits.scores(win, out, book)
+    specs = Counter(f["spec"] for f in win if f.get("spec"))
+    spec = specs.most_common(1)[0][0] if specs else (char or {}).get("spec")
+    out["traits"] = [{"key": k, "family": traits.BY_KEY[k].family, "epithet": traits.epithet(sc, k), **s}
+                     for k, s in sc.items() if s]
+    out |= titles.crest(win, out, sc, cls, spec, types)
+    if not win:
+        out["title"] = None
+    out["hero"] = None
+    if lead := out["lead"]:
+        text, unit = traits.shown(sc[lead]["kind"], sc[lead]["figure"])
+        out["hero"] = {"figure": text, "unit": unit, "caption": sc[lead]["caption"], "key": lead}
+    out["rows"] = titles.rows(win, out, sc)
+    out["pack"] = titles.pack(win, out, out["rows"], sc, out["lead"])
+    out["outdated"] = bool(win) and sum(CURRENT in f for f in win) * 2 < len(win)
     return out
 
 
