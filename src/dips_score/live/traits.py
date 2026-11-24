@@ -93,7 +93,7 @@ TRAITS: tuple[Trait, ...] = (
         ("Guarded", "Unbroken", "Untouchable"), "stays out of danger"),
     _t("Wary", "Nerve", "Close calls answered", .30, .90, 10, "%", "of close calls answered with a defensive",
        "Wary, Cool-Headed, Unshaken", "answers danger"),
-    _t("Crowd", "Nerve", "Wins against three or more", .08, .40, 30, "%", "of your wins were against three or more",
+    _t("Crowd", "Nerve", "Wins against three or more", .08, .40, 30, "%", "of your wins alone were against three or more",
        "Bold, Overrunning, Unstoppable", "takes on crowds"),
     _t("Duel", "Nerve", "Wins one on one", .70, .97, 20, "%", "of fights one on one won",
        "Sure, Deadly, Peerless", "wins one on one"),
@@ -360,7 +360,10 @@ def score_of(t: Trait, parts: list[tuple[float | None, int]]) -> dict | None:
 
 def scores(win: list[dict], fig: dict, book: dict | None = None) -> dict[str, dict | None]:
     found = raw(win, fig, book)
-    return {t.key: score_of(t, found[t.key]) if fig.get("main_role") in t.roles else None for t in TRAITS}
+    out = {t.key: score_of(t, found[t.key]) if fig.get("main_role") in t.roles else None for t in TRAITS}
+    if out["Crowd"] and fig["main_role"] == "tank":
+        out["Crowd"]["caption"] = "of your wins were against three or more"      # with a group too
+    return out
 
 
 def pick(sc: dict[str, dict | None], n: int = 2, first: str | None = None) -> list[str]:

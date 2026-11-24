@@ -378,11 +378,12 @@ class Page(unittest.TestCase):
         fs = plain(40, pull={"since_last": 60}, potential=400)
         self.assertEqual(pack(fs), ["Time between fights", "Auto attack or abilities", "Possible damage reached",
                                     "Abilities that count", "Deaths and lowest health"])     # 26 wins: no Edge
-        self.assertEqual(pack(plain(90, pull={"since_last": 60}))[:4],
+        self.assertEqual(pack(plain(90, pull={"since_last": 30}))[:4],
                          ["Time between fights", "Wins on the edge", "Wins against three or more",
                           "Auto attack or abilities"])
-        heal = many(40, healing_role=True, healing=90, overheal=10, group=grouped(), dispels=0)
-        self.assertEqual(pack(heal)[:4], ["Overheal", "Group healing", "Fights nobody died", "Dispels"])
+        heal = plain(40, healing_role=True, healing=90, overheal=10, group=grouped(), dispels=0)
+        # the Quiet Miracle, so Lifeline leads
+        self.assertEqual(pack(heal)[:4], ["Fights nobody died", "Overheal", "Group healing", "Dispels"])
         tank = many(40, spec="Protection", taken=50, swings_taken={"landed": 9, "misses": {}}, group=grouped(), interrupts=1)
         got = pack(tank, char={"class": "WARRIOR"})
         self.assertLessEqual({"Hits avoided", "Damage taken", "Usual pull", "Average lowest health"}, set(got))
