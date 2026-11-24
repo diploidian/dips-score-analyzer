@@ -38,6 +38,16 @@ figures(...) keys (shares are fractions 0..1; None when there is nothing to divi
                    None without a snapshot or its harm flag; a spell in usable.RULES only with a known chance
   restricted       {spell: {"chances", "fights" (fights with one)}} (usable.window_chances) for the spells in
                    unused that need a chance
+  damage           damage done in the fights Habits judges (not healing, some damage done), None when it adds to 0
+  efficiency       damage over potential across those of them that saved both; judged: how many did
+  losses           their cooldowns that sat ready, most damage first (habits.cooldown_losses, under 1 damage left
+                   out, equal losses by name): {"name", "lost", "fights", "missed", "chances"}; a spell in
+                   usable.RULES only from fights with a known chance (its ready time elsewhere may be time it
+                   could not be used)
+  close_calls      {"fights" (your health got low with the defensives judged), "unused" (a defensive sat ready in it),
+                   "spell" (the one that did most often, by name on a tie), "count" (fights it did)}, the last two
+                   None when unused is 0
+  overheal         {"fights", "healing", "overheal"} of the healer fights, None when they healed nothing
   label            label(figures), None without fights
 """
 from __future__ import annotations
@@ -49,7 +59,7 @@ from statistics import median
 from ..scoring import usable
 from ..scoring.classes import talent_role
 from ..scoring.score import grade
-from .habits import char_block, idle_spells
+from .habits import _damage_fights, char_block, cooldown_losses, idle_spells
 
 SLICE = timedelta(days=15)
 ROLES = ("damage", "healer", "tank")
@@ -155,6 +165,24 @@ def _temperament(win: list[dict], seconds: float) -> dict:
             "cooldowns_share": _share(used, possible)}
 
 
+def _losses(dmg: list[dict]) -> list[dict]:
+    """what each cooldown that sat ready cost over fights that did damage (see figures)"""
+    rows = [c for f in dmg for c in f.get("cooldowns") or [] if c.get("chances") or not usable.rule(c.get("name"))]
+    return sorted((s for s in cooldown_losses(rows) if s["lost"] >= 1), key=lambda s: (-s["lost"], s["name"]))
+
+
+def _close_calls(win: list[dict]) -> dict:
+    danger = [f["danger"]["unused"] for f in win if "unused" in (f.get("danger") or {})]
+    seen = Counter(n for names in danger for n in set(names or ()))
+    spell = min(seen, key=lambda n: (-seen[n], n), default=None)
+    return {"fights": len(danger), "unused": sum(map(bool, danger)), "spell": spell, "count": seen.get(spell)}
+
+
+def _overheal(healing: list[dict]) -> dict | None:
+    done, over = (sum(f.get(k) or 0 for f in healing) for k in ("healing", "overheal"))
+    return {"fights": len(healing), "healing": done, "overheal": over} if done + over else None
+
+
 def _restricted(win: list[dict], unused: list[str] | None, types: dict | None) -> dict:
     """the chances of the spells in unused that need one (idle_spells kept only those with a known chance)"""
     return {n: usable.window_chances(n, win, types) for n in unused or [] if usable.rule(n)}
@@ -176,12 +204,18 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
     main = max(ROLES, key=lambda r: roles[r] or 0) if seconds else None
     unused = idle_spells(win, char, book, types) if win and char else None
     restricted = _restricted(win, unused, types)
+    dmg = _damage_fights(win)
+    both = [f for f in dmg if f.get("damage") and f.get("potential")]
     out = {"fights": len(win), "seconds": seconds, "roles": roles, "main_role": main,
            "places": {p: _share(by_place[p], seconds) for p in PLACES},
            "grades": _grades(runs),
            "signature": _signature([f for f in win if _role(f, cls) == main] or win, main == "healer"),
            "opener": _opener(win), "hands": _hands(runs), "temperament": _temperament(win, seconds),
-           "unused": unused, "restricted": restricted}
+           "unused": unused, "restricted": restricted,
+           "damage": sum(f.get("damage") or 0 for f in dmg) or None,
+           "efficiency": _share(sum(f["damage"] for f in both), sum(f["potential"] for f in both)),
+           "judged": len(both), "losses": _losses(dmg), "close_calls": _close_calls(win),
+           "overheal": _overheal([f for f in win if _role(f, cls) == "healer"])}
     out["label"] = label(out) if win else None
     return out
 

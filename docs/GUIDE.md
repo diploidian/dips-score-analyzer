@@ -801,9 +801,15 @@ most recently. It needs 10 fights in those 15 days; with fewer it says how many 
   such as "Careful dungeon healer", from your deaths per hour, usual pull size, cooldowns used, where
   you fight most and your main role. A "Before:" line shows the label from days 16 to 30 when it
   differs.
-- Worth changing names the first thing that applies: you click 30% or more of your presses, you use
-  under half your possible cooldowns, you know a harmful spell and have not cast it, you die in 15% or
-  more of your fights. Otherwise it says "Nothing stands out" and shows your best trait.
+- Worth changing names the first thing that applies: you die in 15% or more of your fights; the ability
+  that lost the most damage by sitting ready, with what it cost and the next two under it; a defensive
+  that sat ready in 5 or more close calls; a harmful spell you know and have not cast; a healer's overheal
+  of 40% or more; under half your possible cooldowns used; input gone badly wrong (60% or more of your
+  presses clicked, or 40% or more refused, in 500 presses or more, and worse than in days 16 to 30 if it
+  was so then). At 90% or more of your possible damage the ability is left out, and with nothing else to
+  say the plate says your last 15 days were clean. Otherwise it says "Nothing stands out".
+  Damage lost counts only fights where you did damage and weren't healing; a spell that needs a chance
+  counts only the fights where its chances are known.
 - Signature is your top five spells by share of damage (by share of casts for a healer), with melee
   shown as "Melee (auto attack)" and its swings, and your usual opening of three casts.
 - Hands is keys against clicks, presses per minute, refused presses and casts cut short by moving.

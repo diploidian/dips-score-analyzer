@@ -375,7 +375,7 @@ class ProfilePage(QScrollArea):
         self.entrance.valueChanged.connect(self.set_progress)
         self.page = Sheet()
         self.hero, self.plate = ProfileHero(), Plate("Worth changing")
-        self.plate.price_px, self.plate.body_last = 34, True
+        self.plate.price_px, self.plate.body_last, self.plate.price_words = 34, True, True
         self.plate.clicked.connect(self.open_habits)
         self.need, self.signature, self.table = Need(), Signature(), SpellTable()
         self.spells_drawer = Drawer("All spells", self.table)
@@ -448,7 +448,10 @@ class ProfilePage(QScrollArea):
                                                             v.before))))
         self.plate.setVisible(v.plate is not None)
         if v.plate:
-            self.plate.set(v.plate.title, v.plate.figure, v.plate.caption, v.plate.button, [], v.plate.why)
+            self.plate.set(v.plate.title, v.plate.figure, v.plate.caption, v.plate.button, v.plate.next, v.plate.why)
+            self.plate.setAccessibleName("Worth changing: " + ". ".join(filter(None, (
+                v.plate.title, v.plate.figure, v.plate.caption, v.plate.why.rstrip("."),
+                v.plate.next and "Next: " + ", ".join(f"{n} {d}" for n, d in v.plate.next)))))
         self.signature.set_view(v)
         self.table.set_view(v)
         self.spells_drawer.set_count(len(v.spells))

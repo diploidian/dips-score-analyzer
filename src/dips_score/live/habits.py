@@ -66,6 +66,23 @@ def _damage_fights(win: list[dict]) -> list[dict]:
     return [f for f in win if not f.get("healing_role") and f.get("damage", 1) > 0]
 
 
+def cooldown_losses(rows: list[dict]) -> list[dict]:
+    """what cooldowns that sat ready cost, per ability over saved fights' cooldown rows, most damage first: {name,
+    lost, fights (those that lost some), missed (casts; a held one's aren't counted), chances (in the fights that
+    lost some, summed where known; None when none are)}; a row with no name or cost says nothing"""
+    out: dict[str, dict] = {}
+    for c in rows:
+        if c.get("name") is None or c.get("lost") is None:
+            continue
+        s = out.setdefault(c["name"], {"name": c["name"], "lost": 0, "fights": 0, "missed": 0, "chances": None})
+        s["lost"] += c["lost"]
+        s["fights"] += c["lost"] > 0
+        s["missed"] += 0 if c.get("held") else c.get("counted", 0)      # older saves have no "counted"
+        if c["lost"] > 0 and c.get("chances") is not None:
+            s["chances"] = (s["chances"] or 0) + c["chances"]
+    return sorted(out.values(), key=lambda s: -s["lost"])
+
+
 def _damage_cards(win: list[dict]) -> list[tuple]:
     out = []
     dmg = _damage_fights(win)
@@ -85,19 +102,13 @@ def _damage_cards(win: list[dict]) -> list[tuple]:
         if not out:
             out.append(("keep", "Efficiency is steady", msg, trend) if a >= 75 else
                        ("fix", "Efficiency is stuck low", msg, trend))
-    lost, seen, missed, rows = Counter(), Counter(), Counter(), False
-    for f in dmg:
-        for c in f.get("cooldowns") or []:
-            rows = True
-            lost[c["name"]] += c["lost"]
-            seen[c["name"]] += c["lost"] > 0
-            missed[c["name"]] += 0 if c.get("held") else c.get("counted", 0)    # older saves have no "counted"
-    if lost and lost.most_common(1)[0][1] >= 1:
-        name, total = lost.most_common(1)[0]
-        casts = f", {missed[name]} casts missed" if missed[name] else ""
-        out.append(("fix", f"{name} left unused", f"About {total:,.0f} damage lost{casts} in {seen[name]} fights",
-                    {"cost": total, "fights": seen[name], "missed": missed[name]}))     # the one card with a cost
-    elif rows:
+    lost = cooldown_losses([c for f in dmg for c in f.get("cooldowns") or []])
+    if lost and lost[0]["lost"] >= 1:
+        name, total, seen, missed = (lost[0][k] for k in ("name", "lost", "fights", "missed"))
+        casts = f", {missed} casts missed" if missed else ""
+        out.append(("fix", f"{name} left unused", f"About {total:,.0f} damage lost{casts} in {seen} fights",
+                    {"cost": total, "fights": seen, "missed": missed}))     # the one card with a cost
+    elif lost:
         out.append(("keep", "Cooldowns used on time", f"No damage lost to idle cooldowns in {len(dmg)} fights"))
     auto = [f["auto"] for f in dmg if f.get("auto")]
     minutes = sum(f["duration"] for f in dmg if f.get("auto")) / 60

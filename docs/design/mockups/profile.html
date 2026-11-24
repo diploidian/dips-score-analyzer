@@ -31,6 +31,10 @@
 .fix p.why{margin-top:8px;font-size:13px;line-height:1.4;color:var(--plate-mu);max-width:56ch}
 .fix p.why .illus{color:var(--plate-mu);margin-left:6px}
 .fix .btn{margin-top:14px}
+.fix p.lost{font-size:13px;color:var(--plate-mu)}
+.nx{margin-top:10px;border-top:1px solid var(--plate-ln);padding-top:7px;display:grid;gap:4px;font-size:13px}
+.nx div{display:flex;justify-content:space-between;gap:10px}
+.nx b{font:600 14px "Barlow Condensed",sans-serif;color:var(--plate-ac);white-space:nowrap}
 .sec{padding:14px 0 12px;border-bottom:1px solid var(--ln)}.sec:last-child{border-bottom:0}
 .sec>.tab{margin-bottom:8px}.sec>.illus{margin-left:12px}
 .bar{position:relative;height:10px;background:var(--track)}
@@ -94,7 +98,6 @@
 .ear .f small{font:500 14px Barlow,sans-serif;color:var(--tx2);margin-right:5px}
 /* review states: one page, switched from the header (mock-up only) */
 main:not([data-state="thin"]) .only-thin,main:not([data-state="nohands"]) .only-nohands,
-main:not([data-state="notypes"]) .only-notypes,[data-state="notypes"] .need-types,
 [data-state="thin"] .need-profile,[data-state="nohands"] .need-hands,
 [data-state="thin"] .bef,[data-state="nobefore"] .bef{display:none!important}
 .controls .lbl{margin-right:2px}
@@ -129,7 +132,7 @@ main:not([data-state="notypes"]) .only-notypes,[data-state="notypes"] .need-type
       <div><h1>Bao Kahn</h1><div class="meta"><b>level 36 Undead Paladin</b> · gear 31 · last 15 days · <span class="need-profile">405 fights</span><span class="only-thin">6 fights</span></div></div>
       <div class="controls">
         <div class="seg-row"><span class="lbl">Mock-up state</span>
-          <div class="seg" role="group" aria-label="Mock-up state" id="states"><button data-state="main" aria-pressed="true">With Before</button><button data-state="nobefore" aria-pressed="false">No Before</button><button data-state="notypes" aria-pressed="false">No creature types yet</button><button data-state="nohands" aria-pressed="false">No recorded run</button><button data-state="thin" aria-pressed="false">Under 10 fights</button></div>
+          <div class="seg" role="group" aria-label="Mock-up state" id="states"><button data-state="main" aria-pressed="true">With Before</button><button data-state="nobefore" aria-pressed="false">No Before</button><button data-state="nohands" aria-pressed="false">No recorded run</button><button data-state="thin" aria-pressed="false">Under 10 fights</button></div>
         </div>
       </div>
     </header>
@@ -149,18 +152,14 @@ main:not([data-state="notypes"]) .only-notypes,[data-state="notypes"] .need-type
             <p class="lab">World damage dealer.</p>
             <p class="bef">Before: hoarding dungeon damage dealer.<span class="illus">illustrative</span></p>
           </div>
-          <section class="fix need-types" aria-labelledby="fixh">
+          <section class="fix" aria-labelledby="fixh">
             <h2 class="tab" id="fixh">Worth changing</h2>
-            <p class="fix-h">You know Exorcism and have not cast it</p>
-            <div class="m"><b>0 casts</b><span>in your last 405 fights</span></div>
-            <p class="why">Judgement, Holy Strike and Consecration carry your casts. Exorcism works on undead and demons. You fought 37 of them in 12 fights and cast it 0 times.<span class="illus">counts illustrative</span></p>
+            <p class="fix-h">Consecration sat ready</p>
+            <div class="m"><span>about</span><b>62,211</b><span>damage</span></div>
+            <p class="lost">873 casts missed in 377 fights</p>
+            <p class="why">Press it when it comes up: that is 6% more damage over these 15 days.</p>
             <a class="btn" href="habits.html">Open Habits</a>
-          </section>
-          <section class="fix only-notypes" aria-labelledby="fixh2">
-            <h2 class="tab" id="fixh2">Worth changing</h2>
-            <p class="fix-h">Nothing stands out</p>
-            <div class="m"><b>99% keys</b><span>of your presses, in 23 recorded runs</span></div>
-            <a class="btn" href="habits.html">Open Habits</a>
+            <div class="nx"><div><span>Judgement</span><b>51,884 damage</b></div><div><span>Holy Strike</span><b>27,414 damage</b></div></div>
           </section>
         </div>
 

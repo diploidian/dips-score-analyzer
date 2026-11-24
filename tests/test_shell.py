@@ -514,6 +514,13 @@ class ShellTests(unittest.TestCase):
             page.plate.button.click()
             self.assertTrue(w.mode_habits.isChecked())
             self.assertEqual(w.stack.currentIndex(), 3)
+            for f in fights[10:]:
+                f["cooldowns"] = [{"name": n, "lost": 9 - k, "counted": 1} for k, n in enumerate(("Judge", "Conse", "Strike"))]
+            w._show_profile()
+            self.assertEqual((page.plate.title, page.plate.rows),
+                             ("Judge sat ready", [("Conse", "80 damage"), ("Strike", "70 damage")]))
+            self.assertTrue(page.plate.accessibleName().startswith("Worth changing: Judge sat ready. about 90 damage. "))
+            self.assertTrue(page.plate.accessibleName().endswith("Next: Conse 80 damage, Strike 70 damage"))
 
     def test_profile_saves_own_data_only(self):
         """slices and run rows are saved only when the add-on's file was read and is the newest fight's character's"""
