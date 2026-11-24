@@ -81,6 +81,7 @@ class FightData:
     start_power: float | None = None
     boss: str | None = None
     cast_before: dict[str, datetime] = field(default_factory=dict)   # your last cast of each spell (by name) before it
+    forbearance: datetime | None = None        # since when Forbearance was on you, when it was
     reopened: int = 0                          # times it was opened again (a carried-on combat)
     closed_by_wall: bool = False
 
@@ -136,14 +137,14 @@ class Tracker:
             self._wall_hostile = time.monotonic()
         if self.fight is not None:
             self.fight.events.append(e)
-            if e.event == "UNIT_DIED" and e.dst in self.fight.foes and self.fight.foes[e.dst].died is None:
+            if e.event == "UNIT_DIED" and not e.feign and e.dst in self.fight.foes and self.fight.foes[e.dst].died is None:
                 self.fight.foes[e.dst].died = e.ts
             if e.event == "ENCOUNTER_START" and e.raw and len(e.raw) > 1:
                 self.fight.boss = e.raw[1]
         elif self.closed is not None:
             if len(self.after) < KEEP_AFTER:
                 self.after.append(e)
-            if e.event == "UNIT_DIED" and e.dst in self.closed.foes and self.closed.foes[e.dst].died is None:
+            if e.event == "UNIT_DIED" and not e.feign and e.dst in self.closed.foes and self.closed.foes[e.dst].died is None:
                 self.closed.foes[e.dst].died = e.ts
         if e.event == "SPELL_CAST_SUCCESS" and self.me and e.src == self.me and e.spell_name:
             # procs land here too; harmless, since a spell whose only damage is its procs never gets a row
@@ -228,7 +229,7 @@ class Tracker:
                 self.power = e.info.power / e.info.max_power
         if e.dst == me:
             if e.event in ("SPELL_AURA_APPLIED", "SPELL_AURA_REFRESH") and e.spell_name:
-                self.buffs.setdefault(e.spell_name, (e.src, e.ts))
+                self.buffs[e.spell_name] = (self.buffs.get(e.spell_name, (e.src,))[0], e.ts)
                 if e.event == "SPELL_AURA_APPLIED" and RESTING.search(e.spell_name):
                     self._resting.setdefault(e.spell_name, e.ts)
             elif e.event == "SPELL_AURA_REMOVED":
@@ -250,6 +251,7 @@ class Tracker:
             buffs_at_pull=sorted(self.buffs), rest=rest,
             own_buffs_at_pull=sorted(n for n, (who, _) in self.buffs.items() if who == self.me),
             since_last=(ts - self.last_end).total_seconds() if self.last_end else None,
+            forbearance=self.buffs.get("Forbearance", (None, None))[1],
             start_hp=self.hp, start_power=self.power, cast_before=dict(self.last_cast))
 
     def _close(self) -> FightData:

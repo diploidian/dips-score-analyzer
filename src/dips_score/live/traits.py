@@ -13,6 +13,7 @@ What the figures count, where the saved fields need care:
   foes       every enemy of one whole combat, the next ones that joined it included: never "at once". With a group they
              are the group's, so Crowd counts fights alone (a tank's too: there they are on you)
   group      None also when nobody else did anything in the fight
+  helped     others than your group did some of the damage; a fight without it counts as alone by its group (see alone)
   abilities  a row with no casts is a proc or item, unless a longer name of a cast spell ("Judgement of Command" belongs
              to Judgement); pet rows end with " (pet)"
   pull.own   the buffs you cast on yourself that the log has seen go up; one kept through a login is not in it
@@ -81,8 +82,8 @@ TRAITS: tuple[Trait, ...] = (
        "Patient, Enduring, Everlasting", "wears enemies down"),
     _t("Marathon", "Pace", "Longest sitting", 40, 200, 30, "n", "fights in your longest sitting",
        "Dogged, Unresting, Undying", "plays long sittings"),
-    _t("Streak", "Pace", "Longest run without a death", 15, 200, 30, "n", "fights in a row without falling",
-       "Surviving, Unfallen, Deathless", "goes long without falling"),
+    _t("Streak", "Pace", "Longest run without a death", 15, 200, 30, "n", "fights in a row survived",
+       "Surviving, Unfallen, Deathless", "survives fight after fight"),
 
     _t("Edge", "Nerve", "Wins on the edge", .05, .25, 30, "%", "of your wins came after dropping under 35% health",
        "Daring, Fearless, Unyielding", "wins on the edge"),
@@ -135,14 +136,15 @@ TRAITS: tuple[Trait, ...] = (
     _t("Break", "Craft of play", "Interrupts", 5, 40, 20, "n1", "interrupts per 100 group fights",
        "Watchful, Silencing, Spellbreaking", "interrupts often"),
 
-    _t("Lone", "Company", "Fights alone", .55, .97, 30, "%", "of fights outside a group",
+    _t("Lone", "Company", "Fights alone", .55, .97, 30, "%", "of fights alone",
        "Wandering, Lone, Sovereign", "fights alone"),
     _t("Bond", "Company", "Fights in a group", .50, .97, 30, "%", "of fights in a group",
        "Loyal, Stalwart, Sworn", "fights in a group"),
     _t("Lead", "Company", "Top of the group", .25, .70, 20, "%", "of group fights topping the damage",
        "Rising, Leading, Commanding", "tops the group's damage", FIGHTERS),
     Trait("Mercy", "Company", "Help for the group", (
-        Part(3, 25, 30, "n1", "dispels per 100 fights"), Part(.10, .35, 20, "%", "of your group's healing is yours")),
+        Part(3, 25, 30, "n1", "dispels on others per 100 group fights"),
+        Part(.10, .35, 20, "%", "of the group's healing on others is yours")),
         ("Merciful", "Guarding", "Selfless"), "looks after others", weaker=False),
 
     _t("Travel", "Road", "Zones fought in", 5, 22, 30, "n", "zones with five fights or more",
@@ -240,13 +242,24 @@ def damage_split(win: list[dict]) -> dict | None:
             "worth": sum(d / total >= 0.05 for d in ability.values()), "fights": len(dmg)}
 
 
+def alone(f: dict) -> bool:
+    """without a group, and not known to have been helped"""
+    return "group" in f and not f["group"] and not f.get("helped")
+
+
+def helpful(win: list[dict]) -> list[dict]:
+    """the group fights that tell help for others from help for yourself"""
+    return [f for f in win if f.get("group") and f.get("healing_others") is not None
+            and f.get("dispels_others") is not None]
+
+
 def heal_share(win: list[dict]) -> tuple[float | None, int]:
-    """your part of the healing done in your group's fights, and how many had any"""
+    """your part of the healing your group gave each other (helpful fights), and how many had any"""
     own = total = n = 0
-    for f in win:
-        members = [m.get("healing") or 0 for m in (f.get("group") or {}).get("members") or []]
-        if members and (whole := sum(members) + (f.get("healing") or 0)):
-            own, total, n = own + (f.get("healing") or 0), total + whole, n + 1
+    for f in helpful(win):
+        whole = sum(m.get("healing_others") or 0 for m in f["group"].get("members") or []) + f["healing_others"]
+        if whole:
+            own, total, n = own + f["healing_others"], total + whole, n + 1
     return (own / total if total else None), n
 
 
@@ -276,14 +289,15 @@ def raw(win: list[dict], fig: dict, book: dict | None = None) -> dict[str, list[
     lengths = [f["duration"] for f in win if f.get("duration") is not None]
     quick = [f["duration"] < 15 for f in wins if f.get("duration") is not None]
     calls = [d for f in win if "answered" in (d := f.get("danger") or {}) and (d["answered"] or d.get("unused"))]
-    crowd = [foe_count(f) >= 3 for f in wins if foes(f) and (not f.get("group") or fig.get("main_role") == "tank")]
-    duel = [f for f in win if foe_count(f) == 1 and "group" in f and not f["group"]]
+    crowd = [foe_count(f) >= 3 for f in wins if foes(f) and (
+        alone(f) or fig.get("main_role") == "tank" and not f.get("helped"))]
+    duel = [f for f in win if foe_count(f) == 1 and alone(f)]
     fought = [f for f in win if f.get("result") != "you died" and (f.get("damage", 1) or f.get("group"))]
     pvp = [f for f in win if f.get("kind") == "PvP"]
     fallen = beaten(win)
     known = [f for f in win if "group" in f]
     group = [f for f in known if f["group"]]
-    ranked = [f["group"]["damage_rank"] == 1 for f in group if f["group"].get("damage_rank") and not f.get("healing_role")]
+    ranked = [f["group"]["damage_rank"] == 1 for f in group if f["group"].get("damage_rank") and f.get("damage") and not f.get("healing_role")]
     split = damage_split(win) or {}
     hits = [a for f in win for a in f.get("abilities") or [] if not a["name"].endswith(" (pet)")]
     n_hits = sum(a.get("hits") or 0 for a in hits)
@@ -330,10 +344,10 @@ def raw(win: list[dict], fig: dict, book: dict | None = None) -> dict[str, list[
         "Planted": [(None if cut is None or (still or 0) < CAST_TIME else 1 - cut, hands.get("move_casts") or 0)],
         "Primed": [_primed(win)],
         "Break": [per100("interrupts", group)],
-        "Lone": [s([not f["group"] for f in known])],
+        "Lone": [s([alone(f) for f in known])],
         "Bond": [s([bool(f["group"]) for f in known])],
         "Lead": [s(ranked)],
-        "Mercy": [per100("dispels", win), (None if fig.get("main_role") == "healer" else share, shared)],
+        "Mercy": [per100("dispels_others", helpful(win)), (None if fig.get("main_role") == "healer" else share, shared)],
         "Travel": [(sum(c >= 5 for z, c in zones.items() if z not in NO_ZONE), n)],
         "Menagerie": [(len(fallen), n)],
     }

@@ -42,15 +42,15 @@ BANE_MIN = 0.40             # one type's share of the foes with a known type
 BANE_KNOWN = 0.50           # of the foes must have one
 NEMESIS_MIN = 0.15
 NEMESIS_KILLS = 30
-# first words of enemy names that are a people or an order, and how it is called when not by that word. Only these: the
+# first words (or two) of enemy names that are a people or an order, and how it is called. Only these: the
 # first word may as well be a place or a look ("Highland Strider", "Young Wolf")
 PEOPLES = {w: w for w in (
     "Amani Atal'ai Blackrock Bloodsail Bloodscalp Boulderfist Bristleback Crushridge Daggerspine Darkspear Deadwood "
-    "Defias Drywhisker Dunemaul Dustbelcher Fallenroot Felmusk Foulweald Frostmane Galak Gelkis Gordok Gordunni Grimtotem "
-    "Hakkari Haldarr Kolkar Magram Maraudine Mirefin Mosh'Ogg Mosshide Palemane Razorfen Riverpaw Sandfury Saltscale "
+    "Defias Dragonmaw Drywhisker Dunemaul Dustbelcher Fallenroot Felmusk Foulweald Frostmane Galak Gelkis Gordok Gordunni Grimtotem "
+    "Hakkari Haldarr Kolkar Kurzen Magram Maraudine Mirefin Mosh'Ogg Mosshide Palemane Razorfen Riverpaw Sandfury Saltscale "
     "Shadowforge Skullsplitter Smolderthorn Spitelash Stonesplinter Syndicate Thistlefur Timbermaw Vilebranch Wastewander "
     "Windshear Winterfall Witherbark Wrathtail").split()} | {
-    "Scarlet": "Scarlet Crusade", "Twilight": "Twilight's Hammer", "Venture": "Venture Company"}
+    "Dark Iron": "Dark Iron", "Scarlet": "Scarlet Crusade", "Twilight": "Twilight's Hammer", "Venture": "Venture Company"}
 ZONE_MIN = 0.25
 THE = {"Arathi Highlands", "Alterac Mountains", "Hillsbrad Foothills", "Badlands", "Barrens", "Blasted Lands",
        "Burning Steppes", "Deadmines", "Eastern Plaguelands", "Western Plaguelands", "Hinterlands", "Redridge Mountains",
@@ -98,10 +98,11 @@ def _nemesis(win: list[dict]) -> str | None:
     fallen = traits.beaten(win)
     words, names = Counter(), Counter()
     for name, n in fallen.items():
-        word = name.split(" ")[0]
+        two = name.split(" ")[:2]
+        word = " ".join(two) if " ".join(two) in PEOPLES else two[0]
         words[word] += n
         names[word] += 1
-    for word, n in words.most_common():
+    for word, n in sorted(words.items(), key=lambda w: (-w[1], w[0])):
         if word in PEOPLES and names[word] >= 2 and n >= NEMESIS_KILLS and n / fallen.total() >= NEMESIS_MIN:
             return f"Scourge of the {PEOPLES[word]}"
     return None
@@ -111,7 +112,7 @@ def _zone(win: list[dict]) -> str | None:
     zones = Counter(z for f in win if (z := f.get("zone") or "") not in traits.NO_ZONE)
     if not zones:
         return None
-    z, n = zones.most_common(1)[0]
+    z, n = min(zones.items(), key=lambda c: (-c[1], c[0]))
     if n / len(win) < ZONE_MIN:
         return None
     if z.startswith("The "):
@@ -135,7 +136,8 @@ def where(win: list[dict], fig: dict, sc: dict, types: dict | None) -> tuple[str
 
 
 def deeds(win: list[dict], fig: dict) -> list[str]:
-    """up to two feats of the window, best first; a fight with a group says so"""
+    """up to two feats of the window, best first; a fight with a group or with help says so, one that may have had help
+    (saved before that was known) is not called alone"""
     out: list[tuple[float, str]] = []
 
     def add(v, low, high, text):
@@ -147,20 +149,24 @@ def deeds(win: list[dict], fig: dict) -> list[str]:
 
     def company(f):
         size = (f.get("group") or {}).get("size")
-        return f", in a group of {size}" if size else ""
+        return f", in a group of {size}" if size else ", with help" if f.get("helped") else \
+            ", alone" if "helped" in f else ", without a group"
 
     wins = [f for f in win if f.get("result") == "killed" and "group" in f]      # alone or not must be known
-    known = [f for f in wins if f.get("lowest_hp") is not None and f["lowest_hp"] >= 0.005]   # under it reads "0%"
+    known = [f for f in wins if f.get("lowest_hp") is not None and f["lowest_hp"] > 0.005]   # up to it reads "0%"
     if known:
         f = min(known, key=lambda f: f["lowest_hp"])
-        add(f["lowest_hp"], .20, .01, f"won with {f['lowest_hp'] * 100:.0f}% health left{foe(f)}{company(f)}")
+        add(f["lowest_hp"], .20, .01, f"won after dropping to {f['lowest_hp'] * 100:.0f}% health{foe(f)}"
+            + (company(f) if f["group"] or f.get("helped") else ""))
     each = lambda f: traits.foe_count(f) / ((f["group"] or {}).get("size") or 1)  # noqa: E731
-    if wins and (n := traits.foe_count(f := max(wins, key=each))) >= 4:
+    own = [f for f in wins if f["group"] or not f.get("helped")]
+    if own and (n := traits.foe_count(f := max(own, key=each))) >= 4:
         many = NUMBERS[n] if n < len(NUMBERS) else str(n)
-        add(each(f), 3, 10, f"beat {many} in one fight{company(f) or ', alone'}" + (f", {foe(f, '').strip()} among them"
+        add(each(f), 3, 10, f"beat {many} in one fight{company(f)}" + (f", {foe(f, '').strip()} among them"
                                                                              if foe(f) else ""))
     if run := traits.streak(win):
-        add(run, 15, 120, f"{run} fights without falling")
+        p = BY_KEY["Streak"].parts[0]
+        add(run, p.low, p.high, f"{run} fights in a row survived")
     bosses = [f for f in wins if f.get("kind") == "Boss"]
     if len(bosses) >= 3:
         add(len(bosses), 3, 25, f"{len(bosses)} bosses beaten" + (" with a group" if any(f.get("group") for f in bosses)
@@ -171,9 +177,10 @@ def deeds(win: list[dict], fig: dict) -> list[str]:
         out.append((DEED_MIN, f"{best['dps']:,.0f} damage per second{foe(best)}"))
     pvp = [f for f in wins if f.get("kind") == "PvP"]
     if len(pvp) >= 3:
-        alone = sum(not f["group"] for f in pvp)
-        add(len(pvp), 2, 25, f"{len(pvp)} fights won against players" + (f", {alone} of them alone" if alone else
-                                                                        " in a group"))
+        solo = [f for f in pvp if not f["group"]]
+        alone = sum("helped" in f and not f["helped"] for f in solo)
+        add(len(pvp), 2, 25, f"{len(pvp)} fights won against players" + (
+            f", {alone} of them alone" if alone else f", {len(solo)} of them without a group" if solo else " in a group"))
     levels = [f["level"] for f in win if f.get("level")]
     if levels and (up := max(levels) - min(levels)):
         add(up, 0, 10, f"gained {up} level{'' if up == 1 else 's'}")
@@ -222,10 +229,10 @@ def rows(win: list[dict], fig: dict, sc: dict) -> dict[str, dict]:
             "of your healing cast on full health")
     share, shared = traits.heal_share(win)
     if shared >= 5:
-        row("heal_share", "Group healing", "%", share, f"of your group's healing is yours, in {shared} fights")
-    if win and any(f.get("dispels") is not None for f in win):
-        n = sum(f.get("dispels") or 0 for f in win)
-        row("dispels", "Dispels", "n1", 100 * n / len(win), f"per 100 fights, {n} in all")
+        row("heal_share", "Group healing", "%", share, f"of the group's healing on others is yours, in {shared} fights")
+    if helped := traits.helpful(win):
+        n = sum(f["dispels_others"] for f in helped)
+        row("dispels", "Dispels", "n1", 100 * n / len(helped), f"on others per 100 group fights, {n} in all")
     won = [f for f in win if f.get("result") == "killed" and f.get("taken") is not None and f.get("duration")]
     if won:
         row("taken", "Damage taken", "n", sum(f["taken"] for f in won) / sum(f["duration"] for f in won),
@@ -249,6 +256,8 @@ def pack(win: list[dict], fig: dict, known: dict[str, dict], sc: dict, lead: str
     # rows of one figure, said once
     same = {"Blade": "split", "Shot": "split", "Craft": "split", "Thrift": "overheal", "Planted": "cut", "Bond": "Lone",
             "Mercy": "dispels"}
+    if sc.get("Guard") and sc["Guard"]["kind"] == "%":
+        same["Guard"] = "lowest"
     rest = sorted((k for k, s in sc.items() if s), key=lambda k: -sc[k]["score"])
     out: dict[str, str] = {}
     for k in [lead] + list(rule) + rest:

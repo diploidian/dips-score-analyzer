@@ -97,12 +97,14 @@ class Habits(unittest.TestCase):
         self.assertEqual(h["fights"], 15)                         # still counted for habits around the fight
 
     def test_defensive_card(self):
-        low = lambda *names: {"t": 5, "hp": 0.1, "hits": [], "unused": list(names)}  # noqa: E731
+        low = lambda *names: {"t": 5, "hp": 0.1, "hits": [], "answered": False, "unused": list(names)}  # noqa: E731
         fs = [fight(0, danger=low("Divine Protection")), fight(1, danger=low("Lay on Hands", "Divine Protection")),
               fight(2, danger=low()), fight(3)]
         card = next(c for c in habits(fs)["cards"] if c["title"] == "Use a defensive when low")
         self.assertEqual((card["kind"], card["detail"]), ("build", "2 close calls with Divine Protection ready"))
         self.assertNotIn("Use a defensive when low", titles(habits([fight(0, danger=low())])))
+        old = {k: v for k, v in low("Lay on Hands").items() if k != "answered"}
+        self.assertNotIn("Use a defensive when low", titles(habits([fight(0, danger=old)])))    # not known if answered
 
     def test_cost_only_on_the_cooldown_card(self):
         row = {"name": "Judgement", "cd": 10, "lost": 150.5, "missed": 1, "counted": 1}

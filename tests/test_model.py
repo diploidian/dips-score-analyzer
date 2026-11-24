@@ -149,6 +149,13 @@ class Deaths(unittest.TestCase):
         self.assertEqual(deaths[0].killed_by, "Melee (Grunt)")
         self.assertEqual(wipes, [])
 
+    def test_the_logs_own_word_on_a_feign(self):
+        events = [ev(11, "UNIT_DIED", "", TANK), ev(22, "SPELL_CAST_START", TANK, "", "Hearthstone"),    # released, hearthed
+                  ev(30, "UNIT_DIED", "", HUNTER)]                                                       # lies still
+        events[0].feign, events[2].feign = False, True
+        roster = {g: Player(g, clean_name(NAMES[g])) for g in (ME, TANK, HUNTER)}
+        self.assertEqual([d.name for d in find_deaths(rundata(events, []), roster)[0]], ["Priime Tiime"])
+
     def test_wipe_when_everyone_is_dead(self):
         events = [ev(5, "UNIT_DIED", "", g) for g in (ME, TANK, HUNTER)]
         roster = {g: Player(g, NAMES[g]) for g in (ME, TANK, HUNTER)}

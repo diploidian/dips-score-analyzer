@@ -193,7 +193,8 @@ def _habit_cards(win: list[dict]) -> list[tuple]:
             and f["resource"].get("start") is not None]
     if len(mana) >= 3 and _mean(mana) < 0.70:
         out.append(("build", "Start fights with more mana", f"Average {_mean(mana):.0%} mana at pull"))
-    close = [f["danger"]["unused"] for f in win if (f.get("danger") or {}).get("unused")]
+    # fights summed up before "answered" called a defensive pressed at the low moment unused
+    close = [d["unused"] for f in win if (d := f.get("danger") or {}).get("unused") and "answered" in d]
     if close:
         top = Counter(n for names in close for n in names).most_common(1)[0][0]
         out.append(("build", "Use a defensive when low",

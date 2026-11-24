@@ -22,6 +22,7 @@ ME = 'Player-1-A,"Nikana-Diploidian-PvP-US",0x511,0x80000000'
 MOB = 'Creature-0-1-1-1-100-1,"Wolf",0xa48,0x80000000'
 MOB2 = 'Creature-0-1-1-1-100-2,"Wolf",0xa48,0x80000000'
 NONE = '0000000000000000,nil,0x80000000,0x80000000'
+PAL = 'Player-1-P,"Pal-Realm-US",0x512,0x80000000'
 
 
 def line(sec: float, rest: str) -> str:
@@ -509,12 +510,12 @@ class Defensives(unittest.TestCase):
         self.assertFalse([x for x in s["improve"] if x.startswith("Dropped to 10% health (")])
 
 
-    def low_at(self, cast_lines, book, at=20, died=False, buffs=()):
-        tr, f = one_fight([dmg(0, ME, MOB, 8092, "Mind Blast", 300), *cast_lines, *bites(30),
-                           *([line(30.5, f"UNIT_DIED,{NONE},{ME},0")] if died else [])])
+    def low_at(self, cast_lines, book, at=20, died=False, since=None):
+        tr, f = one_fight(sorted([dmg(0, ME, MOB, 8092, "Mind Blast", 300), *cast_lines, *bites(30),
+                                  *([line(30.5, f"UNIT_DIED,{NONE},{ME},0")] if died else [])]))
         e = next(e for e in f.events if e.event == "SWING_DAMAGE" and (e.ts - f.start).total_seconds() == at)
         e.info = UnitInfo("Player-1-A", 100, 1000, 0, 100, 100, 0.0, 0.0, 0, 0.0, 33)
-        f.buffs_at_pull = list(buffs)
+        f.forbearance = since and f.start - timedelta(seconds=since)
         return summarize(f, tr.me, tr.me_name, {n: entry(300.0, avg=0) for n in book}, [])["danger"]
 
     def test_answered_just_after_the_low(self):
@@ -524,12 +525,88 @@ class Defensives(unittest.TestCase):
         self.assertEqual((d["answered"], d["unused"]), (False, ["Lay on Hands"]))      # 15 s before: not for this
 
     def test_forbearance_rules_out_the_shields(self):
-        d = self.low_at([], ["Divine Shield", "Lay on Hands"], buffs=["Forbearance"])
-        self.assertEqual((d["answered"], d["unused"]), (False, ["Lay on Hands"]))
+        both = ["Divine Shield", "Lay on Hands"]
+        self.assertEqual(self.low_at([], both, since=39)["unused"], ["Lay on Hands"])
+        self.assertEqual(self.low_at([], both, since=41)["unused"], both)       # over 60 s: its removal was missed
+        on = line(1, f"SPELL_AURA_APPLIED,{ME},{ME},25771,\"Forbearance\",0x2,DEBUFF")
+        self.assertEqual(self.low_at([on], both)["unused"], ["Lay on Hands"])
+
+    def test_the_tracker_knows_since_when(self):
+        on = lambda t: line(t, f"SPELL_AURA_APPLIED,{ME},{ME},25771,\"Forbearance\",0x2,DEBUFF")  # noqa: E731
+        _, f = one_fight([on(0), on(7), dmg(10, ME, MOB, 8092, "Mind Blast", 300), *bites()])
+        self.assertEqual((f.start - f.forbearance).total_seconds(), 3)          # the first one's removal was missed
+        _, f = one_fight([dmg(10, ME, MOB, 8092, "Mind Blast", 300), *bites()])
+        self.assertIsNone(f.forbearance)
+
+    def test_only_one_on_yourself_answers(self):
+        foe = 'Player-1-X,"Foe-Realm-US",0x548,0x80000000'
+        npc = 'Creature-0-1-1-1-200-1,"Guard",0xa18,0x80000000'
+        for dst, answered in ((ME, True), (NONE, True), (MOB, True), (foe, True), (PAL, False), (npc, False)):
+            d = self.low_at([cast(19.5, 6789, "Death Coil", dst=dst)], ["Lay on Hands"])
+            self.assertEqual(d["answered"], answered, dst)
 
     def test_one_that_stops_your_attacks_only_when_you_died(self):
         self.assertEqual(self.low_at([], ["Blessing of Protection"])["unused"], [])
         self.assertEqual(self.low_at([], ["Blessing of Protection"], 30, True)["unused"], ["Blessing of Protection"])
+
+
+class FeignDeath(unittest.TestCase):
+    """logged as UNIT_DIED with its last field 1; without one, told apart by acting again within 20 s"""
+    def s(self, *lines, who=ME, flag=",0"):
+        lines = [*lines, dmg(0, ME, MOB, 8092, "Mind Blast", 300), dmg(1, PAL, MOB, 1, "Holy Strike", 10), *bites(30),
+                 line(10.5, f"UNIT_DIED,{NONE},{who}{flag}")]
+        tr, f = one_fight(sorted(lines))
+        low = next(e for e in f.events if e.event == "SWING_DAMAGE" and (e.ts - f.start).total_seconds() == 8)
+        low.info = UnitInfo("Player-1-A", 100, 1000, 0, 100, 100, 0.0, 0.0, 0, 0.0, 33)
+        return summarize(f, tr.me, tr.me_name, {"Feign Death": entry(30.0, avg=0)}, [])
+
+    def test_yours(self):
+        acts = cast(13, 8092, "Mind Blast")
+        real, feign = self.s(), self.s(flag=",1")
+        self.assertEqual((real["result"], feign["result"]), ("you died", "they got away"))
+        self.assertTrue(real["verdict"].startswith("Killed by Wolf"))
+        self.assertFalse(feign["verdict"].startswith("Killed by"))
+        self.assertEqual((real["danger"]["unused"], feign["danger"]["unused"]), (["Feign Death"], []))
+        hearthed = self.s(acts)                                     # a real death, then released and acting soon
+        self.assertEqual((hearthed["result"], hearthed["verdict"]), (real["result"], real["verdict"]))
+        rez = line(12, f"SPELL_RESURRECT,{PAL},{ME},1,\"Redemption\",0x2")      # a log without the field
+        self.assertEqual([self.s(*x, flag="")["result"] for x in ((), (acts,), (rez, acts))],
+                         ["you died", "they got away", "you died"])
+
+    def test_the_groups_and_a_foes(self):
+        self.assertEqual([self.s(who=PAL, flag=x)["group"]["deaths"] for x in (",0", ",1")], [["Pal"], []])
+        self.assertEqual([self.s(line(31, f"UNIT_DIED,{NONE},{MOB},0"), who=MOB, flag=x)["result"] for x in (",0", ",1")],
+                         ["killed", "killed"])
+        self.assertEqual(self.s(who=MOB, flag=",1")["result"], "they got away")
+
+
+class Others(unittest.TestCase):
+    """what went to others, and what others outside the group did"""
+    OUT = 'Player-1-O,"Out-Realm-US",0x518,0x80000000'
+    GUARD = 'Creature-0-1-1-1-200-1,"Guard",0xa18,0x80000000'
+
+    def s(self, *lines):
+        tr, f = one_fight(sorted([dmg(0, ME, MOB, 8092, "Mind Blast", 300), *bites(), *lines]))
+        return summarize(f, tr.me, tr.me_name, {}, [])
+
+    def test_helped_over_a_tenth(self):
+        hit = lambda src, n: self.s(dmg(3, src, MOB, 1, "Shot", n))["helped"]  # noqa: E731
+        self.assertEqual([hit(self.OUT, 30), hit(self.OUT, 31), hit(self.GUARD, 31)], [False, True, True])
+        self.assertTrue(hit('Pet-0-1-1-1-1-1,"Wolfie",0x1118,0x80000000', 31))             # their pet
+        self.assertFalse(hit(PAL, 999))                                                   # your group
+        self.assertFalse(hit('Pet-0-1-1-1-1-1,"Mine",0x1111,0x80000000', 999))             # yours
+        self.assertFalse(hit(MOB2, 999))                                                  # an enemy
+        self.assertFalse(self.s()["helped"])
+
+    def test_healing_and_dispels_on_others(self):
+        heal = lambda src, dst: line(3, f"SPELL_HEAL,{src},{dst},2050,\"Lesser Heal\",0x2,50,50,10,0,nil")  # noqa: E731
+        free = lambda dst: line(3, f"SPELL_DISPEL,{ME},{dst},527,\"Cleanse\",0x2,118,\"Polymorph\",0x40,DEBUFF")  # noqa: E731
+        s = self.s(heal(ME, ME), heal(ME, PAL), heal(ME, self.GUARD), heal(PAL, PAL), heal(PAL, ME),
+                   free(ME), free(PAL), free(MOB))
+        self.assertEqual((s["healing"], s["healing_others"]), (120, 80))
+        self.assertEqual((s["dispels"], s["dispels_others"]), (3, 1))
+        m, = s["group"]["members"]
+        self.assertEqual((m["healing"], m["healing_others"]), (80, 40))
 
 
 class Verdict(unittest.TestCase):

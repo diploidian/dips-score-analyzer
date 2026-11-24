@@ -228,7 +228,7 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
     out["label"] = label(out) if win else None
     sc = traits.scores(win, out, book)
     specs = Counter(f["spec"] for f in win if f.get("spec"))
-    spec = specs.most_common(1)[0][0] if specs else (char or {}).get("spec")
+    spec = min(specs, key=lambda s: (-specs[s], s)) if specs else (char or {}).get("spec")
     out["traits"] = [{"key": k, "family": traits.BY_KEY[k].family, "epithet": traits.epithet(sc, k), **s}
                      for k, s in sc.items() if s]
     out |= titles.crest(win, out, sc, cls, spec, types)

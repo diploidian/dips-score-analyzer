@@ -31,7 +31,7 @@ Danger is your lowest health under 35%, with the hits that put you there and the
 class: only names in your spell book count) that sat ready and unused: off cooldown at that moment (your death,
 if you died). None sat unused when you answered it: cast one on yourself within DEFENSIVE_WINDOW seconds before or
 after that moment (your health is lowest just before the one that saves you). Forbearance rules out the paladin's
-shields, and one that stops your own attacks or takes you out of the fight (HALTS) counts only when you died.
+shields (60 s of it: a missed removal does not keep them out), and one that stops your own attacks or takes you out of the fight (HALTS) counts only when you died.
 The verdict is one sentence about the fight: how you died, else (healing) what went well, else "no damage
 done", else the biggest finding when it cost VERDICT_SHARE of your damage (or anything, below CLEAN of what
 was possible), else how close you came to the most you could have done.
@@ -42,6 +42,11 @@ spell's cooldown is the shortest of those that two others agree with (within AGR
 cast after a cooldown reset can't set it; a spell ever cast twice within SPAM seconds has none. Procs (a
 Seal of Command hit, which the log writes as your cast) are not casts, here or in the fight's numbers.
 
+A death is one the game means: Feign Death is logged as one too, told apart as in model/deaths.py.
+healing_others, dispels_others: what went to a friendly unit other than you and your pets (a dispel of an enemy is a
+purge, not help). helped: others than your group (players, their pets, friendly NPCs) did more than HELPED of your
+damage to your enemies.
+
 The result is a plain dict, so it can be saved as JSON and shown later.
 """
 from __future__ import annotations
@@ -51,6 +56,7 @@ import statistics
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 
+from ..model.deaths import feigns
 from ..model.roster import clean_name
 from ..scoring import usable
 from ..scoring.classes import DEFENSIVES
@@ -76,6 +82,9 @@ VERDICT_SHARE = 0.03
 CLEAN = 0.90                           # efficiency from which a fight is called clean
 DEFENSIVE_WINDOW = 10.0                # a defensive cast this long before or after your lowest moment answered it
 DEFENSIVE_CD = 300.0                   # a defensive's cooldown when the spell book doesn't know it
+FORBEARANCE_LASTS = 60.0
+HELPED = 0.10                          # of your damage, done by outsiders: more and you were helped
+NOBODY = ("", "0000000000000000")
 FORBEARANCE = ("Divine Protection", "Divine Shield", "Blessing of Protection")      # not castable under it
 # not pressing one of these in a fight you lived through is no mistake: you can't attack under it, or it ends the fight
 HALTS = ("Divine Protection", "Blessing of Protection", "Ice Block", "Feign Death", "Vanish")
@@ -221,8 +230,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     hp: list[tuple[float, float]] = []
     power: list[tuple[float, float]] = []
     fails: Counter = Counter()
-    heal = overheal = 0
-    interrupts = dispels = 0
+    heal = overheal = heal_others = 0
+    interrupts = dispels = dispels_others = outside = 0
     auras: dict[str, list[float]] = defaultdict(list)            # buff name -> [applied, removed, ...] times
     own_auras: set[str] = set()                                  # the ones you put on yourself
     pos: list[tuple[float, float, float]] = []                   # your position (Advanced Combat Logging)
@@ -236,10 +245,12 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     owner: dict[str, str] = {}
     party_dmg: Counter = Counter()
     party_heal: Counter = Counter()
+    party_heal_others: Counter = Counter()
     party_deaths: list[tuple[float, str]] = []
     hurt: list[tuple[float, float]] = []
     fighting: list[float] = []                                   # moments of fighting between the group and foes
     proc = procs(f, me)
+    feigned = {id(f.events[i]) for i in feigns(f.events, {e.dst for e in f.events if e.dst.startswith("Player-")})}
     proc_ids = {e.spell_id for e in f.events if id(e) in proc}
     valued: Counter = Counter()                                  # your damage that values your casts (no procs)
 
@@ -275,7 +286,14 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 party_dmg[who_p] += e.amount
             elif ev.endswith("_HEAL") and e.src == who_p:
                 party_heal[who_p] += max(0, e.amount - e.overheal)
-        if ev == "UNIT_DIED" and e.dst in party:
+                if e.dst != who_p and owner.get(e.dst) != who_p:
+                    party_heal_others[who_p] += max(0, e.amount - e.overheal)
+        elif e.dst in f.foes and e.src not in f.foes and not mine(e.src) and ev.endswith("_DAMAGE") \
+                and not ev.endswith("_LANDED") and not is_group(e.src, e.src_flags) \
+                and (e.src.startswith(("Player-", "Pet-")) or
+                     e.src.startswith("Creature-") and not is_foe(e.src, e.src_flags)):
+            outside += e.amount
+        if ev == "UNIT_DIED" and e.dst in party and id(e) not in feigned:
             party_deaths.append((t, party[e.dst]))
         if mine(e.src):
             name = e.spell_name or "Melee"
@@ -309,6 +327,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
             elif ev.endswith("_HEAL") and e.src == me:
                 heal += max(0, e.amount - e.overheal)
                 overheal += e.overheal
+                if not mine(e.dst) and not is_foe(e.dst, e.dst_flags):
+                    heal_others += max(0, e.amount - e.overheal)
             elif ev == "SPELL_CAST_START" and e.src == me:
                 starts[e.spell_id] = t
             elif ev == "SPELL_CAST_SUCCESS" and e.src == me and id(e) not in proc:
@@ -320,7 +340,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 casts.append((t, e.spell_id or 0, name, began if began is not None and t - began < 10 else None, cost))
                 if name in NEXT_SWING:
                     slots.append(t)
-                if name in defensives and not (e.dst.startswith("Player-") and e.dst != me):
+                if name in defensives and (e.dst == me or e.dst in NOBODY or is_foe(e.dst, e.dst_flags)):
                     defended.append(t)
             elif ev == "SPELL_CAST_FAILED" and e.src == me:
                 fails[(e.spell_name, e.reason or "unknown")] += 1
@@ -330,6 +350,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 interrupts += 1
             elif ev.endswith("_DISPEL"):
                 dispels += 1
+                dispels_others += not mine(e.dst) and not is_foe(e.dst, e.dst_flags)
         if e.dst == me and ev in ("SWING_DAMAGE", "SWING_MISSED") and is_foe(e.src, e.src_flags):
             count_hit(taken_swings, e)
         # avoided attacks, for the spells that answer them (usable.py): any attack, swing or spell
@@ -368,7 +389,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     pvp = any(fo.player for fo in foes)
     # an instance id means a dungeon (some report difficulty 0, like the open world does)
     kind = "PvP" if pvp else ("Boss" if f.boss else ("Dungeon" if f.instance or f.difficulty else "World"))
-    died_at = next((_rel(e.ts, start) for e in f.events if e.event == "UNIT_DIED" and e.dst == me), None)
+    died_at = next((_rel(e.ts, start) for e in f.events if e.event == "UNIT_DIED" and e.dst == me
+                    and id(e) not in feigned), None)
     i_died = died_at is not None
     killed = bool(foes) and all(fo.died is not None for fo in foes)
     result = "you died" if i_died else ("killed" if killed else "they got away")
@@ -518,7 +540,10 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
             if hits:
                 at = died_at if i_died else t_low
                 answered = any(abs(t - at) <= DEFENSIVE_WINDOW for t in defended)
-                forbearance = _spans(auras.get("Forbearance", []), "Forbearance" in f.buffs_at_pull, dur)
+                forbearance = _spans(auras.get("Forbearance", []), f.forbearance is not None, dur)
+                if f.forbearance:
+                    forbearance[0] = (_rel(f.forbearance, start), forbearance[0][1])
+                forbearance = [(a, min(b, a + FORBEARANCE_LASTS)) for a, b in forbearance]
                 danger = {"t": t_low, "hp": low, "hits": [{"who": w, "spell": s, "amount": a} for _, a, s, w in hits],
                           "answered": answered, "unused": [] if answered else
                           unused_defensives(at, casts, book, f, i_died, forbearance)}
@@ -548,7 +573,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
             "size": len(active) + 1, "names": [party[g] for g in active],
             "damage_share": damage / total_dmg if total_dmg else 0, "damage_rank": rank(everyone_dmg),
             "heal_share": heal / total_heal if total_heal else 0, "heal_rank": rank(everyone_heal),
-            "members": [{"name": party[g], "damage": party_dmg[g], "healing": party_heal[g]} for g in active],
+            "members": [{"name": party[g], "damage": party_dmg[g], "healing": party_heal[g],
+                         "healing_others": party_heal_others[g]} for g in active],
             "deaths": [n for _, n in party_deaths],
         }
 
@@ -653,6 +679,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         "level": level,
         "pull": {"since_last": f.since_last, "buffs": f.buffs_at_pull, "own": f.own_buffs_at_pull, "rest": f.rest},
         "interrupts": interrupts, "dispels": dispels,
+        "healing_others": heal_others, "dispels_others": dispels_others, "helped": outside > HELPED * damage,
         # chances of the spells that answer health or avoided attacks (usable.py), where known; creature-type
         # chances are counted from "foes"
         "chances": {n: c for n, (_, c) in chances.items() if c is not None and "types" not in usable.RULES[n]},

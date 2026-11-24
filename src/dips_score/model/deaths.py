@@ -2,7 +2,8 @@
 
 A death is a UNIT_DIED for a group member. Each comes with a recap: the hits and heals they took in
 the RECAP seconds before, and the blow that killed them. This client also logs Feign Death as
-UNIT_DIED; those are told apart by the player acting again soon after without a resurrect.
+UNIT_DIED, with its last field set; without that field those are told apart by the player acting again soon
+after without a resurrect.
 
 Someone counts as dead from their death until they next do anything in the log (a resurrect, or
 just acting again after running back). A wipe is the moment the whole group is dead at once; its
@@ -49,13 +50,16 @@ class Wipe:
     fight: int | None = None
 
 
-def _feigns(rd: RunData, roster: dict[str, Player]) -> set[int]:
-    """Indexes of UNIT_DIED events that weren't deaths. This client logs Feign Death as a death, so a
-    player who acts again within FEIGN_WINDOW seconds without being resurrected was feigning."""
+def feigns(ev: list, guids) -> set[int]:
+    """Indexes of UNIT_DIED events of guids that weren't deaths: Feign Death is one with Event.feign set. Where the log
+    doesn't say, a player who acts again within FEIGN_WINDOW seconds without being resurrected was feigning (someone
+    who released and hearthed acts that soon too)."""
     out: set[int] = set()
-    ev = rd.events
     for i, e in enumerate(ev):
-        if e.event != "UNIT_DIED" or e.dst not in roster:
+        if e.event != "UNIT_DIED" or e.dst not in guids:
+            continue
+        if e.feign is not None:
+            out.update([i] if e.feign else [])
             continue
         t0 = e.ts
         for f in ev[i + 1:]:
@@ -78,7 +82,7 @@ def find_deaths(rd: RunData, roster: dict[str, Player]) -> tuple[list[Death], li
     died_at: dict[str, float] = {}
     since_alive: list[Death] = []
     wipes: list[Wipe] = []
-    feigned = _feigns(rd, roster)
+    feigned = feigns(rd.events, roster)
 
     for i, e in enumerate(rd.events):
         if i in feigned:

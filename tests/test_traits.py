@@ -25,7 +25,7 @@ def fight(i=0, **kw):
     f = {"me": "A", "me_name": "A", "start": start.isoformat(), "end": (start + timedelta(seconds=30)).isoformat(),
          "duration": 30, "kind": "World", "more": 0, "result": "killed", "healing_role": False, "lowest_hp": 0.6,
          "cooldowns": [], "group": None, "foes": [["Ghoul", 1]], "target": "Ghoul", "zone": "", "damage": 300,
-         "difficulty": 0, "chances": {}, "abilities": [{"name": "Smite", "casts": 3, "hits": 3, "crits": 0, "damage": 300}]}
+         "difficulty": 0, "chances": {}, "helped": False, "healing_others": 0, "dispels_others": 0, "abilities": [{"name": "Smite", "casts": 3, "hits": 3, "crits": 0, "damage": 300}]}
     return f | kw
 
 
@@ -41,7 +41,8 @@ def plain(n=40, **kw):
 
 
 def grouped(**kw):
-    return {"size": 5, "damage_rank": 1, "deaths": [], "members": [{"name": "B", "damage": 1, "healing": 100}]} | kw
+    return {"size": 5, "damage_rank": 1, "deaths": [], "members": [{"name": "B", "damage": 1, "healing": 100,
+                                                                         "healing_others": 90}]} | kw
 
 
 def known(**tiers):
@@ -132,9 +133,11 @@ class Figures(unittest.TestCase):
         win = [fight(0, foes=three), fight(0, foes=two), fight(0, foes=three, group=grouped()), fight(0, foes=[])]
         self.assertEqual(figure("Crowd", win), (.5, 2))                 # a group's enemies are not yours alone
         self.assertEqual(figure("Crowd", win, {"main_role": "tank"}), (2 / 3, 3))
-        win = [fight(0), fight(0, result="you died"), fight(0, group=grouped()), fight(0, foes=two)]
+        self.assertEqual(figure("Crowd", win + [fight(0, foes=three, helped=True)]), (.5, 2))
+        win = [fight(0), fight(0, result="you died"), fight(0, group=grouped()), fight(0, foes=two), fight(0, helped=True)]
         self.assertEqual(figure("Duel", win), (.5, 2))
         self.assertEqual(figure("Duel", [{k: v for k, v in fight().items() if k != "group"}]), (None, 0))
+        self.assertEqual(figure("Duel", [{k: v for k, v in fight().items() if k != "helped"}]), (1, 1))     # by the group
 
     def test_victory(self):
         away = fight(0, result="they got away")
@@ -171,12 +174,16 @@ class Figures(unittest.TestCase):
         self.assertEqual(figure("Break", win), (100, 2))
 
     def test_company_and_road(self):
-        win = [fight(0), fight(0, group=grouped(), healing=100, dispels=2), fight(0, group=grouped(damage_rank=2)),
-               fight(0, group=grouped(), healing_role=True)]
+        win = [fight(0), fight(0, group=grouped(), healing=100, healing_others=30, dispels=4, dispels_others=2),
+               fight(0, group=grouped(damage_rank=2)), fight(0, group=grouped(), healing_role=True)]
         self.assertEqual((figure("Lone", win), figure("Bond", win)), ((.25, 4), (.75, 4)))
         self.assertEqual(figure("Lead", win), (.5, 2))                  # a healing fight is not for topping damage
-        self.assertEqual(figure("Mercy", win), (50, 4))
-        self.assertEqual(figure("Mercy", win, part=1), (.25, 3))
+        self.assertEqual(figure("Lead", [fight(0, group=grouped(), damage=0)]), (None, 0))   # nobody did any: no first
+        self.assertEqual(figure("Lone", win + [fight(0, helped=True)]), (.2, 5))
+        self.assertEqual(figure("Mercy", win), (200 / 3, 3))
+        self.assertEqual(figure("Mercy", win, part=1), (30 / 300, 3))
+        old = [{k: v for k, v in f.items() if k != "healing_others"} for f in win]
+        self.assertEqual([figure("Mercy", old, part=p) for p in (0, 1)], [(None, 0), (None, 0)])
         self.assertEqual(figure("Mercy", win, {"main_role": "healer"}, part=1), (None, 3))
         win = [fight(0, zone=z) for z in ["A"] * 5 + ["B"] * 4 + [""] * 9 + ["UNKNOWN AREA"] * 9]
         self.assertEqual(figure("Travel", win)[0], 1)
@@ -270,6 +277,8 @@ class Nouns(unittest.TestCase):
         self.assertEqual(t(plain(spec="Protection"), char), "Shieldsworn of the Wilds")
         self.assertEqual(t(plain(), char), "Lightmender of the Wilds")
         self.assertEqual(t(plain(), None), "Slayer of the Wilds")
+        half = plain(20, spec="Protection") + plain(20, spec="Holy")
+        self.assertEqual([t(h, char) for h in (half, half[::-1])], ["Saving Lightmender of the Wilds"] * 2)    # a tie: by name
 
 
 class Where(unittest.TestCase):
@@ -292,6 +301,10 @@ class Where(unittest.TestCase):
         self.assertIsNone(self.w([fight(foes=[["Syndicate Spy", 20], ["Syndicate Thug", 9]])]))     # under 30 kills
         self.assertIsNone(self.w([fight(foes=[["Syndicate Spy", 99]])]))            # one name shares nothing
         self.assertIsNone(self.w([fight(foes=[["Highland Strider", 50], ["Highland Thrasher", 50]])]))      # a place
+        dark = [["Dark Iron Sentry", 20], ["Dark Iron Raider", 20], ["Dark Strand Cultist", 20], ["Dark Adept", 20]]
+        self.assertEqual(self.w([fight(foes=dark)])[0], "Scourge of the Dark Iron")
+        tied = [["Witherbark A", 20], ["Witherbark B", 20], ["Defias A", 20], ["Defias B", 20]]
+        self.assertEqual({self.w([fight(foes=o)])[0] for o in (tied, tied[::-1])}, {"Scourge of the Defias"})
         self.assertEqual(self.w([fight(foes=[["Scarlet Monk", 20], ["Scarlet Adept", 20]])])[0],
                          "Scourge of the Scarlet Crusade")
 
@@ -299,6 +312,7 @@ class Where(unittest.TestCase):
         z = lambda name: self.w([fight(zone=name)] + [fight(zone=c) for c in "abc"])  # noqa: E731
         self.assertEqual([z(n) for n in ("Arathi Highlands", "Stranglethorn Vale", "The Barrens")],
                          [("the Arathi Highlands", False), ("Stranglethorn Vale", False), ("the Barrens", False)])
+        self.assertEqual({self.w([fight(zone=c) for c in o])[0] for o in ("ab", "ba")}, {"a"})      # a tie: by name
         self.assertIsNone(self.w([fight(zone=c) for c in "abcde"]))                 # under 25%
         self.assertIsNone(self.w([fight(zone=""), fight(zone="UNKNOWN AREA")]))
 
@@ -322,13 +336,31 @@ class Deeds(unittest.TestCase):
     def test_two_best_and_who_with(self):
         win = [fight(0, lowest_hp=.02, target="Bloodscalp Berserker", group=grouped(size=3)), fight(0, foes=[["Spy", 7]],
                                                                                                  target="Spy")]
-        self.assertEqual(titles.deeds(win, FIG), ["won with 2% health left against Bloodscalp Berserker, in a group of 3",
+        self.assertEqual(titles.deeds(win, FIG), ["won after dropping to 2% health against Bloodscalp Berserker, in a group of 3",
                                                   "beat seven in one fight, alone, Spy among them"])
         crowd = [fight(0, foes=[["Spy", 20]], target="?", group=grouped(size=2))]
         self.assertEqual(titles.deeds(crowd, FIG), ["beat 20 in one fight, in a group of 2"])
 
+    def test_alone_only_when_known(self):
+        seven = fight(0, foes=[["Spy", 7]], target="?")
+        old = {k: v for k, v in seven.items() if k != "helped"}
+        self.assertEqual(titles.deeds([old], FIG), ["beat seven in one fight, without a group"])
+        self.assertEqual(titles.deeds([seven | {"helped": True}], FIG), [])
+        low = fight(0, lowest_hp=.02, target="Imp")
+        self.assertEqual(titles.deeds([low], FIG), ["won after dropping to 2% health against Imp"])
+        self.assertEqual(titles.deeds([low | {"helped": True}], FIG),
+                         ["won after dropping to 2% health against Imp, with help"])
+        self.assertEqual(titles.deeds([low | {"lowest_hp": .005}], FIG), [])        # would read 0%
+        self.assertEqual(titles.deeds([low | {"lowest_hp": .0051}], FIG), ["won after dropping to 1% health against Imp"])
+        pvp = many(6, kind="PvP")
+        self.assertEqual(titles.deeds([{k: v for k, v in f.items() if k != "helped"} for f in pvp], FIG),
+                         ["6 fights won against players, 6 of them without a group"])
+        self.assertEqual(titles.deeds(pvp[:5] + [pvp[5] | {"helped": True}], FIG),
+                         ["6 fights won against players, 5 of them alone"])
+
     def test_the_others(self):
-        self.assertIn("40 fights without falling", titles.deeds(many(40), FIG))
+        self.assertIn("40 fights in a row survived", titles.deeds(many(40), FIG))
+        self.assertEqual(titles.deeds(many(33), FIG), [])                # the trait's anchors, 15 to 200
         self.assertEqual(titles.deeds(many(2, dps=318.4, target="Imp"), FIG), ["318 damage per second against Imp"])
         boss = many(9, kind="Boss", group=grouped())
         self.assertEqual(titles.deeds(boss, FIG), ["9 bosses beaten with a group"])
@@ -390,6 +422,10 @@ class Page(unittest.TestCase):
         tank = many(40, spec="Protection", taken=50, swings_taken={"landed": 9, "misses": {}}, group=grouped(), interrupts=1)
         got = pack(tank, char={"class": "WARRIOR"})
         self.assertLessEqual({"Hits avoided", "Damage taken", "Usual pull", "Average lowest health"}, set(got))
+        guard = [f | {"lowest_hp": .84} for f in tank]
+        sc = profile(guard, {"class": "WARRIOR"}, {}, [], T0)["now"]
+        keys = titles.pack(guard, sc, sc["rows"], {t["key"]: t for t in sc["traits"]}, "Guard")
+        self.assertEqual((keys[0], "lowest" in keys), ("Guard", False))             # one figure, said once
         pvp = many(30) + many(10, kind="PvP")
         self.assertEqual(pack(pvp)[1:], ["Player fights won", "Broken off", "Fight length", "Wins on the edge"])
 

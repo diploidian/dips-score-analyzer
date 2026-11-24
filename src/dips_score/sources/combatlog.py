@@ -116,6 +116,7 @@ class Event:
     extra_spell_id: int | None = None  # _INTERRUPT, _DISPEL: the spell it hit
     raw: list[str] | None = None       # special events: their fields
     aura_type: str = ""                # SPELL_AURA_APPLIED: BUFF or DEBUFF
+    feign: bool | None = None          # UNIT_DIED: the log's unconscious flag, set on a Feign Death; None without it
 
 
 def split_fields(s: str) -> list[str]:
@@ -209,6 +210,8 @@ def parse_line(line: str) -> Event | None:
         e.extra_spell_id = _int(s[0])
     elif ev == "SPELL_AURA_APPLIED" and s:
         e.aura_type = s[0]
+    elif ev == "UNIT_DIED" and s:
+        e.feign = s[0] == "1"
     return e
 
 
