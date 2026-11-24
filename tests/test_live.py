@@ -401,6 +401,14 @@ class AutoAttack(unittest.TestCase):
         r = summarize(f, tr.me, tr.me_name, {}, [])["ranged"]
         self.assertEqual((r["shots_lost"], r["clipped"]), (0, 1))
 
+    def test_wand_cast_starts_are_not_hard_casts(self):
+        times = [x * 1.5 for x in range(21) if x not in (10, 11)]     # 13.5 to 18: two shots lost
+        log = [x for t in times for x in (line(t - 0.01, f"SPELL_CAST_START,{ME},{MOB},5019,\"Shoot\",0x1"),
+                                          cast(t - 0.005, 5019, "Shoot"), shot(t, 5019, "Shoot", 50))]
+        tr, f = one_fight([*log, *bites()])
+        r = summarize(f, tr.me, tr.me_name, {}, [])["ranged"]
+        self.assertEqual((r["shots_lost"], r["clipped"]), (2, 0))
+
     def test_caster_without_auto_is_unchanged(self):
         tr, f = one_fight([cast(0, 8092, "Mind Blast"), dmg(0.1, ME, MOB, 8092, "Mind Blast", 300), *bites(30)])
         s = summarize(f, tr.me, tr.me_name, {"Smite": {**entry(1.0, avg=100), "gaps": [], "spam": True}}, [])

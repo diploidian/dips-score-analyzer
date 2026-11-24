@@ -419,7 +419,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     # ---- auto attacks
     auto = None
     swing_lost = shot_lost = 0.0
-    hard = [(b, t) for t, _, _, b, _ in casts if b is not None]
+    hard = [(b, t) for t, sid, _, b, _ in casts if b is not None and sid not in AUTO]   # Shoot has a cast start
     slots = sorted(swings + slots)
     speed = 0.0
     if len(swings) >= 2:

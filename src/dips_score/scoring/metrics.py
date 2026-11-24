@@ -8,7 +8,8 @@ melee swings and ranged shots (Auto Shot, wand Shoot; each keeps you busy until 
 swing or shot). Swinging or shooting with no ability is busy, not idle ("swinging_time" says how much).
 A next-swing ability (NEXT_SWING: Heroic Strike...) takes the place of the swing it replaces, so that swing
 is not lost. Shots lost are measured like swings lost, but a gap while moving doesn't count, and a shot
-clipped by a cast (a hard cast; for a wand, any cast, since casting stops the wand) is counted apart. For rage and
+clipped by a cast (a hard cast; for a wand, any cast, since casting stops the wand) is counted apart, and
+a gap with no enemy alive (each enemy from its first to its last event in the log) doesn't count either. For rage and
 energy users (Advanced Combat Logging), time you couldn't afford your cheapest ability is
 "starved": not busy, but not held against you either. The other side is "capped": time your rage
 or energy sat at its maximum (more coming in was lost), counted from the same readings.
@@ -20,6 +21,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 
 from ..model.run import AUTO_REPEAT, RunData, TLine
+from ..sources.combatlog import is_enemy
 
 GCD = 1.5               # seconds; this client's global cooldown
 ENERGY_GCD = 1.0        # energy users (rogues, cat druids) have a shorter one
@@ -396,6 +398,7 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
     casting: list[Interval] = []      # your hard casts: cast start to cast success
     bars: list[Interval] = []         # every cast (not auto): its cast time or GCD
     starts: dict[int, float] = {}
+    alive: dict[str, list[float]] = {}    # enemy guid -> [first, last] event time
     for e in events:
         t = rd.rel(e.ts)
         if e.info and e.info.guid == me and e.info.power_type == m.power_type:
@@ -404,6 +407,10 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
         if not inside(t, windows):
             continue
         ev = e.event
+        for g, fl in ((e.src, e.src_flags), (e.dst, e.dst_flags)):
+            if is_enemy(g, fl):
+                span = alive.setdefault(g, [t, t])
+                span[0], span[1] = min(span[0], t), max(span[1], t)
         if e.info and e.info.guid == rd.player_guid and e.info.max_hp:
             hp.append((t, e.info.hp_pct))
         if ev in ("SWING_DAMAGE", "SWING_MISSED") and e.src == me:
@@ -419,8 +426,8 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
             starts[e.spell_id] = t
         elif ev == "SPELL_CAST_SUCCESS" and rd.mine(e):
             began = starts.pop(e.spell_id, None)
-            if began is not None and t - began < 10:
-                casting.append((began, t))
+            if began is not None and t - began < 10 and e.spell_id not in AUTO_REPEAT:
+                casting.append((began, t))     # (the log gives wand Shoot a cast start too: not a hard cast)
             if e.src == me and e.spell_id not in AUTO_REPEAT:
                 a = began if began is not None and t - began < 10 else t
                 bars.append((a, max(t, a + GCD)))
@@ -449,9 +456,15 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
     m.swing_speed, _, m.swings_lost = swing_stats(slots, casting, windows)
     m.swings, m.hard_casts, m.shots = len(swings), len(casting), len(shots)
     wand = shot_ids.most_common(1)[0][0] == WAND if shot_ids else False
-    m.shot_speed, m.shots_clipped, m.shots_lost = swing_stats(shots, bars if wand else casting, windows, moving)
+    no_enemy = gaps(list(map(tuple, alive.values())), windows, 0.0)
+    m.shot_speed, m.shots_clipped, m.shots_lost = swing_stats(shots, bars if wand else casting, windows,
+                                                              moving + no_enemy)
     running = auto_running(slots, m.swing_speed) + auto_running(shots, m.shot_speed)
-    ability = total(clip(busy, windows))
+    # ability time: the add-on's busy time less its wand / Auto Shot lines
+    ability_busy, _ = busy_intervals([ln for ln in lines if not (ln.code in ("CB", "CK", "CF", "CI", "CC", "CE")
+                                                                  and ln.num(0) in AUTO_REPEAT)],
+                                     ENERGY_GCD if m.power_type == ENERGY else GCD)
+    ability = total(clip(ability_busy, windows))
     busy = union(busy + running)
     m.swinging_time = total(clip(busy, windows)) - ability
 

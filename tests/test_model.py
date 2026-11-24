@@ -348,6 +348,32 @@ class Activity(unittest.TestCase):
         m = self.measure(self.shots(75, 1.5, lambda t: t == 15) + [smite])   # an instant doesn't stop Auto Shot
         self.assertEqual((m.shots_lost, m.shots_clipped), (1, 0))
 
+    def test_wand_cast_starts_are_not_hard_casts(self):
+        """the log gives each wand Shoot a cast start: no shot is clipped unless a real spell overlaps"""
+        evs = []
+        for e in self.shots(5019, 1.5, lambda t: t in (15, 16.5)):      # 13.5 to 18: two shots lost
+            for kind in ("SPELL_CAST_START", "SPELL_CAST_SUCCESS"):
+                c = ev((e.ts - T0).total_seconds() - 0.01, kind, ME, MOB1, "Shoot")
+                c.spell_id = 5019
+                evs.append(c)
+            evs.append(e)
+        m = self.measure(evs)
+        self.assertEqual((m.shots_lost, m.shots_clipped, m.hard_casts), (2, 0, 0))
+        smite = ev(15, "SPELL_CAST_SUCCESS", ME, MOB1, "Smite")
+        m = self.measure(evs + [smite])
+        self.assertEqual((m.shots_lost, m.shots_clipped), (0, 2))
+
+    def test_shooting_is_auto_attack_time(self):
+        m = self.measure(self.shots(5019, 1.5), [(i * 1.5, "CK", 5019) for i in range(40)])   # the add-on's shots
+        self.assertAlmostEqual(m.swinging_time, 60.0)
+
+    def test_no_enemy_alive_is_not_a_lost_shot(self):
+        second = self.shots(skip=lambda t: t < 39)
+        for e in second:
+            e.dst = MOB2
+        m = self.measure(self.shots(skip=lambda t: t > 21) + second)   # 21 to 39: the first dead, the next not pulled
+        self.assertEqual((m.shots_lost, m.shots_clipped), (0, 0))
+
     def test_shooter_tip(self):
         from dips_score.scoring.metrics import Metrics
         from dips_score.scoring.score import _activity
