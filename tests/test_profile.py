@@ -97,6 +97,15 @@ class Figures(unittest.TestCase):
         self.assertEqual(n["restricted"], {"Exorcism": {"types": ["Undead", "Demon"], "foes": 5, "fights": 2},
                                            "Turn Undead": {"types": ["Undead"], "foes": 3, "fights": 1}})
 
+    def test_restricted_with_plain_unused(self):
+        char = {"spells": {"Exorcism": {"harm": True}, "Holy Wrath": {"harm": True}, "Turn Undead": {"harm": True},
+                           "Hammer of Wrath": {"harm": True}}}
+        fs = [fight(2, foes=[["Imp", 2], ["Wolf", 1]]), fight(2, foes=[["Bandit", 3]])]
+        n = profile(fs, char, {}, [], T0, {"Imp": "Demon", "Wolf": "Beast"})["now"]       # Bandit has no type
+        self.assertEqual(n["unused"], ["Exorcism", "Holy Wrath", "Hammer of Wrath"])        # no undead: Turn Undead out
+        self.assertEqual(set(n["restricted"]), {"Exorcism", "Holy Wrath"})
+        self.assertEqual(n["restricted"]["Exorcism"], {"types": ["Undead", "Demon"], "foes": 2, "fights": 1})
+
     def test_opener(self):
         o = ["A", "B", "C"]
         fs = [fight(1, opener=o), fight(1, opener=o), fight(1, opener=["X", "B", "C"]), fight(1, opener=["A"]),
@@ -332,20 +341,30 @@ class View(unittest.TestCase):
                          ("m-cast", "10.0"))
         c = row(v.hands, "Cut short by moving")
         self.assertEqual((c.value, c.unit, c.ink), ("4", "%", "m-cast"))
-        self.assertEqual(c.note, "4 of 95 casts cut because you started to move, 6.5 s of cast time lost, in recorded runs")
+        self.assertEqual(c.note, "4 of 95 casts cut because you started to move, 6.5 s of cast time lost, in 1 recorded run")
         self.assertEqual((row(v.hands, "Presses per minute").ink, row(v.temperament, "Average lowest health").ink),
                          ("m-act", "m-surv"))
 
     def test_cut_short_unknown_without_move_keys(self):
         old = run(1)
         del old["move_interrupts"], old["wasted_cast_time"]
-        h = profile(many(), None, {}, [run(1), old], T0)["now"]["hands"]
-        self.assertEqual((h["move_interrupts"], h["wasted_cast_time"], h["cut_share"]), (None, None, None))
+        h = profile(many(), None, {}, [old], T0)["now"]["hands"]
+        self.assertEqual((h["move_runs"], h["move_interrupts"], h["wasted_cast_time"], h["cut_share"]),
+                         (0, None, None, None))
         c = row(page(many(), [old]).hands, "Cut short by moving")
         self.assertEqual((c.value, c.note), ("–", "no cut casts saved in these runs"))
         both = profile(many(), None, {}, [run(1), run(1)], T0)["now"]["hands"]
-        self.assertEqual((both["move_interrupts"], both["wasted_cast_time"]), (8, 13.0))
+        self.assertEqual((both["move_runs"], both["move_interrupts"], both["wasted_cast_time"]), (2, 8, 13.0))
         self.assertAlmostEqual(both["cut_share"], 8 / 190)
+        # mixed: only the run carrying the keys counts, its casts the base
+        mixed = profile(many(), None, {}, [run(1), old], T0)["now"]["hands"]
+        self.assertEqual((mixed["move_runs"], mixed["move_casts"], mixed["move_interrupts"]), (1, 95, 4))
+        self.assertAlmostEqual(mixed["cut_share"], 4 / 95)
+        c = row(page(many(), [run(1), old]).hands, "Cut short by moving")
+        self.assertEqual(c.note, "4 of 95 casts cut because you started to move, 6.5 s of cast time lost, in 1 recorded run")
+        zero = row(page(many(), [run(1, casts=0, move_interrupts=0, wasted_cast_time=0.0)]).hands, "Cut short by moving")
+        self.assertEqual((zero.value, zero.note),
+                         ("–", "0 of 0 casts cut because you started to move, 0.0 s of cast time lost, in 1 recorded run"))
 
     def test_melee_leads_with_swings(self):
         ab = [{"name": "Melee", "casts": 0, "damage": 460}, {"name": "Seal of Command", "casts": 0, "damage": 140},
@@ -359,9 +378,10 @@ class View(unittest.TestCase):
         self.assertEqual((m.name, m.value, m.casts, m.ink), ("Melee (auto attack)", "46", "200 swings", "m-dmg"))
         self.assertEqual(v.spells[0], ("Melee (auto attack)", "200 swings", "46.0%"))
         self.assertEqual(v.spells[-1], ("Seal", "10", "–"))
-        # one fight without a swing count: the count is not shown
+        # a fight without a swing count (one swing saves none) leaves the others' sum
         v = page(fs[:9] + many(1, abilities=ab))
-        self.assertEqual(v.signature[0].casts, "")
+        self.assertEqual(v.signature[0].casts, "180 swings")
+        self.assertEqual(page(many(abilities=ab)).signature[0].casts, "")      # no count anywhere: none shown
 
     def test_roles_grade(self):
         v = page(many(), [run(1)])

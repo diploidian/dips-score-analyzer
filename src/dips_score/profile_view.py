@@ -248,10 +248,10 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
                       f"{h['failed']:,} presses the game turned down, in recorded runs", ink="m-cast"),
                   g("refused_share"), "more refused", "fewer refused"),
             share(Row("Cut short by moving", _pct(cut), "%" if cut is not None else "",
-                      "no cut casts saved in these runs" if cut is None else
-                      f"{h['move_interrupts']:,} of {h['casts']:,} casts cut because you started to move"
-                      + ("" if h["wasted_cast_time"] is None else f", {h['wasted_cast_time']:.1f} s of cast time lost")
-                      + ", in recorded runs", ink="m-cast"),
+                      "no cut casts saved in these runs" if h.get("move_interrupts") is None else
+                      f"{h['move_interrupts']:,} of {h['move_casts']:,} casts cut because you started to move, "
+                      f"{h['wasted_cast_time']:.1f} s of cast time lost, in {_plural(h['move_runs'], 'recorded run')}",
+                      ink="m-cast"),
                   g("cut_share"), "more cut short", "fewer cut short")]
     else:
         v.hands = [Row("Keys, clicks and presses", note=NO_HANDS)]

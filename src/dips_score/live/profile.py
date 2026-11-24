@@ -6,7 +6,7 @@ there are no fights at all), "before": figures or None when it has no fights}. N
 
 runs are plain dicts from the recorded runs: start (datetime), role ("tank"/"healer"/"damage"/None), score, grade,
 presses, by_key, by_click, failed, casts, combat_time (seconds), move_interrupts (casts the game cut because you
-started to move) and wasted_cast_time (seconds lost to them); a run without a move key leaves that figure None.
+started to move) and wasted_cast_time (seconds lost to them); runs without both move keys are left out of those.
 A run counts for a window when its start is inside it; the caller passes only this character's runs.
 types is {enemy name: creature type} (the add-on's dipsScoreDB.types) or None; it decides whether a spell that
 only works on some enemy types (RESTRICTED) can count as unused.
@@ -22,12 +22,14 @@ figures(...) keys (shares are fractions 0..1; None when there is nothing to divi
                    {"name", "casts", "damage", "share", "swings"}: every row of the fights' abilities, Melee
                    (auto attack) and procs included, so the shares add to 1; ranked by share of damage, or for a
                    healer by casts (saved fights carry no healing per spell), share then being the share of
-                   casts. swings: Melee's swings when every fight with Melee saved a count, else None
+                   casts. swings: Melee's swings summed over the fights that saved a count (a one-swing fight saves
+                   none), None when that sum is 0
   opener           {"casts": [three names], "count": fights that opened so, "of": fights with three opening
                    casts}, or None
   hands            None without runs in the window; else {"runs", "presses", "by_key", "by_click", "key_share",
                    "click_share" (of keyed + clicked presses), "combat_seconds", "per_minute", "failed", "casts", "refused_share",
-                   "move_interrupts", "wasted_cast_time", "cut_share" (cut casts of all casts)}
+                   "move_runs" (runs carrying both move keys), "move_casts" (their casts), "move_interrupts",
+                   "wasted_cast_time", "cut_share" (cut casts of move_casts); the last four None when move_runs is 0}
   temperament      {"deaths", "deaths_per_hour", "median_pull", "mean_pull", "alone" (fights against one enemy),
                    "lowest_hp" (mean, same scale as the fight's lowest_hp), "cooldowns_used", "cooldowns_possible",
                    "cooldowns_share"}
@@ -90,18 +92,17 @@ def _share(part, whole):
 
 
 def _signature(win: list[dict], healer: bool) -> dict:
-    casts, damage, swings, counted = Counter(), Counter(), 0, True
+    casts, damage, swings = Counter(), Counter(), 0
     for f in win:
         for a in f.get("abilities") or []:
             casts[a["name"]] += a.get("casts", 0)
             damage[a["name"]] += a.get("damage", 0)
             if a["name"] == "Melee":
-                n = (f.get("auto") or {}).get("swings")
-                counted, swings = counted and n is not None, swings + (n or 0)
+                swings += (f.get("auto") or {}).get("swings") or 0
     total = sum(casts.values() if healer else damage.values())
     spells = [{"name": n, "casts": casts[n], "damage": damage[n],
                "share": _share(casts[n] if healer else damage[n], total),
-               "swings": swings if n == "Melee" and counted else None} for n in casts]
+               "swings": (swings or None) if n == "Melee" else None} for n in casts]
     spells.sort(key=lambda s: (-(s["casts"] if healer else s["damage"]), -s["casts"], s["name"]))
     return {"basis": "casts" if healer else "damage", "top": spells[:TOP], "spells": spells}
 
@@ -118,15 +119,17 @@ def _hands(runs: list[dict]) -> dict | None:
     if not runs:
         return None
     s = lambda k: sum(r.get(k) or 0 for r in runs)  # noqa: E731
-    known = lambda k: s(k) if all(r.get(k) is not None for r in runs) else None  # noqa: E731
     presses, key, click, failed, casts = s("presses"), s("by_key"), s("by_click"), s("failed"), s("casts")
-    combat, cut = s("combat_time"), known("move_interrupts")
+    combat = s("combat_time")
+    moved = [r for r in runs if r.get("move_interrupts") is not None and r.get("wasted_cast_time") is not None]
+    m = lambda k: sum(r.get(k) or 0 for r in moved) if moved else None  # noqa: E731
+    cut, move_casts = m("move_interrupts"), m("casts")
     return {"runs": len(runs), "presses": presses, "by_key": key, "by_click": click,
             "key_share": _share(key, key + click), "click_share": _share(click, key + click),   # "?" sources left out
             "combat_seconds": combat, "per_minute": _share(presses * 60, combat),
             "failed": failed, "casts": casts, "refused_share": _share(failed, casts + failed),
-            "move_interrupts": cut, "wasted_cast_time": known("wasted_cast_time"),
-            "cut_share": None if cut is None else _share(cut, casts)}
+            "move_runs": len(moved), "move_casts": move_casts, "move_interrupts": cut,
+            "wasted_cast_time": m("wasted_cast_time"), "cut_share": None if cut is None else _share(cut, move_casts)}
 
 
 def _grades(runs: list[dict]) -> dict:
