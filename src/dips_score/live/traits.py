@@ -2,7 +2,7 @@
 its low and high anchor, with a tier (0 to 3, from TIERS) and an epithet per tier. Pure data.
 
 scores(win, fig, book) -> {key: None (unknown: too small a sample, no data, or not this role's trait) or {"figure",
-"kind" (how it is written, see shown), "score", "tier", "sample", "caption", "next": None at the top tier, else {"epithet",
+"kind" (how it is written, see shown), "score", "tier", "caption", "next": None at the top tier, else {"epithet",
 "needs": [(kind, figure), ...]} for the next tier}}. win: the window's fights; fig: its profile.figures so far
 (main_role, efficiency, judged, temperament, hands, overheal); book: the spell book. pick() the traits that name a
 character; named() the two-trait title.
@@ -154,7 +154,6 @@ TRAITS: tuple[Trait, ...] = (
        "Curious, Seasoned, All-Seeing", "beats enemies of every kind"),
 )
 BY_KEY = {t.key: t for t in TRAITS}
-FAMILIES = tuple(dict.fromkeys(t.family for t in TRAITS))
 
 # both at tier 2 or better; the first that applies
 NAMED: tuple[tuple[str, str, str], ...] = (
@@ -389,17 +388,17 @@ def tier(score: float) -> int:
 
 def score_of(t: Trait, parts: list[tuple[float | None, int]]) -> dict | None:
     """one trait's scores() entry from its parts' (figure, sample)"""
-    got = [(round(min(1.0, max(0.0, (v - p.low) / (p.high - p.low))), 6), p, v, n) for p, (v, n) in zip(t.parts, parts)
+    got = [(round(min(1.0, max(0.0, (v - p.low) / (p.high - p.low))), 6), p, v) for p, (v, n) in zip(t.parts, parts)
            if v is not None and n >= p.minimum]
     if not got or (t.weaker and len(got) < len(t.parts)):
         return None
-    score, p, v, n = (min if t.weaker else max)(got, key=lambda g: g[0])
+    score, p, v = (min if t.weaker else max)(got, key=lambda g: g[0])
     k, nxt = tier(score), None
     if k < len(TIERS):
         need = TIERS[k]
         short = [g[1] for g in got if g[0] < need] if t.weaker else [p]
         nxt = {"epithet": t.epithets[k], "needs": [[q.kind, q.low + need * (q.high - q.low)] for q in short]}
-    return {"figure": v, "kind": p.kind, "score": score, "tier": k, "sample": n, "caption": p.caption, "next": nxt}
+    return {"figure": v, "kind": p.kind, "score": score, "tier": k, "caption": p.caption, "next": nxt}
 
 
 def scores(win: list[dict], fig: dict, book: dict | None = None, ab: dict | None = None) -> dict[str, dict | None]:

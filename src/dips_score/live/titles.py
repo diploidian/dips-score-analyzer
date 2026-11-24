@@ -1,7 +1,7 @@
 """A character's title from its traits (traits.py), the line under it, its deeds, and the rows of How you fight. Pure data.
 
 crest(win, fig, sc, cls, spec, types) -> {"title", "second", "deeds", "lead" (the title's trait, None when no trait
-reaches tier 1), "epithet"}. rows(win, fig, sc, split) -> {key: row}, pack(win, fig, rows, sc, lead) -> the keys shown.
+reaches tier 1)}. rows(win, fig, sc, split) -> {key: row}, pack(win, fig, rows, sc, lead) -> the keys shown.
 """
 from __future__ import annotations
 
@@ -201,7 +201,7 @@ def crest(win: list[dict], fig: dict, sc: dict, cls: str | None, spec: str | Non
     title = f"{special[0]}, {base}" if special else f"{eps} {base}" if eps else base
     second = ", ".join(BY_KEY[k].words for k in picked[1:3])
     return {"title": title, "second": second[:1].upper() + second[1:] + "." if second else "", "deeds": deeds(win, fig),
-            "lead": lead, "epithet": eps}
+            "lead": lead}
 
 
 def rows(win: list[dict], fig: dict, sc: dict, split: dict | None) -> dict[str, dict]:

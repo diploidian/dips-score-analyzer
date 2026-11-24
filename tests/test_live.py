@@ -530,6 +530,7 @@ class Defensives(unittest.TestCase):
         self.assertEqual(self.low_at([], both, since=41)["unused"], both)       # over 60 s: its removal was missed
         on = line(1, f"SPELL_AURA_APPLIED,{ME},{ME},25771,\"Forbearance\",0x2,DEBUFF")
         self.assertEqual(self.low_at([on], both)["unused"], ["Lay on Hands"])
+        self.assertEqual(self.low_at([on], both, since=300)["unused"], ["Lay on Hands"])     # an old one doesn't hide it
 
     def test_the_tracker_knows_since_when(self):
         on = lambda t: line(t, f"SPELL_AURA_APPLIED,{ME},{ME},25771,\"Forbearance\",0x2,DEBUFF")  # noqa: E731

@@ -126,7 +126,7 @@ each fight, and turning the combat log on when you log in. The add-on only ever 
 does this once per login, so if you type `/combatlog` to turn it off, it stays off until you log in
 again.
 
-### Upgrading to 0.16.0
+### Upgrading from an older version
 
 1. The add-on has a new file, `Types.lua`. Close the game completely and start it again the first
    time: `/reload` alone doesn't load a new file.
@@ -879,7 +879,7 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   once its end is 15 days back, when it has left the current window, and never rewritten. A block with
   fewer than 10 fights isn't saved. A block waits until every run's figures have been read. A block
   with a fight summed up before 0.18.0 isn't saved until that fight has been refreshed (see
-  [Upgrading to 0.16.0](#upgrading-to-0160): press **Add fights from my old combat logs** again). Blocks
+  [Upgrading from an older version](#upgrading-from-an-older-version): press **Add fights from my old combat logs** again). Blocks
   already saved stay as they are.
 
 In a narrow window the page makes room. Under 1420 px of window width the hero figure is smaller. When

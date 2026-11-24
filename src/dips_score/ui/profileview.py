@@ -69,7 +69,7 @@ def broken(words: list[str], f, w: float) -> list[str]:
 def fit_title(s: str, w: float) -> tuple[int, list[str]]:
     """the crest's title for a width: its px and its lines, never cut. At most TITLE_SHARE of the width, from 44 to 74 px;
     two lines, three or four when each line more makes it WORTH_A_LINE bigger. "of" and "the" stay with their word"""
-    words = re.findall(r"(?:(?:of|the) )*\S+", s)
+    words = re.findall(r"(?:(?:of|the) )*\S+", s, re.I)
     big, floor, small = TITLE_PX
     big = int(min(big, max(floor, w * TITLE_SHARE)))
     best = None
@@ -89,7 +89,7 @@ def fit_title(s: str, w: float) -> tuple[int, list[str]]:
         f = font(px, 700, num=True)
         ways = [(" ".join(words[:k]), " ".join(words[k:])) for k in range(1, len(words))]
         lines = list(min((x for x in ways if max(adv(f, y) for y in x) <= w),
-                         key=lambda x: (x[0][-1] != ",", max(adv(f, y) for y in x))))
+                         key=lambda x: (x[0][-1] != ",", max(adv(f, y) for y in x)), default=lines))
     return px, lines
 
 

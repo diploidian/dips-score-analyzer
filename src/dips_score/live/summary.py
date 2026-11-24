@@ -549,8 +549,9 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
             if hits:
                 at = died_at if i_died else t_low
                 answered = any(abs(t - at) <= DEFENSIVE_WINDOW for t in defended)
-                forbearance = _spans(auras.get("Forbearance", []), f.forbearance is not None, dur)
-                if f.forbearance:
+                old = f.forbearance is not None and _rel(f.forbearance, start) > -FORBEARANCE_LASTS     # else its removal was missed
+                forbearance = _spans(auras.get("Forbearance", []), old, dur)
+                if old:
                     forbearance[0] = (_rel(f.forbearance, start), forbearance[0][1])
                 forbearance = [(a, min(b, a + FORBEARANCE_LASTS)) for a, b in forbearance]
                 danger = {"t": t_low, "hp": low, "hits": [{"who": w, "spell": s, "amount": a} for _, a, s, w in hits],

@@ -260,7 +260,7 @@ fights you deleted), `fights.jsonl` (the last 5000 fights) and `spells.json` (a 
 from your old combat logs. `cache\analysis` holds every run analysed, one file each (a few MB a run, up to about
 60 MB for the longest: about 350 MB for 25 runs); it is safe to delete, as the runs are analysed again when next opened.
 
-## Upgrading to 0.16.0
+## Upgrading from an older version
 
 Close the game and start it again once: `/reload` doesn't load the add-on's new file (`Types.lua`). Then, in
 Settings, press **Add fights from my old combat logs** once (or run `replay`) before relying on the Profile's

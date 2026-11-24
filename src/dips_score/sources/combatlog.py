@@ -211,7 +211,7 @@ def parse_line(line: str) -> Event | None:
     elif ev == "SPELL_AURA_APPLIED" and s:
         e.aura_type = s[0]
     elif ev == "UNIT_DIED" and s:
-        e.feign = s[0] == "1"
+        e.feign = s[-1] == "1"
     return e
 
 

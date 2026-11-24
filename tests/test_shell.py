@@ -543,7 +543,7 @@ class ShellTests(unittest.TestCase):
         v = ProfileView(title="Bao", crest=Crest("Undead Paladin, level 37", "the Lone Storm, Crusader of the Wilds", "Wins on the edge.",
                                                  ["won after dropping to 2% health against Bloodscalp Berserker"]),
                         outdated=OUTDATED, ring="new: Relentless", ring_key="Tempo", card=[tempo, edge, split], hero="25", hero_unit="s",
-                        plate=Plate("Nothing stands out", "80% of possible damage", "in 300 fights where you did damage", tab="Going well"),
+                        plate=Plate("Your last 15 days were clean", "93% of possible damage", "in 300 fights where you did damage", tab="Going well"),
                         hands=[Row("Keys or clicks", "99", "% keys"), Row("Presses per minute", "21.2"), Row("Refused presses")],
                         traits=[("Pace", pace), ("Nerve", nerve), ("Road", nerve[:2])])
         page = ProfilePage()
@@ -588,6 +588,8 @@ class ShellTests(unittest.TestCase):
                         few = broken(re.findall(r"(?:(?:of|the) )*\S+", title), f, w)
                         self.assertTrue(len(few) >= len(lines) or max(adv(f, x) for x in few) > w)
         self.assertEqual(fit_title("The Unfelled, Rimecaller of the Wilds", 700)[1][0], "The Unfelled,")
+        self.assertFalse(any(x == "The" for w in range(60, 700, 20) for x in fit_title("The Unfelled, Crusader", w)[1]))
+        self.assertEqual(" ".join(fit_title("Relentless Crusader", 60)[1]), "Relentless Crusader")    # too narrow for any size
         self.assertEqual([fit_title("Slayer", w)[0] for w in (620, 406, 204)], [74, 56, 44])
 
     def test_profile_parts(self):
@@ -602,7 +604,7 @@ class ShellTests(unittest.TestCase):
         self.assertIn("Longest run without a death 97, Surviving, Unfallen at 126, you are at 97", page.traits.accessibleName())
         self.assertIn("Time between fights 25 s, new: Relentless", page.traits.accessibleName())
         self.assertEqual((page.traits_drawer.accessibleName(), page.hands_drawer.accessibleName()), ("All traits (7)", "Hands (3)"))
-        self.assertTrue(page.plate.accessibleName().startswith("Going well: Nothing stands out"))
+        self.assertTrue(page.plate.accessibleName().startswith("Going well: Your last 15 days were clean"))
         self.assertEqual(page.plate.label, "Going well")
         self.assertEqual((page.traits_drawer.open, page.hands_drawer.open), (True, False))
 
