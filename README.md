@@ -199,11 +199,21 @@ reach the app on `/reload` or logout. Old fights need `replay` to get their chan
 
 ## Profile
 
-The last 15 days of the character you played most recently: main role share and label, Worth changing,
-Signature (melee included), Hands (needs a recorded run), Role mix, Where you fight (dungeon, raid, world,
-PvP) and Temperament. Chips compare with days 16 to 30 and the biggest move is ringed. Earlier keeps each
-15-day block once it has left the current window, never rewritten; blocks under 10 fights aren't kept.
-Needs 10 fights in the 15 days.
+The last 15 days of the character you played most recently, needing 10 fights. The crest gives your
+title ("Relentless Crusader of the Arathi Highlands"), a second line, and up to two feats. Beside the
+hero figure behind the title, the plate names the one thing worth changing (or what is going well), and
+is hidden when there is nothing to say. Then Signature (melee included), Role mix, Where you fight, and
+How you fight, five rows that suit your role (or PvP). Hands (keys against clicks, presses per minute,
+refused presses; needs a recorded run) is a closed drawer and reaches the plate only when badly wrong.
+All traits lists every trait with its tier and what the next one takes. A new tier gets the page's one
+ring. Chips compare with days 16 to 30. Earlier keeps each 15-day block with its title once it has left
+the current window, never rewritten; blocks under 10 fights aren't kept.
+
+Titles are made by fixed rules, with no AI: the best trait gives the epithet, your talent tree the class
+noun, and where you fight the end ("Bane of Beasts", "of the Arathi Highlands"). Two traits at tier 2
+or better can make a named title ("the Lone Storm"). Fights from older versions lack some data until you
+press **Add fights from my old combat logs** in Settings, which also adds fights from while the app was
+closed. [All traits, epithets and named titles](docs/GUIDE.md#how-the-profile-makes-your-title).
 
 ## Character snapshot
 

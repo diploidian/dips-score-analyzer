@@ -282,15 +282,53 @@ see them.
 
 ## Over weeks of play
 
-The Profile page shows who you are over the last 15 days: your main role's share of fight time, a
-label ("Careful dungeon healer"), the one thing most worth changing, your top spells with melee
-included, how you use your hands (keys against clicks, presses per minute, refused presses, casts cut
-short by moving), your role mix, where you fight (dungeons, raids, open world, PvP) and your
-temperament (deaths, pull size, health, cooldowns). Hands needs a recorded run. A chip on a share
-that moved 5 points or more against days 16 to 30 says by how much, and the biggest move gets a ring.
-Earlier, at the foot, keeps each 15-day block once it has left the current window, never rewritten;
-a block under 10 fights isn't kept. The app saves them in `profile_history.json` and
-`profile_runs.json` in its data folder.
+The Profile page shows who you are as a player over the last 15 days, for the character you played
+most recently. It needs 10 fights in those 15 days.
+
+- The crest at the top gives your race, class and level, your title ("Relentless Crusader of the
+  Arathi Highlands"), a second line with your next two strongest traits in plain words, and up to two
+  feats from the window (your closest win, your biggest pull beaten, your longest run without a death).
+- The hero figure is the number behind the title ("25 s between one fight and the next"), with a short
+  label ("Careful world damage dealer.") and, if your title was another one in days 16 to 30, a
+  "Before:" line.
+- The plate beside it says the one thing worth changing, or under a "Going well" tab what is going
+  well. It checks, in order: dying in 15% or more of fights, the ability that sat ready and cost the
+  most damage, close calls with a defensive ready, a harmful spell never cast, a healer's overheal,
+  cooldowns left unused, and input gone badly wrong (60% or more clicks, or 40% or more refused
+  presses, over 500 or more). With nothing to say it is clean at 90% of possible damage or more over 10
+  fights or more, and otherwise it is not shown.
+- Signature is your top spells with melee included and your usual opening. Role mix and Where you fight
+  are your shares, with a chip such as "+12 pts vs the 15 days before" when one moved 5 points or more
+  against days 16 to 30.
+- How you fight is five rows that suit your role (a damage dealer, a healer, a tank, or PvP when 25% of
+  your fights are against players), with how often you are cut short by moving. The title's own row is
+  first.
+- Hands (keys against clicks, presses per minute, refused presses) is a closed drawer. It is how you
+  hold the mouse, not how your character plays, so it never touches your title and reaches the plate
+  only when badly wrong. It needs a recorded run.
+- All traits lists every trait you have a score for, by family, with its tier and what the next tier
+  takes ("Unfallen at 126, you are at 97"). When a tier is new since days 16 to 30, it gets the page's
+  one ring and a note ("new: Relentless"). Without one, the biggest move of a share is ringed.
+- Earlier, at the foot, keeps each 15-day block once it has left the current window, with the title you
+  had then, never rewritten. A block under 10 fights isn't kept. The app saves them in
+  `profile_history.json` and `profile_runs.json` in its data folder.
+- In a narrow window the columns stack and All traits shuts.
+
+Titles come from fixed rules, with no AI. Each trait is one figure of your fights, scored between two
+anchors, with three tiers and an epithet each (Steady, Tireless, Relentless for time between fights). A
+trait needs a minimum number of fights, and data the saved fights lack gives no score. The best trait
+gives the epithet, the class noun comes from your talent tree (Crusader, Lightmender and Shieldsworn
+for the three paladin trees), and the end names where you fight: a creature type you beat most ("Bane
+of Beasts"), a people ("Scourge of the Defias"), a zone, or a kind of place. When two particular traits
+are both at tier 2 or better you get a named title instead ("the Lone Storm, Crusader of the Arathi
+Highlands"). The [reference guide](GUIDE.md#how-the-profile-makes-your-title) lists every trait, epithet
+and named title.
+
+What counts: you are alone with no group and no more than 10% of your damage done by others. Help for
+others leaves out yourself and your pets. A close call is health under 35% that you answered with a
+defensive within 10 seconds, or that you could have. Feign Death is not a death. Fights saved by an
+older version lack some of this until you press **Add fights from my old combat logs** in Settings,
+which also adds fights you played while the app was closed.
 
 The Habits page reads the last 40 fights of the character you played most recently. It opens with
 who you are ("Mapomimi, level 33 Undead Priest, Shadow, gear 31") and your session: fights, kills

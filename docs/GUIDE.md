@@ -798,39 +798,243 @@ Covered in [Habits](#habits) above. While it is open, it refreshes after every f
 ### The Profile page
 
 The Profile page is who you are as a player over the last 15 days, for the character you played
-most recently. It needs 10 fights in those 15 days; with fewer it says how many it has.
+most recently. It needs 10 fights in those 15 days. With fewer it shows one line ("Your profile needs
+10 fights from the last 15 days (4 so far)") and the Earlier list, open. Top to bottom:
 
-- At the top, your main role's share of fight time (98% of fight time dealing damage) and a label
-  such as "Careful dungeon healer", from your deaths per hour, usual pull size, cooldowns used, where
-  you fight most and your main role. A "Before:" line shows the label from days 16 to 30 when it
-  differs.
-- Worth changing names the first thing that applies: you die in 15% or more of your fights; the ability
-  that lost the most damage by sitting ready (1% of your damage or more, and not for a healer), with what
-  it cost and the next two under it; 5 or more close calls with a defensive ready; a harmful spell you
-  know and have not cast; a healer's overheal of 40% or more; under half your possible cooldowns used;
-  input gone badly wrong (60% or more of 500 or more key and click presses clicked, or 40% or more of
-  500 or more casts tried refused, and worse than in days 16 to 30 if it was so then). At 90% or more of
-  your possible damage the ability is left out, and with nothing else to say and 10 judged fights or more
-  the plate says your last 15 days were clean. Otherwise there is no plate.
-  Damage lost counts only fights where you did damage and weren't healing; a spell that needs a chance
-  counts only the fights where its chances are known.
+- The crest is a block framed in gold rules at the top left. Its first line is your race, class and
+  level. Under it is your title, large (see [How the Profile makes your title](#how-the-profile-makes-your-title)),
+  then a second line that names your next two strongest traits in plain words ("Fights without pause,
+  wins one on one."). Under that are up to two feats from the window, best first, each with its enemy
+  where it is known: your closest win ("won after dropping to 2% health against Bloodscalp Berserker"),
+  your biggest pull beaten, your longest run without a death, boss kills, your best damage per second,
+  fights won against players, levels gained, your longest sitting. A feat has to be good by its own
+  measure to show, so there may be one or none. Under the crest, when most of the window's fights were
+  summed up by an older version, a quiet line says "Based on older fight records. Import your combat
+  logs in Settings for the full picture."
+- The hero figure is the number behind your title: the figure of the trait that gives it its epithet,
+  with what it is ("25 s between one fight and the next"). A chip beside it says how far it moved
+  against days 16 to 30 when it is a share. Under it is a short label such as "Careful world damage
+  dealer." (from your deaths per hour, usual pull, cooldowns used, where you fight most and your main
+  role) and, when your title was another one in days 16 to 30, "Before:" and that title. If no trait
+  has reached its first tier yet, the hero figure is your main role's share of fight time instead.
+- The plate sits beside the hero figure. It has one of two tabs, "Worth changing" or "Going well", and
+  says one thing, the first rule that applies:
+  1. You die in 15% or more of your fights.
+  2. The ability that lost the most damage by sitting ready (1% of your damage or more), with what it
+     cost, and the next two under it. Not for a healer, and not when you reach 90% or more of your
+     possible damage.
+  3. Five or more close calls with a defensive ready, naming the spell.
+  4. A harmful spell you know and have not cast. A spell that needs a chance (an enemy of a type, an
+     enemy under 20% health, an avoided attack) counts only in fights where its chances are known.
+  5. A healer's overheal of 40% or more.
+  6. Under half your possible cooldowns used.
+  7. Input gone badly wrong: 60% or more of 500 or more key and click presses were clicks, or 40% or
+     more of 500 or more casts tried were refused. It shows only if it was not already so, at the same
+     figure or worse, in days 16 to 30. It is the last of the fixes, and the only place input reaches
+     the plate.
+
+  If none applies, the tab reads "Going well": a healer's overheal as it stands ("Your healing
+  lands"), or, with 10 or more fights where you did damage and 90% or more of your possible damage
+  reached, "Your last 15 days were clean". Otherwise there is no plate at all. It stays hidden while
+  your possible damage is under 90% or unknown, rather than say there is nothing to fix. The plate's
+  button opens Habits.
 - Signature is your top five spells by share of damage (by share of casts for a healer), with melee
-  shown as "Melee (auto attack)" and its swings, and your usual opening of three casts.
-- Hands is keys against clicks, presses per minute, refused presses and casts cut short by moving.
-  It needs a recorded run: play with the add-on on and `/reload`. Without one it says so.
+  shown as "Melee (auto attack)" and its swings, and your usual opening of three casts. The All spells
+  drawer under it lists every spell with its casts and share, closed by a total of 100%.
 - Role mix is your share of fight time as damage, healer and tank, with the average score of your
-  graded runs in each. Where you fight is the share in dungeons, raids (by difficulty), the open
-  world and PvP.
-- Temperament is deaths per hour, usual pull, average lowest health and cooldowns used.
+  graded runs in each. Where you fight is the share in dungeons, raids, the open world and PvP.
+  A chip such as "+12 pts vs the 15 days before" sits on a share that moved 5 points or more against
+  days 16 to 30.
+- How you fight, under those on the right, is a card of rows that suit how you play, five of them and
+  then Cut short by moving. The rows depend on your main role. A damage dealer sees time between
+  fights, wins on the edge, wins against three or more, auto attack against abilities and possible
+  damage reached. A healer sees overheal, share of the group's healing, fights nobody died and
+  dispels. A tank sees hits avoided, damage taken a second, usual pull, lowest health and interrupts.
+  If 25% or more of your fights are against players it is the PvP rows instead: fights won, fights
+  where the enemy broke off, length, wins on the edge and deaths. The title's own row comes first. A row
+  with no data gives way to your next best trait, and a figure is never shown twice. Cut short by moving
+  (casts the game cut because you started to move) is always there when a recorded run knows it. Each row
+  is one trait's figure, so the title and the card cannot disagree. Share rows have a bar and a chip
+  against days 16 to 30.
+- Hands is a closed drawer at the foot of the left column: keys against clicks, presses per minute and
+  refused presses, over your recorded runs. It has no colour, no chip and no ring, and it is never part
+  of your title, the hero figure or the crest, because keys and clicks are how you hold the mouse, not
+  how your character plays. It reaches the plate only when badly wrong (rule 7 above). It needs a
+  recorded run: play with the add-on on and `/reload`. Without one the drawer is not there.
+- All traits is a drawer under both columns, open when the page is wide. It lists every trait with a
+  score above 0, by family, with its figure, a bar of its score, its tier in a gold frame (the epithet
+  you have earned, empty under the first tier) and what the next tier takes: "Unfallen at 126, you are
+  at 97". Its title counts them: "All traits (14)". It uses two columns from 700 px of width. If you open
+  or shut it yourself, it stays as you left it.
+- The one ring. When a trait reached a tier it had not reached in days 16 to 30 (the title's trait
+  first, else one in How you fight, else the highest), the page circles it by hand and writes "new:
+  Relentless". The circle goes on the tier in All traits while that is open, else on the figure in
+  How you fight, else the note sits in the crest's second line. That is the page's one ring, so no
+  share chip is ringed then. With no new tier, the one biggest move of a share against days 16 to 30
+  is ringed instead (on a tie, the increase).
+- Earlier, at the foot, lists your finished 15-day blocks: dates, the title you had (the label for a
+  block saved before titles existed), main role, deaths per hour and cooldowns used. A block is saved
+  once its end is 15 days back, when it has left the current window, and never rewritten. A block with
+  fewer than 10 fights isn't saved. A block waits until every run's figures have been read. A block
+  with a fight saved before 0.16.0 isn't saved until that fight has been refreshed (see
+  [Upgrading to 0.16.0](#upgrading-to-0160)).
 
-A chip such as "+12 pts vs the 15 days before" sits on a share that moved 5 points or more against
-days 16 to 30. The one biggest move of the page gets a ring round it (on a tie, the increase).
+In a narrow window the page makes room. Under 1420 px of window width the hero figure is smaller. When
+the page is too narrow for two columns (under about 970 px) the right column goes under the left and
+All traits shuts. Narrower still, the plate goes under the hero figure. The page scrolls down and never
+sideways.
 
-Earlier, at the foot, lists your finished 15-day blocks: dates, label, main role, deaths per hour and
-cooldowns used. A block is saved once its end is 15 days back, when it has left the current window,
-and never rewritten. A block with fewer than 10 fights isn't saved. A block waits until every run's
-figures have been read. A block with a fight saved before 0.16.0 isn't saved until that fight has been
-refreshed (see [Upgrading to 0.16.0](#upgrading-to-0160)).
+### How the Profile makes your title
+
+A title is worked out by fixed rules from your saved fights. There is no AI in it and no chance: the
+same fights give the same title.
+
+Every trait is one figure of the window's fights, for example the median seconds between fights for
+Tempo, scored from 0 to 100 between a low and a high anchor. Tier 1 begins at a score of 35, tier 2 at
+60 and tier 3 at 85, and each tier has its own epithet. A trait needs a minimum sample (the Needs
+column: fights, casts, swings or hits, whichever it counts). With fewer, or with data the saved fights
+lack, it has no score and is left out, never guessed. A trait that doesn't suit your main role (a
+healer has no melee share) is left out too. Where a trait has two figures, "/" means both must be known
+and the weaker one scores, and "or" means the better known one scores.
+
+| Family | Trait | What it measures | Score 0 to 100 | Needs | Epithets (tier 1, 2, 3) | Roles |
+|---|---|---|---|---|---|---|
+| Healing | Overheal | of your healing cast on full health | 45% to 10% | 20 | Sparing, Measured, Unwasting | healer |
+| Healing | Fights nobody died | of group fights with nobody dead | 70% to 98% | 20 | Reassuring, Faithful, Saving | healer |
+| Tanking | Hits avoided | of swings at you missed, dodged, parried or blocked | 10% to 35% | 200 | Braced, Immovable, Impregnable | tank |
+| Pace | Time between fights | between one fight and the next | 120 s to 15 s | 30 | Steady, Tireless, Relentless | all |
+| Pace | Wins under 15 seconds | of your wins took under 15 seconds | 10% to 45% | 30 | Quick, Swift, Lightning | all |
+| Pace | Fight length | is your usual fight | 45 s to 120 s | 30 | Patient, Enduring, Everlasting | all |
+| Pace | Longest sitting | fights in your longest sitting | 40 to 200 | 30 | Dogged, Unresting, Undying | all |
+| Pace | Longest run without a death | fights in a row survived | 15 to 200 | 30 | Surviving, Unfallen, Deathless | all |
+| Nerve | Wins on the edge | of your wins came after dropping under 35% health | 5% to 25% | 30 | Daring, Fearless, Unyielding | all |
+| Nerve | Wins under 10% health | wins after dropping under 10% health | 2 to 15 | 30 | Lucky, Defiant, Death-Cheating | all |
+| Nerve | Deaths and lowest health | deaths per 100 fights; is your average lowest health | 8.0 to 0.0 / 50% to 85% | 30 / 30 | Guarded, Unbroken, Untouchable | all |
+| Nerve | Close calls answered | of close calls answered with a defensive | 30% to 90% | 10 | Wary, Cool-Headed, Unshaken | all |
+| Nerve | Wins against three or more | of your wins alone were against three or more | 8% to 40% | 30 | Bold, Overrunning, Unstoppable | all |
+| Nerve | Wins one on one | of fights one on one won | 70% to 97% | 20 | Sure, Deadly, Peerless | all |
+| Victory | Fights won | of your fights end with the kill | 70% to 97% | 30 | Proven, Victorious, Conquering | all |
+| Victory | Nobody got away | of fights end with nobody getting away | 80% to 99% | 30 | Dogging, Hunting, Inescapable | all |
+| Victory | Boss kills | bosses beaten | 3 to 25 | 10 | Giant-Felling, Kingslaying, Worldbreaking | all |
+| Victory | Player fights won | of fights against players won | 35% to 75% | 10 | Feared, Dreaded, Warlike | all |
+| Victory | Most beaten enemy | of the enemies you beat are of one kind | 8% to 30% | 30 | Vengeful, Merciless, Exterminating | all |
+| Weapon | Melee share | of your damage is your weapon's own swing | 30% to 65% | 30 | Iron, Steel, Blade-Sworn | damage, tank |
+| Weapon | Auto shot share | of your damage is automatic shots | 25% to 60% | 30 | Keen, Far-Sighted, True-Shot | damage, tank |
+| Weapon | Ability share | of your damage is your abilities | 60% to 95% | 30 | Gifted, Fierce, Spellforged | damage, tank |
+| Weapon | Top ability's share | of your ability damage is one ability | 35% to 75% | 30 | Devoted, Single-Minded, Masterful | damage, tank |
+| Weapon | Abilities that count | abilities worth 5% of your damage or more | 3 to 9 | 30 | Adaptable, Cunning, Many-Handed | damage, tank |
+| Weapon | Critical hits | of your hits crit | 8% to 30% | 500 | Fortunate, Savage, Fatebound | damage, tank |
+| Weapon | Proc and item share | of your damage is procs and items | 8% to 30% | 30 | Charged, Crackling, Storm-Touched | damage, tank |
+| Craft of play | Possible damage reached | of possible damage reached | 75% to 95% | 30 | Honed, Precise, Flawless | damage, tank |
+| Craft of play | Cooldowns used | of possible cooldowns used | 50% to 90% | 50 | Prompt, Eager, Unsparing | damage, tank |
+| Craft of play | Casts not cut short | of casts not cut short by moving | 97% to 100% | 200 | Grounded, Unmoved, Rooted | all |
+| Craft of play | Pulled with your usual buffs | of fights pulled with your usual buffs | 70% to 98% | 30 | Ready-Armed, Blessed, Oathbound | all |
+| Craft of play | Interrupts | interrupts per 100 group fights | 5.0 to 40.0 | 20 | Watchful, Silencing, Spellbreaking | all |
+| Company | Fights alone | of fights alone | 55% to 97% | 30 | Wandering, Lone, Sovereign | all |
+| Company | Fights in a group | of fights in a group | 50% to 97% | 30 | Loyal, Stalwart, Sworn | all |
+| Company | Top of the group | of group fights topping the damage | 25% to 70% | 20 | Rising, Leading, Commanding | damage, tank |
+| Company | Help for the group | dispels on others per 100 group fights; of the group's healing on others is yours | 3.0 to 25.0 or 10% to 35% | 30 or 20 | Merciful, Guarding, Selfless | all |
+| Road | Zones fought in | zones with five fights or more | 5 to 22 | 30 | Roaming, Far-Travelled, Worldly | all |
+| Road | Different enemies beaten | different enemies beaten | 80 to 500 | 30 | Curious, Seasoned, All-Seeing | all |
+
+Your title is `<epithet> <class noun> of <where>`:
+
+- The epithet is the one for your best trait that has reached tier 1. The next traits that name you
+  (for the second line) must come from other families, so two players with the same best trait still
+  differ. On a tie the trait nearer the top of the table wins, role-only ones first.
+- The class noun comes from your class and the talent tree you played most in the window (your
+  snapshot's if the fights don't say). The tree decides it, so two paladins differ:
+
+| Class | Talent trees |
+|---|---|
+| Warrior | Arms: Warblade, Fury: Reaver, Protection: Ironwall |
+| Paladin | Holy: Lightmender, Protection: Shieldsworn, Retribution: Crusader |
+| Hunter | Beast Mastery: Packleader, Marksmanship: Deadeye, Survival: Trailstalker |
+| Rogue | Assassination: Nightblade, Combat: Swashblade, Subtlety: Shadowstep |
+| Priest | Discipline: Oathkeeper, Holy: Dawnkeeper, Shadow: Duskcaller |
+| Shaman | Elemental: Stormcaller, Enhancement: Thunderfist, Restoration: Tidemender |
+| Mage | Arcane: Spellweaver, Fire: Emberwright, Frost: Rimecaller |
+| Warlock | Affliction: Hexbinder, Demonology: Pactkeeper, Destruction: Cinderlord |
+| Druid | Balance: Starcaller, Feral: Wildfang (Thornhide when you tank), Restoration: Grovekeeper |
+
+  With no known tree it is your main role's noun for the class (Crusader for a damage paladin), and a
+  Slayer, Mender or Bulwark when the class has none for that role. With no known tree and a main role
+  under 60% of your fight time, you are a Champion.
+- Where is the first that applies:
+  - Bane: one creature type is 40% or more of the foes whose type is known, and types are known for half
+    of all foes: "Bane of the Undead", "Bane of Beasts", "Bane of Demons", "Bane of Dragonkin", "Bane of
+    Elementals", "Bane of Giants". It stands in place of "of": "Relentless Crusader, Bane of Beasts".
+  - Scourge: one named people or order is 15% or more of the enemies you beat, at least 30 kills across
+    at least two kinds of name: "Crusader, Scourge of the Defias". Only a list of known peoples counts,
+    since a first word may as well be a place. Fights against players are left out.
+  - A zone: 25% or more of your fights: "of the Arathi Highlands".
+  - A place: 50% or more of your fight time in one kind of place: "of the Wilds", "of the Depths", "of the
+    Great Halls", "of the Battlefield".
+  - "of the Long Road": no place reaches 50% and your Zones fought in is tier 2 or better.
+  - Nothing, when none is known.
+
+A window where no trait has reached tier 1 has no epithet, so the title is a bare "Crusader of the
+Wilds".
+
+Named titles are rarer. When two particular traits are both at tier 2 or better, the title becomes a
+named one, the first of these that applies, with your class and place after it: "the Lone Storm,
+Crusader of the Arathi Highlands". The better scoring of the two is the title's trait for the hero
+figure and the card.
+
+| Traits (both tier 2 or better) | Title |
+|---|---|
+| Wins on the edge + Wins against three or more | the Cornered Lion |
+| Wins on the edge + Longest run without a death | the One Who Walks Away |
+| Deaths and lowest health + Longest run without a death | the Unfelled |
+| Wins under 10% health + Fights alone | the Last One Standing |
+| Fights alone + Time between fights | the Lone Storm |
+| Fights alone + Zones fought in | the Long Walker |
+| Time between fights + Fights won | the Reaping Wind |
+| Wins under 15 seconds + Critical hits | the Sudden End |
+| Melee share + Fight length | the Grinding Wheel |
+| Melee share + Wins one on one | the First Blade |
+| Wins against three or more + Proc and item share | the Gathering Thunder |
+| Nobody got away + Most beaten enemy | the Old Grudge |
+| Boss kills + Top of the group | the Crownbreaker |
+| Player fights won + Wins on the edge | the Nerveless |
+| Player fights won + Wins one on one | the Arena's Answer |
+| Top ability's share + Possible damage reached | the Perfectionist |
+| Abilities that count + Cooldowns used | the Full Quiver |
+| Zones fought in + Different enemies beaten | the Walking Atlas |
+| Fights in a group + Help for the group | the Open Hand |
+| Interrupts + Close calls answered | the Cold Eye |
+| Fights nobody died + Overheal | the Quiet Miracle |
+| Fights nobody died + Fights in a group | the Reason They Lived |
+| Hits avoided + Deaths and lowest health | the Door That Holds |
+| Wins against three or more + Hits avoided | the Breakwater |
+
+Titles are saved with each finished 15-day block, so Earlier reads as a history of who you were.
+
+### What the Profile counts
+
+- Alone means no group and no more than 10% of your damage done by others (players, their pets or
+  friendly characters). A fight with outside help is a helped fight, not an alone one, even without a
+  group. Fights alone and fights in a group feed Fights alone, Fights in a group, Wins one on one and
+  Wins against three or more.
+- Help for others (dispels, healing and your share of it) leaves out yourself, your pets and your
+  guardians, and a dispel of an enemy, which is a purge. Your share of the group's healing is yours
+  against what the group gave each other, and Help for the group uses it for non-healers only.
+- A close call is a fight where your health fell under 35%. It is answered if you cast a defensive on
+  yourself within 10 seconds before or after your lowest moment. It counts toward Close calls answered
+  only if you answered it or a defensive sat ready.
+- Feign Death is not a death. This client logs it as one, but the app removes it, so it doesn't count
+  in deaths per hour, longest run without a death, deaths and lowest health or the plate's 15% rule,
+  and your buffs stay on through it for Pulled with your usual buffs.
+- Time between fights counts gaps inside a sitting only. A gap of 30 minutes or more starts a new
+  sitting, which Longest sitting counts.
+- A fight won is one where every enemy died and you lived. Nobody got away is the rest of the fights
+  you lived through, an enemy you ran past included, so it leaves out fights where you did no damage.
+- Fights saved by an older version lack some of what the traits need (a group, help, chances,
+  difficulty). Those traits have no score until the fights are summed up again, and the page says so under
+  the crest. In Settings, press **Add fights from my old combat logs** once (or run `replay`). It sums up
+  again every saved fight whose combat log is still in the Logs folder, and it also adds fights you played
+  while the app was closed, so the history grows past what the app saw live. It can only use the logs you
+  still have.
 
 ### Tray mode and the command line
 
