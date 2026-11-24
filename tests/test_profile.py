@@ -228,7 +228,7 @@ class Label(unittest.TestCase):
 class History(unittest.TestCase):
     def fights(self, *blocks):
         """n fights per 15-day block counted back from T0 (block 0 is Now)"""
-        return sorted((fight(15 * b + 1 + i * 0.1, difficulty=0) for b, n in enumerate(blocks) for i in range(n)),
+        return sorted((fight(15 * b + 1 + i * 0.1, helped=False) for b, n in enumerate(blocks) for i in range(n)),
                       key=lambda f: f["start"])
 
     def test_first_run_fill_in_and_floor(self):
@@ -260,26 +260,27 @@ class History(unittest.TestCase):
         self.assertEqual(json.dumps({"A": saved["A"][:1]}), first)
         self.assertEqual(len(saved["A"]), 2)
 
-    def test_fights_from_before_difficulty_save_nothing_until_replayed(self):
+    def test_fights_from_before_helped_save_nothing_until_replayed(self):
         old = self.fights(12, 10, 11)
         for f in old:
-            del f["difficulty"]
+            del f["helped"]
+            f |= {"difficulty": 0, "chances": {}}                             # as 0.16 and 0.17 saved them
         saved = {}
         self.assertEqual(ph.update(saved, old, None, {}, [], T0), [])
         self.assertEqual(saved, {})                                           # so the fill-in is tried again
-        ph.update(saved, [{**f, "difficulty": 0} for f in old], None, {}, [], T0)
+        ph.update(saved, [{**f, "helped": False} for f in old], None, {}, [], T0)
         self.assertEqual([s["fights"] for s in saved["A"]], [11, 10])
 
     def test_a_mixed_block_is_skipped_and_later_ones_save(self):
         saved = {}
         fs = self.fights(12, 10)
         ph.update(saved, fs, None, {}, [], T0)
-        del fs[-1]["difficulty"]                                              # in the block that is Now at T0
-        later = fs + [fight(-1 - i * 0.1, difficulty=0) for i in range(10)]
+        del fs[-1]["helped"]                                                  # in the block that is Now at T0
+        later = fs + [fight(-1 - i * 0.1, helped=False) for i in range(10)]
         self.assertEqual(ph.update(saved, later, None, {}, [], T0 + 15 * DAY), [])
         added = ph.update(saved, later, None, {}, [], T0 + 30 * DAY)
         self.assertEqual([s["to"] for s in added], [(T0 + 15 * DAY).isoformat()])
-        fs[-1]["difficulty"] = 0                                              # replayed too late: unsaved for good
+        fs[-1]["helped"] = False                                              # replayed too late: unsaved for good
         self.assertEqual(ph.update(saved, later, None, {}, [], T0 + 30 * DAY), [])
         self.assertEqual(len(saved["A"]), 2)
 
@@ -490,7 +491,7 @@ class View(unittest.TestCase):
 
     def test_old_history_file_still_loads(self):
         """a profile_history.json saved by 0.16 or 0.17: kept as it is, shown, and added to"""
-        fs = many(days_ago=50, difficulty=0) + many(days_ago=20, difficulty=0) + many(difficulty=0)
+        fs = many(days_ago=50, helped=False) + many(days_ago=20, helped=False) + many(helped=False)
         old = {}
         ph.update(old, fs, None, {}, [], T0 - 20 * DAY)
         for f in (s["figures"] for s in old["A"]):

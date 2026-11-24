@@ -135,8 +135,9 @@ again.
    folder, so old fights get their difficulty (dungeon or raid) and their chances. The runs are analysed
    again after it, in the background.
 
-Until then, 15-day blocks with older fights in them aren't saved to Earlier. Once a newer block has been
-saved, the older ones are left out for good.
+Fights summed up by 0.16 or 0.17 need step 2 once more for 0.18.0. Until then, 15-day blocks with older
+fights in them aren't saved to Earlier. Once a newer block has been saved, the older ones are left out
+for good.
 
 ## What it records, and how
 
@@ -877,8 +878,9 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   block saved before titles existed), main role, deaths per hour and cooldowns used. A block is saved
   once its end is 15 days back, when it has left the current window, and never rewritten. A block with
   fewer than 10 fights isn't saved. A block waits until every run's figures have been read. A block
-  with a fight saved before 0.16.0 isn't saved until that fight has been refreshed (see
-  [Upgrading to 0.16.0](#upgrading-to-0160)).
+  with a fight summed up before 0.18.0 isn't saved until that fight has been refreshed (see
+  [Upgrading to 0.16.0](#upgrading-to-0160): press **Add fights from my old combat logs** again). Blocks
+  already saved stay as they are.
 
 In a narrow window the page makes room. Under 1420 px of window width the hero figure is smaller. When
 the page is too narrow for two columns (under about 970 px) the right column goes under the left and

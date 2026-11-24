@@ -264,8 +264,9 @@ from your old combat logs. `cache\analysis` holds every run analysed, one file e
 
 Close the game and start it again once: `/reload` doesn't load the add-on's new file (`Types.lua`). Then, in
 Settings, press **Add fights from my old combat logs** once (or run `replay`) before relying on the Profile's
-Earlier: saved fights whose logs you still have get their difficulty and chances. 15-day blocks with fights from
-before 0.16.0 aren't saved until then, and not at all once a newer block has been saved. The runs are analysed again.
+Earlier: saved fights whose logs you still have get their difficulty and chances, and with 0.18.0 their help (press it once
+more then). 15-day blocks with fights summed up before 0.18.0 aren't saved until then, and not at all once a newer
+block has been saved. The runs are analysed again.
 
 ## Layout
 

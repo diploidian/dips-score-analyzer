@@ -457,7 +457,7 @@ class ShellTests(unittest.TestCase):
 
         def at(days):
             return {**ORACLE, **fight(start=(now - timedelta(days=days)).isoformat(), abilities=ORACLE["abilities"],
-                                      difficulty=0)}
+                                      helped=False)}
         with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
             (Path(tmp) / "no game" / "WTF").mkdir(parents=True)
             w = Window(Paths(Path(tmp) / "no game"))
@@ -488,7 +488,7 @@ class ShellTests(unittest.TestCase):
             self.assertTrue(page.plate.isHidden())             # under 90% of possible damage: no plate
             self.assertEqual([r.name for r in page.roles.rows], ["Damage", "Healer", "Tank"])
             self.assertEqual((page.hands.rows, page.hands_fold.isHidden()), ([], True))     # no recorded run
-            self.assertEqual((page.crest.crest.title, page.outdated.isHidden()), ("Slayer of Blackfathom Deeps", False))
+            self.assertEqual((page.crest.crest.title, page.outdated.isHidden()), ("Slayer of Blackfathom Deeps", True))
             self.assertEqual(len(page.earlier.rows), 1)
             for part in (page.crest, page.hero, page.need, page.signature, page.table, page.card, page.hands, page.roles,
                          page.places, page.traits, page.earlier):
@@ -702,7 +702,7 @@ class ShellTests(unittest.TestCase):
             w.live.timer.stop()
             wtf = Path(tmp) / "no game" / "WTF"
             wtf.mkdir(parents=True)
-            w.live.history.fights = [fight(start=(now - timedelta(days=d)).isoformat(), difficulty=0)
+            w.live.history.fights = [fight(start=(now - timedelta(days=d)).isoformat(), helped=False)
                                      for d in [20] * 10 + [1] * 10]
             files = [m.file(w.paths) for m in (profile_history, profile_runs)]
 
@@ -763,7 +763,7 @@ class ShellTests(unittest.TestCase):
                 mock.patch("dips_score.ui.app.run_row", return_value=run(me="A", name="A", parts=["r1"], start=now)):
             (Path(tmp) / "no game" / "WTF").mkdir(parents=True)
             w = self.loading_window(tmp, [self.visit("r1", 1), self.visit("r2", 2)])
-            w.live.history.fights = [fight(start=(now - timedelta(days=d)).isoformat(), difficulty=0)
+            w.live.history.fights = [fight(start=(now - timedelta(days=d)).isoformat(), helped=False)
                                      for d in [20] * 10 + [1] * 10]
             w._warm_up()
             self.arrive(w, "r1")

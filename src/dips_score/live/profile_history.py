@@ -7,8 +7,8 @@ file(paths) is the path; load(path) -> dict ({} when missing), or None when it c
 and set aside): nothing may be saved over it then; update(saved, fights, char, book, runs, now, types=None) adds the
 slices that have finished for the newest fight's character and returns them; save(path, saved) writes atomically. A
 block is saved once its end is 15 days back, so it has left Now. A slice with fewer than MIN_FIGHTS fights is skipped,
-and so is one with a fight that lacks `difficulty` (saved before 0.16.0: no chances either) until a replay has summed it
-up again. While nothing is saved the first-run fill-in is tried again each time, so a replay fills everything in; once
+and so is one with a fight that lacks profile.CURRENT (summed up before 0.18.0: its title would be from stale data) until
+a replay has summed it up again. One already saved by 0.16 or 0.17 stays as it is. While nothing is saved the first-run fill-in is tried again each time, so a replay fills everything in; once
 a slice exists, the incomplete blocks before it stay unsaved for good.
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ from datetime import datetime
 from pathlib import Path
 
 from .history import write_file
-from .profile import SLICE, figures
+from .profile import CURRENT, SLICE, figures
 
 MIN_FIGHTS = 10
 
@@ -50,7 +50,7 @@ def save(path: Path, saved: dict):
 
 
 def _slice(mine, char, book, runs, lo: datetime, hi: datetime, types=None) -> dict | None:
-    if any("difficulty" not in f for f in mine if lo < datetime.fromisoformat(f["start"]) <= hi):
+    if any(CURRENT not in f for f in mine if lo < datetime.fromisoformat(f["start"]) <= hi):
         return None
     fig = figures(mine, char, book, runs, lo, hi, types)
     if fig["fights"] < MIN_FIGHTS:
