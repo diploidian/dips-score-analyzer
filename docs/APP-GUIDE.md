@@ -325,10 +325,11 @@ Highlands"). The [reference guide](GUIDE.md#how-the-profile-makes-your-title) li
 and named title.
 
 What counts: you are alone with no group, no more than 10% of your damage done by others and no more
-than 10% of the damage you took healed by players outside your group. Help for others leaves out yourself and your pets. A close call is health under 35% that you answered with a
-defensive within 10 seconds, or that you could have. Feign Death is not a death. Fights saved by an
-older version lack some of this until you press **Add fights from my old combat logs** in Settings,
-which also adds fights you played while the app was closed.
+than 10% of the damage you took healed by players outside your group. Help for others leaves out
+yourself and your pets. A close call is health under 35% that you answered with a defensive within 10
+seconds, or that you could have. Feign Death is not a death. Fights saved by an older version lack
+some of this until you press **Add fights from my old combat logs** in Settings, which also adds fights
+you played while the app was closed.
 
 The Habits page reads the last 40 fights of the character you played most recently. It opens with
 who you are ("Mapomimi, level 33 Undead Priest, Shadow, gear 31") and your session: fights, kills

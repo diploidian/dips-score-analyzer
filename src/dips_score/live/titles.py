@@ -1,7 +1,7 @@
 """A character's title from its traits (traits.py), the line under it, its deeds, and the rows of How you fight. Pure data.
 
 crest(win, fig, sc, cls, spec, types) -> {"title", "second", "deeds", "lead" (the title's trait, None when no trait
-reaches tier 1), "epithet"}. rows(win, fig, sc) -> {key: row}, pack(win, fig, rows, sc, lead) -> the keys shown.
+reaches tier 1), "epithet"}. rows(win, fig, sc, split) -> {key: row}, pack(win, fig, rows, sc, lead) -> the keys shown.
 """
 from __future__ import annotations
 
@@ -204,9 +204,9 @@ def crest(win: list[dict], fig: dict, sc: dict, cls: str | None, spec: str | Non
             "lead": lead, "epithet": eps}
 
 
-def rows(win: list[dict], fig: dict, sc: dict) -> dict[str, dict]:
+def rows(win: list[dict], fig: dict, sc: dict, split: dict | None) -> dict[str, dict]:
     """every row How you fight can show: {"name", "kind", "figure", "unit" (after the figure), "note", "share" (a share:
-    it gets a bar, and a chip against Before)}; a row that cannot be known is left out"""
+    it gets a bar, and a chip against Before)}; a row that cannot be known is left out. split: traits.damage_split's"""
     out: dict[str, dict] = {}
 
     def row(key, name, kind, figure, note, unit=""):
@@ -217,8 +217,7 @@ def rows(win: list[dict], fig: dict, sc: dict) -> dict[str, dict]:
         if s:
             row(k, BY_KEY[k].name, s["kind"], s["figure"], s["caption"])
     t, h, over = fig.get("temperament") or {}, fig.get("hands") or {}, fig.get("overheal")
-    split = traits.damage_split(win) if fig.get("main_role") != "healer" else None
-    if split:
+    if split and fig.get("main_role") != "healer":
         row("split", "Auto attack or abilities", "%", split["melee"] + split["shot"],
             f"{split['ability'] * 100:.0f}% abilities, {split['proc'] * 100:.0f}% procs and items", "auto attack")
     if h.get("cut_share") is not None:

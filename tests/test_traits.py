@@ -102,6 +102,16 @@ class Anchors(unittest.TestCase):
 
 
 class Figures(unittest.TestCase):
+    def test_one_scan(self):
+        ab = lambda n, d, c=0: [{"name": n, "casts": c, "hits": 2, "crits": 1, "damage": d}]  # noqa: E731
+        win = [fight(2, abilities=ab("Melee", 5), auto={"swings": 4}), fight(1, abilities=ab("Melee", 7)),
+               fight(0, healing_role=True, abilities=ab("Smite", 9, 3)), fight(0, damage=0, abilities=ab("Melee", 0))]
+        got = traits.abilities(win, lambda f: not f["healing_role"])
+        self.assertEqual(got["all"], {"Melee": [0, 6, 3, 12, 4], "Smite": [3, 2, 1, 9, 0]})
+        self.assertEqual(got["main"], {"Melee": [0, 6, 3, 12, 4]})
+        self.assertEqual((got["split"]["melee"], got["split"]["fights"]), (1, 2))       # damage fights only
+        self.assertEqual(traits.abilities([]), {"all": {}, "main": {}, "split": None})
+
     def test_pace(self):
         pull = lambda g: {"since_last": g}  # noqa: E731
         win = [fight(3, pull=pull(10)), fight(2, pull=pull(20)), fight(1, pull=pull(1800)), fight(0, pull=pull(None))]
@@ -422,7 +432,7 @@ class Page(unittest.TestCase):
                           "role-heal", "place-pvp", "place-world", "role-tank", "role-heal", "m-surv", "m-dmg", "m-cast", "role-heal",
                           "role-tank", "place-pvp"])
         self.assertEqual((_ink("Finish", "damage"), _ink("Lone", None)), ("role-dmg", "tx"))
-        for k in {*BY_KEY, *titles.rows([], {}, {}), *(k for p in titles.PACKS.values() for k in p)}:
+        for k in {*BY_KEY, *titles.rows([], {}, {}, None), *(k for p in titles.PACKS.values() for k in p)}:
             _ink(k, "damage")                                                       # every row has one
         v = self.page(plain(40, pull={"since_last": 15}))
         self.assertEqual([v.hero_ink, v.card[0].ink, dict(v.traits)["Pace"][0].ink], ["m-pace"] * 3)

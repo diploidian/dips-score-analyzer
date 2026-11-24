@@ -109,18 +109,11 @@ def _share(part, whole):
     return part / whole if whole else None
 
 
-def _signature(win: list[dict], healer: bool) -> dict:
-    casts, damage, swings = Counter(), Counter(), 0
-    for f in win:
-        for a in f.get("abilities") or []:
-            casts[a["name"]] += a.get("casts", 0)
-            damage[a["name"]] += a.get("damage", 0)
-            if a["name"] == "Melee":
-                swings += (f.get("auto") or {}).get("swings") or 0
-    total = sum(casts.values() if healer else damage.values())
-    spells = [{"name": n, "casts": casts[n], "damage": damage[n],
-               "share": _share(casts[n] if healer else damage[n], total),
-               "swings": (swings or None) if n == "Melee" else None} for n in casts]
+def _signature(rows: dict[str, list], healer: bool) -> dict:
+    """rows: traits.abilities' of the main role's fights"""
+    total = sum(r[0 if healer else 3] for r in rows.values())
+    spells = [{"name": n, "casts": r[0], "damage": r[3], "share": _share(r[0 if healer else 3], total),
+               "swings": r[4] or None} for n, r in rows.items()]
     spells.sort(key=lambda s: (-(s["casts"] if healer else s["damage"]), -s["casts"], s["name"]))
     return {"basis": "casts" if healer else "damage", "top": spells[:TOP], "spells": spells}
 
@@ -205,28 +198,30 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
     cls = (char or {}).get("class")
     seconds = sum(f.get("duration") or 0 for f in win)
     by_role, by_place = Counter(), Counter()
+    role = {id(f): _role(f, cls) for f in win}
     for f in win:
-        by_role[_role(f, cls)] += f.get("duration") or 0
+        by_role[role[id(f)]] += f.get("duration") or 0
         if place := _place(f):
             by_place[place] += f.get("duration") or 0
     roles = {r: _share(by_role[r], seconds) for r in ROLES}
     main = max(ROLES, key=lambda r: roles[r] or 0) if seconds else None
     unused = idle_spells(win, char, book, types) if win and char else None
     restricted = _restricted(win, unused, types)
+    ab = traits.abilities(win, lambda f: main in (None, role[id(f)]))
     dmg = _damage_fights(win)
     both = [f for f in dmg if f.get("damage") and f.get("potential")]
     out = {"fights": len(win), "seconds": seconds, "roles": roles, "main_role": main,
            "places": {p: _share(by_place[p], seconds) for p in PLACES},
            "grades": _grades(runs),
-           "signature": _signature([f for f in win if _role(f, cls) == main] or win, main == "healer"),
+           "signature": _signature(ab["main"], main == "healer"),
            "opener": _opener(win), "hands": _hands(runs), "temperament": _temperament(win, seconds),
            "unused": unused, "restricted": restricted,
            "damage": sum(f.get("damage") or 0 for f in dmg) or None,
            "efficiency": _share(sum(f["damage"] for f in both), sum(f["potential"] for f in both)),
            "judged": len(both), "losses": _losses([f for f in dmg if f.get("damage")]), "close_calls": _close_calls(win),
-           "overheal": _overheal([f for f in win if _role(f, cls) == "healer"])}
+           "overheal": _overheal([f for f in win if role[id(f)] == "healer"])}
     out["label"] = label(out) if win else None
-    sc = traits.scores(win, out, book)
+    sc = traits.scores(win, out, book, ab)
     specs = Counter(f["spec"] for f in win if f.get("spec"))
     spec = min(specs, key=lambda s: (-specs[s], s)) if specs else (char or {}).get("spec")
     out["traits"] = [{"key": k, "family": traits.BY_KEY[k].family, "epithet": traits.epithet(sc, k), **s}
@@ -238,7 +233,7 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
     if lead := out["lead"]:
         text, unit = traits.shown(sc[lead]["kind"], sc[lead]["figure"])
         out["hero"] = {"figure": text, "unit": unit, "caption": sc[lead]["caption"], "key": lead}
-    out["rows"] = titles.rows(win, out, sc)
+    out["rows"] = titles.rows(win, out, sc, ab["split"])
     out["pack"] = titles.pack(win, out, out["rows"], sc, out["lead"])
     out["outdated"] = bool(win) and sum(CURRENT in f for f in win) * 2 < len(win)
     return out

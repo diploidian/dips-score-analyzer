@@ -546,7 +546,8 @@ you cast one on yourself within 10 seconds of that moment, before or after. Forb
 paladin's shields. One that stops your own attacks or ends the fight for you (Blessing of Protection,
 Divine Protection, Ice Block, Feign Death, Vanish) is named only when you died. Only spells in your
 spell book are judged, so a defensive you don't have costs nothing. A defensive the book has no
-cooldown for is assumed to have 300 seconds.
+cooldown for is assumed to have 300 seconds. A fight summed up before 0.18.0 doesn't say whether you
+pressed one, so the fight page and the card name none for it.
 
 ### Your spell book
 
@@ -805,12 +806,12 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   level. Under it is your title, large (see [How the Profile makes your title](#how-the-profile-makes-your-title)),
   then a second line that names your next two strongest traits in plain words ("Fights without pause,
   wins one on one."). Under that are up to two feats from the window, best first, each with its enemy
-  where it is known (never a player's name): your closest win ("won after dropping to 2% health against Bloodscalp Berserker"),
-  your biggest pull beaten, your longest run without a death, boss kills, your best damage per second,
-  fights won against players, levels gained, your longest sitting. A feat has to be good by its own
-  measure to show, so there may be one or none. Under the crest, when most of the window's fights were
-  summed up by an older version (before 0.18.0), a quiet line says "Based on older fight records. Import your combat
-  logs in Settings for the full picture."
+  where it is known (never a player's name): your closest win ("won after dropping to 2% health
+  against Bloodscalp Berserker"), your biggest pull beaten, your longest run without a death, boss
+  kills, your best damage per second, fights won against players, levels gained, your longest sitting.
+  A feat has to be good by its own measure to show, so there may be one or none. Under the crest, when
+  most of the window's fights were summed up by an older version (before 0.18.0), a quiet line says
+  "Based on older fight records. Import your combat logs in Settings for the full picture."
 - The hero figure is the number behind your title: the figure of the trait that gives it its epithet,
   with what it is ("25 s between one fight and the next"). A chip beside it says how far it moved
   against days 16 to 30 when it is a share. Under it is a short label such as "Careful world damage

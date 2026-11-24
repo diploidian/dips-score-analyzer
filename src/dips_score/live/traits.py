@@ -220,16 +220,41 @@ def streak(win: list[dict]) -> int:
     return best
 
 
-def damage_split(win: list[dict]) -> dict | None:
-    """{"melee", "shot", "ability", "proc" (shares of all damage), "top" (of ability damage), "worth" (abilities of 5%
-    or more), "fights"} over the fights that did damage; None without any"""
-    dmg = _damage_fights(win)
-    damage, casts = Counter(), Counter()
-    for f in dmg:
+def abilities(win: list[dict], main=lambda f: True) -> dict:
+    """the fights' ability rows added up in one scan: {"all", "main" (the fights main() picks)} -> {name: [casts, hits, crits,
+    damage, swings (Melee's, of the fights that saved a count)]}, "split" (damage_split)"""
+    damaging = {id(f) for f in _damage_fights(win)}
+    by: dict[tuple[bool, bool], dict[str, list]] = {}
+    for f in win:
+        rows = by.setdefault((id(f) in damaging, bool(main(f))), {})
         for a in f.get("abilities") or []:
-            damage[a["name"]] += a.get("damage") or 0
-            casts[a["name"]] += a.get("casts") or 0
-    total = sum(damage.values())
+            r = rows.get(n := a["name"])
+            if r is None:
+                r = rows[n] = [0, 0, 0, 0, 0]
+            r[0] += a.get("casts") or 0
+            r[1] += a.get("hits") or 0
+            r[2] += a.get("crits") or 0
+            r[3] += a.get("damage") or 0
+            if n == "Melee":
+                r[4] += (f.get("auto") or {}).get("swings") or 0
+
+    def added(picked) -> dict[str, list]:
+        out: dict[str, list] = {}
+        for k, rows in by.items():
+            if picked(*k):
+                for n, r in rows.items():
+                    out[n] = [x + y for x, y in zip(out[n], r)] if n in out else r
+        return out
+
+    return {"all": added(lambda dmg, main: True), "main": added(lambda dmg, main: main),
+            "split": damage_split(added(lambda dmg, main: dmg), len(damaging))}
+
+
+def damage_split(rows: dict[str, list], fights: int) -> dict | None:
+    """{"melee", "shot", "ability", "proc" (shares of all damage), "top" (of ability damage), "worth" (abilities of 5%
+    or more), "fights"} of the ability rows of the fights that did damage; None without any"""
+    casts, damage = Counter({n: r[0] for n, r in rows.items()}), Counter({n: r[3] for n, r in rows.items()})
+    total = damage.total()
     if not total:
         return None
     cast = {n for n, c in casts.items() if c and n != "Melee" and n not in AUTOS}
@@ -245,7 +270,7 @@ def damage_split(win: list[dict]) -> dict | None:
     used = sum(ability.values())
     return {"melee": damage["Melee"] / total, "shot": sum(damage[n] for n in AUTOS) / total, "ability": used / total,
             "proc": proc / total, "top": max(ability.values()) / used if used else None,
-            "worth": sum(d / total >= 0.05 for d in ability.values()), "fights": len(dmg)}
+            "worth": sum(d / total >= 0.05 for d in ability.values()), "fights": fights}
 
 
 def alone(f: dict) -> bool:
@@ -269,13 +294,10 @@ def heal_share(win: list[dict]) -> tuple[float | None, int]:
     return (own / total if total else None), n
 
 
-def _cast_time(win: list[dict], book: dict) -> float | None:
+def _cast_time(rows: dict[str, list], book: dict) -> float | None:
     """the share of your casts that are spells with a cast time"""
-    casts = Counter()
-    for f in win:
-        for a in f.get("abilities") or []:
-            casts[bool((book.get(a["name"]) or {}).get("cast"))] += a.get("casts") or 0
-    return casts[True] / casts.total() if casts.total() else None
+    total = sum(r[0] for r in rows.values())
+    return sum(r[0] for n, r in rows.items() if (book.get(n) or {}).get("cast")) / total if total else None
 
 
 def _primed(win: list[dict]) -> tuple[float | None, int]:
@@ -285,8 +307,10 @@ def _primed(win: list[dict]) -> tuple[float | None, int]:
     return (sum(usual <= o for o in own) / len(own) if usual else None), len(own)
 
 
-def raw(win: list[dict], fig: dict, book: dict | None = None) -> dict[str, list[tuple[float | None, int]]]:
-    """each trait's figure and its sample, one pair per part"""
+def raw(win: list[dict], fig: dict, book: dict | None = None,
+        ab: dict | None = None) -> dict[str, list[tuple[float | None, int]]]:
+    """each trait's figure and its sample, one pair per part; ab: abilities(win)"""
+    ab = ab or abilities(win)
     wins = [f for f in win if f.get("result") == "killed"]
     low = [f["lowest_hp"] for f in win if f.get("lowest_hp") is not None]
     won_low = [f["lowest_hp"] for f in wins if f.get("lowest_hp") is not None]
@@ -304,12 +328,12 @@ def raw(win: list[dict], fig: dict, book: dict | None = None) -> dict[str, list[
     known = [f for f in win if "group" in f]
     group = [f for f in known if f["group"]]
     ranked = [f["group"]["damage_rank"] == 1 for f in group if f["group"].get("damage_rank") and f.get("damage") and not f.get("healing_role")]
-    split = damage_split(win) or {}
-    hits = [a for f in win for a in f.get("abilities") or [] if not a["name"].endswith(" (pet)")]
-    n_hits = sum(a.get("hits") or 0 for a in hits)
+    split = ab["split"] or {}
+    own = [r for n, r in ab["all"].items() if not n.endswith(" (pet)")]
+    n_hits = sum(r[1] for r in own)
     t, hands, over = fig.get("temperament") or {}, fig.get("hands") or {}, fig.get("overheal") or {}
     healed = (over.get("healing") or 0) + (over.get("overheal") or 0)
-    cut, still = hands.get("cut_share"), _cast_time(win, book or {})
+    cut, still = hands.get("cut_share"), _cast_time(ab["all"], book or {})
     share, shared = heal_share(win)
     tables = [f["swings_taken"] for f in win if f.get("swings_taken")]
     missed = sum((x.get("misses") or {}).get(k, 0) for x in tables for k in ("miss", "dodge", "parry", "block"))
@@ -343,7 +367,7 @@ def raw(win: list[dict], fig: dict, book: dict | None = None) -> dict[str, list[
         "Craft": [(split.get("ability"), w)],
         "Focus": [(split.get("top"), w)],
         "Range": [(split.get("worth"), w)],
-        "Crit": [(sum(a.get("crits") or 0 for a in hits) / n_hits if n_hits else None, n_hits)],
+        "Crit": [(sum(r[2] for r in own) / n_hits if n_hits else None, n_hits)],
         "Proc": [(split.get("proc"), w)],
         "Edgewise": [(fig.get("efficiency"), fig.get("judged") or 0)],
         "Ready": [(t.get("cooldowns_share"), t.get("cooldowns_possible") or 0)],
@@ -378,8 +402,8 @@ def score_of(t: Trait, parts: list[tuple[float | None, int]]) -> dict | None:
     return {"figure": v, "kind": p.kind, "score": score, "tier": k, "sample": n, "caption": p.caption, "next": nxt}
 
 
-def scores(win: list[dict], fig: dict, book: dict | None = None) -> dict[str, dict | None]:
-    found = raw(win, fig, book)
+def scores(win: list[dict], fig: dict, book: dict | None = None, ab: dict | None = None) -> dict[str, dict | None]:
+    found = raw(win, fig, book, ab)
     out = {t.key: score_of(t, found[t.key]) if fig.get("main_role") in t.roles else None for t in TRAITS}
     if out["Crowd"] and fig["main_role"] == "tank":
         out["Crowd"]["caption"] = "of your wins were against three or more"      # with a group too
