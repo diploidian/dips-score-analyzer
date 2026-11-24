@@ -12,53 +12,58 @@
 .pf{display:grid;grid-template-columns:minmax(0,1fr) 460px;flex:1}
 .lcol{padding-right:28px;border-right:1px solid var(--ln);min-width:0}
 .rcol{padding:4px 0 0 28px;min-width:0}
+/* hero as the built Habits page: figure, caption, boxed chip, the sentence; the plate beside it */
 .hero{display:grid;grid-template-columns:260px minmax(0,1fr);gap:28px;padding:14px 0 18px;border-bottom:1px solid var(--ln)}
 .sc{font:700 150px/.8 "Barlow Condensed",sans-serif;letter-spacing:-.02em;display:flex;align-items:flex-start;margin-top:8px}
 .sc em{font-style:normal;font-size:64px;line-height:1;margin:2px 0 0 6px;color:var(--tx2)}
 .cap{margin-top:10px;font-size:13px;color:var(--mu)}
-.lab{margin-top:14px;font:600 23px/1.15 "Barlow Condensed",sans-serif;color:var(--tx)}
-.hero p.bef{margin-top:6px;font-size:13px;color:var(--tx2)}.bef .illus{margin-left:8px}
+.hero .chips{margin-top:12px}
+.lab{margin-top:10px;font:600 17px/1.35 Barlow,sans-serif;color:var(--tx)}
+.hero p.bef{margin-top:4px;font-size:14px;line-height:1.4;color:var(--tx2)}.bef .illus{margin-left:8px}
 .need{font:600 23px/1.2 "Barlow Condensed",sans-serif;max-width:30ch;margin-top:18px}
 .need+p{margin-top:8px;font-size:14px;color:var(--tx2);max-width:62ch}
-.fix{position:relative;margin-top:12px;align-self:start;background:var(--plate);color:var(--plate-tx);padding:22px 18px 16px}
-.fix .tab{position:absolute;top:-12px;left:14px}
+.fix{position:relative;margin-top:12px;align-self:start;background:var(--plate);color:var(--plate-tx);padding:24px 20px 18px}
+.fix .tab{position:absolute;top:-12px;left:16px}
 .fix .fix-h{font:600 23px/1.15 "Barlow Condensed",sans-serif;margin-bottom:8px}
 .fix .m{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:8px;row-gap:2px}
-.fix .m b{font:700 32px/1 "Barlow Condensed",sans-serif;color:var(--plate-ac)}
+.fix .m b{font:700 34px/1 "Barlow Condensed",sans-serif;color:var(--plate-ac)}
 .fix .m span{font-size:13px;color:var(--plate-mu)}
-.fix p.why{margin-top:6px;font-size:13px;color:var(--plate-mu);max-width:52ch}
+.fix p.why{margin-top:8px;font-size:13px;line-height:1.4;color:var(--plate-mu);max-width:56ch}
+.fix p.why .illus{color:var(--plate-mu);margin-left:6px}
 .fix .btn{margin-top:14px}
 .sec{padding:14px 0 12px;border-bottom:1px solid var(--ln)}.sec:last-child{border-bottom:0}
 .sec>.tab{margin-bottom:8px}.sec>.illus{margin-left:12px}
-/* share rows: name, bar, figure; a chip line under the bar when it moved */
-.br{display:grid;grid-template-columns:120px minmax(0,1fr) 48px;align-items:center;gap:0 12px;padding:5px 0;border-top:1px solid var(--ln)}
-.br.g4{grid-template-columns:120px minmax(0,1fr) 48px 58px}
+.bar{position:relative;height:10px;background:var(--track)}
+.bar i{position:absolute;left:0;top:0;bottom:0}
+.na{color:var(--mu)}
+/* the chip, boxed in its row's ink (Habits: "+12 pts vs the 11 before"); text in tx, since some inks miss 4.5:1 at 13px */
+.chip{display:inline-block;padding:2px 8px;border:1px solid var(--ink,var(--ln));color:var(--tx);font:600 14px/1.25 "Barlow Condensed",sans-serif;white-space:nowrap}
+/* share rows: name, bar, figure; a line under the bar for the chip or what the row needs */
+.br{display:grid;grid-template-columns:110px minmax(0,1fr) 46px;align-items:center;gap:0 12px;padding:5px 0;border-top:1px solid var(--ln)}
+.br.g4{grid-template-columns:110px minmax(0,1fr) 46px 58px}
 .sec>.tab+.br,.sec>.illus+.br{border-top:0}
 .br .n{font-weight:500}
 .br .v{font:700 22px/1 "Barlow Condensed",sans-serif;text-align:right}
 .br .gr{font:700 20px/1 "Barlow Condensed",sans-serif;text-align:right;white-space:nowrap}
 .br .gr small{font-size:13px;margin-left:3px}
-.bar{position:relative;height:10px;background:var(--track)}
-.bar i{position:absolute;left:0;top:0;bottom:0;background:var(--tx2)}
-.br p{grid-column:2/-1;font-size:12px;color:var(--mu);margin-top:3px}
-.na{color:var(--mu)}
-.chip{display:inline-block;padding:2px 7px;border:1px solid var(--ln);font:500 12px/1.3 Barlow,sans-serif;color:var(--tx2);white-space:nowrap}
+.br p{grid-column:2/-1;font-size:12px;color:var(--mu);margin-top:4px}
 .br p .chip{margin-right:8px}
-/* figure rows: name and its evidence left, the figure right */
-.fr{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:0 14px;padding:6px 0;border-top:1px solid var(--ln)}
-.sec>.tab+.fr,.sec>.illus+.fr{border-top:0}
-.fr .n{font-weight:500;display:flex;align-items:center;gap:8px}
-.fr .n i{width:8px;height:8px;flex:none}
+/* trait cards, as the Habits Fix / Build / Keep cards */
+.card{margin-top:16px;background:var(--panel);border:1px solid var(--ln);padding:12px 16px 4px}
+.card h2{display:flex;align-items:center;gap:8px;padding-bottom:8px;font:700 12px/1 "Barlow Condensed",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--tx)}
+.card h2 i{width:8px;height:8px;flex:none}
+.card h2 .illus{margin-left:auto;letter-spacing:.12em;font-weight:500}
+.fr{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:0 14px;padding:7px 0 8px;border-top:1px solid var(--ln)}
+.fr .n{font:500 15px/1.3 Barlow,sans-serif}
 .fr .v{font:700 26px/1 "Barlow Condensed",sans-serif;text-align:right;white-space:nowrap}
 .fr .v small{font-size:17px;font-weight:600;margin-left:1px}
-.fr p{grid-column:1;font-size:12px;color:var(--mu)}
-.fr p .chip{margin-left:6px}
-.sig{display:grid;grid-template-columns:150px 52px minmax(0,1fr) 44px;align-items:center;gap:0 12px;padding:5px 0;border-top:1px solid var(--ln)}
+.fr p{grid-column:1/-1;font-size:13px;line-height:1.35;color:var(--tx2)}
+.fr p .chip{margin-left:8px;font-size:13px}
+.sig{display:grid;grid-template-columns:170px 92px minmax(0,1fr) 44px;align-items:center;gap:0 12px;padding:5px 0;border-top:1px solid var(--ln)}
 .sig.h{border-top:0;padding:0 0 4px;font:600 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
 .sig.h span{text-align:right}.sig.h span:nth-child(3){text-align:left}
 .sig .n{font-weight:500}.sig .c2{text-align:right}
 .sig .v{font:700 20px/1 "Barlow Condensed",sans-serif;text-align:right}
-.sig p{grid-column:3/-1;font-size:12px;color:var(--mu);margin-top:2px}
 .open{margin-top:10px;padding-top:8px;border-top:1px solid var(--tx);display:flex;gap:2px 14px;align-items:baseline;flex-wrap:wrap}
 .open b{font:600 17px/1.2 "Barlow Condensed",sans-serif}
 .open span{font-size:12px;color:var(--mu)}
@@ -73,24 +78,27 @@
 .dr th:first-child{text-align:left}
 .dr td{padding:4px 0;border-top:1px solid var(--ln);text-align:right;font-variant-numeric:tabular-nums}
 .dr td:first-child{text-align:left;font-weight:500}
+.dr tfoot td{border-top:2px solid var(--tx);font-weight:600}
 /* the one hand mark */
 .ring{position:relative;display:inline-block}
 .ring svg{position:absolute;left:-12px;top:-9px;width:calc(100% + 24px);height:calc(100% + 18px);overflow:visible;pointer-events:none}
 .ring .hand{position:absolute;left:calc(100% + 12px);top:3px;font:600 23px/1 Caveat,cursive;white-space:nowrap;transform:rotate(-3deg)}
 .foot{border-top:1px solid var(--tx);margin-top:6px}
 .foot .dr{margin-top:0;border-top:0}
-.ear{display:grid;grid-template-columns:150px minmax(0,1fr) 110px 110px 110px;gap:0 14px;align-items:baseline;padding:6px 0;border-top:1px solid var(--ln)}
+.ear{display:grid;grid-template-columns:150px minmax(0,1fr) 130px 110px 110px;gap:0 14px;align-items:baseline;padding:6px 0;border-top:1px solid var(--ln)}
 .ear.h{border-top:0;padding:0 0 6px;font:600 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
 .ear span:nth-child(n+3){text-align:right}
 .ear .d{font:600 16px/1 "Barlow Condensed",sans-serif}
 .ear .l{color:var(--tx2)}
 .ear .f{font:700 18px/1 "Barlow Condensed",sans-serif}
+.ear .f small{font:500 14px Barlow,sans-serif;color:var(--tx2);margin-right:5px}
 /* review states: one page, switched from the header (mock-up only) */
 main:not([data-state="thin"]) .only-thin,main:not([data-state="nohands"]) .only-nohands,
+main:not([data-state="notypes"]) .only-notypes,[data-state="notypes"] .need-types,
 [data-state="thin"] .need-profile,[data-state="nohands"] .need-hands,
 [data-state="thin"] .bef,[data-state="nobefore"] .bef{display:none!important}
 .controls .lbl{margin-right:2px}
-@media (max-width:1419px){.hero{grid-template-columns:214px minmax(0,1fr);gap:22px}.sc{font-size:126px}.sc em{font-size:54px}.lab{font-size:21px}.ear{grid-template-columns:140px minmax(0,1fr) 96px 96px 96px}}
+@media (max-width:1419px){.hero{grid-template-columns:214px minmax(0,1fr);gap:22px}.sc{font-size:126px}.sc em{font-size:54px}.ear{grid-template-columns:140px minmax(0,1fr) 120px 96px 96px}.sig{grid-template-columns:172px 82px minmax(0,1fr) 40px}}
 </style>
 </head>
 <body>
@@ -118,10 +126,10 @@ main:not([data-state="thin"]) .only-thin,main:not([data-state="nohands"]) .only-
   </aside>
   <main class="main" id="page" data-state="main">
     <header class="top">
-      <div><h1>Bao Kahn</h1><div class="meta"><b>level 36 Undead Paladin</b> · gear 31 · last 15 days · <span class="need-profile">396 fights</span><span class="only-thin">6 fights</span></div></div>
+      <div><h1>Bao Kahn</h1><div class="meta"><b>level 36 Undead Paladin</b> · gear 31 · last 15 days · <span class="need-profile">405 fights</span><span class="only-thin">6 fights</span></div></div>
       <div class="controls">
         <div class="seg-row"><span class="lbl">Mock-up state</span>
-          <div class="seg" role="group" aria-label="Mock-up state" id="states"><button data-state="main" aria-pressed="true">With Before</button><button data-state="nobefore" aria-pressed="false">No Before</button><button data-state="nohands" aria-pressed="false">No recorded run</button><button data-state="thin" aria-pressed="false">Under 10 fights</button></div>
+          <div class="seg" role="group" aria-label="Mock-up state" id="states"><button data-state="main" aria-pressed="true">With Before</button><button data-state="nobefore" aria-pressed="false">No Before</button><button data-state="notypes" aria-pressed="false">No creature types yet</button><button data-state="nohands" aria-pressed="false">No recorded run</button><button data-state="thin" aria-pressed="false">Under 10 fights</button></div>
         </div>
       </div>
     </header>
@@ -137,14 +145,21 @@ main:not([data-state="thin"]) .only-thin,main:not([data-state="nohands"]) .only-
           <div>
             <div class="sc c"><span data-count="98">98</span><em>%</em></div>
             <p class="cap">of fight time dealing damage</p>
-            <p class="lab">World damage dealer<span class="need-hands"> who keybinds</span>.</p>
-            <p class="bef">Before: hoarding dungeon damage dealer<span class="need-hands"> who keybinds</span>.<span class="illus">illustrative</span></p>
+            <div class="chips bef"><span class="chip" style="--ink:var(--role-dmg)">+6 pts vs the 15 days before</span></div>
+            <p class="lab">World damage dealer.</p>
+            <p class="bef">Before: hoarding dungeon damage dealer.<span class="illus">illustrative</span></p>
           </div>
-          <section class="fix" aria-labelledby="fixh">
+          <section class="fix need-types" aria-labelledby="fixh">
             <h2 class="tab" id="fixh">Worth changing</h2>
             <p class="fix-h">You know Exorcism and have never cast it</p>
-            <div class="m"><b>0 casts</b><span>in your last 396 fights</span></div>
-            <p class="why">Holy Strike, Judgement and Consecration carry your casts. Exorcism is the harmful spell left on the bench.</p>
+            <div class="m"><b>0 casts</b><span>in your last 405 fights</span></div>
+            <p class="why">Judgement, Holy Strike and Consecration carry your casts. Exorcism works on undead and demons. You fought 37 of them in 12 fights and cast it 0 times.<span class="illus">counts illustrative</span></p>
+            <a class="btn" href="habits.html">Open Habits</a>
+          </section>
+          <section class="fix only-notypes" aria-labelledby="fixh2">
+            <h2 class="tab" id="fixh2">Worth changing</h2>
+            <p class="fix-h">Nothing stands out</p>
+            <div class="m"><b>99% keys</b><span>of your presses, in 23 recorded runs</span></div>
             <a class="btn" href="habits.html">Open Habits</a>
           </section>
         </div>
@@ -152,49 +167,54 @@ main:not([data-state="thin"]) .only-thin,main:not([data-state="nohands"]) .only-
         <section class="sec" aria-labelledby="sigh">
           <h2 class="tab" id="sigh">Signature</h2>
           <div class="sig h" aria-hidden="true"><span></span><span>casts</span><span>share of your damage</span><span></span></div>
-          <div class="sig"><span class="n">Judgement</span><span class="c2 c">1,665</span><div class="bar"><i data-grow style="--i:0;width:13.4%"></i></div><span class="v">13%</span><p>damage from Judgement of Command and Righteousness</p></div>
-          <div class="sig"><span class="n">Holy Strike</span><span class="c2 c">1,433</span><div class="bar"><i data-grow style="--i:1;width:10.5%"></i></div><span class="v">11%</span></div>
-          <div class="sig"><span class="n">Consecration</span><span class="c2 c">981</span><div class="bar"><i data-grow style="--i:2;width:8.1%"></i></div><span class="v">8%</span></div>
-          <div class="sig"><span class="n">Seal of Command</span><span class="c2 c">672</span><div class="bar"><i data-grow style="--i:3;width:10.9%"></i></div><span class="v">11%</span></div>
-          <div class="sig"><span class="n">Seal of the Crusader</span><span class="c2 c">231</span><div class="bar"></div><span class="v na">–</span><p>no damage of its own</p></div>
-          <div class="open"><b>Judgement, Holy Strike, Consecration</b><span>your usual opening: the first three casts in 47 of 396 fights</span></div>
-          <details class="dr"><summary><svg viewBox="0 0 10 10" aria-hidden="true"><polyline points="3,1 7,5 3,9"/></svg>All spells <span>(24)</span></summary>
+          <div class="sig"><span class="n">Melee (auto attack)</span><span class="c2 c">4,309 swings</span><div class="bar"><i data-grow style="--i:0;width:46.4%;background:var(--m-dmg)"></i></div><span class="v" style="color:var(--m-dmg)">46%</span></div>
+          <div class="sig"><span class="n">Judgement of Command</span><span class="c2 c na">–</span><div class="bar"><i data-grow style="--i:1;width:11.6%;background:var(--m-dmg)"></i></div><span class="v" style="color:var(--m-dmg)">12%</span></div>
+          <div class="sig"><span class="n">Seal of Command</span><span class="c2 c">672</span><div class="bar"><i data-grow style="--i:2;width:10.9%;background:var(--m-dmg)"></i></div><span class="v" style="color:var(--m-dmg)">11%</span></div>
+          <div class="sig"><span class="n">Holy Strike</span><span class="c2 c">1,434</span><div class="bar"><i data-grow style="--i:3;width:10.4%;background:var(--m-dmg)"></i></div><span class="v" style="color:var(--m-dmg)">10%</span></div>
+          <div class="sig"><span class="n">Consecration</span><span class="c2 c">978</span><div class="bar"><i data-grow style="--i:4;width:8.1%;background:var(--m-dmg)"></i></div><span class="v" style="color:var(--m-dmg)">8%</span></div>
+          <div class="open"><b>Judgement, Holy Strike, Consecration</b><span>your usual opening: the first three casts in 47 of 405 fights</span></div>
+          <details class="dr"><summary><svg viewBox="0 0 10 10" aria-hidden="true"><polyline points="3,1 7,5 3,9"/></svg>All spells <span>(29)</span></summary>
             <table><thead><tr><th>spell</th><th>casts</th><th>share of damage</th></tr></thead><tbody>
-<tr><td>Judgement</td><td>1,665</td><td>13.4%</td></tr>
-<tr><td>Holy Strike</td><td>1,433</td><td>10.5%</td></tr>
-<tr><td>Consecration</td><td>981</td><td>8.1%</td></tr>
+<tr><td>Melee (auto attack)</td><td>4,309 swings</td><td>46.4%</td></tr>
+<tr><td>Judgement of Command</td><td class="na">–</td><td>11.6%</td></tr>
 <tr><td>Seal of Command</td><td>672</td><td>10.9%</td></tr>
-<tr><td>Seal of the Crusader</td><td>231</td><td class="na">–</td></tr>
-<tr><td>Holy Light</td><td>118</td><td class="na">–</td></tr>
+<tr><td>Holy Strike</td><td>1,434</td><td>10.4%</td></tr>
+<tr><td>Consecration</td><td>978</td><td>8.1%</td></tr>
+<tr><td>Touch of the Grave</td><td class="na">–</td><td>4.9%</td></tr>
+<tr><td>Blazewind Blast</td><td class="na">–</td><td>3.5%</td></tr>
+<tr><td>Judgement of Righteousness</td><td class="na">–</td><td>1.8%</td></tr>
 <tr><td>Seal of Righteousness</td><td>101</td><td>1.3%</td></tr>
-<tr><td>Swift Judgement</td><td>86</td><td class="na">–</td></tr>
-<tr><td>Hammer of Justice</td><td>47</td><td class="na">–</td></tr>
-<tr><td>Divine Protection</td><td>38</td><td class="na">–</td></tr>
+<tr><td>Windfury Totem</td><td class="na">–</td><td>1.1%</td></tr>
+<tr><td>Judgement</td><td>1,664</td><td class="na">–</td></tr>
+<tr><td>Seal of the Crusader</td><td>226</td><td class="na">–</td></tr>
+<tr><td>Holy Light</td><td>104</td><td class="na">–</td></tr>
+<tr><td>Swift Judgement</td><td>90</td><td class="na">–</td></tr>
+<tr><td>Hammer of Justice</td><td>49</td><td class="na">–</td></tr>
+<tr><td>Divine Protection</td><td>36</td><td class="na">–</td></tr>
 <tr><td>Blessing of Might</td><td>28</td><td class="na">–</td></tr>
-<tr><td>Blessing of Freedom</td><td>21</td><td class="na">–</td></tr>
-<tr><td>Blessing of Protection</td><td>20</td><td class="na">–</td></tr>
-<tr><td>Cannibalize</td><td>10</td><td class="na">–</td></tr>
-<tr><td>Restore Mana</td><td>8</td><td class="na">–</td></tr>
+<tr><td>Blessing of Protection</td><td>18</td><td class="na">–</td></tr>
+<tr><td>Blessing of Freedom</td><td>16</td><td class="na">–</td></tr>
+<tr><td>Cannibalize</td><td>9</td><td class="na">–</td></tr>
+<tr><td>Retribution Aura</td><td>8</td><td class="na">–</td></tr>
 <tr><td>Purify</td><td>7</td><td class="na">–</td></tr>
-<tr><td>Retribution Aura</td><td>7</td><td class="na">–</td></tr>
+<tr><td>Restore Mana</td><td>7</td><td class="na">–</td></tr>
 <tr><td>Will of the Forsaken</td><td>6</td><td class="na">–</td></tr>
-<tr><td>Healing Potion</td><td>4</td><td class="na">–</td></tr>
 <tr><td>Mana Leak</td><td>4</td><td class="na">–</td></tr>
 <tr><td>Blessing of Kings</td><td>3</td><td class="na">–</td></tr>
 <tr><td>Blessing of Wisdom</td><td>2</td><td class="na">–</td></tr>
-<tr><td>Lay on Hands</td><td>2</td><td class="na">–</td></tr>
-<tr><td>Paladin's Lament</td><td>1</td><td class="na">–</td></tr>
-            </tbody></table>
+<tr><td>Healing Potion</td><td>2</td><td class="na">–</td></tr>
+<tr><td>Paladin&#39;s Lament</td><td>1</td><td class="na">–</td></tr>
+            </tbody><tfoot><tr><td>All your damage</td><td></td><td>100%</td></tr></tfoot></table>
           </details>
         </section>
 
-        <section class="sec" aria-labelledby="handh">
-          <h2 class="tab" id="handh">Hands</h2>
+        <section class="card" aria-labelledby="handh">
+          <h2 id="handh"><i style="background:var(--m-act)"></i>Hands<span class="illus bef need-hands">change illustrative</span></h2>
           <div class="need-hands">
-            <div class="fr"><span class="n">Keys or clicks</span><span class="v c">99<small>% keys</small></span><p>114 clicks in 10,336 presses, in 21 recorded runs</p></div>
-            <div class="fr"><span class="n">Presses per minute</span><span class="v c">21.2</span><p>over 8 h 8 min of combat in recorded runs</p></div>
-            <div class="fr"><span class="n"><i style="background:var(--m-cast)"></i>Refused presses</span><span class="v c" style="color:var(--m-cast)">16<small>%</small></span><p>2,234 presses the game turned down, in recorded runs</p></div>
-            <div class="fr"><span class="n"><i style="background:var(--m-cast)"></i>Moving in combat</span><span class="v c" style="color:var(--m-cast)">64</span><p>5 h 12 min on the move in 8 h 8 min of combat, in recorded runs</p></div>
+            <div class="fr"><span class="n">Keys or clicks</span><span class="v c">99<small>% keys</small></span><p>114 clicks in 10,336 presses, in 23 recorded runs</p></div>
+            <div class="fr"><span class="n">Presses per minute</span><span class="v c" style="color:var(--m-act)">21.2</span><p>over 8 h 8 min of combat in recorded runs<span class="chip bef" style="--ink:var(--m-act)">+2.4 vs the 15 days before</span></p></div>
+            <div class="fr"><span class="n">Refused presses</span><span class="v c" style="color:var(--m-cast)">16<small>%</small></span><p>2,234 presses the game turned down, in recorded runs</p></div>
+            <div class="fr"><span class="n">Cut short by moving</span><span class="v c" style="color:var(--m-cast)">1<small>%</small></span><p>64 of 11,427 casts cut because you started to move, 34.5 s of cast time lost, in 23 recorded runs</p></div>
           </div>
           <div class="only-nohands">
             <div class="fr"><span class="n">Keys, clicks and presses</span><span class="v c na">–</span><p>Hands needs a recorded run: play with the dips-Score add-on on, then reload.</p></div>
@@ -205,25 +225,26 @@ main:not([data-state="thin"]) .only-thin,main:not([data-state="nohands"]) .only-
       <div class="rcol">
         <section class="sec" aria-labelledby="roleh">
           <h2 class="tab" id="roleh">Role mix</h2>
-          <div class="br g4"><span class="n">Damage</span><div class="bar"><i data-grow style="--i:4;width:97.6%"></i></div><span class="v">98%</span><span class="gr g-B">72<small>B</small></span><p>average of 21 graded runs</p></div>
-          <div class="br g4"><span class="n">Healer</span><div class="bar"><i data-grow style="--i:5;width:2.4%"></i></div><span class="v">2%</span><span class="gr na">–</span><p>no run graded as healer yet</p></div>
-          <div class="br g4"><span class="n">Tank</span><div class="bar"></div><span class="v">0%</span><span class="gr na">–</span><p>no run graded as tank yet</p></div>
+          <div class="br g4"><span class="n">Damage</span><div class="bar"><i data-grow style="--i:5;width:97.6%;background:var(--role-dmg)"></i></div><span class="v" style="color:var(--role-dmg)">98%</span><span class="gr g-B">72<small>B</small></span><p>average of 21 graded runs</p></div>
+          <div class="br g4"><span class="n">Healer</span><div class="bar"><i data-grow style="--i:6;width:2.4%;background:var(--role-heal)"></i></div><span class="v" style="color:var(--role-heal)">2%</span><span class="gr na">–</span><p>no run graded as healer yet</p></div>
+          <div class="br g4"><span class="n">Tank</span><div class="bar"></div><span class="v" style="color:var(--role-tank)">0%</span><span class="gr na">–</span><p>no run graded as tank yet</p></div>
         </section>
 
         <section class="sec" aria-labelledby="whereh">
           <h2 class="tab" id="whereh">Where you fight</h2><span class="illus bef">changes illustrative</span>
-          <div class="br"><span class="n">World</span><div class="bar"><i data-grow style="--i:6;width:70.4%"></i></div><span class="v">70%</span>
-            <p class="bef"><span><span class="ring"><span class="chip">+29 vs the 15 days before</span><svg viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true"><ellipse class="hl-stroke" data-draw style="--len:520;--i:0" cx="100" cy="20" rx="97" ry="17" transform="rotate(-2 100 20)" stroke-width="3.5" opacity=".85" vector-effect="non-scaling-stroke"/></svg><span class="hand" data-fade style="--i:1">out of dungeons</span></span></span></p></div>
-          <div class="br"><span class="n">Dungeon</span><div class="bar"><i data-grow style="--i:7;width:23.3%"></i></div><span class="v">23%</span><p><span class="chip bef">−29 vs the 15 days before</span>dungeon and boss fights</p></div>
-          <div class="br"><span class="n">PvP</span><div class="bar"><i data-grow style="--i:7;width:6.2%"></i></div><span class="v">6%</span></div>
+          <div class="br"><span class="n">World</span><div class="bar"><i data-grow style="--i:7;width:69.9%;background:var(--place-world)"></i></div><span class="v" style="color:var(--place-world)">70%</span>
+            <p class="bef"><span class="ring"><span class="chip" style="--ink:var(--place-world)">+29 pts vs the 15 days before</span><svg viewBox="0 0 200 40" preserveAspectRatio="none" aria-hidden="true"><ellipse class="hl-stroke" data-draw style="--len:520;--i:0" cx="100" cy="20" rx="97" ry="17" transform="rotate(-2 100 20)" stroke-width="3.5" opacity=".85" vector-effect="non-scaling-stroke"/></svg><span class="hand" data-fade style="--i:1">out of dungeons</span></span></p></div>
+          <div class="br"><span class="n">Dungeon</span><div class="bar"><i data-grow style="--i:7;width:23.8%;background:var(--place-dungeon)"></i></div><span class="v" style="color:var(--place-dungeon)">24%</span><p class="bef"><span class="chip" style="--ink:var(--place-dungeon)">−29 pts vs the 15 days before</span></p></div>
+          <div class="br"><span class="n">PvP</span><div class="bar"><i data-grow style="--i:7;width:6.3%;background:var(--place-pvp)"></i></div><span class="v" style="color:var(--place-pvp)">6%</span></div>
+          <div class="br"><span class="n">Raid</span><div class="bar"></div><span class="v" style="color:var(--place-raid)">0%</span></div>
         </section>
 
-        <section class="sec" aria-labelledby="temph">
-          <h2 class="tab" id="temph">Temperament</h2><span class="illus bef">change illustrative</span>
-          <div class="fr"><span class="n"><i style="background:var(--m-surv)"></i>Deaths per hour</span><span class="v c" style="color:var(--m-surv)">4.2</span><p>24 deaths in 396 fights, 5 h 47 min of fighting</p></div>
-          <div class="fr"><span class="n">Usual pull</span><span class="v c">1 <small>enemy</small></span><p>alone in 228 of 396 fights, 1.7 on average</p></div>
-          <div class="fr"><span class="n">Average lowest health</span><span class="v c">60<small>%</small></span><p>the lowest you dropped, over 396 fights</p></div>
-          <div class="fr"><span class="n"><i style="background:var(--m-cd)"></i>Cooldowns used</span><span class="v c" style="color:var(--m-cd)">56<small>%</small></span><p>4,046 of 7,221 possible, in 396 fights<span class="chip bef">+7 vs the 15 days before</span></p></div>
+        <section class="card" aria-labelledby="temph">
+          <h2 id="temph"><i style="background:var(--m-surv)"></i>Temperament<span class="illus bef">change illustrative</span></h2>
+          <div class="fr"><span class="n">Deaths per hour</span><span class="v c" style="color:var(--m-surv)">4.1</span><p>24 deaths in 405 fights, 5 h 49 min of fighting</p></div>
+          <div class="fr"><span class="n">Usual pull</span><span class="v c">1 <small>enemy</small></span><p>alone in 237 of 405 fights, 1.7 on average</p></div>
+          <div class="fr"><span class="n">Average lowest health</span><span class="v c" style="color:var(--m-surv)">61<small>%</small></span><p>the lowest you dropped, over 405 fights</p></div>
+          <div class="fr"><span class="n">Cooldowns used</span><span class="v c" style="color:var(--m-cd)">56<small>%</small></span><p>4,079 of 7,282 possible, in 405 fights<span class="chip bef" style="--ink:var(--m-cd)">+7 pts vs the 15 days before</span></p></div>
         </section>
       </div>
     </div>
@@ -232,9 +253,9 @@ main:not([data-state="thin"]) .only-thin,main:not([data-state="nohands"]) .only-
       <details class="dr" id="earlier"><summary><svg viewBox="0 0 10 10" aria-hidden="true"><polyline points="3,1 7,5 3,9"/></svg>Earlier <span>(3)</span><span class="illus" style="margin-left:6px">illustrative</span></summary>
         <div>
           <div class="ear h" aria-hidden="true"><span>15 days</span><span>who you were</span><span>main role</span><span>deaths / hour</span><span>cooldowns used</span></div>
-          <div class="ear"><span class="d">25 Oct to 8 Nov</span><span class="l">Hoarding dungeon damage dealer who keybinds</span><span class="f">96%</span><span class="f">3.1</span><span class="f">49%</span></div>
-          <div class="ear"><span class="d">10 Oct to 24 Oct</span><span class="l">Careful dungeon damage dealer who keybinds</span><span class="f">94%</span><span class="f">0.8</span><span class="f">58%</span></div>
-          <div class="ear"><span class="d">25 Sep to 9 Oct</span><span class="l">Reckless world hybrid who keybinds</span><span class="f">55%</span><span class="f">7.0</span><span class="f">61%</span></div>
+          <div class="ear"><span class="d">25 Oct to 8 Nov</span><span class="l">Hoarding dungeon damage dealer</span><span class="f"><small>Damage</small>92%</span><span class="f">3.1</span><span class="f">49%</span></div>
+          <div class="ear"><span class="d">10 Oct to 24 Oct</span><span class="l">Careful dungeon damage dealer</span><span class="f"><small>Damage</small>94%</span><span class="f">0.8</span><span class="f">58%</span></div>
+          <div class="ear"><span class="d">25 Sep to 9 Oct</span><span class="l">Reckless world hybrid</span><span class="f"><small>Damage</small>55%</span><span class="f">7.0</span><span class="f">61%</span></div>
         </div>
       </details>
     </div>

@@ -37,6 +37,13 @@ colors:
   timeless-day-m-upk: "#8C6A1C"
   timeless-day-m-cast: "#4A5A78"
   timeless-day-m-act: "#766656"
+  timeless-day-role-dmg: "#AC4168"
+  timeless-day-role-heal: "#2B735B"
+  timeless-day-role-tank: "#4066A8"
+  timeless-day-place-dungeon: "#7951BD"
+  timeless-day-place-raid: "#A13D9E"
+  timeless-day-place-world: "#3D732B"
+  timeless-day-place-pvp: "#306E7E"
   timeless-night-bg: "#17110C"
   timeless-night-panel: "#211913"
   timeless-night-ln: "#3A2E22"
@@ -73,6 +80,13 @@ colors:
   timeless-night-m-upk: "#D4A73A"
   timeless-night-m-cast: "#8A9CC4"
   timeless-night-m-act: "#A89A8A"
+  timeless-night-role-dmg: "#C56688"
+  timeless-night-role-heal: "#389475"
+  timeless-night-role-tank: "#6084C3"
+  timeless-night-place-dungeon: "#9474CA"
+  timeless-night-place-raid: "#C25EBF"
+  timeless-night-place-world: "#4F9438"
+  timeless-night-place-pvp: "#3E8EA3"
   classical-day-bg: "#F4EBDD"
   classical-day-panel: "#FAF5EC"
   classical-day-ln: "#E0D0BE"
@@ -108,6 +122,13 @@ colors:
   classical-day-m-upk: "#2F5D62"
   classical-day-m-cast: "#5E3A5A"
   classical-day-m-act: "#766656"
+  classical-day-role-dmg: "#B1436C"
+  classical-day-role-heal: "#2D765E"
+  classical-day-role-tank: "#4269AE"
+  classical-day-place-dungeon: "#7C55BE"
+  classical-day-place-raid: "#A840A5"
+  classical-day-place-world: "#40782E"
+  classical-day-place-pvp: "#327383"
   classical-night-bg: "#171615"
   classical-night-panel: "#201F1E"
   classical-night-ln: "#363331"
@@ -143,6 +164,13 @@ colors:
   classical-night-m-upk: "#5FA3A8"
   classical-night-m-cast: "#A47CA0"
   classical-night-m-act: "#A89A8A"
+  classical-night-role-dmg: "#C76B8D"
+  classical-night-role-heal: "#3A9878"
+  classical-night-role-tank: "#6688C5"
+  classical-night-place-dungeon: "#9778CC"
+  classical-night-place-raid: "#C464C1"
+  classical-night-place-world: "#51983A"
+  classical-night-place-pvp: "#3F92A6"
 typography:
   display:
     fontFamily: "Barlow Condensed, sans-serif"
@@ -289,6 +317,9 @@ Warm, inked and print-like: ivory or walnut-black grounds, one deep plate colour
 
 ### Measure inks
 - `m-dmg` Damage, `m-cd` Cooldowns / Abilities on time, `m-rot` Rotation, `m-pace` Pacing, `m-surv` Survival, `m-upk` Upkeep, `m-cast` Casting, `m-act` Activity. A measure's ink is its identity across every page.
+
+### Role and place inks
+- `role-dmg` Damage, `role-heal` Healer, `role-tank` Tank; `place-dungeon` Dungeon, `place-raid` Raid, `place-world` World, `place-pvp` PvP. The Profile page's share bars (Role mix, Where you fight) and their chips. Each clears 4.5:1 on `panel` in all four sets, so it can colour text as well as a bar; no measure borrows them.
 
 ### Named Rules
 **The One Plate Rule.** A screen has exactly one solid `plate` surface, and it holds the fix: "Fix this first" on the debrief, "Recurring fix" on history, "To move up" on group, "Biggest gap" on the fight card. Everything else sits on `bg` or `panel` behind hairlines.

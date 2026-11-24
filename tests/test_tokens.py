@@ -30,7 +30,7 @@ class TokensTest(unittest.TestCase):
         self.assertEqual(len(blocks), 4)
         for theme, mode, body in blocks:
             parsed = {k: v.strip().lower() for k, v in re.findall(r"--([\w-]+):\s*([^;]+);", body)}
-            self.assertEqual(len(parsed), 36)
+            self.assertEqual(len(parsed), 43)
             got = {k: v.lower() for k, v in tokens.TOKENS[(theme, mode)].items()}
             self.assertEqual(got, parsed, (theme, mode))
 
