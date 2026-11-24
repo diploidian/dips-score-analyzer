@@ -340,6 +340,7 @@ Warm, inked and print-like: ivory or walnut-black grounds, one deep plate colour
 
 ### Hierarchy
 - **Display** (700, 150px, 0.8, −0.02em; 126px under 1420px): the run score numeral and the group placing. One per page. The grade letter rides beside it at 56px in a 2px gold box.
+- **Crest title** (700, 74px, 1; down to 44px on two lines, then smaller on more): the Profile's title, wrapped, never elided. One per page.
 - **Headline** (700, 30px, 1.05): the page title in the header (dungeon name, "After each fight").
 - **Title** (600, 23px, 1.15; 34px on the history plate): the fix sentence on the plate.
 - **Metric** (700, 30px, 1): measure scores, plate prices (32px), podium ranks; condensed, tabular.
@@ -354,7 +355,7 @@ Warm, inked and print-like: ivory or walnut-black grounds, one deep plate colour
 
 ## Layout
 
-A fixed desktop sheet: `body` has a 1280px minimum width, matching the PyQt window it will become. The shell is a two-column grid, a 200px rail and a fluid main column with 22px top, 28px side and 32px bottom padding. The page header runs the width of the main column, title and meta on the left, view tabs on the right, closed by a 1px `tx` rule (gold on the debrief).
+A fixed desktop sheet: `body` has a 1280px minimum width, matching the PyQt window it will become. The Profile instead stacks its right column under the left below a window of about 1276px, and nothing on it scrolls sideways. The shell is a two-column grid, a 200px rail and a fluid main column with 22px top, 28px side and 32px bottom padding. The page header runs the width of the main column, title and meta on the left, view tabs on the right, closed by a 1px `tx` rule (gold on the debrief).
 
 The debrief splits into a fluid left column and a fixed 460px right column divided by a 1px `ln` rule with 28px either side. Its hero is a 260px score block beside the fluid plate (214px under 1420px, the one breakpoint). Modules stack vertically, each with 12px vertical padding and a hairline below. Group and history use a fluid lead block beside a fixed 380–420px plate or chart.
 
@@ -393,6 +394,12 @@ Every corner is square (0px); there is no `border-radius` in the build. Containe
 
 ### Fix plate (signature)
 The one solid block. `plate` fill, 22px × 18px padding, a Title-size fix sentence, the price in `plate-ac` Metric (−10.3 points) with category and damage in `plate-mu`, a primary button ("Show me on the timeline"), and a `plate-ln` rule above the next two fixes, each with its price right-aligned.
+
+### Crest (Profile)
+A double `gold` rule, 2px then 1px 3px inside it, square, around `panel`: gold draws the rules, never a fill. In it race, class and level (Barlow 600 15px, `tx2`), the Crest title, the second line (Barlow 500 16px), a 1px `gold` rule and the deeds (Barlow Condensed 600 18px, `tx2`). One per page, above the hero and the plate; it never moves.
+
+### Tier rows (All traits)
+Name, the tier in a 1px `gold` frame (Barlow 500 12px), the figure, then a 6px `tx2` bar on `track` with a 1px `tx` tick where each tier begins and, in `mu`, what the next tier needs.
 
 ### Measure bars
 - **Style:** 10px tall, `track` behind, the measure's `m-*` ink as fill, square ends. A 2px `tx` tick at 90% marks the target on every effectiveness bar, overhanging 4px top and bottom.
