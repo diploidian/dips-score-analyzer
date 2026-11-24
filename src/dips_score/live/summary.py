@@ -528,7 +528,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         "id": f"{start:%Y%m%d%H%M%S%f}",           # the start: a combat that carries on keeps it
         "start": start.isoformat(), "end": end.isoformat(), "duration": dur,
         "me": me, "me_name": clean_name(me_name) if me_name else "",
-        "kind": kind, "zone": f.zone, "target": target, "more": max(0, extra), "result": result,
+        "kind": kind, "difficulty": f.difficulty, "instance": f.instance, "zone": f.zone, "target": target, "more": max(0, extra), "result": result,
         "foes": [[n, c] for n, c in foe_names.items()],
         "damage": damage, "dps": dps, "healing": heal, "overheal": overheal, "taken": total_taken,
         "lowest_hp": min((p for _, p in hp), default=None),

@@ -3,7 +3,7 @@ profile_history.json (beside fights.jsonl), {character guid: [slice, ...] oldest
 {"from", "to" (ISO times, the window (from, to]), "fights", "label", "figures" (profile.figures)}.
 
 file(paths) is the path; load(path) -> dict ({} when missing or unreadable); update(saved, fights, char, book,
-runs, now) adds the slices that have finished for the newest fight's character and returns them; save(path,
+runs, now, types=None) adds the slices that have finished for the newest fight's character and returns them; save(path,
 saved) writes atomically. The block ending at now is Now and is never saved. A slice with fewer than MIN_FIGHTS
 fights is skipped.
 """
@@ -38,8 +38,8 @@ def save(path: Path, saved: dict):
     os.replace(tmp, path)          # a half-written file is never read
 
 
-def _slice(mine, char, book, runs, lo: datetime, hi: datetime) -> dict | None:
-    fig = figures(mine, char, book, runs, lo, hi)
+def _slice(mine, char, book, runs, lo: datetime, hi: datetime, types=None) -> dict | None:
+    fig = figures(mine, char, book, runs, lo, hi, types)
     if fig["fights"] < MIN_FIGHTS:
         return None
     return {"from": lo.isoformat(), "to": hi.isoformat(), "fights": fig["fights"], "label": fig["label"],
@@ -47,7 +47,7 @@ def _slice(mine, char, book, runs, lo: datetime, hi: datetime) -> dict | None:
 
 
 def update(saved: dict, fights: list[dict], char: dict | None, book: dict | None, runs: list[dict] | None,
-           now: datetime) -> list[dict]:
+           now: datetime, types: dict | None = None) -> list[dict]:
     """add the finished slices of the newest fight's character to saved (in place); returns the ones added"""
     if not fights:
         return []
@@ -59,7 +59,7 @@ def update(saved: dict, fights: list[dict], char: dict | None, book: dict | None
     if slices:          # carry on from the last saved slice's end, one block at a time, while a block has finished
         hi = datetime.fromisoformat(slices[-1]["to"]) + SLICE
         while hi < now:             # a block ending at now is still Now
-            if s := _slice(mine, char, book, runs, hi - SLICE, hi):
+            if s := _slice(mine, char, book, runs, hi - SLICE, hi, types):
                 added.append(s)
             hi += SLICE
         slices.extend(added)
@@ -67,7 +67,7 @@ def update(saved: dict, fights: list[dict], char: dict | None, book: dict | None
         oldest = min(datetime.fromisoformat(f["start"]) for f in mine)
         hi = now - SLICE
         while hi >= oldest:
-            if s := _slice(mine, char, book, runs, hi - SLICE, hi):
+            if s := _slice(mine, char, book, runs, hi - SLICE, hi, types):
                 added.insert(0, s)
             hi -= SLICE
         slices.extend(added)

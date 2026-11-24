@@ -3,8 +3,9 @@
 Signature (no per-row note but "no damage of its own" for a "–" share), Hands, Role mix, Where you fight, Temperament, the chips and the one highlighter mark (Now against
 Before), the Earlier rows and every empty state. A value that cannot be known renders "–", never a guess.
 
-Inks are token names: share bars "tx2", scored-measure rows their measure ink ("m-cast", "m-surv", "m-cd"),
-other figures "tx", a grade letter "g<letter>"."""
+Inks are token names: Signature bars "m-dmg", Role mix bars ROLE_INK, Where you fight bars PLACE_INK, scored
+rows their measure ink ("m-cast", "m-surv", "m-cd", "m-act"), other figures "tx". A Role mix grade letter and
+score take theme.grade_color(letter), which the painter applies (there is no token per grade)."""
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
@@ -20,8 +21,13 @@ PLATE_DEATHS = 0.15         # dying in this share or more of fights
 DOING = {"damage": "dealing damage", "healer": "healing", "tank": "tanking"}
 ROLE_MOVE = {"damage": "damage dealing", "healer": "healing", "tank": "tanking"}    # "more healing"
 GRADED_AS = {"damage": "damage dealer", "healer": "healer", "tank": "tank"}
-PLACE_MOVE = {"Dungeon": ("more dungeons", "fewer dungeons"), "World": ("more open world", "less open world"),
-              "PvP": ("more PvP", "less PvP")}
+ROLE_NAME = {"damage": "Damage", "healer": "Healer", "tank": "Tank"}
+ROLE_INK = {"damage": "role-dmg", "healer": "role-heal", "tank": "role-tank"}
+PLACE_INK = {"Dungeon": "place-dungeon", "Raid": "place-raid", "World": "place-world", "PvP": "place-pvp"}
+PLACE_MOVE = {"Dungeon": ("more dungeons", "fewer dungeons"), "Raid": ("more raids", "fewer raids"),
+              "World": ("more open world", "less open world"), "PvP": ("more PvP", "less PvP")}
+TYPE_WORD = {"Undead": "undead", "Demon": "demons"}
+MELEE = "Melee (auto attack)"
 NO_HANDS = "Hands needs a recorded run: play with the dips-Score add-on on, then reload."
 
 
@@ -53,7 +59,7 @@ class Plate:
 class EarlierRow:
     dates: str                  # "25 Oct to 8 Nov"
     label: str
-    role: str                   # main role share "96%"
+    role: str                   # main role and its share "Damage 96%"
     deaths: str                 # deaths per hour "3.1"
     cooldowns: str              # cooldowns used "49%"
 
@@ -108,12 +114,12 @@ def _earlier(earlier: list[dict]) -> list[EarlierRow]:
     for s in sorted(earlier, key=lambda s: s["to"], reverse=True):
         f = s.get("figures") or {}
         main, t = f.get("main_role"), f.get("temperament") or {}
-        dph = t.get("deaths_per_hour")
+        dph, sh = t.get("deaths_per_hour"), (f.get("roles") or {}).get(main)
         out.append(EarlierRow(
             # the window is (from, to]: its first day is the day after from
             dates=f"{_day(s['from'], timedelta(days=1))} to {_day(s['to'])}",
             label=(s.get("label") or NA).rstrip("."),
-            role=NA if main is None else _pct((f.get("roles") or {}).get(main)) + "%",
+            role=NA if sh is None else f"{ROLE_NAME.get(main, str(main).title())} {_pct(sh)}%",
             deaths=NA if dph is None else f"{dph:.1f}",
             cooldowns=NA if t.get("cooldowns_share") is None else _pct(t["cooldowns_share"]) + "%"))
     return out
@@ -144,9 +150,15 @@ def _plate(now: dict) -> Plate:
         names, one = unused[:3], len(unused[:3]) == 1
         top = [s["name"] for s in sorted(now["signature"]["spells"], key=lambda s: -s["casts"])[:3]]
         carry = f"{_and(top)} {'carries' if len(top) == 1 else 'carry'} your casts. " if top else ""
-        bench = f"{_and(names)} {'is the harmful spell' if one else 'are the harmful spells'} left on the bench."
+        met = now.get("restricted") or {}
+        free = [x for x in names if x not in met]
+        bench = (f"{_and(free)} {'is the harmful spell' if len(free) == 1 else 'are the harmful spells'} left on "
+                 "the bench." if free else "")
+        works = " ".join(f"{x} works on {_and([TYPE_WORD.get(k, k.lower()) for k in met[x]['types']])}. You fought "
+                         f"{met[x]['foes']:,} of them in {_plural(met[x]['fights'], 'fight')} and cast it 0 times."
+                         for x in names if x in met)
         return Plate(f"You know {_and(names)} and have never cast {'it' if one else 'them'}", "0 casts", fights,
-                     carry + bench)
+                     " ".join(w.strip() for w in (carry, bench, works) if w))
     if dying is not None and dying >= PLATE_DEATHS:
         return Plate(f"You die in {_pct(dying)}% of your fights", _plural(t["deaths"], "death"), fights,
                      f"{t['deaths']} of your last {n} fights ended with you dead.")
@@ -198,16 +210,23 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     casts = sig["basis"] == "casts"
     v.sig_header = "share of your casts" if casts else "share of your damage"
     v.spells_header = "share of casts" if casts else "share of damage"
+    def name_count(s) -> tuple[str, str]:
+        """Melee shows as auto attack with its swings (none shown when not every fight saved a count)"""
+        if s["name"] != "Melee":
+            return s["name"], f"{s['casts']:,}"
+        swings = s.get("swings")
+        return MELEE, "" if swings is None else f"{swings:,} swings"
+
     for s in sig["top"]:
         has = bool(s["share"])
-        v.signature.append(Row(s["name"], _pct(s["share"]) if has else NA, "%" if has else "", ink="tx2",
-                               bar=s["share"] if has else None, casts=f"{s['casts']:,}",
+        name, count = name_count(s)
+        v.signature.append(Row(name, _pct(s["share"]) if has else NA, "%" if has else "", ink="m-dmg",
+                               bar=s["share"] if has else None, casts=count,
                                note="" if has else "no damage of its own"))
     if not sig["top"]:
         v.signature.append(Row("Spells", note="no spell casts saved in these fights"))
     v.spells_title = f"All spells ({len(sig['spells'])})"
-    v.spells = [(s["name"], f"{s['casts']:,}", f"{s['share'] * 100:.1f}%" if s["share"] else NA)
-                for s in sig["spells"]]
+    v.spells = [(*name_count(s), f"{s['share'] * 100:.1f}%" if s["share"] else NA) for s in sig["spells"]]
     if o := now.get("opener"):
         v.opener = ", ".join(o["casts"])
         v.opener_note = f"your usual opening: the first three casts in {o['count']} of {o['of']} fights"
@@ -218,29 +237,30 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     if h:
         runs, combat = _plural(h["runs"], "recorded run"), h["combat_seconds"]
         g = lambda k: lambda f: (f.get("hands") or {}).get(k)  # noqa: E731
-        ks = h["key_share"]
+        ks, cut = h["key_share"], h.get("cut_share")
         v.hands = [
             share(Row("Keys or clicks", _pct(ks), "% keys" if ks is not None else "",
                       f"{h['by_click']:,} clicks in {h['by_key'] + h['by_click']:,} presses, in {runs}"),
                   g("key_share"), "more keys", "more clicks"),
             Row("Presses per minute", NA if h["per_minute"] is None else f"{h['per_minute']:.1f}",
-                note=f"over {_hm(combat)} of combat in recorded runs"),
+                note=f"over {_hm(combat)} of combat in recorded runs", ink="m-act"),
             share(Row("Refused presses", _pct(h["refused_share"]), "%" if h["refused_share"] is not None else "",
                       f"{h['failed']:,} presses the game turned down, in recorded runs", ink="m-cast"),
                   g("refused_share"), "more refused", "fewer refused"),
-            share(Row("Moving in combat", _pct(h["moving_share"]), "%" if h["moving_share"] is not None else "",
-                      f"{_hm(h['moving_seconds'])} on the move in {_hm(combat)} of combat, in recorded runs",
-                      ink="m-cast"),
-                  g("moving_share"), "more on the move", "more standing still")]
+            share(Row("Cut short by moving", _pct(cut), "%" if cut is not None else "",
+                      "no cut casts saved in these runs" if cut is None else
+                      f"{h['move_interrupts']:,} of {h['casts']:,} casts cut because you started to move"
+                      + ("" if h["wasted_cast_time"] is None else f", {h['wasted_cast_time']:.1f} s of cast time lost")
+                      + ", in recorded runs", ink="m-cast"),
+                  g("cut_share"), "more cut short", "fewer cut short")]
     else:
         v.hands = [Row("Keys, clicks and presses", note=NO_HANDS)]
 
     for role in ("damage", "healer", "tank"):
         sh, gr = now["roles"][role], (now.get("grades") or {}).get(role)
-        row = Row(role.title(), _pct(sh), "%" if sh is not None else "",
-                  ink="tx2", bar=sh)
+        row = Row(ROLE_NAME[role], _pct(sh), "%" if sh is not None else "", ink=ROLE_INK[role], bar=sh)
         if gr:
-            # the painter colours the letter with theme.grade_color(letter): there is no gF token
+            # the painter colours the letter and score with theme.grade_color(letter): there is no gF token
             row.grade, row.letter = f"{gr['score']:.0f}", gr["grade"]
             row.note = f"average of {_plural(gr['runs'], 'graded run')}"
         else:
@@ -250,8 +270,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     places = now["places"]
     for place in sorted(places, key=lambda k: -(places[k] or 0)):
         sh = places[place]
-        v.places.append(share(Row(place, _pct(sh), "%" if sh is not None else "", ink="tx2", bar=sh,
-                                  note="dungeon and boss fights" if place == "Dungeon" else ""),
+        v.places.append(share(Row(place, _pct(sh), "%" if sh is not None else "", ink=PLACE_INK[place], bar=sh),
                               lambda f, k=place: f["places"][k], *PLACE_MOVE[place]))
 
     t = now["temperament"]
@@ -263,7 +282,8 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
         Row("Usual pull", f"{pull:g}", "enemy" if pull == 1 else "enemies",
             f"alone in {t['alone']} of {n} fights, {t['mean_pull']:.1f} on average"),
         Row("Average lowest health", _pct(low), "%" if low is not None else "",
-            "the lowest you dropped, over " + _plural(n, "fight") if low is not None else "no health saved"),
+            "the lowest you dropped, over " + _plural(n, "fight") if low is not None else "no health saved",
+            ink="m-surv"),
         share(Row("Cooldowns used", NA, ink="m-cd", note="no cooldown with a known count in these fights")
               if cds is None else
               Row("Cooldowns used", _pct(cds), "%", f"{t['cooldowns_used']:,} of {t['cooldowns_possible']:,} "

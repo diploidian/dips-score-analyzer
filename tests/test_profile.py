@@ -27,7 +27,8 @@ def fight(days_ago=1.0, me="A", **kw):
 
 def run(days_ago=1.0, **kw):
     r = {"start": T0 - days_ago * DAY, "role": "damage", "score": 85.0, "grade": "A", "presses": 100,
-         "by_key": 90, "by_click": 10, "failed": 5, "casts": 95, "combat_time": 600, "moving_time": 60}
+         "by_key": 90, "by_click": 10, "failed": 5, "casts": 95, "combat_time": 600, "move_interrupts": 4,
+         "wasted_cast_time": 6.5}
     r.update(kw)
     return r
 
@@ -70,7 +71,31 @@ class Figures(unittest.TestCase):
 
     def test_places_boss_is_dungeon(self):
         fs = [fight(1, kind="Boss"), fight(1, kind="Dungeon"), fight(1, kind="World"), fight(1, kind="PvP")]
-        self.assertEqual(profile(fs, None, {}, [], T0)["now"]["places"], {"Dungeon": 0.5, "World": 0.25, "PvP": 0.25})
+        self.assertEqual(profile(fs, None, {}, [], T0)["now"]["places"],
+                         {"Dungeon": 0.5, "Raid": 0.0, "World": 0.25, "PvP": 0.25})     # old fights: no difficulty, never Raid
+
+    def test_places_by_difficulty(self):
+        fs = [fight(1, kind="Dungeon", instance=33, difficulty=1), fight(1, kind="Boss", instance=409, difficulty=9),
+              fight(1, kind="Boss", instance=0, difficulty=0), fight(1, kind="Dungeon", instance=1, difficulty=999),
+              fight(1, kind="World", instance=0, difficulty=0), fight(1, kind="PvP", instance=30, difficulty=9),
+              fight(1, kind="Dungeon", instance=0, difficulty=148), fight(1, kind="Boss")]
+        self.assertEqual(profile(fs, None, {}, [], T0)["now"]["places"],
+                         {"Dungeon": 3 / 8, "Raid": 2 / 8, "World": 2 / 8, "PvP": 1 / 8})
+        raid = profile([fight(1, kind="Boss", instance=409, difficulty=9)], None, {}, [], T0)["now"]
+        self.assertEqual(raid["label"], "Careful raid damage dealer.")
+
+    def test_restricted_spells(self):
+        char = {"spells": {"Exorcism": {"harm": True}, "Turn Undead": {"harm": True}, "Smite": {"harm": True}}}
+        book = {"Smite": {"last": (T0 - DAY).isoformat()}}
+        fs = [fight(2, foes=[["Ghoul", 3], ["Wolf", 1]]), fight(2, foes=[["Imp", 2]]), fight(2, foes=[["Wolf", 4]])]
+        n = profile(fs, char, book, [], T0)["now"]
+        self.assertEqual((n["unused"], n["restricted"]), ([], {}))                  # no creature types: left out
+        n = profile(fs, char, book, [], T0, {"Wolf": "Beast"})["now"]
+        self.assertEqual(n["unused"], [])                                           # none of them met
+        n = profile(fs, char, book, [], T0, {"Ghoul": "Undead", "Imp": "Demon", "Wolf": "Beast"})["now"]
+        self.assertEqual(n["unused"], ["Exorcism", "Turn Undead"])
+        self.assertEqual(n["restricted"], {"Exorcism": {"types": ["Undead", "Demon"], "foes": 5, "fights": 2},
+                                           "Turn Undead": {"types": ["Undead"], "foes": 3, "fights": 1}})
 
     def test_opener(self):
         o = ["A", "B", "C"]
@@ -94,7 +119,7 @@ class Figures(unittest.TestCase):
     def test_click_share_ignores_unknown_source(self):
         n = profile([fight(1)], None, {}, [run(1, presses=1000, by_key=60, by_click=40)], T0)["now"]
         self.assertAlmostEqual(n["hands"]["click_share"], 0.4)        # 40 of 100 keyed or clicked, not of 1000
-        self.assertTrue(n["label"].endswith(" who clicks."))
+        self.assertNotIn(" who ", n["label"])                          # clicking is the plate's, not the label's
         none = profile([fight(1)], None, {}, [run(1, by_key=0, by_click=0)], T0)["now"]
         self.assertIsNone(none["hands"]["click_share"])
         self.assertFalse(" who " in none["label"])
@@ -109,9 +134,9 @@ class Figures(unittest.TestCase):
         self.assertEqual((sig["basis"], sig["top"][0]["name"], sig["top"][0]["share"]), ("casts", "Heal", 0.9))
 
     def test_unused(self):
-        char = {"spells": {"Exorcism": {"harm": True}, "Smite": {"harm": True}, "Heal": {"harm": False}}}
+        char = {"spells": {"Hammer of Wrath": {"harm": True}, "Smite": {"harm": True}, "Heal": {"harm": False}}}
         book = {"Smite": {"last": (T0 - DAY).isoformat()}}
-        self.assertEqual(profile([fight(2)], char, book, [], T0)["now"]["unused"], ["Exorcism"])
+        self.assertEqual(profile([fight(2)], char, book, [], T0)["now"]["unused"], ["Hammer of Wrath"])
 
 
 class Label(unittest.TestCase):
@@ -124,8 +149,8 @@ class Label(unittest.TestCase):
         self.assertEqual(label(figs(places={"World": 0.4, "Dungeon": 0.3, "PvP": 0.3})), "Damage dealer.")
         self.assertEqual(label(figs(roles={"damage": 0, "healer": 1}, places={"World": 0, "Dungeon": 1},
                                     temperament={"deaths_per_hour": 0, "median_pull": 1}, hands={"click_share": 0.3})),
-                         "Careful dungeon healer who clicks.")
-        self.assertEqual(label(figs(hands={"click_share": 0.04})), "World damage dealer who keybinds.")
+                         "Careful dungeon healer.")
+        self.assertEqual(label(figs(hands={"click_share": 0.04})), "World damage dealer.")
         self.assertEqual(label(figs(hands={"click_share": 0.1})), "World damage dealer.")
 
     def test_from_profile(self):
@@ -206,20 +231,20 @@ class View(unittest.TestCase):
     def test_plate_order(self):
         clicky = [run(1, by_key=60, by_click=40)]
         cd = [{"possible": 10, "missed": 6}]
-        char = {"spells": {"Exorcism": {"harm": True}}}
+        char = {"spells": {"Hammer of Wrath": {"harm": True}}}
         deadly = many(2, result="you died", cooldowns=cd) + many(8, cooldowns=cd)
         self.assertEqual(page(deadly, clicky, char).plate.title, "You click instead of pressing keys")
         self.assertEqual(page(deadly, char=char).plate.title, "You leave your cooldowns unused")
         self.assertEqual(page(many(2, result="you died") + many(8), char=char).plate.title,
-                         "You know Exorcism and have never cast it")
+                         "You know Hammer of Wrath and have never cast it")
         p = page(many(2, result="you died") + many(8)).plate
         self.assertEqual((p.title, p.figure, p.button), ("You die in 20% of your fights", "2 deaths", "Open Habits"))
 
     def test_plate_why(self):
-        char = {"spells": {"Exorcism": {"harm": True}}}
+        char = {"spells": {"Hammer of Wrath": {"harm": True}}}
         ab = [{"name": "Smite", "casts": 3, "damage": 300}, {"name": "Seal", "casts": 1, "damage": 0}]
         self.assertEqual(page(many(abilities=ab), char=char).plate.why,
-                         "Smite and Seal carry your casts. Exorcism is the harmful spell left on the bench.")
+                         "Smite and Seal carry your casts. Hammer of Wrath is the harmful spell left on the bench.")
         self.assertEqual(page(many(cooldowns=[{"possible": 10, "missed": 6}])).plate.why,
                          "60 uses of a ready cooldown went unspent.")
         self.assertEqual(page(many(2, result="you died") + many(8)).plate.why,
@@ -305,12 +330,43 @@ class View(unittest.TestCase):
         self.assertEqual((k.value, k.unit, k.note), ("90", "% keys", "10 clicks in 100 presses, in 1 recorded run"))
         self.assertEqual((row(v.hands, "Refused presses").ink, row(v.hands, "Presses per minute").value),
                          ("m-cast", "10.0"))
-        self.assertEqual(row(v.hands, "Moving in combat").note, "1 min on the move in 10 min of combat, in recorded runs")
+        c = row(v.hands, "Cut short by moving")
+        self.assertEqual((c.value, c.unit, c.ink), ("4", "%", "m-cast"))
+        self.assertEqual(c.note, "4 of 95 casts cut because you started to move, 6.5 s of cast time lost, in recorded runs")
+        self.assertEqual((row(v.hands, "Presses per minute").ink, row(v.temperament, "Average lowest health").ink),
+                         ("m-act", "m-surv"))
+
+    def test_cut_short_unknown_without_move_keys(self):
+        old = run(1)
+        del old["move_interrupts"], old["wasted_cast_time"]
+        h = profile(many(), None, {}, [run(1), old], T0)["now"]["hands"]
+        self.assertEqual((h["move_interrupts"], h["wasted_cast_time"], h["cut_share"]), (None, None, None))
+        c = row(page(many(), [old]).hands, "Cut short by moving")
+        self.assertEqual((c.value, c.note), ("–", "no cut casts saved in these runs"))
+        both = profile(many(), None, {}, [run(1), run(1)], T0)["now"]["hands"]
+        self.assertEqual((both["move_interrupts"], both["wasted_cast_time"]), (8, 13.0))
+        self.assertAlmostEqual(both["cut_share"], 8 / 190)
+
+    def test_melee_leads_with_swings(self):
+        ab = [{"name": "Melee", "casts": 0, "damage": 460}, {"name": "Seal of Command", "casts": 0, "damage": 140},
+              {"name": "Smite", "casts": 3, "damage": 400}, {"name": "Seal", "casts": 1, "damage": 0}]
+        fs = many(abilities=ab, auto={"swings": 20})
+        sig = profile(fs, None, {}, [], T0)["now"]["signature"]
+        self.assertAlmostEqual(sum(s["share"] for s in sig["spells"]), 1.0)
+        self.assertEqual([s["name"] for s in sig["top"]], ["Melee", "Smite", "Seal of Command", "Seal"])
+        v = page(fs)
+        m = v.signature[0]
+        self.assertEqual((m.name, m.value, m.casts, m.ink), ("Melee (auto attack)", "46", "200 swings", "m-dmg"))
+        self.assertEqual(v.spells[0], ("Melee (auto attack)", "200 swings", "46.0%"))
+        self.assertEqual(v.spells[-1], ("Seal", "10", "–"))
+        # one fight without a swing count: the count is not shown
+        v = page(fs[:9] + many(1, abilities=ab))
+        self.assertEqual(v.signature[0].casts, "")
 
     def test_roles_grade(self):
         v = page(many(), [run(1)])
         d, h = row(v.roles, "Damage"), row(v.roles, "Healer")
-        self.assertEqual((d.grade, d.letter, d.note, d.ink), ("85", "A", "average of 1 graded run", "tx2"))
+        self.assertEqual((d.grade, d.letter, d.note, d.ink), ("85", "A", "average of 1 graded run", "role-dmg"))
         self.assertEqual((h.grade, h.note, h.value), ("–", "no run graded as healer yet", "0"))
 
     def test_healer_signature(self):
@@ -330,11 +386,35 @@ class View(unittest.TestCase):
         self.assertEqual((v.opener, v.opener_note),
                          ("Seal, Smite, Smite", "your usual opening: the first three casts in 10 of 10 fights"))
 
+    def test_restricted_plate(self):
+        char = {"spells": {"Exorcism": {"harm": True}}}
+        types = {"Ghoul": "Undead", "Imp": "Demon"}
+        fs = many(6, foes=[["Ghoul", 3], ["Imp", 1]]) + many(4)
+        v = build_profile(profile(fs, char, {}, [], T0, types), [])
+        self.assertEqual(v.plate.title, "You know Exorcism and have never cast it")
+        self.assertEqual(v.plate.why, "Smite carries your casts. Exorcism works on undead and demons. "
+                                      "You fought 24 of them in 6 fights and cast it 0 times.")
+        self.assertNotEqual(page(fs, char=char).plate.title, "You know Exorcism and have never cast it")
+
+    def test_inks(self):
+        v = page(many(kind="Dungeon"), [run(1)])
+        self.assertEqual([r.ink for r in v.roles], ["role-dmg", "role-heal", "role-tank"])
+        self.assertEqual({r.name: r.ink for r in v.places},
+                         {"Dungeon": "place-dungeon", "Raid": "place-raid", "World": "place-world", "PvP": "place-pvp"})
+        self.assertEqual([r.ink for r in v.temperament], ["m-surv", "tx", "m-surv", "m-cd"])
+
+    def test_earlier_old_slice(self):
+        old = {"from": (T0 - 30 * DAY).isoformat(), "to": (T0 - 15 * DAY).isoformat(), "fights": 12, "label": None,
+               "figures": {"main_role": "healer", "temperament": {}}}
+        e = page(many(), earlier=[old]).earlier[0]
+        self.assertEqual((e.label, e.role, e.deaths, e.cooldowns), ("–", "–", "–", "–"))
+        self.assertEqual(page(many(), earlier=[slice_(15)]).earlier[0].role, "Damage 90%")
+
     def test_earlier_newest_first(self):
         v = page(many(), earlier=[slice_(45, "Reckless world hybrid.", 0.55, 7.0, 0.61), slice_(15, dph=None)])
         self.assertEqual([e.dates for e in v.earlier], ["25 Oct to 8 Nov", "25 Sep to 9 Oct"])
         e = v.earlier[1]
-        self.assertEqual((e.label, e.role, e.deaths, e.cooldowns), ("Reckless world hybrid", "55%", "7.0", "61%"))
+        self.assertEqual((e.label, e.role, e.deaths, e.cooldowns), ("Reckless world hybrid", "Damage 55%", "7.0", "61%"))
         self.assertEqual(v.earlier[0].deaths, "–")
 
     def test_missing_values_dash(self):

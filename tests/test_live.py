@@ -32,6 +32,14 @@ def dmg(sec, src, dst, spell_id, name, amount):
 
 
 class Live(unittest.TestCase):
+    def test_summary_saves_difficulty(self):
+        log = [line(0, 'ZONE_CHANGE,409,"Molten Core",9'),
+               *[dmg(t, ME, MOB, 8092, "Mind Blast", 300) for t in (1, 3, 5, 7)],
+               line(8, f"UNIT_DIED,{NONE},{MOB},0"), line(40, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")]
+        tr = Tracker()
+        s = summarize(tr.feed_lines(log)[0], tr.me, tr.me_name, {}, [])
+        self.assertEqual((s["kind"], s["instance"], s["difficulty"]), ("Dungeon", 409, 9))
+
     def test_two_fights_and_a_summary(self):
         log = [
             line(0, f"SPELL_CAST_SUCCESS,{ME},{MOB},8092,\"Mind Blast\",0x20"),
