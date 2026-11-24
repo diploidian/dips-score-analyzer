@@ -389,6 +389,9 @@ class Page(unittest.TestCase):
         streak = next(r for r in pace if r.key == "Streak")
         self.assertEqual(streak.next, "Surviving at 80, you are at 40")
         self.assertEqual(v.traits_title, f"All traits ({sum(len(r) for _, r in v.traits)})")
+        self.assertTrue(all(r.bar > 0 for _, rows in v.traits for r in rows))       # no score: not listed
+        self.assertTrue(all(rows for _, rows in v.traits))
+        self.assertNotIn("Shot", {r.key for _, rows in v.traits for r in rows})
 
     def test_next_and_now_never_read_the_same(self):
         of = lambda v: dict(self.page(many(40, pull={"since_last": v})).traits)["Pace"][0].next  # noqa: E731
@@ -441,7 +444,7 @@ class Page(unittest.TestCase):
         now = plain(40, pull={"since_last": 15})
         v = self.page(self.before(pull={"since_last": 60}) + now)
         self.assertEqual((v.ring, v.ring_key, v.card[0].mark), ("new: Relentless", "Tempo", "new: Relentless"))
-        self.assertEqual(sum(bool(r.mark) for r in v.card + v.hands + v.roles + v.places + v.temperament), 1)
+        self.assertEqual(sum(bool(r.mark) for r in v.card + v.hands + v.roles + v.places), 1)
         self.assertEqual(v.before, "Before: Steady Slayer of the Wilds")
         self.assertIsNone(self.page(self.before(pull={"since_last": 15}) + now).ring)
         self.assertIsNone(self.page(self.before(29, pull={"since_last": 60}) + now).ring)   # Before's is not known

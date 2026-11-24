@@ -1,12 +1,12 @@
 """What the Profile page shows, as plain data (no Qt), from live.profile.profile() and the saved 15-day slices
 (live.profile_history): the crest (title, second line, deeds), the hero (the title's trait, or the main role's share
-without one) and the label, the "Before:" line, the Worth changing plate, How you fight, every trait, Signature (no per-row note but "no damage of its own" for a "–" share), Hands, Role mix, Where you fight, Temperament, the chips and the one highlighter mark (Now against
+without one) and the label, the "Before:" line, the Worth changing plate, How you fight, every trait, Signature (no per-row note but "no damage of its own" for a "–" share), Hands (no chip, never marked), Role mix, Where you fight, the chips and the one highlighter mark (Now against
 Before: a trait's tier that Before had not reached, else the largest move, on a tie the increase, then page order), the
 Earlier rows and every empty state. A
 value that cannot be known renders "–", never a guess.
 
-Inks are token names: Signature bars "m-dmg", Role mix bars ROLE_INK, Where you fight bars PLACE_INK, scored
-rows their measure ink ("m-cast", "m-surv", "m-cd", "m-act"), other figures "tx". A Role mix grade letter and
+Inks are token names: Signature bars "m-dmg", Role mix bars ROLE_INK, Where you fight bars PLACE_INK, other
+figures "tx". A Role mix grade letter and
 score take theme.grade_color(letter), which the painter applies (there is no token per grade)."""
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -99,7 +99,7 @@ class EarlierRow:
 @dataclass
 class ProfileView:
     title: str = "Profile"      # the character's name
-    meta: str = ""              # "level 36 Undead Paladin · gear 31 · last 15 days · 396 fights"
+    meta: str = ""              # "gear 31 · last 15 days · 396 fights", with no crest also "level 36 Undead Paladin"
     need: str | None = None     # under MIN_FIGHTS: the headline; the page then shows only it, need_line and Earlier
     need_line: str = ""
     crest: Crest | None = None
@@ -108,7 +108,7 @@ class ProfileView:
     ring_key: str | None = None     # How you fight row of that trait
     card: list[Row] = field(default_factory=list)       # How you fight, the title's own row first
     traits_title: str = "All traits (0)"
-    traits: list[tuple[str, list[TraitRow]]] = field(default_factory=list)      # by family
+    traits: list[tuple[str, list[TraitRow]]] = field(default_factory=list)      # by family, those that score
     hero: str = NA              # the title's trait "25", or the main role's share "98"
     hero_unit: str = "%"
     caption: str = ""           # "between one fight and the next"
@@ -127,7 +127,6 @@ class ProfileView:
     hands: list[Row] = field(default_factory=list)
     roles: list[Row] = field(default_factory=list)
     places: list[Row] = field(default_factory=list)
-    temperament: list[Row] = field(default_factory=list)
     earlier_title: str = "Earlier (0)"
     earlier: list[EarlierRow] = field(default_factory=list)            # newest first
 
@@ -307,8 +306,9 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     """the page for live.profile.profile(...)'s result and this character's saved slices"""
     now, before = p.get("now"), p.get("before")
     n = now["fights"] if now else 0
+    window = f"last 15 days · {_plural(n, 'fight')}"
     v = ProfileView(title=p.get("name") or "Profile", earlier=_earlier(earlier),
-                    meta=_meta({"char": p.get("char"), "level": p.get("level")}, f"last 15 days · {_plural(n, 'fight')}"))
+                    meta=_meta({"char": p.get("char"), "level": p.get("level")}, window))
     v.earlier_title = f"Earlier ({len(v.earlier)})"
     if n < MIN_FIGHTS:
         v.need = f"Your profile needs {MIN_FIGHTS} fights from the last 15 days ({n} so far)."
@@ -328,6 +328,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
 
     main, hero = now["main_role"], now["hero"]
     v.crest = Crest(_who(p), now["title"], now["second"], now["deeds"])
+    v.meta = _meta({"char": {"gear": (p.get("char") or {}).get("gear")}}, window)      # the crest says the rest
     v.outdated = OUTDATED if now["outdated"] else ""
     if hero:
         v.hero, v.hero_unit, v.caption = hero["figure"], hero["unit"], hero["caption"]
@@ -340,8 +341,10 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
         v.before = f"Before: {before['title']}"
     v.plate = _plate(now, before)
 
+    # Cut short by moving always shows when it is known, after the pack (Planted is the same figure)
+    cut = ["cut"] if "cut" in now["rows"] and not {"cut", "Planted"} & set(now["pack"]) else []
     card = {}
-    for k in now["pack"]:
+    for k in now["pack"] + cut:
         r = now["rows"][k]
         value, unit = shown(r["kind"], r["figure"])
         row = Row(r["name"], value, f"{unit} {r['unit']}".strip(), r["note"], bar=r["figure"] if r["share"] else None)
@@ -354,11 +357,12 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
         card[k] = row
     v.card = list(card.values())
     card_moves, moves[:] = moves[:], []      # last in page order: on a tie the older row keeps the mark
-    for t in now["traits"]:
+    scored = [t for t in now["traits"] if t["score"] > 0]
+    for t in scored:
         if not v.traits or v.traits[-1][0] != t["family"]:
             v.traits.append((t["family"], []))
         v.traits[-1][1].append(_trait_row(t))
-    v.traits_title = f"All traits ({len(now['traits'])})"
+    v.traits_title = f"All traits ({len(scored)})"
 
     sig = now["signature"]
     casts = sig["basis"] == "casts"
@@ -390,23 +394,14 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     h = now.get("hands")
     if h:
         runs, combat = _plural(h["runs"], "recorded run"), h["combat_seconds"]
-        g = lambda k: lambda f: (f.get("hands") or {}).get(k)  # noqa: E731
-        ks, cut = h["key_share"], h.get("cut_share")
+        ks, refused = h["key_share"], h["refused_share"]
         v.hands = [
-            share(Row("Keys or clicks", _pct(ks), "% keys" if ks is not None else "",
-                      f"{h['by_click']:,} clicks in {h['by_key'] + h['by_click']:,} presses, in {runs}"),
-                  g("key_share"), "more keys", "more clicks"),
+            Row("Keys or clicks", _pct(ks), "% keys" if ks is not None else "",
+                f"{h['by_click']:,} clicks in {h['by_key'] + h['by_click']:,} presses, in {runs}"),
             Row("Presses per minute", NA if h["per_minute"] is None else f"{h['per_minute']:.1f}",
-                note=f"over {_hm(combat)} of combat in recorded runs", ink="m-act"),
-            share(Row("Refused presses", _pct(h["refused_share"]), "%" if h["refused_share"] is not None else "",
-                      f"{h['failed']:,} presses the game turned down, in recorded runs", ink="m-cast"),
-                  g("refused_share"), "more refused", "fewer refused"),
-            share(Row("Cut short by moving", _pct(cut), "%" if cut is not None else "",
-                      "no cut casts saved in these runs" if h.get("move_interrupts") is None else
-                      f"{h['move_interrupts']:,} of {h['move_casts']:,} casts cut because you started to move, "
-                      f"{h['wasted_cast_time']:.1f} s of cast time lost, in {_plural(h['move_runs'], 'recorded run')}",
-                      ink="m-cast"),
-                  g("cut_share"), "more cut short", "fewer cut short")]
+                note=f"over {_hm(combat)} of combat in recorded runs"),
+            Row("Refused presses", _pct(refused), "%" if refused is not None else "",
+                f"{h['failed']:,} presses the game turned down, in recorded runs")]
     else:
         v.hands = [Row("Keys, clicks and presses", note=NO_HANDS)]
 
@@ -428,23 +423,6 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
         sh = places[place]
         v.places.append(share(Row(place, _pct(sh), "%" if sh is not None else "", ink=PLACE_INK[place], bar=sh),
                               lambda f, k=place: f["places"][k], *PLACE_MOVE[place]))
-
-    t = now["temperament"]
-    dph, pull, low, cds = t["deaths_per_hour"], t["median_pull"], t["lowest_hp"], t["cooldowns_share"]
-    v.temperament = [
-        Row("Deaths per hour", NA if dph is None else f"{dph:.1f}", ink="m-surv",
-            note=f"{_plural(t['deaths'], 'death')} in {_plural(n, 'fight')}, {_hm(now['seconds'])} of fighting"),
-        Row("Usual pull", NA, note="no pull size saved in these fights") if pull is None else
-        Row("Usual pull", f"{pull:g}", "enemy" if pull == 1 else "enemies",
-            f"alone in {t['alone']} of {n} fights, {t['mean_pull']:.1f} on average"),
-        Row("Average lowest health", _pct(low), "%" if low is not None else "",
-            "the lowest you dropped, over " + _plural(n, "fight") if low is not None else "no health saved",
-            ink="m-surv"),
-        share(Row("Cooldowns used", NA, ink="m-cd", note="no cooldown with a known count in these fights")
-              if cds is None else
-              Row("Cooldowns used", _pct(cds), "%", f"{t['cooldowns_used']:,} of {t['cooldowns_possible']:,} "
-                  f"possible, in {_plural(n, 'fight')}", ink="m-cd"),
-              lambda f: f["temperament"]["cooldowns_share"], "more cooldowns", "fewer cooldowns")]
 
     if new := _new_tier(now, before):
         v.ring, v.ring_key = f"new: {new['epithet']}", new["key"]

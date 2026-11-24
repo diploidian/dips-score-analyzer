@@ -371,7 +371,9 @@ class View(unittest.TestCase):
         v = page(many(), char=char)
         self.assertEqual((v.hero, v.hero_unit, v.caption), ("100", "%", "of fight time dealing damage"))
         self.assertEqual(v.label, "Careful world damage dealer.")
-        self.assertEqual(v.meta, "level 36 Scourge Paladin · last 15 days · 10 fights")
+        self.assertEqual((v.meta, v.crest.who), ("last 15 days · 10 fights", "Scourge Paladin, level 36"))
+        self.assertEqual(page(many(9), char=char).meta, "level 36 Scourge Paladin · last 15 days · 9 fights")     # no crest
+        self.assertEqual(page(many(), char=char | {"gear": {"1": 31}}).meta, "gear 31 · last 15 days · 10 fights")
         self.assertIsNone(v.need)
 
     def test_plate_order(self):
@@ -514,24 +516,21 @@ class View(unittest.TestCase):
         self.assertEqual((p.title, p.figure), ("Nothing stands out", "80% of possible damage"))
 
     def test_chip_threshold_and_sign(self):
-        cd = lambda used: [{"possible": 100, "missed": 100 - used}]  # noqa: E731
-        v = page(many(cooldowns=cd(60)) + many(days_ago=20, cooldowns=cd(55)))
-        c = row(v.temperament, "Cooldowns used")
-        self.assertEqual((c.chip, c.mark), ("+5 pts vs the 15 days before", "more cooldowns"))
-        v = page(many(cooldowns=cd(60)) + many(days_ago=20, cooldowns=cd(56)))
-        self.assertIsNone(row(v.temperament, "Cooldowns used").chip)
-        v = page(many(cooldowns=cd(40)) + many(days_ago=20, cooldowns=cd(52)))
-        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "−12 pts vs the 15 days before")
-        self.assertIsNone(row(v.temperament, "Deaths per hour").chip)      # per-hour figures get no chip
+        def dungeon(now, before):       # of 100 fights
+            mix = lambda n, **kw: many(n, kind="Dungeon", **kw) + many(100 - n, **kw)  # noqa: E731
+            return row(page(mix(before, days_ago=20) + mix(now)).places, "Dungeon")
+        c = dungeon(60, 55)
+        self.assertEqual((c.chip, c.mark), ("+5 pts vs the 15 days before", "more dungeons"))
+        self.assertIsNone(dungeon(60, 56).chip)
+        self.assertEqual(dungeon(40, 52).chip, "−12 pts vs the 15 days before")
 
     def test_chip_from_displayed_figures(self):
-        cd = lambda used: [{"possible": 1000, "missed": 1000 - used}]  # noqa: E731
-        v = page(many(cooldowns=cd(546)) + many(days_ago=20, cooldowns=cd(504)))      # 55 against 50: raw 4.2
-        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "+5 pts vs the 15 days before")
-        v = page(many(cooldowns=cd(554)) + many(days_ago=20, cooldowns=cd(496)))      # 55 against 50: raw 5.8
-        self.assertEqual(row(v.temperament, "Cooldowns used").chip, "+5 pts vs the 15 days before")
-        v = page(many(cooldowns=cd(544)) + many(days_ago=20, cooldowns=cd(496)))      # 54 against 50: raw 4.8
-        self.assertIsNone(row(v.temperament, "Cooldowns used").chip)
+        def chip(now, before):          # shares of the fight time
+            mix = lambda s, **kw: many(5, kind="Dungeon", duration=s, **kw) + many(5, duration=1 - s, **kw)  # noqa: E731
+            return row(page(mix(before, days_ago=20) + mix(now)).places, "Dungeon").chip
+        self.assertEqual(chip(.546, .504), "+5 pts vs the 15 days before")      # 55 against 50: raw 4.2
+        self.assertEqual(chip(.554, .496), "+5 pts vs the 15 days before")      # 55 against 50: raw 5.8
+        self.assertIsNone(chip(.544, .496))                                     # 54 against 50: raw 4.8
 
     def test_role_and_place_marks(self):
         v = page(many(healing_role=True) + many(days_ago=20))
@@ -542,7 +541,8 @@ class View(unittest.TestCase):
         self.assertEqual(row(v.places, "World").mark, "more open world")
 
     def test_meta_level_without_char(self):
-        self.assertEqual(page(many(level=30)).meta, "level 30 · last 15 days · 10 fights")
+        self.assertEqual(page(many(9, level=30)).meta, "level 30 · last 15 days · 9 fights")
+        self.assertEqual(page(many(level=30)).crest.who, "level 30")
 
     def test_highlighter_tie_break(self):
         # Dungeon 0 -> 50 and World 100 -> 50 both move 50 points; Dungeon grew
@@ -555,7 +555,7 @@ class View(unittest.TestCase):
 
     def test_no_before(self):
         v = page(many(kind="Dungeon"))
-        self.assertFalse(any(r.chip or r.mark for r in v.hands + v.roles + v.places + v.temperament))
+        self.assertFalse(any(r.chip or r.mark for r in v.card + v.hands + v.roles + v.places))
         self.assertIsNone(v.before)
 
     def test_before_line_only_when_titles_differ(self):
@@ -601,13 +601,27 @@ class View(unittest.TestCase):
         v = page(many(), [run(1)])
         k = row(v.hands, "Keys or clicks")
         self.assertEqual((k.value, k.unit, k.note), ("90", "% keys", "10 clicks in 100 presses, in 1 recorded run"))
-        self.assertEqual((row(v.hands, "Refused presses").ink, row(v.hands, "Presses per minute").value),
-                         ("m-cast", "10.0"))
-        c = row(v.hands, "Cut short by moving")
-        self.assertEqual((c.value, c.unit, c.ink), ("4", "%", "m-cast"))
-        self.assertEqual(c.note, "4 of 95 casts cut because you started to move, 6.5 s of cast time lost, in 1 recorded run")
-        self.assertEqual((row(v.hands, "Presses per minute").ink, row(v.temperament, "Average lowest health").ink),
-                         ("m-act", "m-surv"))
+        self.assertEqual([r.name for r in v.hands], ["Keys or clicks", "Presses per minute", "Refused presses"])
+        self.assertEqual(row(v.hands, "Presses per minute").value, "10.0")
+        self.assertEqual({r.ink for r in v.hands}, {"tx"})
+
+    def test_hands_never_stand_out(self):
+        """however far the input moved: no chip, no mark"""
+        runs = [run(1, by_key=100, by_click=0, failed=0), run(20, by_key=10, by_click=90, failed=90)]
+        v = page(many() + many(days_ago=20), runs)
+        self.assertFalse(any(r.chip or r.mark for r in v.hands))
+
+    def test_cut_short_is_play(self):
+        """always in How you fight when it is known, after the five, with its chip"""
+        fs = many(40, pull={"since_last": 60}, potential=400, damage=300, group=None, helped=False)
+        for runs, n in (([], 5), ([run(1)], 6)):
+            with self.subTest(n):
+                self.assertEqual(len(page(fs, runs).card), n)
+        v = page(many(days_ago=20) + many(), [run(1), run(20, move_interrupts=19)])
+        c = row(v.card, "Cut short by moving")
+        self.assertEqual((c.value, c.unit, c.note, c.chip),
+                         ("4", "%", "4 of 95 casts, in recorded runs", "−16 pts vs the 15 days before"))
+        self.assertEqual(sum(r.name == c.name for r in v.card), 1)
 
     def test_cut_short_unknown_without_move_keys(self):
         old = run(1)
@@ -615,8 +629,7 @@ class View(unittest.TestCase):
         h = profile(many(), None, {}, [old], T0)["now"]["hands"]
         self.assertEqual((h["move_runs"], h["move_interrupts"], h["wasted_cast_time"], h["cut_share"]),
                          (0, None, None, None))
-        c = row(page(many(), [old]).hands, "Cut short by moving")
-        self.assertEqual((c.value, c.note), ("–", "no cut casts saved in these runs"))
+        self.assertNotIn("Cut short by moving", [r.name for r in page(many(), [old]).card])
         both = profile(many(), None, {}, [run(1), run(1)], T0)["now"]["hands"]
         self.assertEqual((both["move_runs"], both["move_interrupts"], both["wasted_cast_time"]), (2, 8, 13.0))
         self.assertAlmostEqual(both["cut_share"], 8 / 190)
@@ -624,11 +637,9 @@ class View(unittest.TestCase):
         mixed = profile(many(), None, {}, [run(1), old], T0)["now"]["hands"]
         self.assertEqual((mixed["move_runs"], mixed["move_casts"], mixed["move_interrupts"]), (1, 95, 4))
         self.assertAlmostEqual(mixed["cut_share"], 4 / 95)
-        c = row(page(many(), [run(1), old]).hands, "Cut short by moving")
-        self.assertEqual(c.note, "4 of 95 casts cut because you started to move, 6.5 s of cast time lost, in 1 recorded run")
-        zero = row(page(many(), [run(1, casts=0, move_interrupts=0, wasted_cast_time=0.0)]).hands, "Cut short by moving")
-        self.assertEqual((zero.value, zero.note),
-                         ("–", "0 of 0 casts cut because you started to move, 0.0 s of cast time lost, in 1 recorded run"))
+        self.assertEqual(row(page(many(), [run(1), old]).card, "Cut short by moving").note, "4 of 95 casts, in recorded runs")
+        zero = page(many(), [run(1, casts=0, move_interrupts=0, wasted_cast_time=0.0)])
+        self.assertNotIn("Cut short by moving", [r.name for r in zero.card])
 
     def test_melee_leads_with_swings(self):
         ab = [{"name": "Melee", "casts": 0, "damage": 460}, {"name": "Seal of Command", "casts": 0, "damage": 140},
@@ -694,7 +705,6 @@ class View(unittest.TestCase):
         self.assertEqual([r.ink for r in v.roles], ["role-dmg", "role-heal", "role-tank"])
         self.assertEqual({r.name: r.ink for r in v.places},
                          {"Dungeon": "place-dungeon", "Raid": "place-raid", "World": "place-world", "PvP": "place-pvp"})
-        self.assertEqual([r.ink for r in v.temperament], ["m-surv", "tx", "m-surv", "m-cd"])
 
     def test_earlier_old_slice(self):
         old = {"from": (T0 - 30 * DAY).isoformat(), "to": (T0 - 15 * DAY).isoformat(), "fights": 12, "label": None,
@@ -713,7 +723,6 @@ class View(unittest.TestCase):
     def test_missing_values_dash(self):
         v = page(many(duration=0, more=None, lowest_hp=None))
         self.assertEqual((v.hero, v.hero_unit), ("–", ""))
-        self.assertEqual([r.value for r in v.temperament], ["–", "–", "–", "–"])
         self.assertTrue(all(r.value == "–" for r in v.roles + v.places))
         self.assertEqual(v.opener, "–")
 

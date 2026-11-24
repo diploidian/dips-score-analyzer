@@ -487,9 +487,11 @@ class ShellTests(unittest.TestCase):
             self.assertEqual(page.plate.title, "Nothing stands out")
             self.assertEqual([r.name for r in page.roles.rows], ["Damage", "Healer", "Tank"])
             self.assertIn("Hands needs a recorded run", page.hands.rows[0].note)
+            self.assertEqual((page.hands_drawer.label, page.hands.isHidden()), ("HANDS (0)", True))
+            self.assertEqual((page.crest.crest.title, page.outdated.isHidden()), ("Slayer of Blackfathom Deeps", False))
             self.assertEqual(len(page.earlier.rows), 1)
-            for part in (page.hero, page.need, page.signature, page.table, page.hands, page.roles, page.places,
-                         page.temperament, page.earlier):
+            for part in (page.crest, page.hero, page.need, page.signature, page.table, page.card, page.hands, page.roles,
+                         page.places, page.traits, page.earlier):
                 self.assertTrue(part.accessibleName(), part)
             self.assertIn("no run graded as healer yet", page.roles.accessibleName())
             self.assertIn("Careful world damage dealer.", page.hero.accessibleName())
@@ -522,6 +524,74 @@ class ShellTests(unittest.TestCase):
                              ("Judge sat ready", [("Conse", "80 damage"), ("Strike", "70 damage")]))
             self.assertTrue(page.plate.accessibleName().startswith("Worth changing: Judge sat ready. about 90 damage. "))
             self.assertTrue(page.plate.accessibleName().endswith("Next: Conse 80 damage, Strike 70 damage"))
+
+    def test_profile_parts(self):
+        """the crest's title never cut, the ring's place, the drawers, the outdated line, and nothing sideways"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])
+        from dips_score.live.titles import NOUNS, THE
+        from dips_score.live.traits import NAMED, TRAITS
+        from dips_score.profile_view import OUTDATED, Crest, Plate, ProfileView, Row, TraitRow
+        from dips_score.ui.kit import adv, font
+        from dips_score.ui.profileview import ProfilePage, fit_title
+        longest = lambda xs: max(xs, key=len)  # noqa: E731
+        noun, place = longest(n for t in NOUNS.values() for n in t.values()), "the " + longest(THE)
+        titles = [f"{longest(e for t in TRAITS for e in t.epithets)} {noun} of {place}", f"{longest(n for *_, n in NAMED)}, {noun} of {place}",
+                  f"{longest(n for *_, n in NAMED)}, {noun}, Scourge of the Twilight's Hammer", "Slayer"]
+        for title in titles:
+            for w in (200, 340, 410, 620):
+                with self.subTest(title=title, w=w):
+                    px, lines = fit_title(title, w)
+                    self.assertEqual(" ".join(lines), title)
+                    self.assertTrue(all(adv(font(px, 700, num=True), x) <= w for x in lines))
+                    self.assertLessEqual(len(lines), 4)
+        self.assertEqual(fit_title("Relentless Crusader of the Arathi Highlands", 410)[1],
+                         ["Relentless Crusader", "of the Arathi Highlands"])
+        self.assertEqual(fit_title("The Unfelled, Rimecaller of the Wilds", 410)[1][0], "The Unfelled,")
+        self.assertEqual(fit_title("Slayer", 620)[0], 74)
+
+        deed = "won after dropping to 2% health against Bloodscalp Berserker"
+        tempo = Row("Time between fights", "25", "s", "between one fight and the next", mark="new: Relentless")
+        edge = Row("Possible damage reached", "86", "%", "of possible damage reached", bar=.86, chip="+6 pts vs the 15 days before")
+        v = ProfileView(title="Bao", crest=Crest("Undead Paladin, level 37", "the Lone Storm, Crusader of the Wilds", "Wins on the edge.", [deed]),
+                        outdated=OUTDATED, plate=Plate("Nothing stands out", "80% of possible damage", "in 300 fights where you did damage"), ring="new: Relentless", ring_key="Tempo", card=[tempo, edge], hero="25", hero_unit="s",
+                        hands=[Row("Keys or clicks", "99", "% keys"), Row("Presses per minute", "21.2"), Row("Refused presses")],
+                        traits=[("Pace", [TraitRow("Tempo", "Time between fights", "25", "s", "", .9, "Relentless"),
+                                          TraitRow("Streak", "Longest run without a death", "97", "", "", .44, "Surviving",
+                                                   "Unfallen at 126, you are at 97")])])
+        page = ProfilePage()
+        page.settings = {"motion": False}
+        page.show_view(v)
+        page.enter()
+        self.assertEqual((page.crest.p, page.card.p), (1.0, 1.0))
+        self.assertEqual(page.crest.accessibleName(),
+                         "Crest: Undead Paladin, level 37. The Lone Storm, Crusader of the Wilds. Wins on the edge. "
+                         "Won after dropping to 2% health against Bloodscalp Berserker")
+        self.assertIn("new: Relentless", page.card.accessibleName())
+        self.assertIn("Longest run without a death 97, Surviving, Unfallen at 126, you are at 97", page.traits.accessibleName())
+        self.assertEqual((page.traits_drawer.accessibleName(), page.hands_drawer.accessibleName()), ("All traits (2)", "Hands (2)"))
+        self.assertFalse(page.traits_drawer.open or page.hands_drawer.open)
+        self.assertEqual((page.crest.note, page.outdated.isHidden()), ("", False))      # the card's row has the ring
+        tempo.mark = None
+        page.show_view(v)
+        self.assertEqual(page.crest.note, "new: Relentless")
+        self.assertIn("new: Relentless", page.crest.accessibleName())
+        for d in (page.traits_drawer, page.hands_drawer, page.spells_drawer):
+            d.flip()
+        for w, stacked, tight in ((1200, False, False), (960, True, False), (430, True, True), (278, True, True)):
+            with self.subTest(w):
+                page.resize(w, 800)
+                page.show()
+                app.processEvents()
+                self.assertEqual(page.fit[1:], (stacked, tight))
+                self.assertEqual(page.horizontalScrollBar().maximum(), 0)
+                self.assertFalse(page.grab().isNull())
+                top = lambda x: x.mapTo(page.widget(), x.rect().topLeft()).y()  # noqa: E731
+                self.assertEqual(top(page.side) > top(page.hands), stacked)
+                self.assertEqual(top(page.plate) > top(page.hero), tight)
+                self.assertLess(top(page.crest), top(page.hero))
+        page.hide()
 
     def test_profile_saves_own_data_only(self):
         """slices and run rows are saved only when the add-on's file was read and is the newest fight's character's"""

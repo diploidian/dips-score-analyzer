@@ -405,7 +405,9 @@ class Plate(Part):
             y += flow(p, words, x, y, cw, 7, 2) + 2
             price, gap = [], 7
         price += [(s, font(13), tok("plate-mu")) for s in (self.caption or "").split(" · ") if s]
-        if price:
+        if len(price) == 1 and adv(price[0][1], price[0][0]) > cw:
+            y += wrapped(p, price[0][1], price[0][2], x, y, cw, 13 * 1.4, price[0][0])
+        elif price:
             y += flow(p, price, x, y, cw, gap, 2)
         if self.body and self.body_last:
             y += 6 + wrapped(p, font(13), tok("plate-mu"), x, y + 6, cw, 13 * 1.4, self.body)
@@ -630,10 +632,11 @@ class Fold(QWidget):
 
 
 class Side(QWidget):
-    """the right-hand column, ruled off from the left"""
+    """the right-hand column, ruled off from the left (stacked: under it, ruled off at its top)"""
+    stacked = False
 
     def paintEvent(self, _ev):
-        QPainter(self).fillRect(QRectF(0, 0, 1, self.height()), tok("ln"))
+        QPainter(self).fillRect(QRectF(0, 0, *((self.width(), 1) if self.stacked else (1, self.height()))), tok("ln"))
 
 
 class SectionHead(Part):

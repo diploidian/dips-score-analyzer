@@ -1,18 +1,22 @@
 """The Profile page: who you are as a player over the last 15 days, painted from a ProfileView (see
-dips_score/profile_view.py): your main role's share of the fight time and the label, the plate, Signature and Hands
-on the left; Role mix, Where you fight and Temperament on the right; the finished 15-day slices in the Earlier drawer.
+dips_score/profile_view.py): the crest, the title's trait as the one big figure, the plate, Signature, How you fight and
+the Hands drawer on the left; Role mix, Where you fight and the All traits drawer on the right, under the left when both
+do not fit; the finished 15-day slices in the Earlier drawer.
 
 Sizes follow docs/design/mockups/profile.html (CSS px). The shared parts come from kit.py.
 """
 from __future__ import annotations
 
 import math
+import re
+from dataclasses import replace
 
 from PyQt6.QtCore import QEasingCurve, QPointF, QRectF, Qt, QVariantAnimation, pyqtSignal
 from PyQt6.QtGui import QPainter
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QBoxLayout, QFrame, QHBoxLayout, QScrollArea, QVBoxLayout, QWidget
 
-from ..profile_view import NA, EarlierRow, ProfileView, Row
+from ..live.traits import TIERS
+from ..profile_view import NA, Crest, EarlierRow, ProfileView, Row, TraitRow
 from . import theme
 from .debrief import FIGHTS_W, NARROW
 from .kit import (HEAD_H, Drawer, Fold, Hero, Part, Plate, Sheet, Side, adv, baseline, box, draw_hand_circle,
@@ -20,7 +24,11 @@ from .kit import (HEAD_H, Drawer, Fold, Hero, Part, Plate, Sheet, Side, adv, bas
 from .theme import tok
 
 HERO_W = (260, 214)         # the hero's column (narrow)
-LEFT_MIN = 450              # the left column never gets narrower (the page scrolls sideways instead)
+LEFT_MIN = 450              # the left column's width, at least, with the right one beside it
+STACK = LEFT_MIN + 28 + FIGHTS_W + 2 * 16       # the page's width both columns need
+TIGHT = 400                 # a part narrower than this puts in two lines what it has in one
+NO_MAX = 16777215           # Qt's QWIDGETSIZE_MAX
+TITLE = ((2, 74, 44), (3, 64, 34), (4, 44, 26), (9, 36, 16))     # the crest's title: the first that fits of (lines, largest px, smallest)
 ENTRANCE_MS = 1760          # the one entrance, until the note has faded in; a part's p runs 0..1 over it
 COUNT_MS = GROW_MS = 700
 GROW_AT, STAGGER, STAGGERED = 150, 60, 8        # bars: when the first starts, each after it, how many do
@@ -39,6 +47,31 @@ def phase(p: float, start: float, ms: float, curve=OUT) -> float:
 def grow(p: float, i: int) -> float:
     """how much of the page's bar i is drawn"""
     return phase(p, GROW_AT + STAGGER * min(i, STAGGERED - 1), GROW_MS, GROW)
+
+
+def upper(s: str) -> str:
+    return s[:1].upper() + s[1:]
+
+
+def fit_title(s: str, w: float) -> tuple[int, list[str]]:
+    """the crest's title for a width: its px and its lines, never cut; "of" and "the" stay with their word on two lines"""
+    for most, big, small in TITLE:
+        words = re.findall(r"(?:(?:of|the) )*\S+", s) if most == 2 else s.split()
+        for px in range(big, small - 1, -2):
+            f, lines = font(px, 700, num=True), []
+            for word in words:
+                if lines and adv(f, f"{lines[-1]} {word}") <= w:
+                    lines[-1] += f" {word}"
+                else:
+                    lines.append(word)
+            if len(lines) > most or max(adv(f, x) for x in lines) > w:
+                continue
+            if len(lines) == 2:         # after a comma, else evenly
+                ways = [(" ".join(words[:k]), " ".join(words[k:])) for k in range(1, len(words))]
+                lines = list(min((x for x in ways if max(adv(f, y) for y in x) <= w),
+                                 key=lambda x: (x[0][-1] != ",", max(adv(f, y) for y in x))))
+            return px, lines
+    return px, lines
 
 
 def figure_ink(row: Row):
@@ -106,7 +139,7 @@ def spoken(title: str, rows: list[Row]) -> str:
     """what a screen reader says for a section"""
     return f"{title}: " + "; ".join(", ".join(filter(None, (
         f"{r.name} {r.value}{unit_text(r)}", spoken_casts(r.casts), f"grade {r.grade} {r.letter}" if r.letter else "",
-        r.note, r.chip))) for r in rows)
+        r.note, r.chip, r.mark))) for r in rows)
 
 
 def spoken_casts(casts: str) -> str:
@@ -119,11 +152,72 @@ class ProfileHero(Hero):
     def __init__(self):
         super().__init__()
         self.before = ""
-        self.verdict_look = (17, 600, "tx")
+        self.verdict_look = (14, 400, "tx2")
 
     def draw(self, p, w):
         y = super().draw(p, w)
-        return y + 4 + wrapped(p, font(14), tok("tx2"), 0, y + 4, w, 14 * 1.4, self.before) if self.before else y
+        return y + 4 + wrapped(p, font(13), tok("mu"), 0, y + 4, w, 13 * 1.4, self.before) if self.before else y
+
+
+class CrestBox(Part):
+    """the crest: in a double gold rule (2px, then 1px) who you are, the title as big as two lines allow, the second
+    line and the deeds. note: the page's ring, drawn round the title when its trait is on no row"""
+
+    def __init__(self):
+        super().__init__()
+        self.crest, self.note = Crest("", ""), ""
+
+    def set(self, c: Crest, note: str):
+        self.crest, self.note = c, note
+        self.setAccessibleName("Crest: " + ". ".join(x.rstrip(".") for x in filter(None, (
+            c.who, upper(c.title), note, c.second, *map(upper, c.deeds)))))
+        self.changed()
+
+    def draw(self, p, w):
+        c, x, pad = self.crest, 24 if w >= TIGHT else 18, 18
+        if p:
+            h = self.height()
+            box(p, QRectF(0, 0, w, h), tok("gold"), tok("panel"), 2)
+            box(p, QRectF(5, 5, w - 10, h - 10), tok("gold"))
+        iw, y = w - 2 * x, float(pad)
+        y += wrapped(p, font(15, 600), tok("tx2"), x, y, iw, 20, c.who) if c.who else 0
+        y += 4
+        px, lines = fit_title(upper(c.title), iw) if c.title else (1, [])
+        f, hf = font(px, 700, num=True), hand_font(23)
+        if self.note:
+            y += 12
+            if p:       # under the letters
+                tw = max(adv(f, s) for s in lines)
+                draw_hand_circle(p, QRectF(x - 9, y - 10, tw + 18, len(lines) * px + 20), tok("hl"), -0.6,
+                                 phase(self.p, DRAW_AT, DRAW_MS, IN_OUT))
+        for s in lines:
+            line(p, f, tok("tx"), x, y, px, s)
+            y += px
+        if self.note:
+            y += 12 + 24
+            if p:
+                p.setOpacity(phase(self.p, NOTE_AT, NOTE_MS))
+                draw_hand_note(p, self.note, QPointF(w - x - adv(hf, self.note) - 6, y - 6), None, 23)
+                p.setOpacity(1)
+        if c.second:
+            y += 8 + wrapped(p, font(16, 500), tok("tx"), x, y + 8, iw, 16 * 1.4, c.second)
+        if c.deeds:
+            y += 12
+            if p:
+                rule(p, x, y, iw, tok("gold"))
+            y += 1 + 9
+            for k, d in enumerate(c.deeds):
+                y += 4 if k else 0
+                y += wrapped(p, font(18, 600, num=True), tok("tx2"), x, y, iw, 18 * 1.2, upper(d))
+        return y + pad
+
+
+class Quiet(Part):
+    """one quiet line under the crest"""
+    text = ""
+
+    def draw(self, p, w):
+        return 8 + wrapped(p, font(13), tok("mu"), 0, 8, w, 13 * 1.4, self.text)
 
 
 class Need(Part):
@@ -155,6 +249,7 @@ class Signature(Part):
             rule(p, 0, 0, w, tok("ln"))
         draw_label_tab(p, 0, 1 + 14, "Signature")
         y = 1 + 14 + 25 + 8
+        tight = w < TIGHT               # the name and the share, then the bar and the casts under them
         name_w, cast_w, share_w = (172, 82, 40) if self.narrow else (170, 92, 44)
         nf = font(14, 500)      # the names get the room they need, down to a 100px bar
         longest = math.ceil(max((adv(nf, r.name) for r in v.signature), default=0)) + 1
@@ -162,10 +257,12 @@ class Signature(Part):
         cast_r = name_w + 12 + cast_w
         bx = cast_r + 12
         bw = max(0.0, w - bx - 12 - share_w)
+        if tight:
+            name_w, cast_r, bx, bw = w - share_w - 12, w, 0, w - cast_w - 12
         hf = font(11, 600, num=True, spacing=0.12)
         if p:
             right_text(p, hf, tok("mu"), cast_r, baseline(hf, y, 12), "CASTS")
-            line(p, hf, tok("mu"), bx, y, 12, elide(hf, v.sig_header.upper(), w - bx))
+            line(p, hf, tok("mu"), bx, y, 12, elide(hf, v.sig_header.upper(), w - bx - (60 if tight else 0)))
         y += 12 + 4
         cf, vf, tf = font(14, num=True), font(20, 700, num=True), font(12)
         for k, row in enumerate(v.signature):
@@ -173,10 +270,11 @@ class Signature(Part):
                 rule(p, 0, y, w, tok("ln"))
                 base = baseline(nf, y + 6, 20)
                 text_at(p, nf, tok("tx"), 0, base, elide(nf, row.name, name_w))
-                right_text(p, cf, tok("mu" if row.casts == NA else "tx"), cast_r, base, row.casts)
-                draw_bar(p, bx, y + 11, bw, row, self.p, k)
+                low = 22 if tight else 0
+                right_text(p, cf, tok("mu" if row.casts == NA else "tx"), cast_r, base + low, row.casts)
+                draw_bar(p, bx, y + 11 + low, bw, row, self.p, k)
                 right_text(p, vf, figure_ink(row), w, baseline(vf, y + 6, 20), row.value + row.unit)
-            y += 1 + 5 + 20
+            y += 1 + 5 + 20 + (22 if tight else 0)
             if row.note:
                 y += wrapped(p, tf, tok("mu"), bx, y, w - bx, 12 * 1.4, row.note)
             y += 5
@@ -184,8 +282,11 @@ class Signature(Part):
         if p:
             rule(p, 0, y, w, tok("tx"))
         y += 1 + 8
-        return y + flow(p, [(v.opener, font(17, 600, num=True), tok("mu" if v.opener == NA else "tx")),
-                            (v.opener_note, tf, tok("mu"))], 0, y, w, 14, 2) + 10
+        of, ink = font(17, 600, num=True), tok("mu" if v.opener == NA else "tx")
+        if max(adv(of, v.opener), adv(tf, v.opener_note)) > w:
+            y += wrapped(p, of, ink, 0, y, w, 21, v.opener) + 2
+            return y + wrapped(p, tf, tok("mu"), 0, y, w, 12 * 1.4, v.opener_note) + 10
+        return y + flow(p, [(v.opener, of, ink), (v.opener_note, tf, tok("mu"))], 0, y, w, 14, 2) + 10
 
 
 class SpellTable(Part):
@@ -204,21 +305,21 @@ class SpellTable(Part):
 
     def draw(self, p, w):
         hf, f, bf = font(11, 600, num=True, spacing=0.12), font(14, 500), font(14)
-        cast_r = w - 170
+        tight = w < TIGHT
+        cast_r = w - (64 if tight else 170)
         y = 0.0
         if p:
             line(p, hf, tok("mu"), 0, y, 12, "SPELL")
             right_text(p, hf, tok("mu"), cast_r, baseline(hf, y, 12), "CASTS")
-            right_text(p, hf, tok("mu"), w, baseline(hf, y, 12), self.header.upper())
+            right_text(p, hf, tok("mu"), w, baseline(hf, y, 12), "SHARE" if tight else self.header.upper())
         y += 12 + 6
         for name, casts, share in self.rows:
             if p:
                 rule(p, 0, y, w, tok("ln"))
                 base = baseline(f, y + 5, 19.6)
-                text_at(p, f, tok("tx"), 0, base, elide(f, name, cast_r - 100))
                 for s, right in ((casts, cast_r), (share, w)):
                     right_text(p, bf, tok("mu" if s == NA else "tx"), right, base, s)
-            y += 1 + 4 + 19.6 + 4
+            y += 1 + 4 + wrapped(p, f, tok("tx"), 0, y + 5, cast_r - 94, 19.6, name) + 4
         if any(share != NA for _, _, share in self.rows):
             if p:
                 rule(p, 0, y, w, tok("tx"), 2)
@@ -237,6 +338,7 @@ class ShareRows(Part):
     def __init__(self, title: str, first: int, graded: bool = False):
         super().__init__()
         self.title, self.first, self.graded = title, first, graded
+        self.closed = True          # ends on a rule
         self.rows: list[Row] = []
 
     def set(self, rows: list[Row]):
@@ -247,7 +349,8 @@ class ShareRows(Part):
     def draw(self, p, w):
         draw_label_tab(p, 0, 14, self.title)
         y = 14 + 25 + 8
-        bx, right = 122, w - (58 + 12 if self.graded else 0)
+        tight = w < TIGHT
+        bx, right = 72 if tight else 122, w - (58 + 12 if self.graded else 0)
         nf, vf, gf, lf = font(14, 500), font(22, 700, num=True), font(20, 700, num=True), font(13, 700, num=True)
         for k, row in enumerate(self.rows):
             if k:
@@ -266,16 +369,17 @@ class ShareRows(Part):
                     text_at(p, lf, ink, w - lw + 3, base, row.letter)
                     right_text(p, gf, ink, w - lw, base, row.grade)
             y += 22
-            h = draw_under(p, bx, y + 4, w - bx, row, self.p, font(12), "mu", True)
+            ux = bx if not tight else 12 if row.mark else 0         # the ring overhangs its chip
+            h = draw_under(p, ux, y + 4, w - ux, row, self.p, font(12), "mu", True)
             y += (4 + h if h else 0) + 5
-        if p:
+        if p and self.closed:
             rule(p, 0, y + 12, w, tok("ln"))
         return y + 12 + 1
 
 
 class TraitCard(Part):
-    """Hands or Temperament: a framed card like the Habits ones, its 8px square and name, then a ruled list of
-    figures, each over its note and chip"""
+    """How you fight: a framed card like the Habits ones, its 8px square and name, then a ruled list of figures, each
+    over its note and chip. A mark on a row without a chip (a new tier) rings the figure"""
 
     def __init__(self, name: str, square: str):
         super().__init__()
@@ -301,17 +405,108 @@ class TraitCard(Part):
         for row in self.rows:
             if p:
                 rule(p, 0, y, w, tok("ln"))
-                base = baseline(vf, y + 8, 26)
-                text_at(p, nf, tok("tx"), 0, base, row.name)
-                unit = unit_text(row)
-                uw = adv(uf, unit) + 1 if unit else 0
-                right_text(p, uf, tok("tx2"), w, base, unit)       # quiet, as the hero's: some inks miss 4.5:1 at 17px
+            unit, name_w, ring = unit_text(row), adv(nf, row.name), row.mark and not row.chip
+            uw = adv(uf, unit) + 1 if unit else 0
+            fw = uw + adv(vf, row.value)
+            y += 1 + 7
+            if name_w + 16 + fw > w:            # the figure under the name
+                y += wrapped(p, nf, tok("tx"), 0, y + 2, w, 20, row.name) + 2
+                name_w = 0
+            elif p:
+                text_at(p, nf, tok("tx"), 0, baseline(vf, y, 26), row.name)
+            base, note_w = baseline(vf, y, 26), adv(hand_font(23), row.mark or "")
+            mx = w - fw - 24 - note_w           # the note, left of the ring, or on a line under it
+            beside = mx >= name_w + 12
+            if p and ring:
+                draw_hand_circle(p, QRectF(w - fw - 12, base - 28, fw + 22, 38), tok("hl"), -2,
+                                 phase(self.p, DRAW_AT, DRAW_MS, IN_OUT))
+                p.setOpacity(phase(self.p, NOTE_AT, NOTE_MS))
+                draw_hand_note(p, row.mark, QPointF(mx, base) if beside else QPointF(max(0.0, w - note_w), base + 34), None, 23)
+                p.setOpacity(1)
+            if p:
+                right_text(p, uf, tok("tx2"), w, base, unit)       # quiet, as the hero's
                 right_text(p, vf, figure_ink(row), w - uw, base, row.value)
-            y += 1 + 7 + 26 + 2
-            y += draw_under(p, 0, y, w, row, self.p, font(13), "tx2", False) + 8
+            y += 26 + 2 + (36 if ring and not beside else 0)
+            under = replace(row, note="", mark=None if ring else row.mark) if row.name.lower() in row.note.lower() else row
+            y += draw_under(p, 0, y, w, under, self.p, font(13), "tx2", False) + 8
         if p:
             p.restore()
         return y + 13 + 5
+
+
+class TraitTable(Part):
+    """the All traits drawer, by family: a ruled row each, the name, its tier in a gold frame, the figure, the score's
+    bar with a tick where each tier begins, and what the next tier needs"""
+
+    def __init__(self):
+        super().__init__()
+        self.families: list[tuple[str, list[TraitRow]]] = []
+
+    def set(self, families: list[tuple[str, list[TraitRow]]]):
+        self.families = families
+        self.setAccessibleName("All traits: " + " ".join(f"{fam}: " + "; ".join(", ".join(filter(None, (
+            f"{r.name} {r.value}{r.unit}", r.tier, r.next))) for r in rows) + "." for fam, rows in families))
+        self.changed()
+
+    def draw(self, p, w):
+        hf, nf, vf, tf, sf = (font(11, 600, num=True, spacing=0.12), font(14, 500), font(18, 700, num=True), font(12, 500),
+                              font(12))
+        y = 2.0
+        for k, (fam, rows) in enumerate(self.families):
+            y += 14 if k else 0
+            if p:
+                line(p, hf, tok("mu"), 0, y, 12, fam.upper())
+            y += 12 + 5
+            for row in rows:
+                if p:
+                    rule(p, 0, y, w, tok("ln"))
+                y += 1 + 5
+                value = row.value + row.unit
+                room, name_w, tag_w = w - adv(vf, value) - 12, adv(nf, row.name), adv(tf, row.tier) + 14
+                if p:
+                    right_text(p, vf, tok("tx"), w, baseline(vf, y, 20), value)
+                name_h = wrapped(p, nf, tok("tx"), 0, y, room, 20, row.name)
+                if row.tier:
+                    x, top = (name_w + 10, y) if name_w + 10 + tag_w <= room else (0, y + name_h + 2)
+                    if p:
+                        box(p, QRectF(x, top + 1, tag_w, 19), tok("gold"))
+                        line(p, tf, tok("tx2"), x + 7, top + 1, 19, row.tier)
+                    name_h = max(name_h, top + 20 - y)
+                y += name_h + 6
+                if p:
+                    top = round(y)
+                    p.fillRect(QRectF(0, top, w, 6), tok("track"))
+                    p.fillRect(QRectF(0, top, w * row.bar, 6), tok("tx2"))
+                    for t in TIERS:
+                        p.fillRect(QRectF(round(w * t), top - 2, 1, 10), tok("tx"))
+                y += 6 + 5
+                y += wrapped(p, sf, tok("mu"), 0, y, w, 12 * 1.4, row.next) + 5 if row.next else 3
+        return y + 8
+
+
+class HandsList(Part):
+    """the Hands drawer: the player's hands, not the character's play, so plain rows: no ink, no chip, no mark"""
+
+    def __init__(self):
+        super().__init__()
+        self.rows: list[Row] = []
+
+    def set(self, rows: list[Row]):
+        self.rows = rows
+        self.setAccessibleName(spoken("Hands", rows))
+        self.changed()
+
+    def draw(self, p, w):
+        nf, vf, tf, y = font(14), font(16, 600, num=True), font(12), 0.0
+        for row in self.rows:
+            if p:
+                rule(p, 0, y, w, tok("ln"))
+                base = baseline(nf, y + 6, 20)
+                text_at(p, nf, tok("tx2"), 0, base, row.name)
+                right_text(p, vf, tok("mu" if row.value == NA else "tx2"), w, base, row.value + unit_text(row))
+            y += 1 + 5 + 20
+            y += wrapped(p, tf, tok("mu"), 0, y, w, 12 * 1.4, row.note) + 6
+        return y + 6
 
 
 class EarlierTable(Part):
@@ -327,7 +522,28 @@ class EarlierTable(Part):
             f"{r.dates}, {r.label}, {r.role}, {r.deaths} deaths an hour, {r.cooldowns} cooldowns used" for r in rows))
         self.changed()
 
+    def stacked(self, p, w) -> float:
+        """too narrow for the columns: each row's dates, title and figures under each other"""
+        df, lf, vf, y = font(16, 600, num=True), font(14), font(16, 700, num=True), 0.0
+        for row in self.rows:
+            if p:
+                rule(p, 0, y, w, tok("ln"))
+                line(p, df, tok("tx"), 0, y + 7, 20, row.dates)
+            y += 1 + 6 + 20
+            y += wrapped(p, lf, tok("tx2"), 0, y, w, 20, upper(row.label)) + 2
+            role, _, share = row.role.rpartition(" ")
+            for value, what in ((share, role or "main role"), (row.deaths, "deaths an hour"), (row.cooldowns, "cooldowns used")):
+                if p:
+                    base = baseline(vf, y, 20)
+                    text_at(p, vf, tok("mu" if value == NA else "tx"), 0, base, value)
+                    text_at(p, lf, tok("tx2"), 48, base, what)
+                y += 20
+            y += 6
+        return y + 10
+
     def draw(self, p, w):
+        if w < 560:
+            return self.stacked(p, w)
         first, *rest = (140, 120, 96, 96) if self.narrow else (150, 130, 110, 110)
         rights = [w - sum(rest[k + 1:]) - 14 * (2 - k) for k in range(3)]
         lx = first + 14
@@ -344,7 +560,7 @@ class EarlierTable(Part):
                 rule(p, 0, y, w, tok("ln"))
                 base = baseline(vf, y + 7, 20)
                 text_at(p, df, tok("tx"), 0, base, row.dates)
-                text_at(p, lf, tok("tx2"), lx, base, elide(lf, row.label, rights[0] - rest[0] - 14 - lx))
+                text_at(p, lf, tok("tx2"), lx, base, elide(lf, upper(row.label), rights[0] - rest[0] - 14 - lx))
                 name, _, share = row.role.rpartition(" ")
                 right_text(p, vf, tok("mu" if share == NA else "tx"), rights[0], base, share)
                 right_text(p, sf, tok("tx2"), rights[0] - adv(vf, share) - 5, base, name)
@@ -362,13 +578,13 @@ class Foot(Fold):
 
 
 class ProfilePage(QScrollArea):
-    """the Profile page, scrolling when the window is small: the hero and the plate, Signature and Hands on the left,
-    the shares and Temperament on the right, Earlier at the foot"""
+    """the Profile page, scrolling when the window is small (never sideways, see _fit): the crest, the hero and the plate,
+    Signature, How you fight and Hands on the left, the shares and All traits on the right, Earlier at the foot"""
     open_habits = pyqtSignal()
 
     def __init__(self):
         super().__init__()
-        self.narrow = None
+        self.fit = self.narrow = None
         self.thin = False
         self.settings: dict = {}        # the app's (shared), for "motion"
         self.entrance = QVariantAnimation(self, startValue=0.0, endValue=1.0, duration=ENTRANCE_MS)
@@ -377,12 +593,17 @@ class ProfilePage(QScrollArea):
         self.hero, self.plate = ProfileHero(), Plate("Worth changing")
         self.plate.price_px, self.plate.body_last, self.plate.price_words = 34, True, True
         self.plate.clicked.connect(self.open_habits)
+        self.crest, self.outdated = CrestBox(), Quiet()
         self.need, self.signature, self.table = Need(), Signature(), SpellTable()
         self.spells_drawer = Drawer("All spells", self.table)
-        self.hands = TraitCard("Hands", "m-act")
+        self.card = TraitCard("How you fight", "tx2")
+        self.hands = HandsList()
+        self.hands_drawer = Drawer("Hands", self.hands)
         self.roles = ShareRows("Role mix", 5, graded=True)
         self.places = ShareRows("Where you fight", 7)
-        self.temperament = TraitCard("Temperament", "m-surv")
+        self.places.closed = False      # the All traits drawer's rule follows
+        self.traits = TraitTable()
+        self.traits_drawer = Drawer("All traits", self.traits)
         self.earlier = EarlierTable()
         self.earlier_drawer = Drawer("Earlier", self.earlier)
         self.foot = Foot(self.earlier_drawer)
@@ -391,32 +612,32 @@ class ProfilePage(QScrollArea):
         self.hero_row.setContentsMargins(0, 14, 0, 18)
         self.hero_row.addWidget(self.hero, 0, Qt.AlignmentFlag.AlignTop)
         self.hero_row.addWidget(self.plate, 1, Qt.AlignmentFlag.AlignTop)
-        left = QVBoxLayout()
-        left.setContentsMargins(0, 0, 28, 16)
+        self.left = left = QVBoxLayout()
         left.setSpacing(0)
+        left.addSpacing(14)
+        left.addWidget(self.crest)
+        left.addWidget(self.outdated)
         left.addLayout(self.hero_row)
         left.addWidget(self.signature)
         left.addWidget(Fold(self.spells_drawer, last=True))
         left.addSpacing(16)
-        left.addWidget(self.hands)
+        left.addWidget(self.card)
+        left.addSpacing(16)
+        left.addWidget(Fold(self.hands_drawer))
         left.addStretch(1)
-        self.signature.setMinimumWidth(LEFT_MIN)
-        side = Side()
-        side.setFixedWidth(FIGHTS_W)
-        right = QVBoxLayout(side)
-        right.setContentsMargins(28, 4, 0, 16)
+        self.side = Side()
+        self.right = right = QVBoxLayout(self.side)
         right.setSpacing(0)
         right.addWidget(self.roles)
         right.addWidget(self.places)
-        right.addSpacing(16)
-        right.addWidget(self.temperament)
+        right.addWidget(Fold(self.traits_drawer))
         right.addStretch(1)
         self.body = QWidget()
-        cols = QHBoxLayout(self.body)
+        self.cols = cols = QHBoxLayout(self.body)
         cols.setContentsMargins(0, 0, 0, 0)
         cols.setSpacing(0)
         cols.addLayout(left, 1)
-        cols.addWidget(side)
+        cols.addWidget(self.side)
         lay = QVBoxLayout(self.page)
         lay.setContentsMargins(16, 4, 16, 16)
         lay.setSpacing(0)
@@ -442,6 +663,13 @@ class ProfilePage(QScrollArea):
         self.need.head, self.need.text = v.need or "", v.need_line
         self.need.setAccessibleName(f"{self.need.head} {self.need.text}")
         self.need.changed()
+        if v.crest:
+            self.crest.set(v.crest, "" if any(r.mark for r in v.card) else v.ring or "")
+        self.crest.setVisible(v.crest is not None)
+        self.outdated.text = v.outdated
+        self.outdated.setAccessibleName(v.outdated)
+        self.outdated.setVisible(bool(v.outdated))
+        self.outdated.changed()
         self.hero.before, self.hero.chip_ink = v.before or "", v.chip_ink
         self.hero.set(v.hero, v.hero_unit or None, v.caption, v.chip, v.label or "")
         self.hero.setAccessibleName(", ".join(filter(None, (f"{v.hero}{v.hero_unit} {v.caption}", v.chip, v.label,
@@ -455,10 +683,13 @@ class ProfilePage(QScrollArea):
         self.signature.set_view(v)
         self.table.set_view(v)
         self.spells_drawer.set_count(len(v.spells))
+        self.card.set(v.card)
         self.hands.set(v.hands)
+        self.hands_drawer.set_count(sum(r.value != NA for r in v.hands))
         self.roles.set(v.roles)
         self.places.set(v.places)
-        self.temperament.set(v.temperament)
+        self.traits.set(v.traits)
+        self.traits_drawer.set_count(sum(len(rows) for _, rows in v.traits))
         self.earlier.set(v.earlier)
         self.earlier_drawer.set_count(len(v.earlier))
         self.foot.setVisible(bool(v.earlier))
@@ -475,23 +706,36 @@ class ProfilePage(QScrollArea):
     def set_progress(self, p: float):
         """the entrance's p (1: settled) to the parts that animate"""
         self.hero.p = 0.78 * phase(p, 0, COUNT_MS)      # kit's ticker lands at 0.78
-        for part in (self.signature, self.hands, self.roles, self.places, self.temperament):
+        for part in (self.crest, self.signature, self.card, self.roles, self.places):
             part.p = p
-        for part in (self.hero, self.signature, self.hands, self.roles, self.places, self.temperament):
             part.update()
+        self.hero.update()
 
     def resizeEvent(self, ev):
         self._fit()
         super().resizeEvent(ev)
 
     def _fit(self):
-        """the mock-up's narrow hero and columns below a 1420px window"""
+        """the mock-up's narrow hero and columns below a 1420px window; in a page too narrow for both columns the right
+        one goes under the left, then the plate under the hero"""
         narrow = self.window().width() < NARROW
-        if narrow == self.narrow:
+        wide = self.width() - self.verticalScrollBar().sizeHint().width()
+        stacked, tight = wide < STACK, wide - 2 * 16 < LEFT_MIN
+        if (narrow, stacked, tight) == self.fit:
             return
-        self.narrow = narrow
-        self.hero.setFixedWidth(HERO_W[int(narrow)])
+        self.fit, self.narrow = (narrow, stacked, tight), narrow
+        hero_w = HERO_W[int(narrow)]
+        self.hero.setMinimumWidth(0 if tight else hero_w)
+        self.hero.setMaximumWidth(NO_MAX if tight else hero_w)
+        down, across = QBoxLayout.Direction.TopToBottom, QBoxLayout.Direction.LeftToRight
+        self.hero_row.setDirection(down if tight else across)
         self.hero_row.setSpacing(22 if narrow else 28)
+        self.cols.setDirection(down if stacked else across)
+        self.left.setContentsMargins(0, 0, 0 if stacked else 28, 16)
+        self.right.setContentsMargins(0 if stacked else 28, 4, 0, 16)
+        self.side.stacked = stacked
+        self.side.setMinimumWidth(0 if stacked else FIGHTS_W)
+        self.side.setMaximumWidth(NO_MAX if stacked else FIGHTS_W)
         for part in (self.hero, self.plate, self.signature, self.earlier):
             part.narrow = narrow
             part.changed()
