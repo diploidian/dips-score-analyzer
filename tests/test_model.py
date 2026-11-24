@@ -299,8 +299,9 @@ class Activity(unittest.TestCase):
         taken = ev(5, "SWING_DAMAGE", MOB1, ME, amount=30)
         extra = ev(7, "SPELL_EXTRA_ATTACKS", ME, ME, "Windfury Attack")
         extra.extra_count = 1
-        m = self.measure(self.swings() + [miss, taken, extra])
-        self.assertEqual((m.melee["landed"], m.melee["misses"]), (30, {"parry": 1}))
+        friend = ev(9, "SWING_DAMAGE", ME, "Player-1-00000002", amount=40)     # not an enemy: not in the table
+        m = self.measure(self.swings() + [miss, taken, extra, friend])
+        self.assertEqual((m.melee["landed"], m.melee["misses"], m.melee["damage"]), (30, {"parry": 1}, 1500))
         self.assertEqual((m.swings_taken["landed"], m.extra_attacks), (1, {"Windfury Attack": 1}))
         self.assertEqual(m.ranged["landed"], 0)
 

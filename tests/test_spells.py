@@ -140,7 +140,9 @@ class SpellsViewTests(unittest.TestCase):
         table = {"landed": 82, "crits": 9, "glancing": 6, "crushing": 0, "blocked": 0, "offhand_misses": 0,
                  "misses": {"parry": 3, "dodge": 5, "miss": 2, "immune": 0}, "damage": 5000}
         self.assertEqual(hit_line(92, "swing", 3.4, table),
-                         "92 swings every 3.4 s · 89% landed, 10% crit, 7% glancing, 5% dodged, 3% parried, 2% missed")
+                         "92 swings every 3.4 s · 89% landed: 11% crit, 7% glancing · 5% dodged, 3% parried, 2% missed")
+        self.assertEqual(hit_line(4, "swing", 3.0, dict(table, landed=0, crits=0, glancing=0, misses={"miss": 4})),
+                         "4 swings every 3.0 s · 0% landed · 100% missed")
         self.assertEqual(hit_line(1, "shot", None, dict(table, landed=1, crits=0, glancing=0, misses={})),
                          "1 shot · 100% landed")
         auto = {"Melee": {"n": 92, "word": "swing", "speed": 3.4, "table": table,
@@ -153,7 +155,7 @@ class SpellsViewTests(unittest.TestCase):
         self.assertEqual((by["Melee"].auto, by["Auto Shot"].auto, by["Seal of Command"].auto), (92, 40, None))
         self.assertEqual(by["Melee"].evidence, [hit_line(92, "swing", 3.4, table),
                                                 "+46 extra swings: Reckoning 30, Thrash 16"])
-        self.assertEqual(by["Auto Shot"].evidence, ["40 shots every 2.9 s · 100% landed, 10% crit"])
+        self.assertEqual(by["Auto Shot"].evidence, ["40 shots every 2.9 s · 100% landed: 10% crit"])
         self.assertEqual(by["Seal of Command"].evidence, [])
         self.assertAlmostEqual(by["Melee"].share, 52475 / v.total_damage)      # of the same total as every row
         old = {r.name: r for r in spells_view(rows(SPELLS), COMBAT).damage_rows}      # no tables: as before
@@ -227,8 +229,8 @@ class SpellsPageTests(unittest.TestCase):
         tab.show_view(spells_view(rows(SPELLS), COMBAT, COOLDOWNS, where=WHERE, auto={"Melee": {
             "n": 458, "word": "swing", "speed": 3.4, "table": table, "extra": {"Reckoning": 30}}}), "B", "")
         self.assertEqual(tab.every.item(0, 1).text(), "458")    # swings for casts
-        self.assertEqual(tab.damage.rows[0].lines, ["458 swings every 3.4 s · 87% landed, 9% crit, 7% glancing, "
-                                                    "9% dodged, 4% parried", "+30 extra swings: Reckoning 30"])
+        self.assertEqual(tab.damage.rows[0].lines, ["458 swings every 3.4 s · 87% landed: 10% crit, 8% glancing "
+                                                    "· 9% dodged, 4% parried", "+30 extra swings: Reckoning 30"])
         self.assertAlmostEqual(tab.damage.draw(None, 700), plain + 2 * 12 * 1.4 + 2)     # room for both lines
         self.assertFalse(tab.grab().isNull())
         tab.show_view(spells_view(rows(SPELLS), COMBAT, COOLDOWNS, where=WHERE), "Blackfathom Deeps", "")

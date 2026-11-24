@@ -416,9 +416,11 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
             hp.append((t, e.info.hp_pct))
         if ev in ("SWING_DAMAGE", "SWING_MISSED") and e.src == me:
             swings.append(t)
-            count_hit(m.melee, e)
+            if is_enemy(e.dst, e.dst_flags):      # the hit table: enemies only, as the live summary keeps it
+                count_hit(m.melee, e)
         elif ev in ("RANGE_DAMAGE", "RANGE_MISSED") and e.src == me:
-            count_hit(m.ranged, e)
+            if is_enemy(e.dst, e.dst_flags):
+                count_hit(m.ranged, e)
             shots.append(t)
             shot_ids[e.spell_id] += 1
         elif ev == "SPELL_EXTRA_ATTACKS" and e.src == me:

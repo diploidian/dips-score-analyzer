@@ -89,14 +89,17 @@ def _casts(n: float) -> str:
 
 
 def hit_line(n: int, word: str, speed: float | None, t: dict) -> str:
-    """"1,240 swings every 3.4 s · 82% landed, 9% crit, 6% glancing, 5% dodged": each part of the swings (or shots),
-    those under half a percent left out"""
-    misses = sorted(t["misses"].items(), key=lambda kv: -kv[1])
-    parts = [(t["landed"], "landed"), (t["crits"], "crit"), (t["glancing"], "glancing"),
-             *((c, MISSED.get(k, k)) for k, c in misses)]
-    said = ", ".join(f"{c / n:.0%} {w}" for c, w in parts if c / n >= 0.005)
+    """"1,240 swings every 3.4 s · 82% landed: 11% crit, 7% glancing · 5% dodged": landed and the misses of all the
+    swings (or shots), crit and glancing of the landed ones (as the Crit column); under half a percent left out"""
+    def said(parts, of):
+        return ", ".join(f"{c / of:.0%} {w}" for c, w in parts if of and c / of >= 0.005)
+    landed = t["landed"]
+    on = said([(t["crits"], "crit"), (t["glancing"], "glancing")], landed)
+    out = [f"{landed / n:.0%} landed" + (f": {on}" if on else "")]
+    if off := said([(c, MISSED.get(k, k)) for k, c in sorted(t["misses"].items(), key=lambda kv: -kv[1])], n):
+        out.append(off)
     every = f" every {speed:.1f} s" if speed else ""
-    return f"{n:,} {word}{'' if n == 1 else 's'}{every} · {said}"
+    return f"{n:,} {word}{'' if n == 1 else 's'}{every} · " + " · ".join(out)
 
 
 def auto_tables(rd, guid: str, windows=None, swing_speed: float | None = None,
