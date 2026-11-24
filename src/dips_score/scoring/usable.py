@@ -1,7 +1,8 @@
 """When an ability can be used at all, by spell name: one table, the rest of the app asks it.
 
     types    works only on these creature types (the add-on's dipsScoreDB.types names each enemy's type)
-    below    works only on a target under this share of its health (the advanced log's foe health)
+    below    works only on a target under this share of its health (the advanced log's foe health); taken as
+             any enemy under the line, not only your target, since the log doesn't say what you targeted
     after    works only for `window` seconds after an attack was avoided: "target" the target avoided yours
              (Overpower after a dodge), "you" you avoided an enemy's (Revenge after a block, dodge or parry)
     chance   what one chance is, as the call-outs say it ("0 of 37 chances: 37 undead and demons")
@@ -51,7 +52,7 @@ def reason(r: dict) -> str:
     if "types" in r:
         return "no valid target"
     if "below" in r:
-        return f"target above {r['below']:.0%}"
+        return f"no enemy under {r['below']:.0%}"
     return "nothing to answer"
 
 
@@ -80,7 +81,11 @@ def fight_chances(r: dict, dur: float, foes: list[tuple], types: dict | None,
         if not any(hp for *_, hp in foes):
             return None, None
         spans = []
-        for _, _, died, hp in foes:
+        for _, first, died, hp in foes:
+            if not any(v is not None for _, v in hp):
+                # never read (killed fast, never the info unit): it may have been low, so its time stays usable
+                spans.append((first, dur if died is None else died))
+                continue
             low = None     # from a reading under the line to the next one over it (or the enemy's death)
             for t, v in hp + [(dur if died is None else died, 1.0)]:
                 if v is None:

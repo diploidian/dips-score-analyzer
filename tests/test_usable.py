@@ -39,6 +39,16 @@ class Chances(unittest.TestCase):
         self.assertEqual(usable.fight_chances(R["Execute"], 20, foes, None, {}), ([(4, 6), (7, 9.0)], 1))
         no_hp = [("Wolf", 0.0, 9.0, [])]
         self.assertEqual(usable.fight_chances(R["Hammer of Wrath"], 20, no_hp, None, {}), (None, None))
+        self.assertEqual(usable.reason(R["Execute"]), "no enemy under 20%")
+
+    def test_health_foe_never_read_stays_usable(self):
+        foes = [("Wolf", 0.0, None, [(1, 0.9), (10, 0.8)]), ("Bear", 4.0, 12.0, [])]
+        can, n = usable.fight_chances(R["Execute"], 20, foes, None, {})
+        self.assertEqual((can, n), ([(4.0, 12.0)], 0))            # the Bear's time, not counted as a chance
+        ctx = readiness.Context(dur=20, foes=[(0, None, [])])
+        free, why = readiness.judge([(0, 20)], ctx, False, 0, can, usable.reason(R["Execute"]))
+        self.assertAlmostEqual(free, 7.0, delta=0.15)             # 4-12 less the second to react: not excused
+        self.assertAlmostEqual(why["no enemy under 20%"], 11.0, delta=0.25)   # 1-4 and 12-20
 
     def test_reactive(self):
         avoided = {("target", "dodge"): [3.0, 5.0], ("you", "parry"): [10.0], ("you", "block"): [18.0]}

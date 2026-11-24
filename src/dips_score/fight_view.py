@@ -66,7 +66,8 @@ def _losses(d: dict) -> tuple[list[tuple[str, str, float, str]], tuple[str, ...]
         if c.get("lost", 0) > 0 and not c.get("held"):
             free = c.get("free")      # None: saved before ready time was measured
             s = "" if free is None else f"{free:.1f} s"
-            out.append((f"{c['name']} sat ready", s, c["lost"], f"{c['name']} sat ready {s}".rstrip() + across(c.get("chances"))))
+            title = f"{c['name']} sat ready {s}".rstrip() + across(c.get("chances"))
+            out.append((f"{c['name']} sat ready", s, c["lost"], title))
             own.append(f"{c['name']} sat ready ")
     idle = d.get("idle") or {}
     if idle.get("lost", 0) > 0:       # in the potential too, so the rows add up to what was left on the table

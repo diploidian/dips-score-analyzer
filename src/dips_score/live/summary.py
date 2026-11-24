@@ -526,7 +526,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
 
     for r in ([] if healing_role else judged):
         if r["free"] >= 2.0 and r["lost"] >= 1:
-            improve.append((r["lost"], f"{r['name']} sat ready {r['free']:.1f} s{usable.across(r.get('chances'))} while you were free "
+            said = usable.across(r.get("chances"))
+            improve.append((r["lost"], f"{r['name']} sat ready {r['free']:.1f} s{said} while you were free "
                                        f"≈ {_fmt(r['lost'])} damage"))
     if group and group["deaths"] and healing_role:
         improve.append((1e9, f"{', '.join(group['deaths'])} died"))

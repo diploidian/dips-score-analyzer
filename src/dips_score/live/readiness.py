@@ -14,7 +14,7 @@ your last cast of it before the fight). Each moment of that ready time is either
     nothing to hit    a lull of LULL seconds or more with no fighting at all (an enemy ran off, or you
                       were between packs in one combat)
     no valid target,  the spell could not be used: no enemy of its creature types, no target under 20%,
-    target above 20%, no dodge, block or parry to answer (scoring/usable.py); the REACT seconds after a
+    no enemy under 20%, no dodge, block or parry to answer (scoring/usable.py); the REACT seconds after a
     nothing to answer chance opens count as just came up
 
 What's left is time the spell sat ready while you were free to use it: casting something else instead counts
