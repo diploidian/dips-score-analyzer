@@ -239,7 +239,7 @@ class Stats(Part):
         items = [(i, f"from {words.get(i, 'other')} gear") for i in dict.fromkeys(inks)]
         items.append(("tx2", "your own, without gear or buffs" if any(f.buffs is not None for f in rows) else "your own and buffs"))
         if any(f.buffs for f in rows):
-            items.append(("m-upk", "from buffs and enchants"))
+            items.append(("m-upk", "from buffs, enchants and sets"))
         for ink, s in items:
             iw = 8 + 6 + adv(kf, s)
             if cx > x and cx + iw > x + w:

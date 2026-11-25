@@ -1,7 +1,7 @@
 """What the Character sheet drawer shows, as plain data (no Qt), from live.sheet.sheet(): Gear (the item level ladder, then
 every piece), Stats (what your fights show, then what the game says, with how much gear gives), Abilities (casts and share
 of damage, the idle ones in one line) and Talents and Legacy (points as pips). It is what the character carries, as the
-last /reload or logout saved it. A figure says whether it is measured in your own fights, the game's, or an estimate;
+last reading had it. A figure says whether it is measured in your own fights, the game's, or an estimate;
 unknown reads "–". Inks are token names: an item's by its rarity, which its row also says in words."""
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -70,7 +70,7 @@ class Talent:
 
 @dataclass
 class SheetView:
-    taken: str = ""             # "As of 24 Nov 19:09, your last /reload or logout."
+    taken: str = ""             # "As of 24 Nov 19:09, the add-on's last reading."
     need: str = NONE            # shown instead of the tabs when there is no sheet
     ink: str = "tx"             # the main role's, for the gear part of a bar
     ladder: Ladder | None = None
@@ -103,7 +103,7 @@ def _when(taken) -> str:
     if not taken:
         return ""
     d = datetime.fromtimestamp(taken)
-    return f"As of {d.day} {d:%b %H:%M}, your last /reload or logout."
+    return f"As of {d.day} {d:%b %H:%M}, the add-on's last reading."
 
 
 def _item(g: dict) -> Item:
@@ -185,7 +185,7 @@ def _primary(s: dict) -> list[Figure]:
                 got = s["stats"][key]
                 f.buffs = min(got["buffs"], left) / top
                 f.note = f"{_trim(got['own'])} your own" + "".join(f", {_trim(got[k])} {words}" for k, words in (
-                    ("gear", "from gear"), ("buffs", "from buffs and enchants"), ("lost", "taken by debuffs")) if got[k])
+                    ("gear", "from gear"), ("buffs", "from buffs, enchants and sets"), ("lost", "taken by debuffs")) if got[k])
         if f:
             out.append(f)
     return out

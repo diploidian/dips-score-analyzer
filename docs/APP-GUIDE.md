@@ -311,7 +311,7 @@ most recently. It needs 10 fights in those 15 days.
 - All traits lists every trait you have a score for, by family, with its tier and a line saying what it
   counts. Hover a row to see how it is worked out, your own numbers and where each tier begins. When a tier is new since days 16 to 30, it gets the page's
   one ring and a note ("new: Relentless"). Without one, the biggest move of a share is ringed.
-- Character sheet is a closed drawer with four tabs, as of your last /reload or logout. Gear puts every
+- Character sheet is a closed drawer with four tabs, as of the add-on's last reading. Gear puts every
   piece on a line of item levels, in its rarity's colour, with its stats, its text and what is missing
   (empty, not enchanted). Stats gives what your fights measured, then the game's own figures and how
   much of each your gear gives. Abilities shows each one's share of your damage over the last 15 days,

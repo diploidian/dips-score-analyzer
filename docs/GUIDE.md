@@ -895,19 +895,23 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   or shut it yourself, it stays as you left it.
 - Character sheet is a closed drawer under All traits. It needs the add-on from 0.21 (add-on 0.5.0), a full
   restart of the game after installing it (a new add-on file is not picked up by `/reload`), then a
-  `/reload` or logout. Until then the drawer says so. It is what the character carries, as of that
-  `/reload` or logout, so only its measured figures come from the last 15 days.
+  `/reload` or logout. Until then the drawer says so. It is what the character carries at the
+  add-on's last reading: after you enter the world, a few seconds after you change gear or level, and at `/reload`.
+  Where the game hides or zeroes the stats (in combat, at a full logout), the last whole reading stays, with its time.
+  Only its measured figures come from the last 15 days.
   - Gear: every piece on one line of item levels, the average, how many of each rarity, then each slot
     with the item's name in its rarity's colour, its stats and what it does, every line as the game's tooltip writes it, and a tag
     for an empty slot, the lowest piece, or one that takes an enchant and has none. An item whose link the
     game had not loaded is "name not read yet", and is never called not enchanted. The tooltip lines need add-on
     0.5.2; without them an item shows only its armor, five stats, resistances and weapon damage, and the page says so.
+    A line the game shows in red or grey says "not active" ("not met" for a need), a piece at no durability says "broken",
+    and "from gear" is left out when a worn piece was not read or is broken, or when it would be more than you have.
     Left out: the item's name and level, how it binds, where it is worn, durability, requirements, price, the list of
     a set's pieces, and who made it, which is never saved.
   - Stats: what your fights measured (damage, healing, swing speed and average swing) beside what the
     game says, then the game's figures. A primary stat's bar is your own total (it compares you with nobody): what
     your gear gives, by rarity, what is your own without gear or buffs (race, class, level and talents), and
-    what buffs and enchants added when the snapshot was taken. The last two need add-on 0.5.1 and a `/reload`;
+    what buffs, enchants and set bonuses added when it was read. The last two need add-on 0.5.2 and a `/reload`;
     until then they are one part. "estimate" marks what 10 more attack power is worth, by the classic formula, and is shown
     only when that formula lands within 10% of the game's own damage. A figure the game hides is a dash.
   - Abilities: casts in fights and each ability's share of your damage, its procs with it, with auto

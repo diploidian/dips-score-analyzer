@@ -224,10 +224,17 @@ function ns.Snapshot()
             stored[key] = before[key]
         end
     end
-    -- what is worn and the stats with it go together, or new gear would stand beside an old item's lines. In combat the
-    -- stats can't be read, so the last whole reading stays, with its own time.
+    -- what is worn and the stats with it go together, or new gear would stand beside an old item's lines. In combat and at
+    -- a real logout the stats can't be read, so the last whole reading stays, with its own time.
     stored.geartaken = read.taken
-    if (#read.items == 0 or #read.stats == 0) and type(before.items) == "table" and #before.items > 0 then
+    local function parts(c) -- how many of the three that make it whole are there
+        local n = 0
+        for _, key in ipairs({"items", "stats", "tips"}) do
+            if type(c[key]) == "table" and #c[key] > 0 then n = n + 1 end
+        end
+        return n
+    end
+    if parts(read) < parts(before) then
         for _, key in ipairs(ns.WORN) do stored[key] = before[key] or {} end
         stored.geartaken = before.geartaken or before.taken
     end
@@ -267,11 +274,34 @@ local E = CreateFrame("Frame")
 E:RegisterEvent("PLAYER_ENTERING_WORLD")
 E:RegisterEvent("PLAYER_LOGOUT") -- also fires on /reload, right before the save
 E:RegisterEvent("PLAYER_REGEN_DISABLED")
+for _, event in ipairs({"PLAYER_REGEN_ENABLED", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_LEVEL_UP"}) do
+    pcall(E.RegisterEvent, E, event)
+end
+
+-- The last reading before a logout is the one kept, so it follows a change of gear: once, a moment after, out of combat.
+local waiting, stale
+local function Soon()
+    if waiting or not (C_Timer and C_Timer.After) then return end
+    waiting = true
+    C_Timer.After(SETTLE, function()
+        waiting = false
+        if InCombatLockdown and InCombatLockdown() then stale = true else pcall(ns.Snapshot) end
+    end)
+end
+
 E:SetScript("OnEvent", function(_, event)
     if event == "PLAYER_REGEN_DISABLED" then
         pcall(RecordPull)
     elseif event == "PLAYER_ENTERING_WORLD" and C_Timer and C_Timer.After then
         C_Timer.After(SETTLE, function() pcall(ns.Snapshot) end)
+        C_Timer.After(SETTLE + 20, Soon) -- by then every item's text has arrived
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        if stale then
+            stale = false
+            Soon()
+        end
+    elseif event == "PLAYER_EQUIPMENT_CHANGED" or event == "PLAYER_LEVEL_UP" then
+        Soon()
     else
         pcall(ns.Snapshot)
     end

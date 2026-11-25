@@ -10,7 +10,7 @@ role.
                else "stats" has only what reads the same everywhere: armor, the five, resistances, a weapon's damage)}
   stats        {key: {"value" (None: hidden by the game), "gear" (how much of it the items give, None when none does),
                "by_quality" {item quality: its part of that}}}; a primary one also has "own" (without gear or buffs), "buffs"
-               (buffs and enchants) and "lost" (to debuffs) when the snapshot has the game's bonus figure (add-on 0.5.1)
+               (buffs, enchants and set bonuses) and "lost" (to debuffs) when the snapshot has the game's bonus figure (add-on 0.5.1)
   abilities    every spell known: {"name", "rank" (the highest one cast, its text, None when the fights don't say), "ranks" (how many), "casts" (in fights),
                "share" (of the window's damage, its procs with it, None without), "lower" (only ranks under the highest one known were cast)}
   projections  {key: {"value", "source" ("measured", "game", "estimate" or None), "n" (what it rests on)}}, see _projections
@@ -45,25 +45,41 @@ CLOSE = 0.10                            # an estimate is shown only this near th
 MIN_DAMAGE, MIN_HEALING, MIN_SWINGS = 10, 5, 10      # fights a measure needs
 
 
-NOT_SAID = re.compile(r"Item Level |Soulbound$|Binds |Unique|Durability |Requires |Classes: |Races: |Sell Price|Quest Item$|\s*$")
+NOT_SAID = re.compile(r"Item Level |Soulbound$|Binds |Unique|Durability |Requires |Classes: |Races: |Sell Price|Quest Item$|Cooldown remaining|Equipment Sets: |\s*$")
 WORN_AS = {"Head", "Neck", "Shoulder", "Back", "Chest", "Shirt", "Tabard", "Wrist", "Hands", "Waist", "Legs", "Feet", "Finger", "Trinket",
            "One-Hand", "Two-Hand", "Main Hand", "Off Hand", "Held In Off-hand", "Held In Off-Hand", "Ranged", "Thrown", "Relic", "Projectile"}
 NUMBER_LINE = re.compile(r"[+\-−] ?\d|[\d,.]+ (?:- [\d,.]+ )?(?:\w+ )?(?:Armor|Block|Damage)$|\([\d,.]+ damage per second\)$")
 
 
-def _lines(tip: list[tuple[int, str, str]], name: str | None) -> tuple[list[str], list[str]]:
+def _lines(tip: list[tuple[bool, str, str]], name: str | None) -> tuple[list[str], list[str]]:
     """an item's tooltip, its name and what the sheet says elsewhere left out: (its numbers, what it does). A line not known
     to be noise stays, word for word: an item is never shown short of something"""
-    stats, text = [], []
-    for _, left, right in tip:
+    stats, text, a_set = [], [], False
+    for active, left, right in tip:
         s = left.strip()
-        if s == name or NOT_SAID.match(s) or s in WORN_AS or left[:1].isspace():
+        a_set = a_set or bool(re.search(r"\(\d+/\d+\)$", s))
+        piece = a_set and left[:1].isspace()
+        need = s.startswith("Requires ") and not active         # only a need that is not met is news
+        if s == name or (NOT_SAID.match(s) and not need) or s in WORN_AS or piece:
             continue
-        if NUMBER_LINE.match(s):
+        off = "" if active else " (not active)" if not need else " (not met)"
+        if NUMBER_LINE.match(s) and active:
             stats += [s.removeprefix("(").removesuffix(")") if s.startswith("(") else s] + ([right] if right else [])
         else:
-            text.append(f"{s} {right}".strip())
+            text.append(f"{s} {right}".strip() + off)
     return stats, text
+
+
+def _holds(tip: list[tuple[bool, str, str]], stats: dict) -> bool:
+    """whether the tooltip has every flat number of the item: without one it was not all there when it was read"""
+    said = [left.replace(",", "") for _, left, _ in tip]
+    for key, name in STAT_NAME.items():
+        if v := abs(stats.get(key) or 0):
+            each = [float(x) for s in said for x in re.findall(r"\d+(?:\.\d+)?", s)]
+            own = sum(float(m[1]) for s in said if (m := re.match(rf"[+\-−]?(\d+(?:\.\d+)?) {name}$", s)))     # with its enchant's
+            if v not in each and v != own:
+                return False
+    return True
 
 
 def _flat(stats: dict) -> list[str]:
@@ -75,13 +91,19 @@ def _flat(stats: dict) -> list[str]:
                      for k in names if stats.get(k)]
 
 
+def _broken(char: dict, slot: int) -> bool:
+    left = (char.get("wear") or {}).get(slot)
+    return bool(left) and left[1] > 0 and left[0] == 0
+
+
 def _all_read(char: dict) -> bool:
-    """whether every worn item's stats were read, so a sum of them is the whole of it"""
+    """whether every worn item's stats were read and count (a broken one gives none), so a sum of them is the whole of it"""
     given, tips = char.get("itemstats") or {}, char.get("tips") or {}
     for slot, item in (char.get("items") or {}).items():
         if slot in NO_GEAR_LEVEL:
             continue
-        if not item.get("name") or (slot not in given and any(re.match(r"[+\-−]\d|\d+ Armor$", x) for x in _lines(tips.get(slot) or [], item["name"])[0])):
+        none = slot in tips and not any(re.match(r"[+\-−] ?\d|[\d,]+ Armor$", x) for x in _lines(tips[slot], item["name"])[0])
+        if not item.get("name") or _broken(char, slot) or (slot not in given and not none):
             return False
     return True
 
@@ -91,6 +113,10 @@ def _gear(char: dict) -> list[dict]:
     if not levels and not items:            # not read: fourteen empty slots would be a guess
         return []
     given = char.get("itemstats") or {}
+    tips = char.get("tips") or {}
+    for slot, tip in tips.items():
+        if slot in items and (said := next((m for _, s, _ in tip if (m := re.match(r"Item Level (\d+)", s))), None)):
+            levels = levels | {slot: int(said[1])}          # what the game shows you
     known = [levels[s] for s, _ in SLOTS if levels.get(s)]
     out = []
     for slot, label in SLOTS:
@@ -102,10 +128,12 @@ def _gear(char: dict) -> list[dict]:
             flags.append("empty")
         elif item and slot in ENCHANTABLE and item.get("enchant") == 0:
             flags.append("not enchanted")
-        tip = (char.get("tips") or {}).get(slot) or []
+        if _broken(char, slot):
+            flags.insert(0, "broken")
+        tip = tips.get(slot) or []
         flat = _flat(given.get(slot) or {})
         stats, text = _lines(tip, (item or {}).get("name"))
-        whole = bool(tip) and bool(stats or not flat)       # an item with numbers and a tooltip without: not all there yet
+        whole = bool(tip) and _holds(tip, given.get(slot) or {})
         if not whole:
             stats, text = flat, []
         if level and known and level == min(known) < max(known) and slot not in NO_GEAR_LEVEL:
@@ -129,10 +157,14 @@ def _stats(char: dict) -> dict[str, dict]:
                 by[q] = by.get(q, 0) + n
         out[key] = {"value": value, "gear": sum(by.values()) or None, "by_quality": by}
         pos, neg = read.get(f"{key}_pos"), read.get(f"{key}_neg")
-        gear = sum(by.values())
+        each = [s.get(ITEM_KEY.get(key, "")) or 0 for s in given.values()] if whole else []
+        gear, cost = sum(n for n in each if n > 0), -sum(n for n in each if n < 0)      # an item that takes some away
+        if value is not None and sum(by.values()) > value:         # more than there is: not a part of it
+            out[key] |= {"gear": None, "by_quality": {}}
+            continue
         # a bonus under what the items give can't hold them: then it is not split
-        if whole and key in ITEM_KEY and None not in (value, pos, neg) and pos >= gear and value - pos + abs(neg) >= 0:
-            out[key] |= {"own": value - pos + abs(neg), "buffs": pos - gear, "lost": abs(neg)}
+        if whole and key in ITEM_KEY and None not in (value, pos, neg) and pos >= gear and value - pos + abs(neg) >= 0 and abs(neg) >= cost:
+            out[key] |= {"own": value - pos + abs(neg), "buffs": pos - gear, "lost": abs(neg) - cost}
     return out
 
 

@@ -203,7 +203,7 @@ def _float(v) -> float | None:
 
 def _sheet(c: dict) -> dict:
     """the character sheet's lists (Sheet.lua), each empty when missing or odd: "spell_ids" {id: name}, "stats" {key: value, or None when the game
-    hides it}, "items" {slot: {"id", "quality", "enchant", "name"}}, "itemstats" {slot: {KEY: value}}, "tips" {slot: [(type, left, right)]}
+    hides it}, "items" {slot: {"id", "quality", "enchant", "name"}}, "itemstats" {slot: {KEY: value}}, "wear" {slot: (durability, most)}, "tips" {slot: [(active, left, right)]}
     the item's whole tooltip (a slot whose lines are another item's is left out), "ranks" {spell id:
     rank}, "points" [{"kind", "tree", "node", "rank", "max", "name"}], "trees" [{"kind", "tree", "nodes", "with", "left"}],
     "skills" [{"name", "level", "max"}]"""
@@ -217,7 +217,10 @@ def _sheet(c: dict) -> dict:
         if _int(slot) is not None and _float(v) is not None:
             itemstats.setdefault(_int(slot), {})[key] = _float(v)
     ranks = {_int(i): r for i, r in rows("ranks", 2) if _int(i) is not None and r}
-    tips: dict[int, list[tuple[int, str, str]]] = {}
+    if stats.get("str") == 0:           # read at a real logout, where the game answers 0 to everything
+        stats = {}
+    wear = {_int(s): (_int(left), _int(most)) for s, left, most in rows("wear", 3) if None not in (_int(s), _int(left), _int(most))}
+    tips: dict[int, list[tuple[bool, str, str]]] = {}
     for slot, iid, kind, line in rows("tips", 4):
         if _int(slot) not in items or items[_int(slot)]["id"] != _int(iid):
             continue
@@ -225,14 +228,14 @@ def _sheet(c: dict) -> dict:
         if kind == "R" and lines:
             lines[-1] = (*lines[-1][:2], line.strip())
         elif kind != "R":
-            lines.append((_int(kind) or 0, line.rstrip(), ""))     # a leading space is a set's piece
+            lines.append((not kind.endswith("!"), line.rstrip(), ""))     # a leading space is a set's piece
     points = [{"kind": k, "tree": _int(t), "node": _int(n), "rank": _int(r), "max": _int(m), "name": name}
               for k, t, n, r, m, name in rows("points", 6) if _int(r) is not None]
     trees = [{"kind": k, "tree": _int(t), "nodes": _int(n), "with": _int(w), "left": _int(left)}
              for k, t, n, w, left in rows("trees", 5)]
     skills = [{"name": n, "level": _int(lv), "max": _int(m)} for lv, m, n in rows("skills", 3) if _int(lv) is not None and n]
     ids = {_int(i): name for i, _, _, name in rows("spells", 4) if _int(i) is not None and name}
-    return {"spell_ids": ids, "stats": stats, "items": items, "itemstats": itemstats, "tips": tips, "ranks": ranks, "points": points, "trees": trees,
+    return {"spell_ids": ids, "stats": stats, "items": items, "itemstats": itemstats, "tips": tips, "wear": wear, "ranks": ranks, "points": points, "trees": trees,
             "skills": skills}
 
 

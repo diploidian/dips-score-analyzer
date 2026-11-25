@@ -5,7 +5,8 @@
 --   items     = {"slot,itemID,quality,enchantID,name", ...}
 --   itemstats = {"slot,KEY,value", ...}                the game's own stat keys (ITEM_MOD_STRENGTH_SHORT, ...)
 --   tips      = {"slot,itemID,type,text", ...}         its whole tooltip in order, but for who made it; type R: the right
---                                                      side of the line before
+--                                                      side of the line before; type with "!": red or grey, not active
+--   wear      = {"slot,durability,most", ...}
 --   ranks     = {"spellID,rank", ...}                  the rank text of every spell in the book that has one
 --   points    = {"c,tree,node,rank,maxRank,name", ...} talents (c "talent") and Legacy (c "legacy") with points in them
 --   trees     = {"c,tree,nodes,withPoints,left", ...}  left: points still to spend, "" when not known
@@ -34,6 +35,8 @@ local function First(fn, ...) return All(fn, ...)[1] end
 local function Stats()
     local out = {}
     if First(InCombatLockdown) then return out end -- some values are hidden in combat
+    local strength = All(UnitStat, "player", 1)[2]
+    if not IsSecret(strength) and (type(strength) ~= "number" or strength <= 0) then return out end -- at a real logout all are 0
     local function put(key, v)
         if IsSecret(v) then
             out[#out + 1] = key .. ",?"
@@ -101,8 +104,8 @@ end
 ----------------------------------------------------------------------
 -- A line as it reads: no colours, pictures or links.
 local function Plain(line)
-    return (line:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:]*:", ""):gsub("|r", ""):gsub("|T.-|t", "")
-        :gsub("|A.-|a", ""):gsub("|H.-|h", ""):gsub("|h", ""):gsub("[\r\n]+", " "))
+    return (line:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:]*:", ""):gsub("|r", ""):gsub("|T.-|t ?", "")
+        :gsub("|A.-|a ?", ""):gsub("|H.-|h", ""):gsub("|h", ""):gsub("|n", " "):gsub("[\r\n]+", " "))
 end
 
 -- A line that names a person ("<Made by ...>"): never saved.
@@ -114,6 +117,16 @@ local function NamesPerson(line)
         if start and start ~= "" and line:sub(1, #start) == start then return true end
     end
     return false
+end
+
+-- Red or grey: the game says the line does not count now (a need not met, a set bonus not reached).
+local function Off(color)
+    if IsSecret(color) or type(color) ~= "table" then return false end
+    local r, g, b = color.r, color.g, color.b
+    if IsSecret(r) or type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then return false end
+    local red = r > 0.9 and g < 0.3 and b < 0.3
+    local grey = r < 0.7 and math.abs(r - g) < 0.05 and math.abs(g - b) < 0.05
+    return red or grey
 end
 
 -- Every line of a worn item's tooltip, as the game writes it. All of it or nothing: a hidden line, or an item the
@@ -128,7 +141,7 @@ local function Tip(slot, id, out)
             left = Plain(left)
             if not NamesPerson(left) then
                 local kind = type(l.type) == "number" and not IsSecret(l.type) and l.type or 0
-                mine[#mine + 1] = slot .. "," .. id .. "," .. kind .. "," .. left
+                mine[#mine + 1] = slot .. "," .. id .. "," .. kind .. (Off(l.leftColor) and "!" or "") .. "," .. left
                 if type(right) == "string" and right ~= "" then
                     mine[#mine + 1] = slot .. "," .. id .. ",R," .. Plain(right)
                 end
@@ -139,7 +152,7 @@ local function Tip(slot, id, out)
 end
 
 local function Items()
-    local items, stats, tips = {}, {}, {}
+    local items, stats, tips, wear = {}, {}, {}, {}
     for slot = 1, LAST_SLOT do
         local id = First(GetInventoryItemID, "player", slot)
         local link = First(GetInventoryItemLink, "player", slot)
@@ -160,10 +173,14 @@ local function Items()
                 end
             end
             Tip(slot, id, tips)
+            local left = All(GetInventoryItemDurability, slot)
+            if type(left[1]) == "number" and type(left[2]) == "number" and not IsSecret(left[1]) then
+                wear[#wear + 1] = slot .. "," .. left[1] .. "," .. left[2]
+            end
             items[#items + 1] = slot .. "," .. id .. "," .. Field(quality) .. "," .. enchant .. "," .. name
         end
     end
-    return items, stats, tips
+    return items, stats, tips, wear
 end
 
 ----------------------------------------------------------------------
@@ -232,10 +249,10 @@ end
 
 -- Adds the sheet to the snapshot being built (Char.lua); a part that fails stays empty.
 function ns.ReadSheet(read)
-    read.stats, read.items, read.itemstats, read.tips, read.ranks = {}, {}, {}, {}, {}
+    read.stats, read.items, read.itemstats, read.tips, read.wear, read.ranks = {}, {}, {}, {}, {}, {}
     read.points, read.trees, read.skills = {}, {}, {}
     pcall(function() read.stats = Stats() end)
-    pcall(function() read.items, read.itemstats, read.tips = Items() end)
+    pcall(function() read.items, read.itemstats, read.tips, read.wear = Items() end)
     pcall(function() read.ranks = Ranks(read.spells) end)
     pcall(function()
         Trees("talent", First(C_ClassTalents and C_ClassTalents.GetActiveConfigID), read.points, read.trees)
@@ -244,4 +261,4 @@ function ns.ReadSheet(read)
     pcall(function() read.skills = Skills() end)
 end
 ns.SHEET = {"ranks", "points", "trees", "skills"}
-ns.WORN = {"gear", "items", "itemstats", "tips", "stats"} -- of one moment: kept or replaced together
+ns.WORN = {"gear", "items", "itemstats", "tips", "wear", "stats"} -- of one moment: kept or replaced together
