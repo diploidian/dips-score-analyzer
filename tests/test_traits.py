@@ -405,10 +405,10 @@ class Page(unittest.TestCase):
         pace = dict(v.traits)["Pace"]
         self.assertEqual((pace[0].tier, pace[0].bar, pace[0].ends), ("Relentless", 1, ("120 s", "15 s")))
         self.assertEqual(pace[0].tip.split("\n")[1:], [
-            "You: 15.0 s over 40 waits.", "Steady at 83 s or under, Tireless at 57 s or under, Relentless at 30 s or under."])
+            "You: 15 s over 40 waits.", "Tiers: Steady at 83 s or under, Tireless at 57 s or under, Relentless at 30 s or under."])
         streak = next(r for r in pace if r.key == "Streak")
         self.assertEqual(streak.tip.split("\n")[1:], ["You: 40 in a row, of 40 fights.",
-                                                     "Surviving from 80, Unfallen from 126, Deathless from 173."])
+                                                     "Tiers: Surviving from 80, Unfallen from 126, Deathless from 173."])
         self.assertEqual(v.traits_title, f"All traits ({sum(len(r) for _, r in v.traits)})")
         self.assertTrue(all(r.bar > 0 for _, rows in v.traits for r in rows))       # no score: not listed
         self.assertTrue(all(rows for _, rows in v.traits))
@@ -421,7 +421,7 @@ class Page(unittest.TestCase):
         low = plain(1000, result="killed")
         for f in low[:119]:
             f["lowest_hp"] = .3                             # 11.9% of wins, shown 12%; Daring at 12%
-        self.assertEqual(self.tip("Edge", low)[1:], ["You: 119 of 1,000 wins.", "Daring from 12%, Fearless from 17%, Unyielding from 22%."])
+        self.assertEqual(self.tip("Edge", low)[1:], ["You: 119 of 1,000 wins.", "Tiers: Daring from 12%, Fearless from 17%, Unyielding from 22%."])
         for f in low[:12]:
             f["lowest_hp"] = .05
         self.assertEqual(self.tip("Brink", low)[1], "You: 12 of 1,000 wins.")
@@ -432,13 +432,13 @@ class Page(unittest.TestCase):
                          "You: V 20%, W 20%, X 20%, Y 20% and Z 20%.")
         guard = plain(40, lowest_hp=.6)
         self.assertEqual(self.tip("Guard", guard)[1:], [
-            "You: 0.00 deaths per 100 fights and 60.0% lowest health. The bar shows lowest health.",
-            "Guarded at 5.2 deaths or fewer and 63%, Unbroken at 3.2 deaths or fewer and 71%, "
-            "Untouchable at 1.2 deaths or fewer and 80%."])
+            "You: 0.0 deaths per 100 fights and 60% average lowest health, over 40 fights.",
+            "Tiers: Guarded at 5.2 deaths or fewer and 63% health, Unbroken at 3.2 deaths or fewer and 71% health, "
+            "Untouchable at 1.2 deaths or fewer and 80% health."])
 
     def test_every_trait_has_words(self):
         from dips_score.trait_words import WORDS
-        self.assertEqual(len(WORDS), len(TRAITS) + 1)       # Mercy's two
+        self.assertEqual(len(WORDS), len(TRAITS) + 2)       # Guard's and Mercy's two
         for t in TRAITS:
             for p in t.parts:
                 with self.subTest(t.key, kind=p.kind):
@@ -483,7 +483,7 @@ class Page(unittest.TestCase):
             f["result"] = "you died"
         v = self.page(dying)
         self.assertEqual(next((r.value, r.unit, r.ends) for _, rows in v.traits for r in rows if r.key == "Guard"),
-                         ("7.5, 90%", "", ("8.0", "0.0")))         # both figures, the bar is the weaker
+                         ("7.5 · 90%", "", ("8.0", "0.0")))         # both figures, the bar is the weaker
 
     def test_packs(self):
         pack = lambda fs, **kw: [r.name for r in self.page(fs, **kw).card]  # noqa: E731

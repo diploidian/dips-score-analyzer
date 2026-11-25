@@ -469,6 +469,7 @@ class TraitTable(Tips):
         self.families: list[tuple[str, list[TraitRow]]] = []
         self.new: str | None = None
         self.ring = self.tier = QRectF()
+        self.setCursor(Qt.CursorShape.WhatsThisCursor)
 
     def set(self, families: list[tuple[str, list[TraitRow]]], new: str | None):
         self.families, self.new = families, new

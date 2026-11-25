@@ -948,7 +948,7 @@ and the weaker one scores, and "or" means the better known one scores.
 | Weapon | Auto shot share | of your damage is automatic shots | 25% to 60% | 30 | Keen, Far-Sighted, True-Shot | damage, tank |
 | Weapon | Ability share | of your damage is your abilities | 60% to 95% | 30 | Gifted, Fierce, Spellforged | damage, tank |
 | Weapon | Top ability's share | of your ability damage is one ability | 35% to 75% | 30 | Devoted, Single-Minded, Masterful | damage, tank |
-| Weapon | Main damage abilities | abilities with 5% of your ability damage each | 2 to 8 | 30 | Adaptable, Cunning, Many-Handed | damage, tank |
+| Weapon | Main damage abilities | abilities with 5% or more of your ability damage | 2 to 8 | 30 | Adaptable, Cunning, Many-Handed | damage, tank |
 | Weapon | Critical hits | of your hits crit | 8% to 30% | 500 | Fortunate, Savage, Fatebound | damage, tank |
 | Weapon | Proc and item share | of your damage is procs and items | 8% to 30% | 30 | Charged, Crackling, Storm-Touched | damage, tank |
 | Craft of play | Possible damage reached | of possible damage reached | 75% to 95% | 30 | Honed, Precise, Flawless | damage, tank |
@@ -1059,7 +1059,7 @@ Titles are saved with each finished 15-day block, so Earlier reads as a history 
   comes back into range. Buffs on your own group are shown but do not score. No names are saved. Click
   **Add fights from my old combat logs** in Settings once to fill it in.
 - Groupmates out-damaged is the share of groupmates with less damage than you, averaged over your group
-  fights. Anyone who healed more than they hurt is left out, so 50% is an even share in a group of any size,
+  fights. Anyone who did no damage, or healed more than that, is left out, so 50% is an even share in a group of any size,
   though tanks are easier to beat.
 - Help for the group shows as Share of group healing or Dispels on others, whichever scores.
 - Some figures are totals of the 15 days (bosses, zones, enemies, Benefactor, Lifegiver), so playing more

@@ -274,9 +274,9 @@ class Tips(Part):
 
     def event(self, ev):
         if ev.type() == QEvent.Type.ToolTip:
-            tip = next((t for r, t in self.tips if r.contains(QPointF(ev.pos()))), None)
-            if tip:
-                QToolTip.showText(ev.globalPos(), tip, self)
+            hit = next(((r, t) for r, t in self.tips if r.contains(QPointF(ev.pos()))), None)
+            if hit:
+                QToolTip.showText(ev.globalPos(), hit[1], self, hit[0].toAlignedRect())     # hidden on leaving its region
             else:
                 QToolTip.hideText()
             return True

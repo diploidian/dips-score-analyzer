@@ -319,12 +319,11 @@ def _you(t: dict, helping: dict | None) -> str | None:
     tr, kind, v, n = BY_KEY[t["key"]], t["kind"], t["figure"], t.get("n")
     if n is None:
         return None
-    fine = lambda k, x: written(*shown(k, x, fine=k != "n"))  # noqa: E731
+    need = needs(t["next"], tr) if t["next"] else []
+    fine = lambda k, x: written(*shown(k, x, fine=shown(k, x) in need))  # noqa: E731  (one decimal more where it reads as reached)
     part = dict(map(tuple, t["parts"]))
     names, extra = t.get("names") or [], ""
-    if tr.key == "Guard":
-        extra = "deaths" if kind == "n1" else "lowest health"
-    elif tr.key in ("Benefactor", "Lifegiver"):
+    if tr.key in ("Benefactor", "Lifegiver"):
         if not helping:
             return None
         extra = _given(tr.key, helping)
@@ -335,14 +334,17 @@ def _you(t: dict, helping: dict | None) -> str | None:
 
 
 def _marks(tr, kind: str) -> str:
-    """"Wandering from 70%, Lone from 81%, Sovereign from 91%." """
+    """"Tiers: Wandering from 70%, Lone from 81%, Sovereign from 91%." """
     parts = [p for p in tr.parts if tr.weaker or p.kind == kind]
     rising = all(p.high > p.low for p in parts)
 
     def at(p, score):
         text = written(*needs({"needs": [[p.kind, p.low + score * (p.high - p.low)]]}, tr)[0])
-        return text if p.high > p.low else f"{text} {'deaths ' if tr.key == 'Guard' else ''}or {'fewer' if p.kind[0] == 'n' else 'under'}"
-    return ", ".join(f"{e} {'from' if rising else 'at'} {_and([at(p, s) for p in parts])}"
+        if p.high > p.low:
+            return text + (" health" if tr.key == "Guard" else "")
+        return f"{text} {'deaths ' if tr.key == 'Guard' else ''}or {'fewer' if p.kind[0] == 'n' else 'under'}"
+    # shortcut: a mark rounds toward its tier and the row's figure to the nearest, so a figure just over a mark can read under it
+    return "Tiers: " + ", ".join(f"{e} {'from' if rising else 'at'} {_and([at(p, s) for p in parts])}"
                      for e, s in zip(tr.epithets, TIERS)) + "."
 
 
@@ -351,7 +353,7 @@ def _trait_row(t: dict, main: str | None, helping: dict | None = None) -> TraitR
     value, unit = shown(t["kind"], t["figure"])
     name = MERCY_NAME[t["kind"]] if tr.key == "Mercy" else tr.name
     if tr.key == "Guard" and len(t.get("parts") or []) == 2:     # both, so the figure left out is not a surprise
-        value, unit = ", ".join(written(*shown(k, v)) for k, v in t["parts"]), ""
+        value, unit = " · ".join(written(*shown(k, v)) for k, v in t["parts"]), ""
     elif tr.key == "Guard":
         name = GUARD_NAME[t["kind"]]
     p = next(p for p in tr.parts if p.kind == t["kind"])

@@ -121,7 +121,7 @@ TRAITS: tuple[Trait, ...] = (
        "Gifted, Fierce, Spellforged", "leans on abilities", FIGHTERS),
     _t("Focus", "Weapon", "Top ability's share", .35, .75, 30, "%", "of your ability damage is one ability",
        "Devoted, Single-Minded, Masterful", "leans on one ability", FIGHTERS),
-    _t("Range", "Weapon", "Main damage abilities", 2, 8, 30, "n", "abilities with 5% of your ability damage each",
+    _t("Range", "Weapon", "Main damage abilities", 2, 8, 30, "n", "abilities with 5% or more of your ability damage",
        "Adaptable, Cunning, Many-Handed", "draws on many abilities", FIGHTERS),
     _t("Crit", "Weapon", "Critical hits", .08, .30, 500, "%", "of your hits crit",
        "Fortunate, Savage, Fatebound", "crits often", FIGHTERS),

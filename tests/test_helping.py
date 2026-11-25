@@ -170,11 +170,11 @@ class Trait(unittest.TestCase):
         v = build_profile(profile(fights, None, {}, [], now, None, got), [])
         rows = {r.key: (r.name, r.value, r.tip.split("\n")[1:], r.ink) for _, rows in v.traits for r in rows}
         self.assertEqual(rows["Benefactor"], (
-            "Benefactor", "6", ["You: 6 strangers, and 0 buffs for your group.",
-                                "Kind from 30, Generous from 47, Great-Hearted from 65."], "role-heal"))
+            "Benefactor", "6", ["You: 6 strangers. Not counted: 0 buffs for your group.",
+                                "Tiers: Kind from 30, Generous from 47, Great-Hearted from 65."], "role-heal"))
         self.assertEqual(rows["Lifegiver"], (
             "Lifegiver", "4", ["You: 4 revives, 3 in your group, 1 stranger.",
-                               "Rousing from 11, Rekindling from 16, Life-Giving from 22."], "role-heal"))
+                               "Tiers: Rousing from 11, Rekindling from 16, Life-Giving from 22."], "role-heal"))
         none = {r.key for _, rows in build_profile(profile(fights, None, {}, [], now), []).traits for r in rows}
         self.assertFalse(none & {"Benefactor", "Lifegiver"})
 

@@ -135,6 +135,10 @@ Before shipping I check each line against its code in `raw()`; a line the code d
 Delete the empty file `x` I left by mistake in another session's temp folder
 (`C:\Users\jkncg\AppData\Local\Temp\claude\97e57e3ebd1271de`).
 
+## Changed while building
+
+Lead leaves out groupmates who did no damage or healed more than that, scale 30% to 90% (35%, Rising from 51%). The row's line sits under the name, and the two ends alone under the bar. The words follow the design review.
+
 ## My calls (change any)
 
 The new anchors (one character's data), the row lines and hovers, "the middle" for median, dropping the
