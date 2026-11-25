@@ -7,11 +7,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dips_score.live.days import NONE, PARTS, figures  # noqa: E402
+from dips_score.live.days import NONE, PARTS, TRADE, figures, trade  # noqa: E402
 from dips_score.live.titles import PLAIN  # noqa: E402
 from dips_score.live.traits import TRAITS  # noqa: E402
 from dips_score.sources.savedvars import load_char  # noqa: E402
 from dips_score.time_view import NEED, SHOWN, build_time  # noqa: E402
+from dips_score.trade_view import NEED as TRADE_NEED, build_trade, coin  # noqa: E402
 from dips_score.ui.tokens import TOKENS  # noqa: E402
 
 T0 = datetime(2026, 11, 25, 12)
@@ -48,14 +49,57 @@ class Days(unittest.TestCase):
 
     def test_the_columns_are_the_add_ons(self):
         lua = (Path(__file__).resolve().parents[1] / "addon/dips-Score/Life.lua").read_text(encoding="utf-8")
-        cols = [x.strip(' "') for x in lua.split("local COLS = {")[1].split("}")[0].split(",")]
-        self.assertEqual({c for parts, _, _ in PARTS.values() for c in parts} | {"away", "turnins"}, set(cols))
+        cols = [x.strip(' "\r\n') for x in lua.split("local COLS = {")[1].split("}")[0].split(",")]
+        self.assertEqual({c for parts, _, _ in PARTS.values() for c in parts} | {"away", "turnins", *TRADE}, set(cols))
+        self.assertEqual(cols[-len(TRADE):], list(TRADE))           # new columns go at the end
 
     def test_a_day_twice_and_when_counting_began(self):
         c = load(SAVED.replace('"2026-11-23,1"', '"2026-11-24,40,0,400"'))          # the clock was set back
         self.assertEqual(c["time"]["2026-11-24"], {"away": 100, "trade": 120, "quest": 4000, "hunt": 7200, "turnins": 5})
         begun = lambda n: figures({(T0 - n * DAY).date().isoformat(): {"hunt": 1}}, T0 - 15 * DAY, T0)["since"]  # noqa: E731
         self.assertEqual((begun(14), begun(2)), (None, "2026-11-23"))
+
+    def test_trade(self):
+        day = lambda n: (T0 - n * DAY).date().isoformat()  # noqa: E731
+        t = {day(20): {"hunt": 3600, "sold": 0}, day(9): {"hunt": 7200, "trade": 600, "auction": 0},
+             day(1): {"hunt": 3600, "auction": 2280, "spent": 50275, "mailin": 84620, "sales": 14, "sold": 34},
+             day(0): {"quest": 3600, "auction": 0, "mailin": 0}}
+        got = trade(t, T0 - 15 * DAY, T0)
+        self.assertEqual(got, {"auction": 2280, "spent": 50275, "came": 84620, "sales": 14, "sold": 34, "unread": 0,
+                               "seconds": 14400 + 600, "since": None})
+        v = build_trade(got)
+        self.assertEqual(v.need, "")
+        self.assertEqual(v.say, "Your auctions put 3g 43s 45c in your purse.")
+        self.assertEqual(v.cap, "In the last 15 days, as of your last /reload or logout.")
+        self.assertEqual([(r.name, r.value, r.unit, r.ink) for r in v.rows], [
+            ("Time at the auction house", "38 min", "", "gold"), ("Items sold", "34", "", "m-cast"),
+            ("Profit or loss", "3g 43s 45c", "ahead", "role-heal")])
+        self.assertEqual(v.rows[0].note, "15% of your play, the auction house window only")
+        self.assertEqual(v.rows[2].note, "5g 42s 29c ahead per hour at the auction house. Things you bought and kept count as spent.")
+        self.assertEqual([(x.value, round(x.width, 3), x.ink) for x in v.ledger],
+                         [("8g 46s 20c", 1, "role-heal"), ("5g 2s 75c", .594, "role-dmg")])
+        self.assertIsNone(trade({day(1): {"hunt": 60, "trade": 30, "auction": 0}}, T0 - 15 * DAY, T0))     # nothing counted
+        self.assertEqual(build_trade(None).need, TRADE_NEED)
+        late = trade({day(20): {"hunt": 1}, day(3): {"hunt": 60000, "auction": 0}, day(2): {"spent": 400, "auction": 300}}, T0 - 15 * DAY, T0)
+        v = build_trade(late)
+        self.assertEqual((v.say, v.cap), ("Your auctions cost you 4s.",
+                                          f"Since {(T0 - 3 * DAY).day} Nov, when counting began, as of your last /reload or logout."))
+        self.assertEqual([(r.value, r.unit, r.ink) for r in v.rows], [("5 min", "", "gold"), ("0", "", "m-cast"), ("4s", "behind", "role-dmg")])
+        self.assertEqual(v.rows[2].note, "Things you bought and kept count as spent.")           # under 10 minutes: no "per hour"
+        self.assertEqual(v.rows[0].note, "under 1% of your play, the auction house window only")
+
+    def test_sale_mails_that_say_little(self):
+        base = {"auction": 600, "spent": 100, "came": 100, "seconds": 36000, "since": None}
+        rows = lambda **kw: [(r.value, r.unit, r.note) for r in build_trade(base | kw).rows[1:]]  # noqa: E731
+        self.assertEqual(rows(sales=1, sold=5, unread=0)[0], ("5", "", "from 1 sale mail you collected"))
+        self.assertEqual(rows(sales=3, sold=5, unread=1)[0], ("5", "or more", "from 3 sale mails you collected; 1 didn't say how many"))
+        self.assertEqual(rows(sales=2, sold=0, unread=2)[0], ("–", "", "the game didn't say how many were in your 2 sale mails"))
+        self.assertEqual(rows(sales=1, sold=5, unread=0)[1], ("0c", "", "Things you bought and kept count as spent."))
+        self.assertEqual(build_trade(base | {"sales": 0, "sold": 0, "unread": 0}).say, "Your auctions came out even.")
+
+    def test_coin(self):
+        self.assertEqual([coin(x) for x in (0, 7, 9017, 10000, 50275, 30005, -123456789, 99.6)],
+                         ["0c", "7c", "90s 17c", "1g", "5g 2s 75c", "3g 0s 5c", "12,345g 67s 89c", "1s"])
 
     def test_fights_with_players(self):
         """what the log saw of them is the least; the rest of the day makes room, and no second is added"""

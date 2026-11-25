@@ -9,6 +9,10 @@
 --   levels = {"time(),level", ...}                       -- at login when it changed, and at each level
 --   weapons = {"time(),itemID:enchantID", ...}           -- the main hand, the same way; "0:0" for none
 --
+-- Trade, beside the states in the same day: "auction" seconds with the auction house open, "spent" copper that left your
+-- purse while it was open, "mailin" copper that came from auction mails (a sale, a refunded bid), "sales" sale mails taken,
+-- "sold" the items in them, "unread" sale mails that did not say how many. Mail money counts when it reaches your purse.
+--
 -- The first that applies: in combat, where you are (an instance), a fight with an enemy player ("skirmish") or what you were
 -- at; on a taxi; away (AFK); dead (what you were at, DEAD seconds of it); away (nothing done for IDLE seconds, outside an
 -- instance); a profession at work (gathering, skinning, crafting; not with the auction house or the mailbox open); an instance; the auction house or the mailbox; a fight with
@@ -30,9 +34,12 @@ local DEAD = 600                    -- a corpse run longer than this is being aw
 local SETTLE = 10                   -- after entering the world, where the game may report the whole quest log as changed
 local MAX_DAYS, MAX_LEVELS, MAX_WEAPONS = 60, 100, 400
 local MAIN_HAND = 16
-local COLS = {"away", "trade", "raid", "dungeon", "pvp", "skirmish", "taxi", "craft", "quest", "gather", "hunt", "town", "roam", "turnins"}
+local COLS = {"away", "trade", "raid", "dungeon", "pvp", "skirmish", "taxi", "craft", "quest", "gather", "hunt", "town", "roam", "turnins",
+    "auction", "spent", "mailin", "sales", "sold", "unread"}
 local KINDS = {party = "dungeon", scenario = "dungeon", raid = "raid", pvp = "pvp", arena = "pvp"}
 local TRADE_FRAMES = {"AuctionHouseFrame", "AuctionFrame", "MailFrame"}
+local AUCTION_FRAMES = {"AuctionHouseFrame", "AuctionFrame"}
+local MAIL_WAIT = 30                -- seconds a taken mail's money may take to reach the purse
 local CRAFT_FRAMES = {"ProfessionsFrame", "TradeSkillFrame", "CraftFrame"}
 -- what a profession casts outside its window, by a rank of it (every rank has the same name): its state, its seconds, a trip of it
 local ACTIONS = {
@@ -48,6 +55,8 @@ local inCombat, kind, deadSince
 local living = "roam"               -- the last state alive
 local midnight = 0                  -- time() of the next one
 local actions                       -- name -> its entry of ACTIONS
+local money                         -- copper in the purse at the last look
+local taken = {}                    -- auction mails whose money was taken and has not arrived: {copper, sale, items, GetTime()}
 
 local function Try(fn, ...)
     if type(fn) ~= "function" then return nil end
@@ -178,6 +187,62 @@ local function Look()
     if not now then return end
     local state = State(t)
     now[state] = (now[state] or 0) + dt
+    if Shown(AUCTION_FRAMES) then now.auction = (now.auction or 0) + dt end
+end
+
+----------------------------------------------------------------------
+-- Trade
+----------------------------------------------------------------------
+local function Add(now, col, n) now[col] = (now[col] or 0) + n end
+
+-- A mail's subject against one of the game's formats ("Auction successful: %s").
+local function Says(subject, format)
+    if type(subject) ~= "string" or IsSecret(subject) or type(format) ~= "string" then return false end
+    local pattern = "^" .. format:gsub("[%^%$%(%)%.%[%]%*%+%-%?]", "%%%0"):gsub("%%s", ".+") .. "$"
+    return subject:match(pattern) ~= nil
+end
+
+-- Hooked after the game's TakeInboxMoney and AutoLootMailItem: an auction mail's money is on its way.
+local function Taking(i)
+    if type(i) ~= "number" then return end
+    local ok, _, _, _, subject, cash = pcall(GetInboxHeaderInfo, i)
+    if not ok or IsSecret(cash) or type(cash) ~= "number" or cash <= 0 then return end
+    local ok2, kind, _, _, _, _, _, _, _, _, _, items = pcall(GetInboxInvoiceInfo or error, i)
+    if not ok2 or IsSecret(kind) then kind = nil end
+    if IsSecret(items) or type(items) ~= "number" or items < 1 then items = nil end
+    local sale = kind == "seller" or (kind == nil and Says(subject, _G.AUCTION_SOLD_MAIL_SUBJECT))
+    if not (sale or kind or Says(subject, _G.AUCTION_OUTBID_MAIL_SUBJECT)) then return end
+    taken[#taken + 1] = {cash, sale, sale and items, GetTime()}
+    while #taken > 50 do table.remove(taken, 1) end
+end
+
+-- The purse changed: spent at the auction house, or an auction mail's money arrived.
+local function Money()
+    local m = Try(GetMoney)
+    if type(m) ~= "number" then return end
+    local was = money
+    money = m
+    local now = was and m ~= was and Today()
+    if not now then return end
+    if m < was then
+        if Shown(AUCTION_FRAMES) then Add(now, "spent", was - m) end
+        return
+    end
+    local t = GetTime()
+    for k = #taken, 1, -1 do
+        local mail = taken[k]
+        if t - mail[4] > MAIL_WAIT then
+            table.remove(taken, k)
+        elseif mail[1] == m - was then
+            table.remove(taken, k)
+            Add(now, "mailin", mail[1])
+            if mail[2] then
+                Add(now, "sales", 1)
+                if mail[3] then Add(now, "sold", mail[3]) else Add(now, "unread", 1) end
+            end
+            return
+        end
+    end
 end
 
 local ticker, failed = nil, 0
@@ -227,12 +292,15 @@ end
 
 local E = CreateFrame("Frame")
 for _, event in ipairs({"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
-    "QUEST_ACCEPTED", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_STARTED_MOVING"}) do
+    "QUEST_ACCEPTED", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_STARTED_MOVING", "PLAYER_MONEY"}) do
     pcall(E.RegisterEvent, E, event)
 end
 pcall(E.RegisterUnitEvent, E, "UNIT_SPELLCAST_SENT", "player")      -- only what you pressed: in a town the game casts one on you every second
 pcall(E.RegisterUnitEvent, E, "UNIT_SPELLCAST_SUCCEEDED", "player")
 pcall(E.RegisterUnitEvent, E, "UNIT_QUEST_LOG_CHANGED", "player")
+for _, name in ipairs({"TakeInboxMoney", "AutoLootMailItem"}) do
+    if type(_G[name]) == "function" then pcall(hooksecurefunc, name, function(i) pcall(Taking, i) end) end
+end
 
 local function OnEvent(event, ...)
     local t = GetTime()
@@ -242,6 +310,8 @@ local function OnEvent(event, ...)
         Work(select(3, ...), t)
     elseif event == "PLAYER_STARTED_MOVING" then
         done = t
+    elseif event == "PLAYER_MONEY" then
+        if ticker then Money() end
     elseif event == "PLAYER_REGEN_DISABLED" then
         inCombat = true
     elseif event == "PLAYER_REGEN_ENABLED" then
@@ -255,6 +325,7 @@ local function OnEvent(event, ...)
                 C_Timer.After(3, function()
                     pcall(Level, Try(UnitLevel, "player"))
                     pcall(Weapon)
+                    money = Try(GetMoney)
                     pcall(Start)
                 end)
             end

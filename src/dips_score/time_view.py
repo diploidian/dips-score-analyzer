@@ -55,7 +55,7 @@ def build_time(now: dict | None, before: dict | None) -> TimeBar:
     known = before and before["seconds"] >= MIN_SECONDS and not before["since"]
     for p, share in sorted(now["parts"].items(), key=lambda x: -x[1]):
         name, ink = SHOWN[p]
-        part = TimePart(name, _hm(share * now["seconds"]), f"{share * 100:.0f}%" if share >= .005 else "under 1%", share, ink)
+        part = TimePart(name, _hm(share * now["seconds"]), f"{round(share * 100)}%" if round(share * 100) >= 1 else "under 1%", share, ink)
         d = round(share * 100) - round(before["parts"].get(p, 0) * 100) if known else 0
         if abs(d) >= CHIP_MIN:
             part.chip = f"{'+' if d > 0 else '−'}{abs(d)} pts vs the 15 days before"

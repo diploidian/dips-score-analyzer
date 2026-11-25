@@ -1,7 +1,7 @@
 """The Profile page: who you are as a player over the last 15 days, painted from a ProfileView (see
 dips_score/profile_view.py): the crest, the title's trait as the one big figure, the plate, Signature and the Hands drawer
 on the left; Role mix, Where you fight and How you fight on the right, under the left when both do not fit; where your
-time goes under them (timepart.py), also with too few fights for the rest; every trait, then the Character sheet drawer (sheetpart.py); the finished 15-day slices in the Earlier drawer.
+time goes under them (timepart.py), also with too few fights for the rest; Trade (tradepart.py); every trait, then the Character sheet drawer (sheetpart.py); the finished 15-day slices in the Earlier drawer.
 
 Sizes follow docs/design/mockups/profile.html (CSS px). The shared parts come from kit.py.
 """
@@ -26,6 +26,7 @@ from .kit import (HEAD_H, Drawer, Fold, Hero, Part, Plate, Sheet, Side, Tips, ad
 from .sheetpart import CharacterSheet
 from .theme import tok
 from .timepart import TimeSection
+from .tradepart import TradeSection
 
 HERO_W = (260, 214)         # the hero's column (narrow)
 LEFT_MIN = 450              # the left column's width, at least, with the right one beside it
@@ -685,6 +686,10 @@ class ProfilePage(QScrollArea):
         self.places = ShareRows("Where you fight", 7)
         self.time = TimeSection()
         self.time.grow = grow
+        self.trade = TradeSection()
+        self.trade_drawer = Drawer("Trade", self.trade)
+        self.trade_drawer.set_count(None)
+        self.trade_fold = Fold(self.trade_drawer)
         self.traits = TraitTable()
         self.traits_drawer = Drawer("All traits", self.traits)
         self.traits_fold, self.hands_fold = Fold(self.traits_drawer), Fold(self.hands_drawer)
@@ -729,6 +734,7 @@ class ProfilePage(QScrollArea):
         cols.addWidget(self.side)
         stack.addLayout(cols, 1)
         stack.addWidget(self.time)
+        stack.addWidget(self.trade_fold)
         stack.addWidget(self.traits_fold)
         stack.addWidget(self.sheet_fold)
         self.lay = lay = QVBoxLayout(self.page)
@@ -760,9 +766,10 @@ class ProfilePage(QScrollArea):
         else:
             self.lay.removeWidget(self.time)
             self.stack.removeWidget(self.time)
-            self.stack.insertWidget(self.stack.indexOf(self.traits_fold), self.time)
+            self.stack.insertWidget(self.stack.indexOf(self.trade_fold), self.time)
         self.time.setVisible(not (thin and v.time.need))        # one thing to wait for is enough
         self.time.set(v.time)
+        self.trade.set(v.trade)
         self.need.head, self.need.text = v.need or "", v.need_line
         self.need.setAccessibleName(f"{self.need.head} {self.need.text}")
         self.need.changed()

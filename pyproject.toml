@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "projectArthas"
-version = "0.23.0-a"
+version = "0.24.0"
 description = "Scores a WoW dungeon run from the projectArthas addon's input log and WoWCombatLog.txt"
 requires-python = ">=3.13"
 dependencies = ["PyQt6>=6.6"]

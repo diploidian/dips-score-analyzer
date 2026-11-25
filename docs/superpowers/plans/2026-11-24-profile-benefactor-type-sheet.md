@@ -79,7 +79,7 @@ label and hours, and the type as its headline:
 Under 5 recorded hours: "Your time bar needs 5 hours of play with the add-on (n so far)."
 "Where you fight" stays. Before gets a chip per segment, as the share rows do.
 
-## Release C, 0.21.0: Trade
+## Release C, 0.24.0: Trade (built)
 
 A closed drawer "Trade" under the time bar, three rows:
 - **Time at the auction house** (auction house window only), and its share of play.

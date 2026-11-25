@@ -192,6 +192,10 @@ PvP (battlegrounds, arenas, and any fight with an enemy player), professions (ga
 without moving, casting or fighting, outside an instance), with the quests handed in. It keeps 60 days, and the time of each level
 you reach and each change of your main hand (the item and its enchant). No place, name or chat is saved.
 
+Since add-on 0.7.0 it also counts your trade, per day: the seconds the auction house window is open, the money that leaves your
+purse while it is open, and the money that reaches your purse from auction mails (a sale, or a bid refunded), with how many sale
+mails and the items in them. A mail counts when its money arrives, not when it is sent. No item, buyer or price is saved.
+
 At each pull it also records your gear durability: the lowest percentage and how many items are
 broken. It keeps the last 60. Durability can only be read inside the game, which is why the add-on
 records it.
@@ -896,6 +900,13 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   against the 15 days before. It fills in after a `/reload` or logout and needs 5 hours of play. Away time (AFK, or 3 minutes without moving, casting
   or fighting outside an instance) is left out. If counting began inside the 15 days it says so, and nothing is compared. It
   shows even when there are too few fights for the rest of the page. See [How your Player Type is picked](#how-your-player-type-is-picked).
+- Trade, a drawer under Where your time goes, is your auction house in the last 15 days, from the add-on's counts (add-on
+  0.7.0): how long the auction house window was open and its share of your play, how many items your sale mails held, and your
+  profit or loss, with the profit per hour there from 10 minutes on. Beside them are the two sums it comes from: money from auction
+  mails (sales and refunded bids, after the house's cut) and money spent while the auction house was open (buying, bids,
+  deposits). Things you bought and kept count as spent, and a sale counts when you collect its mail, so it can land after what it
+  cost you. When a sale mail doesn't say how many items it held, the count says "or more"; when none does, it is a dash. Gold
+  stays off the crest, the titles and Share.
 - All traits is a drawer under both columns, open when the page is wide. It lists every trait with a
   score above 0, by family, with its figure, its tier in a gold frame (the epithet you have earned, empty
   under the first tier), a line saying what the figure counts, and a bar of its score with the figures it
