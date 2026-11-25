@@ -891,6 +891,11 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   of your title, the hero figure or the crest, because keys and clicks are how you hold the mouse, not
   how your character plays. It reaches the plate only when badly wrong (rule 7 above). It needs a
   recorded run: play with the add-on on and `/reload`. Without one the drawer is not there.
+- Where your time goes, under both columns, is how you spent your hours, from what the add-on counted (add-on 0.6.0, the
+  one from 0.22): your Player Type, one bar, and each part's share and hours, with a chip when it moved 5 points or more
+  against the 15 days before. It fills in after a `/reload` or logout and needs 5 hours of play. Away time (AFK, or 3 minutes without moving, casting
+  or fighting outside an instance) is left out. If counting began inside the 15 days it says so, and nothing is compared. It
+  shows even when there are too few fights for the rest of the page. See [How your Player Type is picked](#how-your-player-type-is-picked).
 - All traits is a drawer under both columns, open when the page is wide. It lists every trait with a
   score above 0, by family, with its figure, its tier in a gold frame (the epithet you have earned, empty
   under the first tier), a line saying what the figure counts, and a bar of its score with the figures it
@@ -951,6 +956,25 @@ In a narrow window the page makes room. Under 1420 px of window width the hero f
 the page is too narrow for two columns (under about 970 px) the right column goes under the left and
 All traits shuts. Narrower still, the plate goes under the hero figure. The page scrolls down and never
 sideways.
+
+### How your Player Type is picked
+
+Each part of your time has its own bar, and your type is the part furthest over its bar ("twice its bar" beats "just
+over"). The bars differ because a quarter of your time trading is a lot and a quarter of it questing is not. Parts with
+20% or more, or over their bar, can follow as the second half: "Huntmaster, and part Errant". With nothing over its bar
+you are an Adventurer. The app's author picked the bars by hand; they don't compare you with other players.
+
+| Part | What counts | Bar | Type |
+|---|---|---|---|
+| Hunting | fights outside instances, and 90 seconds after one | 30% | Huntmaster |
+| Questing | 5 minutes after a quest is taken, moves on or is handed in, its fights too | 35% | Errant |
+| Dungeons | inside a dungeon | 30% | Delver |
+| Raids | inside a raid | 25% | Siegebreaker |
+| PvP | battlegrounds, arenas, and any fight with an enemy player, with 90 seconds after it | 25% | Warmonger |
+| Professions | each gathering, skinning or crafting action, and 3 minutes after mining, herbs or fishing | 20% | Artisan |
+| Auction house and mail | their windows open | 15% | Merchant Prince |
+| Travelling | flight paths, and anything outside the rest | 35% | Wayfarer |
+| In town | resting, with none of the above | 35% | Hearthkeeper |
 
 ### How the Profile makes your title
 

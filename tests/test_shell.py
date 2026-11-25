@@ -654,6 +654,45 @@ class ShellTests(unittest.TestCase):
         self.assertFalse(page.crest.isHidden() or page.body.isHidden())
         page.hide()
 
+    def test_where_your_time_goes(self):
+        """above All traits, under the need with too few fights, what it says aloud, the smallest part still drawn, never sideways"""
+        from dips_score.live.days import PARTS
+        from dips_score.profile_view import ProfileView
+        from dips_score.time_view import NEED, TimeBar, TimePart
+        from dips_score.ui import theme
+        theme.load_fonts()
+        page, v = self.profile_page()
+        self.assertEqual((page.time.accessibleName(), page.time.isHidden()), (f"Where your time goes: {NEED}", False))
+        parts = [TimePart("Hunting", "14 h 12 min", "99%", .999, "m-surv", "+7 pts vs the 15 days before"), TimePart("PvP", "6 min", "under 1%", .0005, "place-pvp"),
+                 *(TimePart(p * 4, "999 h 59 min", "under 1%", .0001, "gold") for p in PARTS)]
+        v.time = TimeBar("", "Merchant Prince, and part Huntmaster", "14 h played.", parts, "1 quest handed in.")
+        page.show_view(v)
+        self.assertTrue(page.time.accessibleName().startswith(
+            "Where your time goes: Merchant Prince, and part Huntmaster. 14 h played. Hunting 99%, 14 h 12 min, +7 pts vs the 15 days before; PvP under 1%, 6 min;"))
+        self.assertTrue(page.time.accessibleName().endswith("; " + "town" * 4 + " under 1%, 999 h 59 min. 1 quest handed in."))
+        for w in (1500, 1000, 620, 360):
+            self.show_at(page, w)
+            self.assertLessEqual(page.widget().width(), page.viewport().width())
+            self.assertLess(page.time.y(), page.traits_fold.y())
+        self.assertEqual(page.stack.indexOf(page.time) + 1, page.stack.indexOf(page.traits_fold))
+        drawn = []
+        page.time.p = 1.0
+        class Painter:
+            def fillRect(self, r, _c): drawn.append(r)  # noqa: E704
+        page.time.bar(Painter(), 0, 300)
+        self.assertEqual(len(drawn), len(parts))
+        self.assertGreaterEqual(min(r.width() for r in drawn), 3)
+        self.assertAlmostEqual(drawn[-1].right(), 300)
+        page.show_view(ProfileView(need="Your profile needs 10 fights", time=v.time))
+        self.show_at(page, 1200)
+        self.assertTrue(page.time.isVisible() and page.body.isHidden())
+        self.assertLess(page.need.y(), page.time.y())
+        page.show_view(ProfileView(need="Your profile needs 10 fights"))
+        self.assertTrue(page.time.isHidden())
+        page.show_view(v)
+        self.assertFalse(page.time.isHidden())
+        page.hide()
+
     def test_character_sheet(self):
         """the drawer: shut, no count; a message before there is a sheet; one tab at a time; everything said; never sideways"""
         from dips_score.sheet_view import NONE, Ability, Figure, Item, Ladder, SheetView, Talent

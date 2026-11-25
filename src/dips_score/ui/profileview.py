@@ -1,7 +1,7 @@
 """The Profile page: who you are as a player over the last 15 days, painted from a ProfileView (see
 dips_score/profile_view.py): the crest, the title's trait as the one big figure, the plate, Signature and the Hands drawer
-on the left; Role mix, Where you fight and How you fight on the right, under the left when both do not fit; every trait
-under them, then the Character sheet drawer (sheetpart.py); the finished 15-day slices in the Earlier drawer.
+on the left; Role mix, Where you fight and How you fight on the right, under the left when both do not fit; where your
+time goes under them (timepart.py), also with too few fights for the rest; every trait, then the Character sheet drawer (sheetpart.py); the finished 15-day slices in the Earlier drawer.
 
 Sizes follow docs/design/mockups/profile.html (CSS px). The shared parts come from kit.py.
 """
@@ -25,6 +25,7 @@ from .kit import (HEAD_H, Drawer, Fold, Hero, Part, Plate, Sheet, Side, Tips, ad
                   draw_hand_note, draw_label_tab, elide, flow, font, hand_font, line, rule, text_at, wrapped)
 from .sheetpart import CharacterSheet
 from .theme import tok
+from .timepart import TimeSection
 
 HERO_W = (260, 214)         # the hero's column (narrow)
 LEFT_MIN = 450              # the left column's width, at least, with the right one beside it
@@ -682,6 +683,8 @@ class ProfilePage(QScrollArea):
         self.hands_drawer = Drawer("Hands", self.hands)
         self.roles = ShareRows("Role mix", 5, graded=True)
         self.places = ShareRows("Where you fight", 7)
+        self.time = TimeSection()
+        self.time.grow = grow
         self.traits = TraitTable()
         self.traits_drawer = Drawer("All traits", self.traits)
         self.traits_fold, self.hands_fold = Fold(self.traits_drawer), Fold(self.hands_drawer)
@@ -717,7 +720,7 @@ class ProfilePage(QScrollArea):
         right.addWidget(self.card)
         right.addStretch(1)
         self.body = QWidget()
-        stack = QVBoxLayout(self.body)
+        self.stack = stack = QVBoxLayout(self.body)
         stack.setContentsMargins(0, 0, 0, 0)
         stack.setSpacing(0)
         self.cols = cols = QHBoxLayout()
@@ -725,9 +728,10 @@ class ProfilePage(QScrollArea):
         cols.addLayout(left, 1)
         cols.addWidget(self.side)
         stack.addLayout(cols, 1)
+        stack.addWidget(self.time)
         stack.addWidget(self.traits_fold)
         stack.addWidget(self.sheet_fold)
-        lay = QVBoxLayout(self.page)
+        self.lay = lay = QVBoxLayout(self.page)
         lay.setContentsMargins(16, 4, 16, 16)
         lay.setSpacing(0)
         lay.addSpacing(HEAD_H)
@@ -750,6 +754,15 @@ class ProfilePage(QScrollArea):
         self.thin = thin
         self.need.setVisible(thin)
         self.body.setVisible(not thin)
+        if thin:        # its hours are days', not fights'
+            self.stack.removeWidget(self.time)
+            self.lay.insertWidget(self.lay.indexOf(self.need) + 1, self.time)
+        else:
+            self.lay.removeWidget(self.time)
+            self.stack.removeWidget(self.time)
+            self.stack.insertWidget(self.stack.indexOf(self.traits_fold), self.time)
+        self.time.setVisible(not (thin and v.time.need))        # one thing to wait for is enough
+        self.time.set(v.time)
         self.need.head, self.need.text = v.need or "", v.need_line
         self.need.setAccessibleName(f"{self.need.head} {self.need.text}")
         self.need.changed()
@@ -815,7 +828,7 @@ class ProfilePage(QScrollArea):
         """the entrance's p (1: settled) to the parts that animate"""
         self.hero.p = 0.78 * phase(p, 0, COUNT_MS)      # kit's ticker lands at 0.78
         for part, moves in ((self.hero, True), (self.signature, True), (self.card, True), (self.roles, True),
-                            (self.places, True), (self.crest, bool(self.crest.note)), (self.traits, bool(self.traits.new))):
+                            (self.places, True), (self.time, True), (self.crest, bool(self.crest.note)), (self.traits, bool(self.traits.new))):
             if part is not self.hero:
                 part.p = p
             if moves:
