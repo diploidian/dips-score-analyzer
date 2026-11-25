@@ -57,8 +57,11 @@ class History:
         if self.file.exists():
             for line in self.file.read_text(encoding="utf-8", errors="replace").splitlines():
                 try:
-                    self.fights.append(json.loads(line))
-                except ValueError:
+                    f = json.loads(line)
+                    if "ilvl" not in f:         # before 0.22 the log's average item level was saved as the level
+                        f["ilvl"] = f.pop("level", None)
+                    self.fights.append(f)
+                except (ValueError, AttributeError, TypeError):
                     continue
         self.fights.sort(key=_start)       # a replay adds the older ones it finds last
         self.acts = {}

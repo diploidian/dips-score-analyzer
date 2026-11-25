@@ -85,6 +85,7 @@ DEFENSIVE_WINDOW = 10.0                # a defensive cast this long before or af
 DEFENSIVE_CD = 300.0                   # a defensive's cooldown when the spell book doesn't know it
 FORBEARANCE_LASTS = 60.0
 HELPED = 0.10                          # of your damage done, or of the damage you took healed, by outsiders: more is help
+ODD_SWINGS = "Seal of the Crusader"     # faster, weaker swings: not your weapon's own
 NOBODY = ("", "0000000000000000")
 FORBEARANCE = ("Divine Protection", "Divine Shield", "Blessing of Protection")      # not castable under it
 # not pressing one of these in a fight you lived through is no mistake: you can't attack under it, or it ends the fight
@@ -204,7 +205,7 @@ def spoken(text: str) -> str:
 def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], history: list[dict],
               types: dict | None = None) -> dict | None:
     """the summary dict, or None for a fight that isn't worth one (a critter, a stray hit); "best before" only
-    counts earlier fights within a level of this one. types: enemy name -> creature type (dipsScoreDB.types)"""
+    counts earlier fights within one average item level of this one. types: enemy name -> creature type (dipsScoreDB.types)"""
     start, end = f.start, f.end or f.start
     dur = max(0.1, _rel(end, start))
     pets = {e.dst for e in f.events if e.event == "SPELL_SUMMON" and e.src == me}
@@ -242,7 +243,11 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     own_auras: set[str] = set()                                  # the ones you put on yourself
     pos: list[tuple[float, float, float]] = []                   # your position (Advanced Combat Logging)
     power_abs: list[tuple[float, float]] = []
-    power_type = level = None                                    # from the advanced log block
+    power_type = ilvl = own = None                               # from the advanced log block
+    body: dict[str, list[int]] = defaultdict(list)               # in it: your spell power, armor, health, mana
+    cells: dict[tuple, list[int]] = defaultdict(lambda: [0, 0, 0])   # see worth.py
+    dealt = {"glancing": [0, 0, 0], "plain": [0, 0, 0]}          # swings: how many, their damage, their base
+    odd = ODD_SWINGS in f.buffs_at_pull
     foe_hp: dict[str, list[tuple[float, float]]] = defaultdict(list)
     cc: list[tuple[float, float]] = []
     costs: dict[str, list[int]] = defaultdict(list)
@@ -269,7 +274,11 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         ev = e.event
         if e.info and e.info.guid == me:
             hp.append((t, e.info.hp_pct))
-            power_type, level = e.info.power_type, e.info.level
+            power_type, ilvl, own = e.info.power_type, e.info.level, e.info
+            for k, v in (("sp", own.sp), ("armor", own.armor), ("hp", own.max_hp),
+                         ("mana", own.max_power if own.power_type == 0 else 0)):
+                if v or k == "sp":
+                    body[k].append(v)
             pos.append((t, e.info.x, e.info.y))
             if e.info.max_power:
                 power.append((t, e.info.power / e.info.max_power))
@@ -320,6 +329,12 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 if ev.startswith("SWING") and e.src == me:
                     swings.append(t)
                     swing_dmg.append(e.amount)
+                    if e.base and not (e.crit or e.blocked or e.absorbed or e.resisted):
+                        for i, v in enumerate((1, e.amount, e.base)):
+                            dealt["glancing" if e.glancing else "plain"][i] += v
+                if e.src == me and own and e.base and (ev == "SPELL_DAMAGE" or (ev == "SWING_DAMAGE" and not odd)):
+                    for i, v in enumerate((1, e.base, e.base ** 2)):
+                        cells[name, e.spell_id or 0, own.ap, own.sp][i] += v
             elif ev.endswith("_MISSED") and is_foe(e.dst, e.dst_flags):
                 row(name)["miss"] += 1
                 if ev.startswith("SWING") and e.src == me:
@@ -377,6 +392,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
             who = clean_name(e.src_name) if e.src.startswith("Player-") else (e.src_name or "?")
             taken.append((t, e.amount, e.spell_name or "Melee", who))
         if e.dst == me and e.spell_name and ev in ("SPELL_AURA_APPLIED", "SPELL_AURA_REMOVED"):
+            if e.spell_name == ODD_SWINGS:
+                odd = ev == "SPELL_AURA_APPLIED"
             auras[e.spell_name].append(t if ev == "SPELL_AURA_APPLIED" else -t - 1e-9)
             if ev == "SPELL_AURA_APPLIED" and e.src == me:
                 own_auras.add(e.spell_name)
@@ -511,7 +528,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         swing_lost = lost_other * avg
         auto = {"swings": len(swings), "speed": speed, "lost": lost_while_casting + lost_other,
                 "lost_casting": lost_while_casting, "lost_other": lost_other, "damage_lost": swing_lost,
-                **melee, "extra": dict(extra_hits)}
+                **melee, "extra": dict(extra_hits), "dealt": dealt}
     shot_speed = 0.0
     if len(shots) >= 2:
         # moving, or no enemy alive, isn't a lost shot
@@ -592,9 +609,9 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         }
 
     # ---- compared with you before
-    # a fight with no level on either side still compares (old history has none)
+    # a fight with no item level on either side still compares (old history has none)
     same = [h for h in history if h.get("target") == target and h.get("kind") == kind and h.get("dps")
-            and (level is None or h.get("level") is None or abs(h["level"] - level) <= 1)]
+            and (ilvl is None or h.get("ilvl") is None or abs(h["ilvl"] - ilvl) <= 1)]
     best = max((h["dps"] for h in same), default=None)
 
     good, improve = [], []
@@ -690,7 +707,9 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         "buffs": buffs, "failed": failed,
         "resource": {"start": f.start_power, "end": power[-1][1] if power else None,
                      "start_hp": f.start_hp, "type": power_type},
-        "level": level,
+        "ilvl": ilvl,              # the log's: your average item level (the character's level is worth.level_at's)
+        "stats": {k: statistics.median(v) for k, v in body.items()},
+        "power": [[*k, *v] for k, v in cells.items()],
         "pull": {"since_last": f.since_last, "buffs": f.buffs_at_pull, "own": f.own_buffs_at_pull, "rest": f.rest},
         "interrupts": interrupts, "dispels": dispels,
         "healing_others": heal_others, "dispels_others": dispels_others,

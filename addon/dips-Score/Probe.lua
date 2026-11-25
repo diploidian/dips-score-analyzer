@@ -118,6 +118,15 @@ local function Spells()
     Ask(true, "GetNumSkillLines")
     for i = 1, 12 do Ask(true, "GetSkillLineInfo", i) end
     Ask(true, "GetProfessions")
+    Add("C_SkillInfo", Show(C_SkillInfo))
+    for _, line in ipairs({43, 54, 55, 95, 136, 160, 162, 172, 229}) do -- weapon skills and defense
+        local p = Ask(true, "C_SkillInfo.GetSkillLineInfoByID", line)
+        if p and type(p[2]) == "table" and not IsSecret(p[2]) then
+            for k, v in pairs(p[2]) do Add("skill " .. line .. " " .. tostring(k), Show(v, true)) end
+        end
+    end
+    Ask(true, "UnitAttackBothHands", "player")
+    Ask(true, "UnitDefense", "player")
 end
 
 -- A talent or Legacy tree: how many nodes it has, and the first few with points in them.

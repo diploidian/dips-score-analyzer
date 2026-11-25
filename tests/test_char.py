@@ -111,13 +111,13 @@ class SetChar(unittest.TestCase):
 
 
 class BestBefore(unittest.TestCase):
-    def test_ignores_a_fight_three_levels_lower(self):
+    def test_ignores_a_fight_three_item_levels_lower(self):
         tr, f = one_fight([cast(0, 1, "Smite"), dmg(0.1, ME, MOB, 1, "Smite", 50), *bites()])
         f.events[0].info = UnitInfo("Player-1-A", 1000, 1000, 0, 100, 100, 0.0, 0.0, 0, 0.0, 33)
         old = {"target": "Wolf", "kind": "World", "dps": 999.0}
         s = lambda *hist: summarize(f, tr.me, tr.me_name, {}, list(hist))["best_before"]  # noqa: E731
-        self.assertEqual(s({**old, "level": 30}), None)
-        self.assertEqual(s({**old, "level": 32}), 999.0)
+        self.assertEqual(s({**old, "ilvl": 30}), None)
+        self.assertEqual(s({**old, "ilvl": 32}), 999.0)
         self.assertEqual(s(old), 999.0)                          # old history has no level
 
 

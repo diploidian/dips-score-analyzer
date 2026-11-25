@@ -113,6 +113,7 @@ class EarlierRow:
     role: str                   # main role and its share "Damage 96%"
     deaths: str                 # deaths per hour "3.1"
     cooldowns: str              # cooldowns used "49%"
+    stats: str = ""             # "gear 31 · 14 spell power · 940 armor", what the middle fight had; "stats not recorded"
 
 
 @dataclass
@@ -167,6 +168,14 @@ def _day(iso: str, shift=timedelta()) -> str:
     return f"{d.day} {d:%b}"
 
 
+def _had(f: dict) -> str:
+    s = f.get("stats") or {}
+    parts = [f"gear {s['gear']:.0f}"] if "gear" in s else []
+    parts += [f"{s[k]:,.0f} {name}" for k, name in (("sp", "spell power"), ("armor", "armor"), ("hp", "health"), ("mana", "mana"))
+              if s.get(k)]
+    return " · ".join(parts) or "stats not recorded"
+
+
 def _earlier(earlier: list[dict]) -> list[EarlierRow]:
     out = []
     for s in sorted(earlier, key=lambda s: s["to"], reverse=True):
@@ -179,7 +188,7 @@ def _earlier(earlier: list[dict]) -> list[EarlierRow]:
             label=(s.get("title") or s.get("label") or NA).rstrip("."),
             role=NA if sh is None else f"{ROLE_NAME.get(main, str(main).title())} {_pct(sh)}%",
             deaths=NA if dph is None else f"{dph:.1f}",
-            cooldowns=NA if t.get("cooldowns_share") is None else _pct(t["cooldowns_share"]) + "%"))
+            cooldowns=NA if t.get("cooldowns_share") is None else _pct(t["cooldowns_share"]) + "%", stats=_had(f)))
     return out
 
 

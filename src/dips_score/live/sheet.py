@@ -15,14 +15,14 @@ role.
                "share" (of the window's damage, its procs with it, None without), "lower" (only ranks under the highest one known were cast)}
   projections  {key: {"value", "source" ("measured", "game", "estimate" or None), "n" (what it rests on)}}, see _projections
 
-The combat log's own attack power is another number than the game's (625 against 287 with the same gear and buffs), so it
-is not used: the worth of attack power is an estimate, not a measure."""
+  worth        worth.spells: what spell power adds to a hit of each spell
+  swings       worth.hits: how your swings landed, None with too few"""
 from __future__ import annotations
 
 import re
 from statistics import median
 
-from . import traits
+from . import traits, worth
 from .habits import _damage_fights
 from .summary import NO_GEAR_LEVEL
 
@@ -207,8 +207,8 @@ def _number(rank: str | None) -> int:
 def _projections(char: dict, win: list[dict], stats: dict[str, dict]) -> dict[str, dict]:
     """measured from your fights first, then the game's own figure, then a classic formula while it agrees with the game:
     "dps", "hps", "swing" (seconds), "hit" (your average swing, against "game_low" and "game_high", what the game says it
-    does before armor), "ap10" (what 10 attack power adds, damage per second before armor; "why" it is unknown:
-    "weapon" (its stats are) or "fit")"""
+    does before armor), "ap10" (what 10 attack power adds, damage per second before armor; measured, also "swing", to one swing,
+    and "error" of it; "why" it is unknown: "weapon" (its stats are) or "fit")"""
     v = lambda k: (stats.get(k) or {}).get("value")  # noqa: E731
     none = {"value": None, "source": None, "n": 0}
     out = {k: dict(none) for k in ("dps", "hps", "swing", "hit", "ap10")}
@@ -232,7 +232,11 @@ def _projections(char: dict, win: list[dict], stats: dict[str, dict]) -> dict[st
                       "game_low": v("dmgmin"), "game_high": v("dmgmax")}
     weapon, speed, ap = (char.get("itemstats") or {}).get(16, {}).get(WEAPON_DPS), v("speed"), v("ap")
     out["ap10"]["why"] = "weapon"
-    if weapon and speed and ap is not None and v("dmgmin") and v("dmgmax"):
+    got = worth.swing(win, v("dmgmin"), v("dmgmax"))
+    if got and speed:
+        out["ap10"] = {"value": 10 * got["value"] / speed, "source": "measured", "n": got["n"], "swing": 10 * got["value"],
+                       "error": 10 * got["error"]}
+    elif weapon and speed and ap is not None and v("dmgmin") and v("dmgmax"):
         out["ap10"]["why"] = "fit"
         ours = weapon * speed + ap / AP_PER_DPS * speed + (v("dmgbonus") or 0)
         game = (v("dmgmin") + v("dmgmax")) / 2
@@ -247,4 +251,5 @@ def sheet(char: dict | None, win: list[dict], fig: dict | None = None) -> dict |
     stats, fig = _stats(char), fig or {}
     return {"taken": char.get("geartaken") or char.get("taken"), "gear": _gear(char), "stats": stats, "abilities": _abilities(char, win),
             "points": char.get("points") or [], "trees": char.get("trees") or [], "skills": char.get("skills") or [],
-            "projections": _projections(char, win, stats), "role": fig.get("main_role"), "auto": _auto(win)}
+            "projections": _projections(char, win, stats), "role": fig.get("main_role"), "auto": _auto(win),
+            "worth": worth.spells(win, char.get("levels")), "swings": worth.hits(win)}

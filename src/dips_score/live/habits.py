@@ -14,6 +14,7 @@ from datetime import datetime
 
 from ..scoring import usable
 from .summary import MASHING, gear_level
+from .worth import leveled
 
 WINDOW = 40                  # fights looked at; the trend compares the last 20 with the 20 before
 TREND_MIN = 5                # fights needed in each half of the trend
@@ -273,14 +274,14 @@ def habits(fights: list[dict], char: dict | None = None, book: dict | None = Non
     if not fights:
         return {"name": "", "level": None, "fights": 0, "session": None, "cards": [], "char": None, "trend": []}
     me = fights[-1]["me"]
-    mine = [f for f in fights if f["me"] == me]
+    mine = leveled([f for f in fights if f["me"] == me], char)
     win = mine[-WINDOW:]
     cards = _damage_cards(win) + _habit_cards(win) + (_build_cards(win, char, book or {}, types) + _wear_cards(
         win, char.get("pulls") or []) if char else [])
     cards.sort(key=lambda c: ORDER[c[0]])
     trend = [{"efficiency": f.get("efficiency"), "level": f.get("level"), "gear": f.get("gear")}
              for f in _damage_fights(win)]
-    return {"name": fights[-1].get("me_name", ""), "level": fights[-1].get("level"), "fights": len(win),
+    return {"name": fights[-1].get("me_name", ""), "level": mine[-1].get("level"), "fights": len(win),
             "trend": trend,
             "session": _session(mine), "char": char_block(char),
             # a card's figures beside its words: cost on every card (None without one), the rest on their own card

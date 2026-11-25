@@ -596,7 +596,7 @@ class EarlierTable(Part):
     def set(self, rows: list[EarlierRow]):
         self.rows = rows
         self.setAccessibleName("Earlier: " + "; ".join(
-            f"{r.dates}, {r.label}, {r.role}, {r.deaths} deaths an hour, {r.cooldowns} cooldowns used" for r in rows))
+            f"{r.dates}, {r.label}, {r.role}, {r.deaths} deaths an hour, {r.cooldowns} cooldowns used, {r.stats}" for r in rows))
         self.changed()
 
     def stacked(self, p, w) -> float:
@@ -615,7 +615,7 @@ class EarlierTable(Part):
                     text_at(p, vf, tok("mu" if value == NA else "tx"), 0, base, value)
                     text_at(p, lf, tok("tx2"), 48, base, what)
                 y += 20
-            y += 6
+            y += wrapped(p, font(12), tok("tx2"), 0, y + 2, w, 12 * 1.4, row.stats) + 2 + 6
         return y + 10
 
     def draw(self, p, w):
@@ -643,7 +643,8 @@ class EarlierTable(Part):
                 right_text(p, sf, tok("tx2"), rights[0] - adv(vf, share) - 5, base, name)
                 for s, right in zip((row.deaths, row.cooldowns), rights[1:]):
                     right_text(p, vf, tok("mu" if s == NA else "tx"), right, base, s)
-            y += 1 + 6 + 20 + 6
+            y += 1 + 6 + 20
+            y += wrapped(p, font(12), tok("tx2"), lx, y + 2, w - lx, 12 * 1.4, row.stats) + 2 + 6
         return y + 10
 
 

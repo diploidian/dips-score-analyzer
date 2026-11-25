@@ -575,8 +575,8 @@ cast after a cooldown reset can't set it. A spell you ever cast twice within 2 s
 cooldown. When the character snapshot has the game's own cooldown for a spell, the shorter of the
 two is used. The snapshot also means a cooldown you have never pressed can still show as missed.
 
-"Best previous on this target" only compares fights within one level of this one, so levelling up
-doesn't hand out records.
+"Best previous on this target" only compares fights within one average item level of this one (the combat log's own
+figure), so better gear doesn't hand out records.
 
 ## Habits
 
@@ -590,7 +590,7 @@ them: fights, kills, kills per hour, average gap between fights, average rest (t
 drinking or bandaging), and average health and mana at the pull.
 
 The trend chart draws your efficiency for each fight, oldest on the left, once there are 5 fights.
-A gray line marks a level-up, with the new level on top. Yellow dashes mark a change in gear level.
+A gray line marks a level-up, with the new level on top (from the levels add-on 0.6.0 records; before it there is none). Yellow dashes mark a change in gear level.
 
 The cards are grouped into Fix, Build and Keep. The ones it can show:
 
@@ -912,8 +912,16 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
     game says, then the game's figures. A primary stat's bar is your own total (it compares you with nobody): what
     your gear gives, by rarity, what is your own without gear or buffs (race, class, level and talents), and
     what buffs, enchants and set bonuses added when it was read. The last two need add-on 0.5.2 and a `/reload`;
-    until then they are one part. "estimate" marks what 10 more attack power is worth, by the classic formula, and is shown
-    only when that formula lands within 10% of the game's own damage. A figure the game hides is a dash.
+    until then they are one part. A figure the game hides is a dash.
+    What 10 more attack power adds is measured from your own swings: the log has each one's damage before armor, crits and
+    glancing. Only days whose swings spread as your weapon's own roll does count, so another weapon or a buff on swings is
+    left out, and swings under Seal of the Crusader never count. Until 100 swings say it clearly, "estimate" marks the classic
+    formula's figure, shown only when that formula lands within 10% of the game's own damage.
+    "10 more spell power adds" compares hits of one spell, at one rank and one character level, at two amounts of spell power,
+    with attack power held still. "0" means none was seen. It needs the levels add-on 0.6.0 records, and says so until then.
+    Healing power is not measured. "How your swings land" counts your misses, dodges, parries, glancing blows and crits against
+    what you fought: the game does not give your weapon skill, and this is what it does. These need fights summed up by 0.22:
+    press **Add fights from my old combat logs** once in Settings.
   - Abilities: casts in fights and each ability's share of your damage, its procs with it, with auto
     attack and the remaining procs and items, so the shares add up. Then the casts that do no damage, and the
     spells you know and did not cast in a fight. The rank you cast, and a flag when you know a
@@ -926,7 +934,8 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   share chip is ringed then. With no new tier, the one biggest move of a share against days 16 to 30
   is ringed instead (on a tie, the increase).
 - Earlier, at the foot, lists your finished 15-day blocks: dates, the title you had (the label for a
-  block saved before titles existed), main role, deaths per hour and cooldowns used. A block is saved
+  block saved before titles existed), main role, deaths per hour and cooldowns used, and what your
+  middle fight had: gear, spell power, armor, health and mana, buffs included ("stats not recorded" before 0.22). A block is saved
   once its end is 15 days back, when it has left the current window, and never rewritten. A block with
   fewer than 10 fights isn't saved. A block waits until every run's figures have been read. A block
   with a fight summed up before 0.18.0 isn't saved until that fight has been refreshed (see

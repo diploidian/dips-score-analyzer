@@ -10,7 +10,7 @@ Combat Logging on - a block about one unit, then suffix fields (amount, ...).
 
 This client (COMBAT_LOG_VERSION 22, project 18) writes a 19-field advanced block:
     guid, ownerGUID, hp, maxHP, attackPower, spellPower, armor, absorb, ?, ?,
-    powerType, power, maxPower, powerCost, x, y, uiMapID, facing, level
+    powerType, power, maxPower, powerCost, x, y, uiMapID, facing, level (a player's: the average item level)
 The block says which unit it describes (its first field) - sometimes the source, sometimes the
 destination - so always check `info.guid`.
 """
@@ -77,6 +77,9 @@ class UnitInfo:
     level: int
     cost: int = 0          # power the cast cost (on SPELL_CAST_SUCCESS)
     absorb: int = 0        # damage absorbing shields on the unit
+    ap: int = 0            # the log's own attack power: another number than the game's (see live/worth.py)
+    sp: int = 0            # the game's spell power
+    armor: int = 0
 
     @property
     def hp_pct(self) -> float:
@@ -99,6 +102,7 @@ class Event:
     spell_name: str = ""
     info: UnitInfo | None = None
     amount: int = 0
+    base: int = 0            # _DAMAGE: before armor, a crit or a glancing blow
     overkill: int = 0
     overheal: int = 0
     absorbed: int = 0
@@ -185,14 +189,15 @@ def parse_line(line: str) -> Event | None:
         try:
             e.info = UnitInfo(f[p], _int(f[p + 2]), _int(f[p + 3]), _int(f[p + 10]), _int(f[p + 11]),
                               _int(f[p + 12]), float(f[p + 14]), float(f[p + 15]), _int(f[p + 16]),
-                              float(f[p + 17]), _int(f[p + 18]), _int(f[p + 13]), _int(f[p + 7]))
+                              float(f[p + 17]), _int(f[p + 18]), _int(f[p + 13]), _int(f[p + 7]),
+                              _int(f[p + 4]), _int(f[p + 5]), _int(f[p + 6]))
             p += ADV_LEN
         except ValueError:
             e.info = None
     s = f[p:]
     if ev.endswith(("_DAMAGE", "_DAMAGE_LANDED")) and len(s) >= 8:
         # amount, base amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing
-        e.amount, e.overkill, e.absorbed, e.crit = _int(s[0]), _int(s[2]), _int(s[6]), s[7] == "1"
+        e.amount, e.base, e.overkill, e.absorbed, e.crit = _int(s[0]), _int(s[1]), _int(s[2]), _int(s[6]), s[7] == "1"
         e.resisted, e.blocked = _int(s[4]), _int(s[5])
         e.glancing, e.crushing = len(s) > 9 and s[8] == "1", len(s) > 9 and s[9] == "1"
     elif ev.endswith("_HEAL") and len(s) >= 5:

@@ -95,7 +95,7 @@ class Live(unittest.TestCase):
         self.assertEqual(s["foes"][0][0], "Wolf")
         later = summarize(second, tr.me, tr.me_name, cds, [s])
         self.assertEqual(later["best_before"], s["dps"])
-        self.assertTrue({"own", "rest"} <= set(s["pull"]) and "level" in s)
+        self.assertTrue({"own", "rest"} <= set(s["pull"]) and {"ilvl", "stats", "power"} <= set(s))
 
     def test_a_player_names_the_fight(self):
         rogue = 'Player-2-B,"Jonaallday-Oneshot-PvP-US",0x548,0x80000000'

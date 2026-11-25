@@ -197,7 +197,7 @@ class Stats(Part):
     def set(self, v: SheetView):
         self.view = v
         # nothing of the game's own figures in the snapshot
-        self.unread = {t for t, _ in v.stats} <= {"From your fights", "Professions"}
+        self.unread = {t for t, _ in v.stats} <= {"From your fights", "How your swings land", "Professions"}
         self.setAccessibleName("Stats: " + ("could not be read. " if self.unread else "") + " ".join(f"{g}: " + "; ".join(", ".join(filter(None, (
             f"{f.name} {f.value}", f.note + (" (estimate)" if f.estimate else "")))) for f in rows) + "." for g, rows in v.stats))
         self.changed()

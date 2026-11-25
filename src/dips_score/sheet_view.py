@@ -215,9 +215,32 @@ def _attack(s: dict) -> list[Figure]:
     rows = [f for spec in ATTACK if (f := _stat(s, *spec))]
     ap = s["projections"]["ap10"]
     for f in rows:
-        if f.name == "Attack power" and ap["value"] is not None:
+        if f.name == "Attack power" and ap["source"] == "measured":
+            f.note = (f"10 more adds {_n(ap['swing'], 1)} a swing, {_n(ap['value'], 2)} damage per second, before armor. Measured over "
+                      f"{_plural(ap['n'], 'swing')}, give or take {_n(max(.1, 2 * ap['error']), 1)} a swing")
+        elif f.name == "Attack power" and ap["value"] is not None:
             f.note, f.estimate = f"10 more adds {_n(ap['value'], 2)} damage per second before armor, by the classic formula", True
     return rows
+
+
+def _spell_worth(s: dict) -> list[Figure]:
+    """what 10 more spell power adds to a hit of each spell; with spell power and nothing measured, why"""
+    rows = [Figure(w["name"], f"+{_n(10 * w['value'], 1)}" if w["value"] else "0", f"a hit, before resists. Measured over {_plural(w['n'], 'hit')}, "
+                   f"give or take {_n(max(.1, 20 * w['error']), 1)}") for w in s["worth"]]
+    if not rows and (s["stats"].get("spellpower") or {}).get("value"):
+        rows = [Figure("Not measured yet", NA, "needs 100 hits of a spell at two amounts of spell power at one level, and add-on 0.6")]
+    return rows
+
+
+def _swings(s: dict) -> list[Figure]:
+    """how your swings landed, against what you fought"""
+    if not (h := s["swings"]):
+        return []
+    of = f"of {_plural(h['n'], 'swing')}, against what you fought"
+    cost = f"each does {_n(h['glancing_cost'] * 100)}% less" if h["glancing_cost"] is not None else ""
+    rows = (("miss", "Missed", of), ("dodge", "Dodged", ""), ("parry", "Parried", ""), ("block", "Blocked whole", ""),
+            ("glancing", "Glancing", cost), ("crit", "Critical", ""))
+    return [Figure(name, f"{_n(h[k] / h['n'] * 100, 1)}%", note) for k, name, note in rows if h[k] or k == "miss"]
 
 
 def _abilities(s: dict) -> tuple[str, list[Ability], str]:
@@ -257,7 +280,7 @@ def build_sheet(s: dict | None, broken: int | None = None) -> SheetView:
     resist = rows([(f"res_{k}", f"{k.title()} resistance") for k in RESIST])
     skills = [Figure(k["name"], f"{k['level']:,}" + (f" of {k['max']:,}" if k["max"] else "")) for k in s["skills"]]
     v.stats = [(t, r) for t, r in (("From your fights", _measured(s["projections"])), ("Primary", _primary(s)), ("Attack", _attack(s)),
-                                   ("Spells", rows(SPELL)), ("Defense", rows(DEFENSE)), ("Resistances", resist),
+                                   ("How your swings land", _swings(s)), ("Spells", rows(SPELL)), ("10 more spell power adds", _spell_worth(s)), ("Defense", rows(DEFENSE)), ("Resistances", resist),
                                    ("Professions", skills)) if r]
     v.lead, v.abilities, v.idle = _abilities(s)
     v.talents, v.talents_note = _points(s, "talent")

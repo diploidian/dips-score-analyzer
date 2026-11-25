@@ -1,7 +1,7 @@
 """Who you are as a player: the newest fight's character over the last 15 days (Now) against days 16 to 30
 (Before). Pure data, plain JSON-able values; a figure that cannot be known is None, never a guess.
 
-profile(fights, char, book, runs, now, types=None, acts=None) -> {"name", "char" (habits.char_block), "level" (the newest fight's), "now": figures (None only when
+profile(fights, char, book, runs, now, types=None, acts=None) -> {"name", "char" (habits.char_block), "level" (the newest fight's, None when not recorded), "now": figures (None only when
 there are no fights at all), "before": figures or None when it has no fights,
 "sheet": sheet.sheet of the window, "broken": pieces broken at the last pull, None when not known}. Now is fights with start in (now - 15 days, now], Before (now - 30, now - 15].
 
@@ -57,6 +57,8 @@ figures(...) keys (shares are fractions 0..1; None when there is nothing to divi
   title, second, deeds, lead, epithet     titles.crest; title None without fights
   hero             {"figure" (text), "unit", "caption", "key"} of the title's trait, None without one
   rows, pack       titles.rows and the keys of How you fight's rows, in order
+  stats            {"sp", "armor", "hp", "mana" (the log's, buffs included), "gear" (item level)}: the middle fight's,
+                   those known
   outdated         fewer than half of the fights carry CURRENT, a key every fight summed up now has
 """
 from __future__ import annotations
@@ -71,6 +73,7 @@ from ..scoring.score import grade
 from . import days, helping, titles, traits
 from .habits import _damage_fights, char_block, cooldown_losses, idle_spells
 from .sheet import sheet
+from .worth import leveled
 
 SLICE = timedelta(days=15)
 ROLES = ("damage", "healer", "tank")
@@ -80,6 +83,7 @@ OLD_PLACE = {"Dungeon": "Dungeon", "Boss": "Dungeon", "World": "World"}     # fi
 RAID_DIFFICULTIES = {3, 4, 5, 6, 7, 9, 14, 15, 16, 17, 33, 148, 151, 175, 176, 185, 186, 193, 198, 215, 226}
 TALENT = {"TANK": "tank", "HEALER": "healer", "DPS": "damage"}
 TOP = 5
+STATS = ("sp", "armor", "hp", "mana")
 CURRENT = "helped"          # a fight summed up before 0.18.0 has none
 
 # the label rule table: <temperament> <place> <role>
@@ -197,7 +201,7 @@ def _restricted(win: list[dict], unused: list[str] | None, types: dict | None) -
 def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], lo: datetime, hi: datetime,
             types: dict | None = None, acts: list[dict] | None = None) -> dict:
     """the figures of one window (lo, hi] of one character's fights (see the module docstring)"""
-    win = [f for f in mine if lo < datetime.fromisoformat(f["start"]) <= hi]
+    win = leveled([f for f in mine if lo < datetime.fromisoformat(f["start"]) <= hi], char)
     runs = [r for r in runs if lo < r["start"] <= hi]
     cls = (char or {}).get("class")
     seconds = sum(f.get("duration") or 0 for f in win)
@@ -240,6 +244,9 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
         out["hero"] = {"figure": text, "unit": unit, "caption": sc[lead]["caption"], "key": lead}
     out["rows"] = titles.rows(win, out, sc, ab["split"])
     out["pack"] = titles.pack(win, out, out["rows"], sc, out["lead"])
+    each = {k: [v for f in win if (v := (f.get("stats") or {}).get(k)) is not None] for k in STATS}
+    each["gear"] = [f["gear"] for f in win if f.get("gear")]
+    out["stats"] = {k: median(v) for k, v in each.items() if v}
     out["outdated"] = bool(win) and sum(CURRENT in f for f in win) * 2 < len(win)
     return out
 
@@ -277,7 +284,7 @@ def profile(fights: list[dict], char: dict | None, book: dict | None, runs: list
     fig = figures(mine, char, book, runs, now - SLICE, now, types, acts)
     win = [f for f in mine if now - SLICE < datetime.fromisoformat(f["start"]) <= now]
     pulls = (char or {}).get("pulls") or []
-    return {"name": fights[-1].get("me_name", ""), "char": char_block(char), "level": fights[-1].get("level"),
+    return {"name": fights[-1].get("me_name", ""), "char": char_block(char), "level": leveled(mine[-1:], char)[0].get("level"),
             "sheet": sheet(char, win, fig), "broken": pulls[-1][2] if pulls else None,
             "now": fig,
             "before": before if before["fights"] else None}
