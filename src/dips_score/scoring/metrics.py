@@ -8,9 +8,9 @@ melee swings and ranged shots (Auto Shot, wand Shoot; each keeps you busy until 
 swing or shot). Swinging or shooting with no ability is busy, not idle ("swinging_time" says how much: the
 auto-attack inside gaps of IDLE_GAP+ between abilities, as the live fight counts it).
 A next-swing ability (NEXT_SWING: Heroic Strike...) takes the place of the swing it replaces, so that swing
-is not lost. Shots lost are measured like swings lost, but a gap while moving doesn't count, and a shot
-clipped by a cast (a hard cast; for a wand, any cast, since casting stops the wand) is counted apart, and
-a gap with no enemy alive (each enemy from its first to its last event in the log) doesn't count either. For rage and
+is not lost. Time moving, or with no enemy alive (each enemy from its first to its last event in the log), is taken
+off a gap first. Shots lost are measured like swings lost, but a shot clipped by a cast (a hard cast; for a wand, any
+cast, since casting stops the wand) is counted apart. For rage and
 energy users (Advanced Combat Logging), time you couldn't afford your cheapest ability is
 "starved": not busy, but not held against you either. The other side is "capped": time your rage
 or energy sat at its maximum (more coming in was lost), counted from the same readings.

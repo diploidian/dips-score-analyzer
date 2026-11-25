@@ -482,12 +482,12 @@ at least one enemy has it.
 Rogues live on a 1.0-second global cooldown and an energy bar, and the app judges them that way.
 Activity uses the shorter global cooldown, "Not enough energy" is pooling rather than a mistake,
 and Resource shows time spent capped. Slice and Dice and Rupture uptime are the Upkeep numbers,
-and the lost-swing count is a good measure of how often you were out of reach of your target. The
+and the lost-swing count says how often you stood without swinging (moving isn't counted). The
 danger box tracks Evasion, Vanish and Cloak of Shadows.
 
 ### Priest
 
-The healer card was written with Priests in mind. Power Word: Shield counts as an answer to a dip,
+The healer card was written with Priests in mind. Power Word: Shield and Penance count as an answer to a dip,
 Renew counts as a HoT, and Vampiric Embrace counts as passive healing that isn't judged, so it
 can't pad or hurt your overheal number. The tips speak Priest ("Shield or Renew the tank", "use a
 lower rank"). Shadow Priests get the DPS card, where Mind Flay counts as busy until the channel

@@ -82,7 +82,7 @@ local function StartRun(zone, kind, difficulty, instanceID)
     log.active = run.id
     OpenSegment()
     if ns.db.combatLog then pcall(EnsureCombatLog) end
-    if ns.db.announce and not ns.Quiet(kind) then ns.Print("recording " .. (zone or "?") .. ".") end
+    if ns.db.announce and (manual or not ns.Quiet(kind)) then ns.Print("recording " .. (zone or "?") .. ".") end
 end
 
 function ns.EndRun()
@@ -90,7 +90,7 @@ function ns.EndRun()
     ns.CloseSegment()
     run.ended = time()
     ns.Log().active = nil
-    if ns.db.announce and not ns.Quiet(run.kind) then
+    if ns.db.announce and (manual or not ns.Quiet(run.kind)) then
         ns.Print("stopped recording " .. (run.zone or "?") .. ". /reload or log out to save it for the analyzer.")
     end
     run, manual = nil, nil
@@ -147,8 +147,7 @@ function ns.StopManual()
     if not run then return end
     -- an automatic run stopped by hand: don't start another one until you leave this place
     if not manual and run.kind ~= "world" then ns.Log().stoppedIn = run.instanceID end
-    manual = nil
-    ns.EndRun()
+    ns.EndRun() -- clears manual
 end
 
 function ns.ToggleRecording()

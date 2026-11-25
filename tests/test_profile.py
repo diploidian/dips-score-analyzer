@@ -343,10 +343,13 @@ class History(unittest.TestCase):
         self.assertEqual(list(profile_runs.merge(kept, {"r1b": run(40, parts=["r1b"])})), ["r1"])
         # a score is kept over none (its combat log is gone)
         self.assertEqual(profile_runs.merge(kept, {"r1": run(40, parts=["r1"], score=None)})["r1"]["score"], 85.0)
-        # scored by other rules: its presses stay, its score goes
-        for old in (run(40, parts=["r1"], rules=RULES - 1), {k: v for k, v in run(40, parts=["r1"]).items() if k != "rules"}):
+        # scored by other rules: kept as it was, and not graded with today's
+        for old in (run(1, parts=["r1"], rules=RULES - 1), {k: v for k, v in run(1, parts=["r1"]).items() if k != "rules"}):
             r = profile_runs.merge(profile_runs.pack({"r1": old}, T0), {})["r1"]
-            self.assertEqual((r["score"], r["grade"], r["role"], r["presses"]), (None, None, None, 100))
+            self.assertEqual((r["score"], r["presses"]), (85.0, 100))
+            now = lambda *rs: profile([fight(1)], None, {}, list(rs), T0)["now"]["grades"]["damage"]  # noqa: E731
+            self.assertIsNone(now(r))
+            self.assertEqual((now(r, run(1, score=60.0))["runs"], now(r, run(1, score=60.0))["score"]), (1, 60.0))
         bare = profile_runs.pack({"r1": run(40, parts=["r1"], score=None)}, T0)
         self.assertEqual(profile_runs.merge(bare, {"r1": run(40, parts=["r1"], score=None, presses=7)})["r1"]["presses"], 7)
         with mock.patch.object(removed, "IDS", {"r1"}):

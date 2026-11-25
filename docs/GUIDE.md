@@ -146,6 +146,9 @@ Fights summed up by 0.16 or 0.17 need step 2 once more for 0.18.0. Until then, 1
 fights in them aren't saved to Earlier. Once a newer block has been saved, the older ones are left out
 for good.
 
+0.23.1 counts instant and channelled heals, so runs are scored again. A run the add-on no longer keeps stays in
+the Profile with its presses, and its old score isn't averaged with the new ones.
+
 ## What it records, and how
 
 ### What the add-on writes
@@ -630,7 +633,7 @@ less can be the reason nobody died.
 The app sorts your healing from the combat log, without a spell list:
 
 - a cast heal is a spell with a cast start and a heal, or an instant or channelled one such as Holy Shock or Penance:
-  it healed someone else in the group, and you cast it at least once at something other than an enemy
+  it healed someone else in the group, and you cast it at least once at a friend or at no target
 - a HoT is periodic healing
 - a shield is an aura you put on a player with "Shield" in its name, as long as it went on someone
   else in the group at least once, or showed an absorb on its target within 2 seconds of going on

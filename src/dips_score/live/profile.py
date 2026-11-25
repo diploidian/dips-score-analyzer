@@ -69,7 +69,7 @@ from statistics import median
 
 from ..scoring import usable
 from ..scoring.classes import talent_role
-from ..scoring.score import grade
+from ..scoring.score import RULES, grade
 from . import days, helping, titles, traits
 from .habits import _damage_fights, char_block, cooldown_losses, idle_spells
 from .sheet import sheet
@@ -154,7 +154,7 @@ def _hands(runs: list[dict]) -> dict | None:
 def _grades(runs: list[dict]) -> dict:
     out = {}
     for role in ROLES:
-        scores = [r["score"] for r in runs if r.get("role") == role and r.get("score") is not None]
+        scores = [r["score"] for r in runs if r.get("role") == role and r.get("score") is not None and r.get("rules") == RULES]
         mean = sum(scores) / len(scores) if scores else None
         out[role] = None if mean is None else {"runs": len(scores), "score": mean, "grade": grade(mean)}
     return out

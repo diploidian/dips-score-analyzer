@@ -4,7 +4,7 @@
 Your heals are split by what you did:
     cast heals   spells you hard-cast that heal (Heal, Flash Heal, Greater Heal, Prayer of Healing), and instant or
                  channelled ones (Holy Shock, Penance, Swiftmend): their heal went on a group member other than you, and
-                 you cast that spell at least once at something other than an enemy
+                 you cast that spell at least once at a friend or at no target (Vampiric Embrace goes on an enemy)
     HoTs         your periodic heals (Renew)
     shields      buffs you put on the group with "Shield" in the name (Power Word: Shield) that, at least once, went on
                  a group player other than you, or showed an absorb reading on the target within 2 s
@@ -25,7 +25,7 @@ from bisect import bisect_left
 from dataclasses import dataclass, field
 
 from ..model.run import RunData
-from ..sources.combatlog import is_enemy
+from ..sources.combatlog import REACTION_FRIENDLY, is_enemy
 from .metrics import Interval, clip, inside, total, union
 
 DIP_HP = 0.60
@@ -160,7 +160,7 @@ def healer_base(rd: RunData, deaths: list[tuple[float, str]] | None = None, who:
     shields = {s for s, d, t in applied if (d in b.party and d != me)
                or any(t <= a <= t + 2.0 for a in absorbing.get(d, ()))}
     aimed = {e.spell_name for e in rd.events if e.src == me and e.event == "SPELL_CAST_SUCCESS"
-             and not is_enemy(e.dst, e.dst_flags)}
+             and (not e.dst.strip("0") or e.dst_flags & REACTION_FRIENDLY)}
     pressed = {e.spell_id for e in rd.events if e.src == me and e.event == "SPELL_HEAL" and e.dst != me
                and e.dst in b.party and e.spell_name in aimed}        # by name: the heal's id is often not the cast's
     cast_heals = (cast_started & healed) | pressed

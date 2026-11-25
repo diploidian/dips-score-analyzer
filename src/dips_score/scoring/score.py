@@ -279,7 +279,7 @@ def _activity(m: Metrics, w: int) -> Category:
     word = POWER_WORD.get(m.power_type)
     if _melee(m):
         tip = (f"Always be attacking: you were doing nothing {1 - m.uptime:.0%} of combat and lost "
-               f"{m.swings_lost} swings while not casting. Stay in reach of your target and fill gaps "
+               f"{m.swings_lost} swings while not casting or moving. Stay in reach of your target and fill gaps "
                f"with an ability.")
     elif _shooter(m):
         tip = (f"Always be shooting: you were doing nothing {1 - m.uptime:.0%} of combat and lost "
@@ -292,7 +292,7 @@ def _activity(m: Metrics, w: int) -> Category:
         "Activity", s, w,
         f"busy {m.uptime:.0%} of {m.combat_time:.0f}s in combat; {len(m.idle_gaps)} gaps of 2.5s+"
         + (f", longest {longest:.1f}s" if m.idle_gaps else "")
-        + (f"; {m.swings} swings, {m.swings_lost} lost while not casting" if m.swings else "")
+        + (f"; {m.swings} swings, {m.swings_lost} lost while not casting or moving" if m.swings else "")
         + (f"; {m.shots} shots, {m.shots_lost} lost, {m.shots_clipped} clipped by casts"
            if m.shots and m.shots_lost is not None else "")
         + (f"; {m.swinging_time:.0f}s of it auto-attack with no ability" if m.swinging_time and m.swinging_time >= 0.5

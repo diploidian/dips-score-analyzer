@@ -35,7 +35,7 @@ LEFT = "Left on the table · estimate — only time you were free to act"
 NO_FIGHTS = ("No fights yet. Turn on the combat log in game (/combatlog) and fight something: each fight shows up here "
              "(and on the overlay) a few seconds after it ends.")
 COUNTED = ("Cooldowns that sat ready while you were free (not moving for cast-time spells, not out of mana, not "
-           "stunned, the target not nearly dead, nobody low while you heal), melee swings lost while not casting, and "
+           "stunned, the target not nearly dead, nobody low while you heal), melee swings lost while not casting or moving, and "
            "idle time while standing with resource to spare (half counted).")
 
 
