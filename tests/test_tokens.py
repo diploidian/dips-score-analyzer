@@ -30,7 +30,7 @@ class TokensTest(unittest.TestCase):
         self.assertEqual(len(blocks), 4)
         for theme, mode, body in blocks:
             parsed = {k: v.strip().lower() for k, v in re.findall(r"--([\w-]+):\s*([^;]+);", body)}
-            self.assertEqual(len(parsed), 43)
+            self.assertEqual(len(parsed), 47)
             got = {k: v.lower() for k, v in tokens.TOKENS[(theme, mode)].items()}
             self.assertEqual(got, parsed, (theme, mode))
 
@@ -49,6 +49,13 @@ class TokensTest(unittest.TestCase):
             for ink in inks:
                 for bg in ("panel", "bg"):
                     self.assertGreaterEqual(contrast(t[ink], t[bg]), 3, (look, ink, bg))
+
+    def test_rarity_inks_read_as_text(self):
+        """the Character sheet's item names: 4.5:1 on panel and bg in all four looks"""
+        for look, t in tokens.TOKENS.items():
+            for ink in ("q-uncommon", "q-rare", "q-epic", "q-legendary"):
+                for bg in ("panel", "bg"):
+                    self.assertGreaterEqual(contrast(t[ink], t[bg]), 4.5, (look, ink, bg))
 
     def test_rail_text_reads_on_rail(self):
         """the rail's run tree and fight list: rail-tx (names) and rail-mu (muted line, tags) reach 4.5:1 on the rail

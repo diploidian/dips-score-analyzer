@@ -202,7 +202,7 @@ def _float(v) -> float | None:
 
 def _sheet(c: dict) -> dict:
     """the character sheet's lists (Sheet.lua), each empty when missing or odd: "spell_ids" {id: name}, "stats" {key: value, or None when the game
-    hides it}, "items" {slot: {"id", "quality", "enchant", "name"}}, "itemstats" {slot: {KEY: value}}, "ranks" {spell id:
+    hides it}, "items" {slot: {"id", "quality", "enchant", "name"}}, "itemstats" {slot: {KEY: value}}, "itemtext" {slot: [line]}, "ranks" {spell id:
     rank}, "points" [{"kind", "tree", "node", "rank", "max", "name"}], "trees" [{"kind", "tree", "nodes", "with", "left"}],
     "skills" [{"name", "level", "max"}]"""
     rows = lambda key, n: [p for s in _as_list(c.get(key)) if len(p := str(s).split(",", n - 1)) == n]  # noqa: E731
@@ -215,13 +215,17 @@ def _sheet(c: dict) -> dict:
         if _int(slot) is not None and _float(v) is not None:
             itemstats.setdefault(_int(slot), {})[key] = _float(v)
     ranks = {_int(i): r for i, r in rows("ranks", 2) if _int(i) is not None and r}
+    text: dict[int, list[str]] = {}
+    for slot, line in rows("itemtext", 2):
+        if _int(slot) is not None and line.strip():
+            text.setdefault(_int(slot), []).append(line.strip())
     points = [{"kind": k, "tree": _int(t), "node": _int(n), "rank": _int(r), "max": _int(m), "name": name}
               for k, t, n, r, m, name in rows("points", 6) if _int(r) is not None]
     trees = [{"kind": k, "tree": _int(t), "nodes": _int(n), "with": _int(w), "left": _int(left)}
              for k, t, n, w, left in rows("trees", 5)]
     skills = [{"name": n, "level": _int(lv), "max": _int(m)} for lv, m, n in rows("skills", 3) if _int(lv) is not None and n]
     ids = {_int(i): name for i, _, _, name in rows("spells", 4) if _int(i) is not None and name}
-    return {"spell_ids": ids, "stats": stats, "items": items, "itemstats": itemstats, "ranks": ranks, "points": points, "trees": trees,
+    return {"spell_ids": ids, "stats": stats, "items": items, "itemstats": itemstats, "itemtext": text, "ranks": ranks, "points": points, "trees": trees,
             "skills": skills}
 
 

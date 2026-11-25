@@ -18,9 +18,10 @@ dipsScoreLog = { ["version"] = 1, ["runs"] = {}, ["char"] = { ["guid"] = "Player
 ["gear"] = { "1,4724,30", "5,273035,32", "16,267369,31", },
 ["stats"] = { "str,93.000", "ap,287.000", "spellpower,?", "speed,3.400", "dmgmin,138.700", "dmgmax,174.700", "dmgbonus,21.000",
   "crit,11.270", "res_fire,0.000", "res_shadow,12.000", "armor,933.000", "broken", "nan,nan", },
-["items"] = { "1,4724,2,,Humbert's Helm", "5,273035,3,1234,Mana-Warped, Chain Shirt", "16,267369,3,,Wolfsbane", "x", },
+["items"] = { "1,4724,2,,Humbert's Helm", "5,273035,3,1234,Mana-Warped, Chain Shirt", "16,267369,3,0,Wolfsbane", "x", },
 ["itemstats"] = { "1,ITEM_MOD_STAMINA_SHORT,9", "5,ITEM_MOD_STRENGTH_SHORT,12", "16,ITEM_MOD_STRENGTH_SHORT,15",
   "16,ITEM_MOD_DAMAGE_PER_SECOND_SHORT,20.0", "5,RESISTANCE0_NAME,255", },
+["itemtext"] = { "16,Chance on hit: Wounds the target, for 12 damage.", "16,\"It howls.\"", "x", },
 ["ranks"] = { "679,Rank 2", "678,Rank 1", },
 ["points"] = { "talent,1100,105625,1,1,Conviction, Improved", "talent,1100,105626,5,5,Benediction", },
 ["trees"] = { "talent,1100,51,12,", "legacy,1187,9,0,3", "legacy,1188,9,0,", },
@@ -71,11 +72,13 @@ class Sheet(unittest.TestCase):
         g = {x["label"]: x for x in made()["gear"]}
         self.assertEqual((g["Head"]["flags"], g["Chest"]["flags"]), (["lowest"], []))
         self.assertEqual((g["Main hand"]["flags"], g["Neck"]["flags"]), (["not enchanted"], ["empty"]))
+        unread = {x["label"]: x for x in made(char=load(SAVED.replace("3,0,Wolfsbane", "3,,Wolfsbane")))["gear"]}
+        self.assertEqual(unread["Main hand"]["flags"], [])         # not read: nothing is said of it
         self.assertFalse({"Off hand", "Ranged"} & set(g))          # may be empty: no row, no flag
 
     def test_stats_from_gear(self):
         s = made()["stats"]
-        self.assertEqual((s["str"], s["armor"]["gear"], s["ap"]["gear"]), ({"value": 93, "gear": 27}, 255, None))
+        self.assertEqual((s["str"], s["armor"]["gear"], s["ap"]["gear"]), ({"value": 93, "gear": 27, "by_quality": {3: 27}}, 255, None))
 
     def test_abilities(self):
         f = lambda *ids: fight(cast_ids={"Holy Strike": list(ids)}, abilities=[  # noqa: E731
@@ -110,28 +113,69 @@ class Sheet(unittest.TestCase):
 
 
 class View(unittest.TestCase):
-    def test_tabs(self):
-        v = build_sheet(made([fight(i) for i in range(12)]), broken=2)
-        self.assertEqual([t.title for t in v.tabs], ["Gear", "Stats", "Abilities", "Talents and Legacy"])
+    def view(self, n=12, broken=2, char=None):
+        return build_sheet(made([fight(i) for i in range(n)], char), broken)
+
+    def rows(self, v, group):
+        return {f.name: f for f in dict(v.stats)[group]}
+
+    def test_gear(self):
+        v = self.view()
         self.assertRegex(v.taken, r"^As of 2\d Nov \d\d:\d\d, your last /reload or logout\.$")
-        groups = {t.title: dict(t.groups) for t in v.tabs}
-        rows = lambda t, g: {r.name: r for r in groups[t][g]}  # noqa: E731
-        head = rows("Gear", "Equipped, with item level")["Head"]
-        self.assertEqual((head.value, head.note, head.flag), ("30", "Humbert's Helm · uncommon", "lowest"))
-        self.assertEqual(rows("Gear", "Wear")["Broken at your last pull"].value, "2")
-        self.assertEqual((rows("Stats", "Primary")["Strength"].value, rows("Stats", "Primary")["Strength"].note), ("93", "27 from gear"))
-        power = rows("Stats", "Spells")["Spell power"]
+        items = {i.slot: i for i in v.gear}
+        head, chest, hand = items["Head"], items["Chest"], items["Main hand"]
+        self.assertEqual((head.name, head.rarity, head.ink, head.level, head.flags),
+                         ("Humbert's Helm", "uncommon", "q-uncommon", "30", ["lowest"]))
+        self.assertEqual((chest.stats, chest.ink), ("255 Armor, +12 Strength", "q-rare"))
+        self.assertEqual((hand.stats, hand.flags), ("20.0 damage per second, +15 Strength", ["not enchanted"]))
+        self.assertEqual(hand.text, ["Chance on hit: Wounds the target, for 12 damage.", '"It howls."'])
+        self.assertEqual((items["Neck"].flags, items["Neck"].empty, items["Neck"].level), (["empty"], True, ""))
+        self.assertEqual(v.wear, "2 pieces broken at your last pull.")
+
+    def test_ladder(self):
+        l = self.view().ladder
+        self.assertEqual((l.mean, l.lo, l.hi, round(l.at, 2)), ("31", 30, 32, .5))
+        self.assertEqual(l.verdict, "Average 31, two pieces rare, led by Chest at 32. Twelve slots are empty, and Head is lowest at 30.")
+        self.assertEqual(l.marks, [(30, 0, [("Head", "q-uncommon")]), (31, .5, [("Main hand", "q-rare")]), (32, 1, [("Chest", "q-rare")])])
+        self.assertEqual(l.rarities, [("rare", "q-rare", 2), ("uncommon", "q-uncommon", 1)])
+        same = load(SAVED.replace('"1,4724,30", "5,273035,32"', '"1,4724,31", "5,273035,31"'))
+        self.assertEqual(self.view(char=same).ladder.verdict, "Average 31, two pieces rare, every piece at 31. Twelve slots are empty.")
+        one = load(SAVED.replace('"1,4724,30", "5,273035,32", ', ""))
+        self.assertIsNone(self.view(char=one).ladder)
+
+    def test_stats(self):
+        v = self.view()
+        primary = self.rows(v, "Primary")["Strength"]
+        self.assertEqual((primary.value, primary.note, primary.bar), ("93", "27 from gear", 1))
+        self.assertEqual([(i, round(x, 3)) for i, x in primary.gear], [("q-rare", round(27 / 93, 3))])
+        power = self.rows(v, "Spells")["Spell power"]
         self.assertEqual((power.value, power.note), ("–", "hidden by the game"))
-        self.assertEqual(list(rows("Stats", "Resistances")), ["Shadow resistance"])       # the zero ones are left out
-        self.assertEqual(rows("Stats", "Professions")["Mining, Smelting"].value, "120 of 150")
-        dps = rows("Stats", "From your fights")["Damage per second"]
-        self.assertEqual((dps.value, dps.note), ("50", "measured in 12 fights"))
-        swing = rows("Stats", "From your fights")["Average swing"]
-        self.assertEqual(swing.note, "measured in 24 hits, crits included; the game says 139 to 175 before armor")
-        self.assertTrue(rows("Stats", "From your fights")["10 attack power"].estimate)
-        self.assertEqual(rows("Talents and Legacy", "Legacy")["With points in them"].note, "in 2 trees, 3 points left to spend")
-        self.assertEqual(rows("Abilities", "Known, not cast in a fight")["Redemption"].value, "")
-        self.assertEqual(rows("Abilities", "Casts in fights, last 15 days")["Judgement"].note, "60.0% of your damage")
+        self.assertEqual(list(self.rows(v, "Resistances")), ["Shadow resistance"])       # the zero ones are left out
+        self.assertEqual(self.rows(v, "Professions")["Mining, Smelting"].value, "120 of 150")
+        mine = self.rows(v, "From your fights")
+        self.assertEqual((mine["Damage per second"].value, mine["Damage per second"].note), ("50", "measured in 12 fights"))
+        self.assertEqual(mine["Average swing"].note, "measured in 24 hits, crits included; the game says 139 to 175, before the enemy's armor takes its part")
+        power = self.rows(v, "Attack")["Attack power"]
+        self.assertEqual((power.value, power.note, power.estimate), (
+            "287", "10 more adds 0.71 damage per second before armor, by the classic formula", True))
+        self.assertEqual(list(mine)[-1], "Healing per second")          # unknown: last
+
+    def test_abilities_and_points(self):
+        v = self.view()
+        a = v.abilities[0]
+        self.assertEqual((a.name, a.casts, a.share, round(a.bar, 3)), ("Judgement", "12", "60.0%", .6))
+        self.assertEqual([(x.name, x.casts, x.share) for x in v.abilities[1:]], [("Auto attack", "", "40.0%")])      # they add up
+        self.assertEqual(v.lead, "Judgement leads your abilities with 60.0% of your damage.")
+        self.assertEqual(v.idle, "Known, not cast in a fight: Holy Strike, Redemption.")
+        self.assertEqual([(t.name, t.rank, t.of) for t in v.talents], [("Benediction", 5, 5), ("Conviction, Improved", 1, 1)])
+        self.assertEqual(v.talents_note, "12 of 51 talents have points.")
+        self.assertEqual((v.legacy, v.legacy_note), ([], "0 of 18 Legacy choices have points, 3 points left to spend."))
+
+    def test_inks_are_tokens(self):
+        from dips_score.sheet_view import QUALITY, ROLE_INK
+        from dips_score.ui.tokens import TOKENS
+        for t in TOKENS.values():
+            self.assertLessEqual({i for _, i in QUALITY.values()} | set(ROLE_INK.values()), set(t))
 
 
 if __name__ == "__main__":

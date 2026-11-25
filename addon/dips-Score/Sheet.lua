@@ -3,6 +3,7 @@
 --   stats     = {"key,value", ...}                     value "?" when the game hides it; read out of combat only
 --   items     = {"slot,itemID,quality,enchantID,name", ...}
 --   itemstats = {"slot,KEY,value", ...}                the game's own stat keys (ITEM_MOD_STRENGTH_SHORT, ...)
+--   itemtext  = {"slot,text", ...}                   what it does (Equip, Use, Chance on hit, Set) and its quoted line
 --   ranks     = {"spellID,rank", ...}                  the rank text of every spell in the book that has one
 --   points    = {"c,tree,node,rank,maxRank,name", ...} talents (c "talent") and Legacy (c "legacy") with points in them
 --   trees     = {"c,tree,nodes,withPoints,left", ...}  left: points still to spend, "" when not known
@@ -14,6 +15,7 @@ local IsSecret, Field = ns.IsSecret, ns.Field
 
 local LEGACY_SYSTEM = 45
 local LAST_SLOT = 19
+local MAX_LINES, MAX_TEXT = 6, 240 -- of one item's description
 
 -- Every result of a call, or an empty list when it is missing or fails.
 local function Results(ok, ...) return ok and {...} or {} end -- a nil among them keeps the others' places
@@ -91,8 +93,34 @@ end
 ----------------------------------------------------------------------
 -- Gear
 ----------------------------------------------------------------------
+-- A tooltip line worth keeping: what the item does, or its quoted line. Nothing else is: the rest is names and
+-- numbers the sheet has already, or a person's name ("Made by ...").
+local function Describes(line)
+    if line:sub(1, 1) == '"' then return true end
+    for _, name in ipairs({"ITEM_SPELL_TRIGGER_ONEQUIP", "ITEM_SPELL_TRIGGER_ONUSE", "ITEM_SPELL_TRIGGER_ONPROC"}) do
+        local start = _G[name]
+        if type(start) == "string" and start ~= "" and line:sub(1, #start) == start then return true end
+    end
+    return line:find("^%(%d+%) ") ~= nil or line:find("^Set: ") ~= nil
+end
+
+local function Text(slot, out)
+    local tip = First(C_TooltipInfo and C_TooltipInfo.GetInventoryItem, "player", slot)
+    local kept = 0
+    for _, l in ipairs(type(tip) == "table" and type(tip.lines) == "table" and tip.lines or {}) do
+        local line = l.leftText
+        if type(line) == "string" and not IsSecret(line) and kept < MAX_LINES then
+            line = line:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:]*:", ""):gsub("|r", ""):gsub("[\r\n]+", " ")
+            if Describes(line) then
+                kept = kept + 1
+                out[#out + 1] = slot .. "," .. line:sub(1, MAX_TEXT)
+            end
+        end
+    end
+end
+
 local function Items()
-    local items, stats = {}, {}
+    local items, stats, text = {}, {}, {}
     for slot = 1, LAST_SLOT do
         local id = First(GetInventoryItemID, "player", slot)
         local link = First(GetInventoryItemLink, "player", slot)
@@ -100,7 +128,8 @@ local function Items()
             local quality, enchant = First(GetInventoryItemQuality, "player", slot), ""
             local name = ""
             if type(link) == "string" and not IsSecret(link) then
-                enchant = link:match("item:%d+:(%d*)") or ""
+                enchant = link:match("item:%d+:(%d*)") or "" -- "0": read, and there is none; "": not read
+                if enchant == "" and link:find("item:%d+:") then enchant = "0" end
                 name = link:match("%[(.-)%]") or ""
                 local found = First(C_Item and C_Item.GetItemStats, link)
                 if type(found) == "table" then
@@ -111,10 +140,11 @@ local function Items()
                     end
                 end
             end
+            Text(slot, text)
             items[#items + 1] = slot .. "," .. id .. "," .. Field(quality) .. "," .. enchant .. "," .. name
         end
     end
-    return items, stats
+    return items, stats, text
 end
 
 ----------------------------------------------------------------------
@@ -183,9 +213,10 @@ end
 
 -- Adds the sheet to the snapshot being built (Char.lua); a part that fails stays empty.
 function ns.ReadSheet(read)
-    read.stats, read.items, read.itemstats, read.ranks, read.points, read.trees, read.skills = {}, {}, {}, {}, {}, {}, {}
+    read.stats, read.items, read.itemstats, read.itemtext, read.ranks = {}, {}, {}, {}, {}
+    read.points, read.trees, read.skills = {}, {}, {}
     pcall(function() read.stats = Stats() end)
-    pcall(function() read.items, read.itemstats = Items() end)
+    pcall(function() read.items, read.itemstats, read.itemtext = Items() end)
     pcall(function() read.ranks = Ranks(read.spells) end)
     pcall(function()
         Trees("talent", First(C_ClassTalents and C_ClassTalents.GetActiveConfigID), read.points, read.trees)
@@ -193,4 +224,4 @@ function ns.ReadSheet(read)
     end)
     pcall(function() read.skills = Skills() end)
 end
-ns.SHEET = {"stats", "items", "itemstats", "ranks", "points", "trees", "skills"}
+ns.SHEET = {"stats", "items", "itemstats", "itemtext", "ranks", "points", "trees", "skills"}

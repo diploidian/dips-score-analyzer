@@ -44,6 +44,10 @@ colors:
   timeless-day-place-raid: "#A13D9E"
   timeless-day-place-world: "#3D732B"
   timeless-day-place-pvp: "#306E7E"
+  timeless-day-q-uncommon: "#0F7038"
+  timeless-day-q-rare: "#1F5FAE"
+  timeless-day-q-epic: "#7A3FB0"
+  timeless-day-q-legendary: "#9A4500"
   timeless-night-bg: "#17110C"
   timeless-night-panel: "#211913"
   timeless-night-ln: "#3A2E22"
@@ -87,6 +91,10 @@ colors:
   timeless-night-place-raid: "#C25EBF"
   timeless-night-place-world: "#4F9438"
   timeless-night-place-pvp: "#3E8EA3"
+  timeless-night-q-uncommon: "#6BBF52"
+  timeless-night-q-rare: "#6AA5EE"
+  timeless-night-q-epic: "#BB93EA"
+  timeless-night-q-legendary: "#F0983F"
   classical-day-bg: "#F4EBDD"
   classical-day-panel: "#FAF5EC"
   classical-day-ln: "#E0D0BE"
@@ -129,6 +137,10 @@ colors:
   classical-day-place-raid: "#A840A5"
   classical-day-place-world: "#40782E"
   classical-day-place-pvp: "#327383"
+  classical-day-q-uncommon: "#0F7038"
+  classical-day-q-rare: "#2360AC"
+  classical-day-q-epic: "#7C40B2"
+  classical-day-q-legendary: "#9A4500"
   classical-night-bg: "#171615"
   classical-night-panel: "#201F1E"
   classical-night-ln: "#363331"
@@ -171,6 +183,10 @@ colors:
   classical-night-place-raid: "#C464C1"
   classical-night-place-world: "#51983A"
   classical-night-place-pvp: "#3F92A6"
+  classical-night-q-uncommon: "#6BBF52"
+  classical-night-q-rare: "#6AA5EE"
+  classical-night-q-epic: "#BB93EA"
+  classical-night-q-legendary: "#F0983F"
 typography:
   display:
     fontFamily: "Barlow Condensed, sans-serif"
@@ -400,6 +416,9 @@ A double `gold` rule, 2px then 1px 3px inside it, square, around `panel`, 26px o
 
 ### Tier rows (All traits)
 Name, the tier in a 1px `gold` frame (Barlow 500 12px), the figure (Barlow Condensed 700 20px) and a 6px bar on `track` in the trait's ink with a 1px tick where each tier begins (`panel` in the fill, `tx` past it). Under the name, in `tx2` 12px, what the figure counts; under the bar, in `mu` 11px and alone on their line, the figures it begins and ends at (beside words the first end reads as the player's own figure). How it is worked out is the row's hover. A `tx2` line at the head of the table says how to read it. Full width in two columns, no family split; a new tier's ring goes round its frame.
+
+### Character sheet
+Gear leads: the item's name in Barlow Condensed 600 20px in its rarity's ink, the rarity as a word in the gutter under the slot, the level in Condensed 700 24px, stats and what it does in Barlow 13px. Rarity inks (`q-uncommon`, `q-rare`, `q-epic`, `q-legendary`; poor is `mu`, common `tx`) mean an item's rarity and nothing else, and the word is always beside them. The item level ladder stacks a 10px square per piece at its level on a `tx` axis, levels printed under it. A stat's bar shows the part gear gives in the rarities that give it, 2px of `bg` between parts, the rest in `tx2`. A gold tag is a fact to act on (empty, not enchanted); a `ln` tag is only a fact (lowest, estimate).
 
 ### Measure bars
 - **Style:** 10px tall, `track` behind, the measure's `m-*` ink as fill, square ends. A 2px `tx` tick at 90% marks the target on every effectiveness bar, overhanging 4px top and bottom.

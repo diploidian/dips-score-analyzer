@@ -48,6 +48,10 @@ TOKENS = {
         "place-raid": "#A13D9E",
         "place-world": "#3D732B",
         "place-pvp": "#306E7E",
+        "q-uncommon": "#0F7038",
+        "q-rare": "#1F5FAE",
+        "q-epic": "#7A3FB0",
+        "q-legendary": "#9A4500",
     },
     ("timeless", "night"): {
         "bg": "#17110C",
@@ -93,6 +97,10 @@ TOKENS = {
         "place-raid": "#C25EBF",
         "place-world": "#4F9438",
         "place-pvp": "#3E8EA3",
+        "q-uncommon": "#6BBF52",
+        "q-rare": "#6AA5EE",
+        "q-epic": "#BB93EA",
+        "q-legendary": "#F0983F",
     },
     ("classical", "day"): {
         "bg": "#F4EBDD",
@@ -138,6 +146,10 @@ TOKENS = {
         "place-raid": "#A840A5",
         "place-world": "#40782E",
         "place-pvp": "#327383",
+        "q-uncommon": "#0F7038",
+        "q-rare": "#2360AC",
+        "q-epic": "#7C40B2",
+        "q-legendary": "#9A4500",
     },
     ("classical", "night"): {
         "bg": "#171615",
@@ -183,6 +195,10 @@ TOKENS = {
         "place-raid": "#C464C1",
         "place-world": "#51983A",
         "place-pvp": "#3F92A6",
+        "q-uncommon": "#6BBF52",
+        "q-rare": "#6AA5EE",
+        "q-epic": "#BB93EA",
+        "q-legendary": "#F0983F",
     },
 }
 
