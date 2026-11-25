@@ -82,6 +82,7 @@ class Player:
     role_from: str = "?"
     is_me: bool = False
     race: str | None = None  # the game's token, e.g. "NightElf"; None for logs from before races were recorded
+    level: int | None = None  # from the add-on's P line (0.6.3 on); None before, or when the game didn't say
 
     @property
     def color(self) -> tuple[float, float, float]:
@@ -134,7 +135,7 @@ def _is_group(flags: int) -> bool:
 def build_roster(events: list[Event], addon_lines, me: str | None, overrides: Overrides | None = None,
                  char: dict | None = None) -> dict[str, Player]:
     """guid -> Player for everyone in the group. addon_lines: the run's P lines (TLine-like, fields
-    guid, name, class, role, race). char: your character snapshot (savedvars.load_char), or None."""
+    guid, name, class, role, race, level). char: your character snapshot (savedvars.load_char), or None."""
     players: dict[str, Player] = {}
     for e in events:
         for g, n, fl in ((e.src, e.src_name, e.src_flags), (e.dst, e.dst_name, e.dst_flags)):
@@ -143,12 +144,14 @@ def build_roster(events: list[Event], addon_lines, me: str | None, overrides: Ov
 
     # 2. the addon's roster
     for ln in addon_lines:
-        guid, name, cls, role, race = (ln.f(0), ln.f(1), ln.f(2), ln.f(3), ln.f(4))
+        guid, name, cls, role, race, level = (ln.f(0), ln.f(1), ln.f(2), ln.f(3), ln.f(4), ln.f(5))
         if not guid.startswith("Player-"):
             continue
         p = players.setdefault(guid, Player(guid, name or "?", is_me=(guid == me)))
         if name and name != "?":
             p.name = name
+        if level.isdigit() and int(level) > 0:      # the latest line wins: a level-up in the run
+            p.level = int(level)
         if race:  # older logs have no race field: ln.f gives "" and the player keeps None
             p.race = race
         if cls in CLASS_COLORS:

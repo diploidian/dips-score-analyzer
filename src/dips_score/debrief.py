@@ -170,6 +170,36 @@ def run_auto_share(m) -> tuple[str, float] | None:
                       getattr(m, "damage", 0))
 
 
+def combat_span(a) -> tuple[float, float] | None:
+    """your time in combat, and the time from the first pull to the last fight's end, less the time the run wasn't
+    recorded (between a visit's pieces, a /reload); None with no fight"""
+    from .scoring.metrics import clip, total
+    rd = a.data
+    if not rd.fights:
+        return None
+    first = min([p.start for p in a.pulls] + [rd.fights[0].start])
+    span = total(clip([(first, rd.fights[-1].end)], rd.segment_spans or [(0.0, rd.duration)]))
+    return (rd.combat_time, span) if span > 0 else None
+
+
+def combat_figures(span: tuple[float, float] | None, others: list[float]) -> list[tuple[str, str]]:
+    """the second tier under a run page's hero: the share of it in combat, its times, and your range over your last
+    RANGE_RUNS runs (from that many on; others: their shares, oldest first, this one last)"""
+    if span is None:
+        return []
+    combat, whole = span
+    out = [(f"{min(1.0, combat / whole):.0%}", "of the run in combat"),
+           (fmt_time(combat), f"of {fmt_time(whole)}, first pull to last fight")]
+    if len(others) >= RANGE_RUNS:
+        lo, hi = min(others[-RANGE_RUNS:]), max(others[-RANGE_RUNS:])
+        out.append((f"{lo:.0%}" if round(lo * 100) == round(hi * 100) else f"{lo * 100:.0f}–{hi:.0%}",
+                    f"your last {RANGE_RUNS} runs"))
+    return out
+
+
+RANGE_RUNS = 5
+
+
 def fmt_time(s: float) -> str:
     s = int(max(0, s))
     return f"{s // 60}:{s % 60:02d}"

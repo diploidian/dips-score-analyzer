@@ -30,6 +30,29 @@ def blackfathom_card(survival_weight: int = 10):
     ], "dps")
 
 
+class CombatShare(unittest.TestCase):
+    """time in combat: from the first pull to the last fight's end, less the time between a run's recorded pieces"""
+    def run_(self, fights, pulls=(), spans=None):
+        from types import SimpleNamespace as NS
+        from dips_score.debrief import combat_span
+        fs = [NS(start=a, end=b, duration=b - a) for a, b in fights]
+        rd = NS(fights=fs, combat_time=sum(f.duration for f in fs), segment_spans=spans or [], duration=5000.0)
+        return combat_span(NS(data=rd, pulls=[NS(start=s) for s in pulls]))
+
+    def test_span(self):
+        self.assertEqual(self.run_([(100, 160), (200, 300)], pulls=[90]), (160, 210))
+        self.assertEqual(self.run_([(100, 160), (1200, 1300)], spans=[(0, 200), (1100, 2000)]), (160, 300))  # a /reload
+        self.assertIsNone(self.run_([]))
+
+    def test_figures(self):
+        from dips_score.debrief import combat_figures
+        self.assertEqual(combat_figures((1319, 2082), [.55, .48, .5]),
+                         [("63%", "of the run in combat"), ("21:59", "of 34:42, first pull to last fight")])
+        self.assertEqual(combat_figures((1319, 2082), [.4, .55, .48, .5, .61, .63])[2], ("48–63%", "your last 5 runs"))
+        self.assertEqual(combat_figures((1, 2), [.5] * 5)[2], ("50%", "your last 5 runs"))
+        self.assertEqual(combat_figures(None, []), [])
+
+
 class PointsLostTests(unittest.TestCase):
     def test_points_lost_blackfathom(self):
         card = blackfathom_card()

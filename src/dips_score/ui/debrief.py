@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QPushButton, QScrollArea, QSiz
 from ..debrief import (DebriefView, FightCell, bar_fraction, breakdown_title, circle_fraction, display_name, note_alpha,
                        route_alpha)
 from . import theme
-from .kit import (HEAD_H, MINUS, BarRow, BarRows, Drawer, Hero, Part, Plate, adv, baseline, box, draw_hand_circle,
+from .kit import (HEAD_H, MINUS, BarRow, BarRows, Drawer, Hero, KeyFigures, Part, Plate, adv, baseline, box, draw_hand_circle,
                   draw_hand_note, draw_label_tab, draw_page_head, elide, font, halo_text, hand_font, line,
                   preview_tag, rule, text_at, wrapped)
 from .theme import tok
@@ -376,6 +376,9 @@ class DebriefPage(QWidget):
         left.setContentsMargins(0, 0, 28, 0)
         left.setSpacing(0)
         left.addLayout(self.hero_row)
+        self.combat = KeyFigures()      # the second tier, for the whole run: time in combat (debrief.combat_figures)
+        left.addWidget(self.combat)
+        left.addSpacing(16)
         left.addWidget(self.measures)
         left.addWidget(self.breakdown)
         left.addItem(QSpacerItem(LEFT_MIN, 0, QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.Expanding))

@@ -156,6 +156,16 @@ def _spells(lines: list) -> dict[str, dict]:
     return out
 
 
+def _names(lines: list) -> dict[int, str]:
+    """"spellID,cooldownMs,harm,name" -> spell id: name (the Fight page's presses name a spell the log never saw, Attack)"""
+    out = {}
+    for s in lines:
+        parts = str(s).split(",", 3)
+        if len(parts) == 4 and _int(parts[0]) is not None and parts[3]:
+            out[_int(parts[0])] = parts[3]
+    return out
+
+
 def _pulls(lines: list) -> list[tuple[datetime, int, int]]:
     """"time(),lowestPercent,brokenCount" at each pull -> (local time, lowest durability %, broken items)"""
     out = []
@@ -222,7 +232,7 @@ def load_char(path: str | Path) -> dict | None:
     return {"guid": str(c["guid"]), "name": c.get("name"), "class": c.get("class"), "race": c.get("race"),
             "level": _int(c.get("level")), "taken": _int(c.get("taken")),
             "geartaken": _int(c.get("geartaken")) or _int(c.get("taken")),     # when what is worn was read
-            "spells": _spells(_as_list(c.get("spells"))), "gear": gear, "talents": talents,
+            "spells": _spells(_as_list(c.get("spells"))), "names": _names(_as_list(c.get("spells"))), "gear": gear, "talents": talents,
             "pulls": _pulls(_as_list(log.get("pulls"))), **sheet, **_life(log),
             "spec": max(points, key=lambda t: t[1])[0] or None if points else None}
 

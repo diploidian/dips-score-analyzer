@@ -361,3 +361,31 @@ class FightPageTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PressTests(unittest.TestCase):
+    """what you pressed in a fight, from the add-on's lines: by spell, by key or click"""
+    def test_presses(self):
+        from dips_score.fight_view import NONE_PRESSED, presses
+        from dips_score.model.run import TLine
+
+        def ln(t, code, *f):
+            return TLine(t, code, [str(x) for x in f], 0)
+        names = {2495: "Holy Strike", 1310994: "Swift Judgement", 6603: "Attack", 2: "Spell two"}
+        lines = [ln(1, "A", 3, "spell", 2495, "K"), ln(2, "A", 3, "spell", 2495, "C"), ln(3, "A", 4, "spell", 2495, "?"),
+                 ln(4, "A", 51, "macro", 1310994, "K"),                         # a macro that names its spell
+                 ln(5, "A", 60, "macro", 7, "C"), ln(5.2, "CS", 6603),         # one that doesn't: the cast that followed
+                 ln(6, "A", 60, "macro", 7, "C"),                               # nothing followed
+                 ln(7, "A", 61, "item", 5512, "K"), ln(9, "CS", 2),             # too late to be its cast
+                 ln(50, "A", 3, "spell", 2495, "K")]                            # outside the fight
+        v = presses(lines, (0, 20), names)
+        self.assertEqual(v.rows, [("Holy Strike", "", "2495", 1, 1, 1), ("Attack", "macro", "6603", 0, 1, 0),
+                                  ("Item 5512", "item, no spell followed", "–", 1, 0, 0),
+                                  ("Macro 7", "macro, no spell followed", "–", 0, 1, 0),
+                                  ("Swift Judgement", "macro", "1310994", 1, 0, 0)])
+        self.assertEqual(v.line, "7 presses, 3 by key, 3 by click, 1 the game's bars didn't say.")
+        self.assertEqual(presses(lines[:1] + lines[3:4], (0, 20), names).line, "2 presses, all by key.")
+        self.assertEqual(presses(lines[:1], (0, 20), {}).rows, [("Spell 2495", "", "2495", 1, 0, 0)])
+        self.assertEqual((presses(lines, (30, 40), names).rows, presses(lines, (30, 40), names).line),
+                         ([], NONE_PRESSED))
+

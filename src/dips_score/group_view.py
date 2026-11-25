@@ -45,6 +45,9 @@ class PlayerCard:
     score: float
     grade: str
     breakdown: str = ""             # the score's hover help: each category, the bonus, the awards
+    cls: str | None = None          # the game's class token ("PALADIN"); None: not known
+    who: str = ""                   # "Paladin 39", "Warrior" (level not recorded), "" (class not known)
+    who_tip: str = ""               # where that comes from, when it's less than certain
 
 
 @dataclass
@@ -122,6 +125,15 @@ def of_line(v: GroupView) -> str:
     return out + (f" · {v.behind_mvp:.0f} behind the MVP" if v.place > 2 else "")
 
 
+def _who(p) -> dict:
+    """the class and level beside a name, and its hover help"""
+    if not p.cls:
+        return {}
+    tips = (["Class guessed from the spells they cast"] if p.cls_from == "spells" else []) + \
+        (["Level not recorded: the run is older than add-on 0.6.3"] if p.level is None else [])
+    return {"who": " ".join(filter(None, (p.cls.title(), p.level and str(p.level)))), "who_tip": ". ".join(tips)}
+
+
 def build_group(a) -> GroupView:
     """the Group page for the analysis a"""
     v = GroupView(of=len(a.ranking))
@@ -133,7 +145,7 @@ def build_group(a) -> GroupView:
             minus=_split(pl.weaknesses), awards=[(aw.title, aw.good, f"{KIND[aw.good]}: {aw.blurb} {aw.stat}")
                                                  for aw in pl.awards],
             radar=list(r.values) if r else None, details=list(r.details) if r else None, points=pl.points,
-            score=pl.card.total, grade=pl.card.grade, breakdown=breakdown(pl, a)))
+            score=pl.card.total, grade=pl.card.grade, breakdown=breakdown(pl, a), cls=p.cls, **_who(p)))
     v.podium = v.cards[:3]
     v.average = average(a.radars) if a.radars else None
     names = {g: p.name for g, p in a.roster.items()}

@@ -11,11 +11,11 @@ from __future__ import annotations
 from PyQt6.QtCore import QPointF, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QFontMetricsF, QPainter, QPen, QPolygonF
 from PyQt6.QtWidgets import (QAbstractItemView, QApplication, QFrame, QHBoxLayout, QLabel, QListWidget,
-                             QListWidgetItem, QScrollArea, QStyle, QStyledItemDelegate, QStyleOptionViewItem,
+                             QListWidgetItem, QPushButton, QScrollArea, QStyle, QStyledItemDelegate, QStyleOptionViewItem,
                              QVBoxLayout, QWidget)
 
 from .. import names
-from ..fight_view import _foes, build_fight, list_row
+from ..fight_view import Presses, _foes, build_fight, list_row
 from . import theme
 from .debrief import NARROW
 from .kit import (HEAD_H, BarRow, BarRows, Drawer, Fold, Hero, KeyFigures, Part, Plate, SectionHead, Sheet, Side, adv,
@@ -244,6 +244,59 @@ class Facts(Part):
         return y + 1
 
 
+class PressTable(Part):
+    """What you pressed: its line (the figures bold), then a row per spell: name and its muted note, the spell ID, by
+    key, by click, and an Unknown column only when some presses didn't say how; or only the line, saying why not"""
+
+    def __init__(self):
+        super().__init__()
+        self.view = Presses()
+
+    def set(self, view: Presses):
+        self.view = view
+        self.setAccessibleName("What you pressed: " + view.line + " " + "; ".join(
+            f"{n} {sid}: {k} by key, {c} by click" + (f", {o} not said" if o else "") for n, _, sid, k, c, o in view.rows))
+        self.changed()
+
+    def draw(self, p, w):
+        y = 14
+        draw_label_tab(p, 0, y, "What you pressed")
+        y += 25 + 8
+        f = font(15)
+        y += flow(p, _words(self.view.line, f, font(15, 600), tok("tx2"), tok("tx")), 0, y, w, adv(f, " "), 6) + 8
+        rows = self.view.rows
+        if not rows:
+            return y + 6
+        other = any(r[5] for r in rows)
+        cols = [(46, "KEY"), (46, "CLICK")] + ([(62, "UNKNOWN")] if other else [])
+        idw = 76
+        hf, nf, mf = font(11, 600, num=True, spacing=0.12), font(14), font(12)
+        idf, vf, zf = font(14, 500, num=True), font(17, 700, num=True), font(17, 600, num=True)
+        rights, x = [], w
+        for cw, _ in reversed(cols):
+            rights.insert(0, x)
+            x -= cw
+        id_right = x - 10
+        if p:
+            text_at(p, hf, tok("mu"), id_right - adv(hf, "SPELL ID"), baseline(hf, y, 11), "SPELL ID")
+            for right, (_, s) in zip(rights, cols):
+                text_at(p, hf, tok("mu"), right - adv(hf, s), baseline(hf, y, 11), s)
+        y += 11 + 4
+        for name, note, sid, *counts in rows:
+            if p:
+                rule(p, 0, y, w, tok("ln"))
+                top = y + 1 + 6
+                nw = line(p, nf, tok("tx"), 0, top, 20, elide(nf, name, id_right - idw - 8))
+                if note:
+                    line(p, mf, tok("mu"), nw + 6, top + 1, 18, elide(mf, note, max(0.0, id_right - idw - nw - 14)))
+                line(p, idf, tok("mu"), id_right - adv(idf, sid), top, 20, sid)
+                for right, n in zip(rights, counts[:len(cols)]):
+                    s, cf = str(n), (vf if n else zf)
+                    line(p, cf, tok("tx" if n else "mu"), right - adv(cf, s), top, 20, s)
+            y += 1 + 6 + 20 + 6
+        return y + 4
+
+
 class GroupShare(Part):
     """Group: your shares in a sentence, then everyone, most damage first, with a bar for their damage (yours in m-dmg)
     and their healing muted beside it"""
@@ -385,7 +438,7 @@ def _details(f: dict) -> list[tuple[str, list[QWidget]]]:
 # ---------------------------------------------------------------------------- the page
 class FightDetail(QScrollArea):
     """the Fights page: one fight, scrolling when the window is small or the drawer is open"""
-    show_me = pyqtSignal(float, float)    # "Show on the timeline": the loaded run's Timeline tab, zoomed to the fight
+    show_me = pyqtSignal(float, float)    # "Show on the timeline": the fight's run's Timeline tab, zoomed to the fight
 
     def __init__(self):
         super().__init__()
@@ -403,6 +456,9 @@ class FightDetail(QScrollArea):
         self.drawer = Drawer("All the details", self.details)
         self.fold = Fold(self.drawer, last=True)
         self.well, self.pull, self.danger, self.share = WentWell(), Facts(), Facts(), GroupShare()
+        self.pressed = PressTable()
+        self.in_order = QPushButton("See them in order on the timeline")
+        self.in_order.clicked.connect(lambda: self.span and self.show_me.emit(*self.span))
         self.empty = dim_label(NO_FIGHTS)
         self.empty.setContentsMargins(0, 14, 0, 0)
 
@@ -423,8 +479,9 @@ class FightDetail(QScrollArea):
         sl = QVBoxLayout(self.side)
         sl.setContentsMargins(28, 4, 0, 0)
         sl.setSpacing(0)
-        for wd in (self.well, self.pull, self.danger, self.share):
+        for wd in (self.well, self.pull, self.danger, self.share, self.pressed):
             sl.addWidget(wd)
+        sl.addWidget(self.in_order, 0, Qt.AlignmentFlag.AlignLeft)
         sl.addStretch(1)
         cols = QHBoxLayout()
         cols.setSpacing(0)
@@ -441,10 +498,14 @@ class FightDetail(QScrollArea):
         self._fit()
         self.show_fight(None)
 
-    def show_fight(self, f: dict | None, span: tuple[float, float] | None = None):
-        """f: a live fight (None: none yet); span: where it is on the loaded run's timeline, for the plate's Show on
-        the timeline (None: it isn't in that run, so no button)"""
+    def show_fight(self, f: dict | None, span: tuple[float, float] | None = None, pressed: Presses | None = None):
+        """f: a live fight (None: none yet); span: where it is on its run's timeline, for the plate's Show on the
+        timeline and the presses' See them in order (None: no recorded run has it, so neither button); pressed: what
+        you pressed in it"""
         self.span = span
+        self.pressed.set(pressed or Presses())
+        self.pressed.setVisible(f is not None and pressed is not None)
+        self.in_order.setVisible(f is not None and span is not None and bool(pressed and pressed.rows))
         while (it := self.details_lay.takeAt(0)) is not None:
             if it.widget():
                 it.widget().setParent(None)
@@ -502,6 +563,6 @@ class FightDetail(QScrollArea):
         self.side.setFixedWidth(SIDE_W[k] + 28)
         self.plate.price_px = PRICE_PX[k]
         self.where.name_w, self.where.value_w = NAME_W[k], VALUE_W[k]
-        for part in (self.hero, self.plate, self.where, self.pull, self.danger, self.share):
+        for part in (self.hero, self.plate, self.where, self.pull, self.danger, self.share, self.pressed):
             part.narrow = narrow
             part.changed()

@@ -86,6 +86,15 @@ class Roster(unittest.TestCase):
         self.assertEqual(roster["Player-1-0000AAAA"].cls, "PRIEST")
         self.assertIsNone(roster["Player-2-0000BBBB"].race)
         self.assertEqual(roster["Player-2-0000BBBB"].cls, "WARRIOR")
+        self.assertIsNone(roster["Player-1-0000AAAA"].level)
+
+    def test_level_from_p_line(self):
+        """add-on 0.6.3 adds the level; the newest line wins, and an empty one keeps what was known"""
+        from dips_score.model.roster import build_roster
+        from dips_score.sources.savedvars import Line
+        p = ["Player-1-0000AAAA", "Anna Smith", "PRIEST", "HEALER", "NightElf"]
+        lines = [Line(0, "P", p + ["38"]), Line(9, "P", p + ["39"]), Line(10, "P", p + [""])]
+        self.assertEqual(build_roster([], lines, None)["Player-1-0000AAAA"].level, 39)
 
 # auto attack shapes, as this client writes them (combat log version 22, advanced logging)
 H = '11/17/2026 15:46:07.899-8  '

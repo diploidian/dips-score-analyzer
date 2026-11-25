@@ -4,6 +4,7 @@ idle moments in it, longest first, and the verdict.
 The idle intervals are the Activity score's own (the timeline's Data.idle is the run's metrics.idle_gaps), so the tab
 and the scorecard count the same gaps."""
 from bisect import bisect_left, bisect_right
+import statistics
 from dataclasses import dataclass, field
 
 from .debrief import fmt_time
@@ -95,6 +96,52 @@ def step(starts: list[float], scope, d: int) -> int | None:
     else:
         i = bisect_right(starts, scope[0]) if d > 0 else bisect_left(starts, scope[0]) - 1
     return i if 0 <= i < len(starts) else None
+
+
+QUIET_NOTE = "2.5 s or more without a press. Not judged: a healthy group needs no heal."
+QUIET_MOST = 10
+
+
+@dataclass
+class AnswerView:
+    """a healer's Timeline: how fast you answered the dips in view, slowest first, and the quiet moments, unjudged"""
+    big: str = "–"
+    unit: str = "s to answer"
+    verdict: str = ""
+    count: int = 0
+    rows: list[tuple[str, str, float, str]] = field(default_factory=list)    # when, who, share of the cap, answer
+    quiet: list[tuple[str, str]] = field(default_factory=list)              # when, how long, in time order
+    more_quiet: int = 0
+
+
+def answer_view(dips, idle: list[tuple[float, float]], window: tuple[float, float], who,
+                where: str = "in this fight") -> AnswerView:
+    """dips (scoring.healer.Dip) and idle gaps in window; who(guid): "You", "Tank", ... One you didn't answer within
+    RESPONSE_CAP counts as that, as on the scorecard; one someone else covered is left out"""
+    from .scoring.healer import DIP_HP, RESPONSE_CAP
+    a, b = window
+    judged = [d for d in dips if a <= d.start <= b and not d.covered]
+    quiet = sorted(idle_moments(idle, window), key=lambda m: m[0])
+    v = AnswerView(quiet=[(fmt_time(s), f"{e - s:.1f} s") for s, e in quiet[:QUIET_MOST]],
+                   more_quiet=max(0, len(quiet) - QUIET_MOST), count=len(judged))
+    if not judged:
+        v.big, v.unit, v.verdict = "0", f"dips under {DIP_HP:.0%}", f"Nobody dropped under {DIP_HP:.0%} {where}."
+        return v
+    times = sorted(RESPONSE_CAP if d.response is None else d.response for d in judged)
+    mid = statistics.median(times)
+    missed = sum(d.response is None for d in judged)
+    v.big = f"{mid:.1f}"
+    v.verdict = (f"{len(judged)} dip{'s' if len(judged) != 1 else ''} under {DIP_HP:.0%} {where}, the middle answer "
+                 f"{mid:.1f} s." + ("" if not missed else f" {_count_words(missed)} no heal from you within "
+                                                          f"{RESPONSE_CAP:.0f} s and counts as {RESPONSE_CAP:.0f}."))
+    slow = sorted(judged, key=lambda d: (-(RESPONSE_CAP if d.response is None else d.response), d.start))
+    v.rows = [(fmt_time(d.start), who(d.guid), (RESPONSE_CAP if d.response is None else d.response) / RESPONSE_CAP,
+               "no heal" if d.response is None else f"{d.response:.1f} s") for d in slow]
+    return v
+
+
+def _count_words(n: int) -> str:
+    return "One had" if n == 1 else f"{n} had"
 
 
 def option_text(cell) -> str:

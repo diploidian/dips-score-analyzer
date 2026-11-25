@@ -8,7 +8,7 @@ a new visit opens by itself.
 from __future__ import annotations
 
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from PyQt6.QtCore import QFileSystemWatcher, QStandardPaths, Qt, QTimer
@@ -21,9 +21,9 @@ from .. import analysis, names, removed, store, version
 from ..analysis import Analysis
 from ..config import Paths
 from ..debrief import DebriefView
-from ..fight_view import run_window
+from ..fight_view import ARRIVES, NOT_HERE, OLDER, READING, Presses, presses as fight_presses, run_window
 from ..model.roster import Overrides
-from ..profile_view import build_profile, mine, run_row
+from ..profile_view import build_profile, combat_shares, mine, run_row
 from ..scoring.classes import load_upkeep
 from ..scoring.score import load_weights
 from ..sources.savedvars import Run
@@ -63,6 +63,8 @@ class Window(QMainWindow):
         self.keys: dict[str, tuple] = {}           # run id -> its key, worked out once (see _key)
         self.scores: dict[tuple, str] = {}         # a warmed-up run's score for its rail row; its analysis is on disk
         self.read_ok = False            # the last reload read the add-on's saved file (or found none)
+        self.fight_run: Run | None = None      # the recorded run of the fight on the Fights page
+        self.fight_wait: str | None = None      # the run id it waits for
         self.run_rows: dict[str, dict | None] = {}     # each run that came in, for the Profile (None: it failed)
         self.wanted: set[str] = set()              # runs asked for to be shown: theirs stay in memory when in
         self.failed: set[tuple] = set()            # keys that couldn't be analysed, until that's shown
@@ -412,6 +414,10 @@ class Window(QMainWindow):
         if self.waiting and rid in self.waiting[0]:
             redo, self.waiting = self.waiting[1], None
             redo()
+        if rid == self.fight_wait:          # the run a fight on the Fights page waited for
+            self.fight_wait = None
+            if self.stack.currentWidget() is self.fight_detail:
+                self._show_fight(self._fight())
         if not self.warming and hasattr(self, "live"):      # the last of the runs to come in
             if self.stack.currentIndex() == 5:
                 self._show_profile()
@@ -478,6 +484,8 @@ class Window(QMainWindow):
         key = self._key(run)
         self.current = self.cache.get(key)
         self.failed.discard(key)                # said once; picked again, it's tried again
+        row = self.run_rows.get(run.id)         # it came in with the run: its share in combat among yours
+        self.score.others = self.group.others = combat_shares(self.run_rows, row["me"], run.start_time) if row else []
         for tab in (self.score, self.group, self.pulls, self.spells, self.timeline_tab):
             tab.set_analysis(self.current)      # None: no tab keeps showing the last run
         if self.current is None:
@@ -547,13 +555,46 @@ class Window(QMainWindow):
         return self.fight_list.fights[row] if row >= 0 else None
 
     def _show_fight(self, f: dict | None):
-        """a live fight on its page, with Show on the timeline only when it falls inside the loaded run (R7)"""
-        d = self.current.data if self.current else None
-        self.fight_detail.show_fight(f, run_window(f, d.start, d.duration) if f and d else None)
+        """a live fight on its page: with what you pressed and the way to its run's timeline when a recorded run has it,
+        else why not (fight_view: ARRIVES, OLDER, NOT_HERE); its run asked for when not in memory yet"""
+        self.fight_run = None
+        if f is None:
+            self.fight_detail.show_fight(None)
+            return
+        start = datetime.fromisoformat(f["start"])
+        end = start + timedelta(seconds=f["duration"])
+        a = self.current        # the loaded run first; else the recorded run the fight is in
+        if not (a and run_window(f, a.data.start, a.data.duration)):
+            run = next((r for r in self.runs if r.start_time <= start
+                        and end <= datetime.fromtimestamp(r.end_estimate) + timedelta(seconds=5)), None)
+            a = self.cache.get(self._key(run)) if run else None
+            if run and a is None:
+                if self._need([run]):
+                    self.fight_wait = run.id        # _arrived shows it again
+                    self.fight_detail.show_fight(f, None, Presses([], READING))
+                    return
+                a = self.cache.get(self._key(run))
+        me = getattr(a.data, "player_guid", None) if a else None     # another character's run doesn't have it
+        span = run_window(f, a.data.start, a.data.duration) if a and me in (None, f.get("me")) else None
+        if span:
+            self.fight_run = a.data.run
+            h = self.live.history if hasattr(self, "live") else None
+            names = dict(((h.chars.get(f.get("me")) or {}).get("names") or {}) if h else {})
+            names |= {e.spell_id: e.spell_name for e in getattr(a.data, "events", []) if e.src == me and e.spell_id}
+            pressed = fight_presses(getattr(a.data, "lines", []), span, names)
+        elif self.saved and self.saved.exists() and start.timestamp() > self.saved.stat().st_mtime:
+            pressed = Presses([], ARRIVES)
+        elif self.runs and start < min(r.start_time for r in self.runs):
+            pressed = Presses([], OLDER)
+        else:
+            pressed = Presses([], NOT_HERE)
+        self.fight_detail.show_fight(f, span, pressed)
 
     def _fight_on_timeline(self, start: float, end: float):
-        """a live fight's Show on the timeline: the loaded run's Timeline tab (the fight is inside it), zoomed to it"""
-        self._open_run_id(self.current.data.run.id)      # in Fights mode the tree only takes the pick
+        """a live fight's Show on the timeline, or See them in order: its run's Timeline tab, zoomed to it"""
+        if self.fight_run is None:
+            return
+        self._open_run_id(self.fight_run.id)      # in Fights mode the tree only takes the pick
         self._mode("raids" if self.raid else "dungeons")     # which shows the run's tabs again
         self._after(lambda: (self.stack.setCurrentIndex(1), self.show_on_timeline(start, end)))
 

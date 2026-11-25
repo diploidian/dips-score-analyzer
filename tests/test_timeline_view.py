@@ -155,6 +155,26 @@ class TimelineTabTests(unittest.TestCase):
         self.assertLess(t.v0, 0)
         self.assertFalse(tab.grab().isNull())
 
+    def test_a_healer_sees_answers_not_idle(self):
+        from types import SimpleNamespace as NS
+        from dips_score.ui.timeline import Data
+        from dips_score.ui.timelinetab import TimelineTab
+        tab = TimelineTab()
+        tab.resize(1300, 900)
+        tab.healer = ([NS(start=400.0, guid="t", response=2.5, covered=False), NS(start=410.0, guid="me", response=None,
+                                                                                 covered=False)],
+                      {"me": "You", "t": "Tank"}.get)
+        tab.timeline.set_data(Data(role="healer", duration=DURATION, idle=IDLE, fight_idle=OWN))
+        tab.show_run("Blackfathom Deeps", "", CELLS, DURATION, "32:57", "75 B")
+        tab.follow(*fight_window(*FIGHT_625))
+        self.assertEqual((tab.hero.big, tab.hero.suffix), ("4.2", "s to answer"))
+        self.assertEqual(tab.figures.items[2], ("2", "dips under 60%", ""))
+        self.assertTrue(tab.plate.isHidden() and tab.list.isHidden())
+        self.assertEqual([(r.name, r.note, r.value_text) for r in tab.dips.rows],
+                         [("6:50", "You", "no heal"), ("6:40", "Tank", "2.5 s")])
+        self.assertEqual(tab.quiet.items, [("6:50", "10.6 s"), ("7:02", "5.3 s")])      # the fight's own gaps, in order
+        self.assertFalse(tab.grab().isNull())
+
     def test_a_fight_speaks_with_its_own_card(self):
         """a fight picked: its own card's gaps (as its Debrief scores them) for the figures, list and washes; the
         whole run and custom views keep the run's"""
@@ -225,3 +245,28 @@ class TimelineTabTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Answers(unittest.TestCase):
+    """a healer's Timeline: the dips in view, slowest answer first; quiet moments unjudged"""
+    def test_answers(self):
+        from types import SimpleNamespace as NS
+        from dips_score.timeline_view import answer_view
+        dips = [NS(start=1926.0, guid="d", response=2.4, covered=False), NS(start=1928.0, guid="d", response=0.4, covered=False),
+                NS(start=1946.0, guid="t", response=2.0, covered=False), NS(start=1948.0, guid="t", response=0.0, covered=False),
+                NS(start=1965.0, guid="me", response=None, covered=False), NS(start=1970.0, guid="t", response=None, covered=True),
+                NS(start=10.0, guid="t", response=5.0, covered=False)]
+        who = {"me": "You", "t": "Tank", "d": "DPS"}.get
+        v = answer_view(dips, [(1910.0, 1914.1), (1960.0, 1961.0)], (1905.0, 2002.0), who)
+        self.assertEqual((v.big, v.unit, v.count), ("2.0", "s to answer", 5))
+        self.assertEqual(v.verdict, "5 dips under 60% in this fight, the middle answer 2.0 s. One had no heal from you "
+                                    "within 6 s and counts as 6.")
+        self.assertEqual([(at, w, a) for at, w, _, a in v.rows], [("32:45", "You", "no heal"), ("32:06", "DPS", "2.4 s"),
+                                                                 ("32:26", "Tank", "2.0 s"), ("32:08", "DPS", "0.4 s"),
+                                                                 ("32:28", "Tank", "0.0 s")])
+        self.assertEqual(v.rows[0][2], 1.0)
+        self.assertEqual(v.quiet, [("31:50", "4.1 s")])                 # 1 s isn't a quiet moment
+        none = answer_view([], [], (0.0, 60.0), who, "in this run")
+        self.assertEqual((none.big, none.unit, none.verdict, none.rows), ("0", "dips under 60%",
+                                                                          "Nobody dropped under 60% in this run.", []))
+

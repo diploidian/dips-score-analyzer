@@ -142,15 +142,17 @@ local handlers = {
     CHALLENGE_MODE_COMPLETED = function() Write("MP", 0) end,
     GROUP_ROSTER_UPDATE = function() ns.WriteRoster() end,
     PLAYER_ROLES_ASSIGNED = function() ns.WriteRoster() end,
+    UNIT_LEVEL = function() ns.WriteRoster() end,       -- a level-up in the run
 }
 
 ----------------------------------------------------------------------
 -- The group: a P line per member, written when a segment opens and whenever it changes (only
 -- members whose line would differ from the last one written).
---   P,guid,name,class,role,race  name "First Surname" (GetUnitName(unit, true): on this server
+--   P,guid,name,class,role,race,level  name "First Surname" (GetUnitName(unit, true): on this server
 --                              UnitName only gives the first name), class "PRIEST", role
 --                              "TANK"/"HEALER"/"DAMAGER"/"NONE" (the group finder's assignment),
---                              race the non-localised token "NightElf" (empty if unknown)
+--                              race the non-localised token "NightElf" (empty if unknown), level the
+--                              character's level (empty when the game doesn't say)
 ----------------------------------------------------------------------
 local rosterSeen = {}
 
@@ -175,10 +177,12 @@ function ns.WriteRoster()
             local role = UnitGroupRolesAssigned and UnitGroupRolesAssigned(unit) or "NONE"
             local _, race = UnitRace(unit)
             race = race or ""
-            local line = Field(name) .. "|" .. Field(class) .. "|" .. Field(role) .. "|" .. Field(race)
+            local level = UnitLevel(unit)
+            if ns.IsSecret(level) or type(level) ~= "number" or level < 1 then level = "" end
+            local line = Field(name) .. "|" .. Field(class) .. "|" .. Field(role) .. "|" .. Field(race) .. "|" .. level
             if rosterSeen[guid] ~= line then
                 rosterSeen[guid] = line
-                Write("P", guid, name, class, role, race)
+                Write("P", guid, name, class, role, race, level)
             end
         end
     end

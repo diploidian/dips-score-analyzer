@@ -67,8 +67,8 @@ end
 ns.Field = Field
 
 -- Appends a line; returns its index (for Rewrite) or nil if not recording.
--- Up to five fields without building a table.
-function ns.Write(code, a, b, c, d, e)
+-- Up to six fields without building a table.
+function ns.Write(code, a, b, c, d, e, f)
     if not seg then return end
     if count >= maxLines then
         if not seg.full then
@@ -83,6 +83,7 @@ function ns.Write(code, a, b, c, d, e)
     if c ~= nil then line = line .. "," .. Field(c) end
     if d ~= nil then line = line .. "," .. Field(d) end
     if e ~= nil then line = line .. "," .. Field(e) end
+    if f ~= nil then line = line .. "," .. Field(f) end
     count = count + 1
     lines[count] = line
     return count

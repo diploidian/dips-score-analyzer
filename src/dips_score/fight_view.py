@@ -2,6 +2,7 @@
 you could have done you did, the biggest gap and where the rest went, what went well, the pull, the danger, your share
 of the group's; and the fight list's row. Old saved fights lack some keys (free, auto, group, potential, pull, foes):
 their parts are empty."""
+from bisect import bisect_left
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -210,6 +211,59 @@ def list_row(d: dict) -> tuple[str, list[tuple[str, str]], str]:
     if d.get("result") == "you died":
         runs.append((" · died", "mu"))
     return name, runs, d["kind"]
+
+
+FOLLOW = 0.5            # a macro or item press: the spell you sent this soon after is the one it cast
+ARRIVES = "Arrives after a /reload or logout: the game only saves your presses then."
+NOT_HERE = ("Not recorded here. Turn on \"Everywhere else\" in the add-on's options to record presses outside "
+            "dungeons.")
+OLDER = "This fight is older than the recordings the add-on keeps."
+READING = "Reading this fight's recording…"
+NONE_PRESSED = "No presses recorded in this fight."
+
+
+@dataclass
+class Presses:
+    """What you pressed in a fight, for the Fight page: rows (name, a muted note, the spell ID, by key, by click, not
+    told), most pressed first, and the line over them; or no rows and why (ARRIVES, NOT_HERE, ...)"""
+    rows: list[tuple[str, str, str, int, int, int]] = field(default_factory=list)
+    line: str = ""
+
+
+def presses(lines, window: tuple[float, float], names: dict[int, str]) -> Presses:
+    """the add-on's A lines (a press: slot, kind, id, how) in window, by spell; names: spell id -> name. A macro or an
+    item that names no spell this knows is the spell you sent within FOLLOW seconds, if any"""
+    a, b = window
+    sent = [(ln.t, ln.num(0)) for ln in lines if ln.code == "CS"]
+    times = [t for t, _ in sent]
+    rows: dict[tuple[str, str, str], list[int]] = {}
+    for ln in lines:
+        if ln.code != "A" or not a <= ln.t <= b:
+            continue
+        kind, pid, how = ln.f(1), ln.num(2), ln.f(3)
+        spell = pid if kind == "spell" or (kind == "macro" and pid in names) else None
+        if spell is None and kind != "spell":
+            i = bisect_left(times, ln.t)
+            spell = sent[i][1] if i < len(sent) and sent[i][0] <= ln.t + FOLLOW else None
+        note = "" if kind == "spell" else kind
+        if spell is not None and spell in names:
+            key = (names[spell], note, str(spell))
+        elif spell is not None:
+            key = (f"Spell {spell}", note, str(spell))
+        else:
+            key = (f"{kind.title()} {pid if pid is not None else '?'}", f"{note}, no spell followed".lstrip(", "), "–")
+        n = rows.setdefault(key, [0, 0, 0])
+        n["KC".find(how) if how in ("K", "C") else 2] += 1
+    out = sorted(((*k, *n) for k, n in rows.items()), key=lambda r: (-sum(r[3:]), r[0]))
+    if not out:
+        return Presses([], NONE_PRESSED)
+    key, click, other = (sum(r[i] for r in out) for i in (3, 4, 5))
+    total = key + click + other
+    said = [f"{key} by key" if key else "", f"{click} by click" if click else "",
+            f"{other} the game's bars didn't say" if other else ""]
+    said = [s for s in said if s]
+    how = ("all by key" if key == total else "all by click" if click == total else ", ".join(said))
+    return Presses(out, f"{total} press{'es' if total != 1 else ''}, {how}.")
 
 
 def run_window(d: dict, start: datetime, length: float) -> tuple[float, float] | None:

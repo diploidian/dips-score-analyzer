@@ -165,7 +165,7 @@ records:
   ending, each with its spell ID
 - target changes and your own deaths
 - boss pulls and boss ends (with whether the boss died), and keystone start and completion
-- each group member's name, class, race and group finder role
+- each group member's name, class, race, group finder role and level (the level from add-on 0.6.3)
 - markers you add with `/dscore mark`
 - the name and creature type of each hostile non-player unit you target, mouse over or see a
   nameplate for (see [Enemy creature types](#enemy-creature-types))
@@ -792,20 +792,29 @@ A dungeon's or raid's own page has three tabs:
 
 A visit has five tabs.
 
-- Debrief shows your score, grade and verdict, the one fix to make with the next two, the main measures,
-  and where the points went. Every category is in the All categories drawer. A grid has every fight with
+- Debrief shows your score, grade and verdict, the one fix to make with the next two, how much of the run
+  you spent in combat, the main measures, and where the points went. Every category is in the All categories drawer. A grid has every fight with
   its score and circles the ones to review; pick one to score just that fight. "Show me" opens the
   timeline there. The player picker at the top shows anyone else's card.
 - Timeline has the run on one clock, with a fight picker and every idle moment, longest first (see
-  below).
+  below). Scored as a healer, it shows how fast you answered each dip under 60% instead, slowest first, and
+  your quiet moments without judging them: a healthy group needs no heal.
 - Pulls shows how safely you went into them, the one pull to fix, the run pull by pull with your mana
   under it, and who pulled. The All pulls drawer has every pull with its mobs.
 - Spells ranks your abilities by damage and by healing, with casts, casts per minute, refusals, crits,
   overhealing and share, for any player, over the whole run, bosses only or trash only. Picking a spell
   highlights its casts on the timeline.
-- Group shows where you placed and what would move you up, the podium, everyone's card with their
-  strengths, weaknesses and map, and the awards. The Edit roles drawer lets you correct a class or role.
+- Group shows where you placed and what would move you up, how much of the run you spent in combat, the
+  podium, everyone's card with their class and level, strengths, weaknesses and map, and the awards. The Edit roles drawer lets you correct a class or role.
   Your own role there decides which scorecard you get.
+
+Time in combat is information, not points: the share of the run from the first pull to the last fight's
+end that you spent in combat, with time not recorded (between a visit's pieces, a `/reload`) left out and
+wipes left in. From five runs on, your range over your last five shows beside it. Pace belongs to the
+group, so nothing is judged by it.
+
+A card's class is a square in the class's colour and the word. Hover it to see when the class was only
+guessed from spells, or when the level wasn't recorded (runs from before add-on 0.6.3).
 
 ### The timeline
 
@@ -819,7 +828,13 @@ zoom, drag to pan and double-click to see the whole run. Hover for details.
 Each fight's page shows how much of the damage you could have done you did, the verdict, the biggest
 gap, the key figures, where the rest went, what went well, the pull, the danger box and your group. The
 All the details drawer has your abilities, cooldowns (Spell, CD, Used, Possible, Missed, Excused, Free,
-Lost), auto attacks, buffs, failed casts, idle time and resources. The app keeps your last 5,000 fights.
+Lost), auto attacks, buffs, failed casts, idle time and resources.
+
+What you pressed, under Group, counts your presses in the fight by spell, with the spell ID, and how many
+were by key and by click (and the ones bars from other add-ons didn't say). A macro shows the spell it names,
+or the one you cast just after it. "See them in order on the timeline" opens the fight's run there. Presses
+come from the add-on's recording, so they show once the game saved it (after a `/reload` or logout), and only
+where it records: dungeons by default, everywhere with "Everywhere else" on. The app keeps your last 5,000 fights.
 Fights saved before the newer columns existed show "-" in them.
 
 The overlay is the card that slides in after each fight: the share of your possible damage, the verdict,

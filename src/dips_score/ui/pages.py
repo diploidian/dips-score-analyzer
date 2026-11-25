@@ -9,7 +9,8 @@ from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHeaderView, 
 
 from .. import names
 from ..analysis import Analysis
-from ..debrief import DebriefView, build_view, fight_cells, fight_of, fmt_time, run_auto_share, worst_fight
+from ..debrief import (DebriefView, build_view, combat_figures, combat_span, fight_cells, fight_of, fmt_time, run_auto_share,
+                       worst_fight)
 from ..dungeon_view import build_bosses, build_history, build_records, history_meta, visits
 from ..scoring.group import ordinal, player_card
 from ..scoring.score import Scorecard
@@ -88,6 +89,7 @@ class ScoreTab(QWidget):
         self.a: Analysis | None = None
         self.fight = -1                    # the fight showing; -1: the whole run
         self.cards: list[Scorecard] = []   # the picked player's card for each fight
+        self.others: list[float] = []      # your runs' shares in combat, up to this one (app.py sets it)
         self.cells: list = []
         self.deaths: list = []             # the picked player's
         self.page = DebriefPage()
@@ -174,6 +176,7 @@ class ScoreTab(QWidget):
         rd = a.data
         zone = names.titled(rd.run.id, rd.run.zone)
         when = run_meta(a, role=False)     # _show adds the role of the card it shows
+        self.page.combat.set(combat_figures(combat_span(a), self.others))
         if self._is_me():
             sync = "; ".join(s.describe() for s in rd.sync if s.anchors) or "no clock anchors"
             if rd.has_combat_log and not rd.has_advanced:
@@ -201,6 +204,7 @@ class ScoreTab(QWidget):
             self.show_whole()
             return
         self.fight = i
+        self.page.combat.set([])        # the run's, not a fight's
         fr = a.fights[i]
         f = fr.fight
         me = self._is_me()

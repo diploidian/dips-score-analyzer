@@ -200,7 +200,8 @@ class ShellTests(unittest.TestCase):
                 load.return_value = (None, [run("r7", start, 900.0), run("r8", later, 600.0)])
                 w.reload()                                  # a new visit: it opens behind the page
                 self.assertEqual((w.current.data.run.id, w.stack.currentIndex()), ("r8", 2))
-                self.assertFalse(w.fight_detail.plate.has_button)     # the fight was before it
+                self.assertTrue(w.fight_detail.plate.has_button)      # the fight was before it: in r7, which it opens
+                self.assertEqual(w.fight_run.id, "r7")
             self.assertTrue(w.mode_fights.isChecked())
 
     def test_a_new_visit_opens_by_itself(self):

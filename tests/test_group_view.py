@@ -154,6 +154,17 @@ class GroupViewTests(unittest.TestCase):
                                                           "Overflowing Cup"])
         self.assertEqual(sum(good for *_, good in v.awards), 9)
 
+    def test_class_and_level(self):
+        a = analysis()
+        a.roster["me"].cls, a.roster["me"].cls_from, a.roster["me"].level = "PALADIN", "addon", 39
+        a.roster["evi"].cls, a.roster["evi"].cls_from = "HUNTER", "spells"
+        cards = {c.name: c for c in build_group(a).cards}
+        self.assertEqual((cards["Bao Kahn"].who, cards["Bao Kahn"].who_tip, cards["Bao Kahn"].cls), ("Paladin 39", "", "PALADIN"))
+        self.assertEqual((cards["Evilguy Verybad"].who, cards["Evilguy Verybad"].who_tip),
+                         ("Hunter", "Class guessed from the spells they cast. "
+                                    "Level not recorded: the run is older than add-on 0.6.3"))
+        self.assertEqual((cards["Piraña Segundo"].who, cards["Piraña Segundo"].who_tip), ("", ""))      # not known
+
     def test_breakdown(self):
         """a card's score help: each category's score, weight and numbers, the bonus, the awards"""
         v = build_group(analysis())

@@ -18,6 +18,7 @@ from .live.profile_history import MIN_FIGHTS
 from .live.traits import BY_KEY, TIERS, needs, shown, written
 from .scoring import usable
 from .scoring.score import RULES
+from .debrief import combat_span
 from .sheet_view import SheetView, build_sheet
 from .time_view import TimeBar, build_time
 from .trait_words import words
@@ -301,9 +302,17 @@ def run_row(a) -> dict:
     known = visit.score is not None and a.me and a.me.role
     return {"me": a.data.player_guid, "parts": list(run.parts) or [run.id], "name": run.player_name,
             "start": run.start_time, "role": {"dps": "damage"}.get(a.role, a.role) if known else None,
-            "score": visit.score, "grade": visit.grade, "rules": RULES, "presses": m.presses, "by_key": m.by_key, "by_click": m.by_click,
+            "score": visit.score, "grade": visit.grade, "rules": RULES,
+            "in_combat": (lambda s: s and s[0] / s[1])(combat_span(a)), "presses": m.presses, "by_key": m.by_key, "by_click": m.by_click,
             "failed": m.failed, "casts": m.casts, "combat_time": m.combat_time, "moving_time": m.moving_time,
             "move_interrupts": m.move_interrupts, "wasted_cast_time": m.wasted_cast_time}
+
+
+def combat_shares(rows: dict[str, dict | None], me: str | None, start) -> list[float]:
+    """the share in combat of your runs up to the one that started at start, oldest first"""
+    mine_ = sorted((r for r in rows.values() if r and r["me"] == me and r.get("in_combat") is not None
+                    and r["start"] <= start), key=lambda r: r["start"])
+    return [r["in_combat"] for r in mine_]
 
 
 def mine(rows: dict[str, dict | None], me: str, name: str) -> dict[str, dict]:

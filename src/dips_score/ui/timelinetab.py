@@ -13,9 +13,10 @@ from PyQt6.QtWidgets import QComboBox, QFrame, QHBoxLayout, QPushButton, QScroll
 
 from .. import names
 from ..debrief import fight_cells, fmt_time
-from ..timeline_view import fight_window, idle_view, option_text, scope_for, step, with_fight
+from ..timeline_view import QUIET_NOTE, answer_view, fight_window, idle_view, option_text, scope_for, step, with_fight
 from .debrief import NARROW
-from .kit import HEAD_H, BarRow, BarRows, Hero, KeyFigures, Plate, Sheet
+from .kit import HEAD_H, BarRow, BarRows, Hero, KeyFigures, Part, Plate, Sheet, adv, draw_label_tab, flow, font, rule, wrapped
+from .theme import tok
 from .pages import dim_label, run_meta
 from .timeline import Timeline
 
@@ -31,6 +32,40 @@ class IdleRows(BarRows):
     def draw(self, p, w):
         self.bar_w = max(0.0, w - self.name_w - 78)
         return super().draw(p, w)
+
+
+class DipRows(IdleRows):
+    """a healer's dips: the time and whose, a bar to the cap, the answer"""
+    name_w = 120
+
+
+class Quiet(Part):
+    """the quiet moments, for a healer: the times and lengths in a line, unjudged"""
+
+    def __init__(self):
+        super().__init__()
+        self.items: list[tuple[str, str]] = []
+        self.more = 0
+
+    def set(self, items: list[tuple[str, str]], more: int):
+        self.items, self.more = items, more
+        self.setAccessibleName("Quiet moments: " + QUIET_NOTE + " " + ", ".join(f"{a} {b}" for a, b in items))
+        self.changed()
+
+    def draw(self, p, w):
+        if p:
+            rule(p, 0, 0, w, tok("ln"))
+        y = 1 + 12
+        draw_label_tab(p, 0, y, "Quiet moments")
+        y += 25 + 8
+        f, bf = font(14), font(16, 600, num=True)
+        y += wrapped(p, f, tok("tx2"), 0, y, w, 14 * 1.4, QUIET_NOTE) + 6
+        words = [x for at, long in self.items for x in ((at, bf, tok("tx")), (long + "  ", f, tok("tx2")))]
+        if self.more:
+            words.append((f"and {self.more} more", f, tok("mu")))
+        if not words:
+            words = [("None in view.", f, tok("mu"))]
+        return y + flow(p, words, 0, y, w, adv(f, " ") * 2, 4) + 6
 
 
 class TimelineTab(QScrollArea):
@@ -60,6 +95,8 @@ class TimelineTab(QScrollArea):
         self.hero.setMaximumWidth(VERDICT_W)
         self.figures.setFixedWidth(FIGURES_W)
         self.plate, self.list = Plate("In this fight"), IdleRows("Idle moments, longest first")
+        self.dips, self.quiet = DipRows("Dips, slowest answer first"), Quiet()     # a healer's, instead
+        self.healer = None          # (your dips, your guid, who(guid)) when the run was scored as a healer
         self.plate.clicked.connect(self._next_moment)
 
         strip = QHBoxLayout()
@@ -85,6 +122,8 @@ class TimelineTab(QScrollArea):
         after.setSpacing(40)
         after.addWidget(self.plate, 1, Qt.AlignmentFlag.AlignTop)
         after.addWidget(self.list, 1, Qt.AlignmentFlag.AlignTop)
+        after.addWidget(self.dips, 1, Qt.AlignmentFlag.AlignTop)
+        after.addWidget(self.quiet, 1, Qt.AlignmentFlag.AlignTop)
         self.page = Sheet()
         lay = QVBoxLayout(self.page)
         lay.setContentsMargins(16, 4, 16, 16)
@@ -106,8 +145,12 @@ class TimelineTab(QScrollArea):
         self.run_id = a.data.run.id if a else None
         self.timeline.set_analysis(a)
         if a is None:
+            self.healer = None
             self.show_run("No run selected", "", [], 0.0, "–", None)
             return
+        me = a.data.player_guid
+        self.healer = (a.healer.dips, lambda g: "You" if g == me else {"TANK": "Tank", "HEALER": "Healer"}.get(
+            getattr(a.roster.get(g), "role", None), "DPS")) if a.role == "healer" and a.healer else None
         card = a.card
         score = None if card.empty or card.grade == "-" else f"{card.total:.0f} {card.grade}"
         self.show_run(names.titled(a.data.run.id, a.data.run.zone), run_meta(a), fight_cells(a), a.data.duration,
@@ -151,6 +194,8 @@ class TimelineTab(QScrollArea):
         D = self.timeline.D
         for part in (self.figures, self.plate, self.list):
             part.setVisible(D is not None)
+        for part in (self.dips, self.quiet):
+            part.setVisible(D is not None and self.healer is not None)
         if D is None:
             self.moments = []
             self.hero.set("–", None, None, None, "")
@@ -171,6 +216,17 @@ class TimelineTab(QScrollArea):
         v = idle_view(idle, window)
         self.timeline.idle = with_fight(D.idle, window, idle) if isinstance(scope, int) else D.idle
         self.timeline.update()
+        if self.healer:         # what a healer answers, not idle time: a healthy group needs no heal
+            self.moments = []
+            h = answer_view(self.healer[0], idle, window, self.healer[1], label.lower())
+            self.hero.set(h.big, h.unit, None, None, h.verdict)
+            self.figures.set([(num, cap, "") for num, cap in figures + [(str(h.count), "dips under 60%")]])
+            self.plate.setVisible(False)
+            self.list.setVisible(False)
+            self.dips.set([BarRow(at, answer, share, "m-surv", who) for at, who, share, answer in h.rows], None)
+            self.dips.setVisible(bool(h.rows))
+            self.quiet.set(h.quiet, h.more_quiet)
+            return
         self.moments, self.shown = v.moments, 0
         self.hero.set(v.big, "s idle", None, None, v.verdict)
         self.figures.set([(num, cap, "") for num, cap in figures + [(str(len(v.moments)), v.gaps)]])

@@ -15,7 +15,7 @@ from dips_score.live import profile_history as ph  # noqa: E402
 from dips_score.live import profile_runs  # noqa: E402
 from dips_score.scoring.score import RULES  # noqa: E402
 from dips_score.live.profile import label, profile  # noqa: E402
-from dips_score.profile_view import build_profile, mine, run_row  # noqa: E402
+from dips_score.profile_view import build_profile, combat_shares, mine, run_row  # noqa: E402
 
 T0 = datetime(2026, 11, 23, 12, 0, 0)
 DAY = timedelta(days=1)
@@ -603,15 +603,20 @@ class View(unittest.TestCase):
             m = NS(combat_time=combat, presses=9, by_key=8, by_click=1, failed=2, casts=7, moving_time=1.5,
                    move_interrupts=1, wasted_cast_time=0.5)
             card = NS(empty=False, grade=grade, total=total, role=role, categories=[], points_lost=lambda: [])
-            return NS(data=NS(run=run_, player_guid=guid, duration=900.0), metrics=m, card=card, summary=None,
-                      deaths=[], wipes=[], me=me, role=role)
+            fight_ = NS(start=100.0, end=100.0 + combat, duration=combat)
+            return NS(data=NS(run=run_, player_guid=guid, duration=900.0, fights=[fight_], combat_time=combat,
+                              segment_spans=[(0.0, 900.0)]), pulls=[NS(start=50.0)], metrics=m, card=card,
+                      summary=None, deaths=[], wipes=[], me=me, role=role)
         r = run_row(a())
         self.assertEqual(r, {"me": "A", "parts": ["r"], "name": "Bao", "start": T0, "role": "damage",
-                             "score": 72.0, "grade": "B", "rules": RULES, "presses": 9, "by_key": 8, "by_click": 1, "failed": 2, "casts": 7, "combat_time": 600.0,
+                             "score": 72.0, "grade": "B", "rules": RULES, "in_combat": 600 / 650, "presses": 9, "by_key": 8, "by_click": 1, "failed": 2, "casts": 7, "combat_time": 600.0,
                              "moving_time": 1.5, "move_interrupts": 1, "wasted_cast_time": 0.5})
         short, unknown = run_row(a(combat=20.0)), run_row(a(guid=None, role="healer", me=None))
         self.assertEqual((short["role"], short["score"]), (None, None))     # too short to compare: no grade
         self.assertIsNone(unknown["role"])                                  # no combat log: "healer" is only a default
+        rows = {"1": r, "2": run_row(a(combat=300.0)) | {"start": T0 - DAY}, "3": run_row(a("B")), "4": None}
+        self.assertEqual(combat_shares(rows, "A", T0), [300 / 350, 600 / 650])         # yours, oldest first
+        self.assertEqual(combat_shares(rows, "A", T0 - DAY), [300 / 350])
         self.assertEqual(mine({"1": r, "2": unknown, "3": run_row(a("B")), "4": None}, "A", "Bao"),
                          {"1": r, "2": unknown})
 

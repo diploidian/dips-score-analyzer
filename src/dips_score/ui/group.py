@@ -5,18 +5,18 @@ numbers drawer, and their class and role in the Edit roles drawer.
 Sizes follow docs/design/mockups/group.html (CSS px). The shared parts come from kit.py, the map from radar.py.
 """
 from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
-from PyQt6.QtGui import QFont, QFontMetricsF, QPen
+from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QPen
 from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QPushButton, QScrollArea,
                              QVBoxLayout, QWidget)
 
 from .. import names
-from ..debrief import fmt_time
+from ..debrief import combat_figures, combat_span, fmt_time
 from ..group_view import ROLE_WORD, GroupView, PlayerCard, breakdown, build_group, of_line
-from ..model.roster import CLASSES, ROLES
+from ..model.roster import CLASS_COLORS, CLASSES, ROLES
 from ..scoring.group import ordinal
 from . import assets, theme
 from .debrief import NARROW
-from .kit import (HEAD_H, MINUS, Drawer, Fold, Part, Plate, Sheet, Tips, adv, baseline, box, draw_label_tab, draw_tag, elide,
+from .kit import (HEAD_H, MINUS, Drawer, Fold, KeyFigures, Part, Plate, Sheet, Tips, adv, baseline, box, draw_label_tab, draw_tag, elide,
                   flow, font, line, rule, text_at, wrapped)
 from .pages import dim_label, fmt_num, item, run_meta, table
 from .radar import H as MAP_H, W as MAP_W, draw_map, map_tips
@@ -231,11 +231,20 @@ class Standings(Tips):
         nf, rf, f, bf = font(17, 600), font(14), font(14), font(14, 600)
         top = y
         if p:
-            nw = line(p, nf, tok("tx"), x, y, 23.8, elide(nf, c.name, w * 0.6))
+            nw = line(p, nf, tok("tx"), x, y, 23.8, elide(nf, c.name, w * 0.5))
             base = baseline(nf, y, 23.8)
-            rw = text_at(p, rf, tok("mu"), x + nw + 10, base, c.role)
+            cx = x + nw + 10
+            if c.who:           # a square in the class's colour, and the word: the colour never says it alone
+                sq = QRectF(cx, base - 10, 10, 10)
+                p.fillRect(sq, QColor(*(round(v * 255) for v in CLASS_COLORS.get(c.cls, (0.75, 0.75, 0.78)))))
+                box(p, sq, tok("tx2"))
+                ww = text_at(p, font(14, 500), tok("tx2"), cx + 16, base, c.who)
+                if c.who_tip:
+                    tips.append((QRectF(cx, y, 16 + ww, 23.8), c.who_tip))
+                cx += 16 + ww + 10
+            rw = text_at(p, rf, tok("mu"), cx, base, c.role)
             if c.you:
-                draw_tag(p, x + nw + 10 + rw + 10, y + 23.8 / 2, "you")
+                draw_tag(p, cx + rw + 10, y + 23.8 / 2, "you")
         y += 23.8 + 3
         y += wrapped(p, f, tok("tx2"), x, y, w, 14 * 1.4, c.reason)
         rows = [(True, s) for s in c.plus] + [(False, s) for s in c.minus]
@@ -372,11 +381,15 @@ class GroupTab(QScrollArea):
         hero_row.setSpacing(28)
         hero_row.addWidget(self.placing, 1, Qt.AlignmentFlag.AlignTop)
         hero_row.addWidget(self.plate, 0, Qt.AlignmentFlag.AlignTop)
+        self.combat = KeyFigures()          # the second tier: time in combat (debrief.combat_figures)
+        self.others: list[float] = []       # your runs' shares in combat, up to this one (app.py sets it)
         lay = QVBoxLayout(self.page)
         lay.setContentsMargins(16, 4, 16, 16)
         lay.setSpacing(0)
         lay.addSpacing(HEAD_H)
         lay.addLayout(hero_row)
+        lay.addSpacing(16)
+        lay.addWidget(self.combat)
         for part in (self.podium, self.standings, self.awards):
             lay.addSpacing(26)
             lay.addWidget(part)
@@ -393,8 +406,10 @@ class GroupTab(QScrollArea):
         self._fill_numbers(a)
         if not a:
             self.show_view(GroupView(), "No run selected", "")
+            self.combat.set([])
             return
         self.show_view(build_group(a), names.titled(a.data.run.id, a.data.run.zone), run_meta(a))
+        self.combat.set(combat_figures(combat_span(a), self.others))
 
     def show_view(self, view: GroupView, title: str, sub: str):
         self.view = view
