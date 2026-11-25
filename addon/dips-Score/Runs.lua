@@ -111,8 +111,15 @@ function ns.UpdateRecording()
         return
     end
     if run then ns.EndRun() end
-    -- stopped by hand here: stay stopped until you leave
     local log = ns.Log()
+    -- after a /reload or relog: a run started by hand carries on, wherever it is
+    local open = log.active and FindRun(log.active)
+    if open and open.manual and not open.ended and time() - (open.lastSeen or open.started) < RESUME_WINDOW then
+        run, manual = open, true
+        OpenSegment()
+        return
+    end
+    -- stopped by hand here: stay stopped until you leave
     if log.stoppedIn then
         if log.stoppedIn == instanceID then return end
         log.stoppedIn = nil
@@ -133,7 +140,7 @@ end
 function ns.StartManual()
     if run then
         -- already recording: keep this run, it just won't end by itself now
-        manual = true
+        manual, run.manual = true, true
         if not ns.IsRecording() then OpenSegment() end
         ns.Print("already recording " .. (run.zone or "?") .. "; it now runs until /dscore stop.")
         return
@@ -141,12 +148,13 @@ function ns.StartManual()
     manual = true
     ns.Log().stoppedIn = nil
     StartRun(Where())
+    run.manual = true       -- saved with it, so a /reload doesn't end it
 end
 
 function ns.StopManual()
     if not run then return end
-    -- an automatic run stopped by hand: don't start another one until you leave this place
-    if not manual and run.kind ~= "world" then ns.Log().stoppedIn = run.instanceID end
+    -- an automatic run stopped by hand: don't start another one until you leave this place (outside: this continent)
+    if not manual then ns.Log().stoppedIn = run.instanceID end
     ns.EndRun() -- clears manual
 end
 

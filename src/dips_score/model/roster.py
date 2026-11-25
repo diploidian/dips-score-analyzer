@@ -14,6 +14,7 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+from .. import store
 from ..scoring.classes import talent_role
 from ..sources.combatlog import Event
 
@@ -125,7 +126,7 @@ class Overrides:
         if not self.path:
             return
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self.data, indent=1), encoding="utf-8")
+        store.write_file(self.path, json.dumps(self.data, indent=1))
 
 
 def _is_group(flags: int) -> bool:

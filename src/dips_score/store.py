@@ -17,6 +17,17 @@ def stamp() -> float:
     return max(p.stat().st_mtime for p in Path(__file__).parent.rglob("*.py"))
 
 
+def write_file(path: Path, text: str):
+    """on disk before it takes the old file's place, so a half-written file is never read"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write(text)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, path)
+
+
 def file_name(run_id: str) -> str:
     return re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", run_id)     # a file name Windows takes
 

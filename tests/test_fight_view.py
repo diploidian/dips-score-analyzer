@@ -356,6 +356,12 @@ class FightPageTests(unittest.TestCase):
         self.assertIs(got[-1], ORACLE)                      # the newest, on top
         fl.add_fight(dict(ORACLE, id="later"))
         self.assertEqual((fl.count(), fl.currentRow()), (3, 0))
+        fl.setCurrentRow(2)                                 # reading an older fight: a new one keeps you on it
+        reading = fl.fights[2]
+        fl.add_fight(dict(ORACLE, id="newer"))
+        self.assertIs(fl.fights[fl.currentRow()], reading)
+        fl.add_fight(dict(ORACLE, id="later", damage=1))    # another fight updated in place: still the same one
+        self.assertIs(fl.fights[fl.currentRow()], reading)
         self.assertFalse(fl.grab().isNull())
 
 

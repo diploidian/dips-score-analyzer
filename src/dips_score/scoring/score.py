@@ -49,6 +49,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .. import store
 from .healer import DIP_HP, RESPONSE_CAP, SAFE_HP, HealerMetrics
 from .cooldowns import CooldownMetrics
 from .interrupts import InterruptMetrics
@@ -145,7 +146,7 @@ def load_weights(path: Path | None):
 
 def save_weights(path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(WEIGHTS, indent=1), encoding="utf-8")
+    store.write_file(path, json.dumps(WEIGHTS, indent=1))
 
 
 def reset_weights():
@@ -533,7 +534,8 @@ def healer_categories(hm: HealerMetrics, you: bool = True) -> list[Category]:
 def hybrid_bonus(hm: HealerMetrics, cats: list[Category]) -> tuple[float, str]:
     """damage, as a share of an even split, scaled by how well the healing went (cats from healer_categories)"""
     W = WEIGHTS["healer"]
-    if W.get(BONUS, 0) <= 0 or hm.even_share <= 0 or hm.my_damage <= 0 or cats[0].unavailable or cats[1].unavailable:
+    if (W.get(BONUS, 0) <= 0 or hm.group_size < 2 or hm.even_share <= 0 or hm.my_damage <= 0 or cats[0].unavailable
+            or cats[1].unavailable):        # alone, the even share is your own damage
         return 0.0, ""
     quality = (cats[0].score / 100) * (cats[1].score / 100)
     credit = hm.free_damage + 0.5 * (hm.my_damage - hm.free_damage)

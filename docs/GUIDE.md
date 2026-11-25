@@ -250,10 +250,12 @@ game's Logs folder can be deleted.
 
 A run starts when you enter a kind of instance that is turned on in the settings, and ends when you
 leave. A `/reload` or relog inside the same instance within 30 minutes carries on the same run. If
-you stop a dungeon recording by hand, it stays stopped until you leave that dungeon. A manual run
-started with `/dscore start` lasts until `/dscore stop`.
+you stop a recording by hand, it stays stopped until you leave that dungeon (outside: until you change
+continent or enter one). A manual run started with `/dscore start` lasts until `/dscore stop`, a `/reload`
+or relog within 30 minutes included.
 
-The add-on keeps your 15 most recent runs (you can set 1 to 50). Each segment of a run has a safety
+The add-on keeps your 15 most recent runs (you can set 1 to 50). Past that it drops open-world runs
+first, oldest first, since every zone change can start one, so they don't push out your dungeon runs. Each segment of a run has a safety
 cap of 80,000 lines; a busy 30-minute dungeon is roughly 15,000. If a segment ever fills up, you get
 a chat warning and recording pauses until the next `/reload`.
 
@@ -1198,6 +1200,8 @@ them.
 Everything is in `%APPDATA%\dips-score`: `weights.json` and `classes.json` (your settings),
 `fights.jsonl` (the last 5,000 fights), `spells.json` (a spell book per character) and `help.jsonl` (what you did for
 other players, without their names).
+`errors.log` holds any error the app ran into and carried on past, for a bug report (it starts over past 1 MB).
+Only one copy of the app runs at a time; starting a second says so, so the same fight is never saved twice.
 `profile_history.json` holds the Earlier blocks of the Profile page, and `profile_runs.json` what it
 takes from each recorded run, kept 60 days because the add-on keeps only its last runs.
 `spells.json` replaced the older `cooldowns.json`, which is no longer read. Run `replay` once to

@@ -429,6 +429,17 @@ class Replay(unittest.TestCase):
         self.assertNotIn("spec", a)
         self.assertEqual(list(self.paths.analysis_dir.iterdir()), [])
 
+    def test_one_fight_per_id_and_a_cut_line_mended(self):
+        """a second copy of the app saved a fight again; a crash cut the last line: the next fight isn't lost"""
+        self.paths.data_dir.mkdir(parents=True, exist_ok=True)
+        self.rewrite([{"id": "1", "start": "a"}, {"id": "2", "start": "b"}, {"id": "1", "start": "a", "damage": 5}])
+        f = self.paths.data_dir / "fights.jsonl"
+        f.write_text(f.read_text(encoding="utf-8") + '{"id": "3", "sta', encoding="utf-8")
+        h = History(self.paths)
+        self.assertEqual([(x["id"], x.get("damage")) for x in h.fights], [("1", 5), ("2", None)])
+        h.add({"id": "4", "start": "c"})
+        self.assertEqual([x["id"] for x in History(self.paths).fights], ["1", "2", "4"])
+
     def test_a_deleted_fight_is_not_counted(self):
         self.addCleanup(removed.IDS.clear)
         replay(self.paths, [self.log])

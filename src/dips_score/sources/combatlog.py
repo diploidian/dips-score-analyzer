@@ -160,8 +160,6 @@ def _int(s: str) -> int:
 def _prefix_len(ev: str) -> int:
     if ev.startswith("SWING_"):
         return 0
-    if ev.startswith("ENVIRONMENTAL_"):
-        return 1
     if ev.startswith(("SPELL_", "RANGE_", "DAMAGE_SHIELD", "DAMAGE_SPLIT")):
         return 3
     return 0
@@ -195,6 +193,8 @@ def parse_line(line: str) -> Event | None:
             p += ADV_LEN
         except ValueError:
             e.info = None
+    if ev.startswith("ENVIRONMENTAL_") and len(f) > p:      # its type ("Falling", "Lava") comes after the block
+        e.spell_name, p = f[p], p + 1
     s = f[p:]
     if ev.endswith(("_DAMAGE", "_DAMAGE_LANDED")) and len(s) >= 8:
         # amount, base amount, overkill, school, resisted, blocked, absorbed, critical, glancing, crushing

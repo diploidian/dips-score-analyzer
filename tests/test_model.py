@@ -205,6 +205,14 @@ class AdvancedLogging(unittest.TestCase):
         bonus, note = hybrid_bonus(hm, cats)
         return {c.name: c for c in cats}, bonus, _card(cats, "healer", bonus, note)
 
+    def test_no_hybrid_bonus_alone(self):
+        """alone, the even share is your own damage: nothing to beat"""
+        from dips_score.scoring.healer import HealerMetrics
+        from dips_score.scoring.score import healer_categories, hybrid_bonus
+        for size, got in ((1, False), (2, True)):
+            hm = HealerMetrics(group_size=size, my_damage=500, free_damage=500, group_damage=500 * size, combat_time=60)
+            self.assertEqual(hybrid_bonus(hm, healer_categories(hm))[0] > 0, got)
+
     def test_without_advanced(self):
         cats, bonus, card = self.card(False)
         self.assertTrue(cats["Group health"].unavailable and cats["Response"].unavailable)
@@ -685,6 +693,12 @@ class Upkeep(unittest.TestCase):
                     sp(b, "SPELL_AURA_REMOVED", ME, mob, "Corruption", 1)]
         um = self.measure("WARLOCK", *dot(0, 20, MOB1), *dot(10, 50, MOB2))
         self.assertAlmostEqual(um.rows[0].uptime, 50 / 60)
+
+    def test_another_players_copy_ending_doesnt_end_yours(self):
+        um = self.measure("WARLOCK", sp(0, "SPELL_AURA_APPLIED", ME, MOB1, "Corruption", 1, aura="DEBUFF"),
+                          sp(20, "SPELL_AURA_REMOVED", HUNTER, MOB1, "Corruption", 1),
+                          sp(45, "SPELL_AURA_REMOVED", ME, MOB1, "Corruption", 1))
+        self.assertAlmostEqual(um.rows[0].uptime, 45 / 60)
 
     def test_enemy_death_ends_aura(self):
         um = self.measure("WARLOCK", sp(0, "SPELL_AURA_APPLIED", ME, MOB1, "Corruption", 1, aura="DEBUFF"),

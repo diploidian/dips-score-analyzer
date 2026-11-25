@@ -103,22 +103,23 @@ class FightList(QListWidget):
             self._row(self.currentRow())
 
     def add_fight(self, f: dict):
-        """a new fight on top (or an updated one in place); follows it if you were looking at the newest"""
+        """a new fight on top (or an updated one in place); follows it if you were looking at the newest, else keeps
+        the one you were reading (Qt moves the current row down itself when a row goes in above it)"""
         for i, old in enumerate(self.fights):
             if old.get("id") == f.get("id"):
+                was = self.currentRow()
                 self.fights[i] = f
                 self.takeItem(i)
                 self._add(f, i)
-                self.setCurrentRow(i)
-                self._row(i)
+                self.setCurrentRow(was)
+                if was == i:
+                    self._row(i)        # the one you read changed: show it again
                 return
         at_top = self.currentRow() <= 0
         self.fights.insert(0, f)
         self._add(f, 0)
         if at_top:
             self.setCurrentRow(0)
-        else:
-            self.setCurrentRow(self.currentRow() + 1)
 
     def _add(self, f: dict, row: int | None = None):
         it = QListWidgetItem()

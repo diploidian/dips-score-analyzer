@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 
+from .. import store
 from ..config import Paths
 from . import tokens
 
@@ -37,4 +38,4 @@ def load(paths: Paths) -> dict:
 
 def save(paths: Paths, settings: dict):
     paths.data_dir.mkdir(parents=True, exist_ok=True)
-    (paths.data_dir / "settings.json").write_text(json.dumps(settings, indent=1), encoding="utf-8")
+    store.write_file(paths.data_dir / "settings.json", json.dumps(settings, indent=1))

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from . import store
+
 IDS: set[str] = set()     # in use (load fills it): deleted run and fight ids
 
 
@@ -22,4 +24,4 @@ def load(path: Path | None):
 def add(path: Path, ids):
     IDS.update(ids)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(sorted(IDS), indent=0), encoding="utf-8")
+    store.write_file(path, json.dumps(sorted(IDS), indent=0))

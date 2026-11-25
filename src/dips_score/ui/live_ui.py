@@ -101,10 +101,14 @@ class LiveController(QObject):
 
 def run_tray(paths: Paths) -> int:
     """the overlay alone, from the system tray"""
-    from .app import Window, apply_look
+    from .app import Window, apply_look, log_errors, one_copy
     from ..scoring.classes import load_upkeep
     from ..scoring.score import load_weights
     app = QApplication.instance() or QApplication(sys.argv)
+    log_errors(paths)
+    lock = one_copy(paths)     # noqa: F841 (held while the app runs)
+    if lock is None:
+        return 1
     theme.set_app_icon(app)
     app.setQuitOnLastWindowClosed(False)
     settings = app_settings.load(paths)

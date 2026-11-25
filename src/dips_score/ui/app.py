@@ -8,10 +8,11 @@ a new visit opens by itself.
 from __future__ import annotations
 
 import sys
+import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from PyQt6.QtCore import QFileSystemWatcher, QStandardPaths, Qt, QTimer
+from PyQt6.QtCore import QFileSystemWatcher, QLockFile, QStandardPaths, Qt, QTimer
 from PyQt6.QtGui import QFont, QGuiApplication, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QInputDialog, QLabel, QMainWindow, QMenu,
                              QMessageBox, QProgressBar, QPushButton, QSplitter, QStackedWidget, QTabWidget,
@@ -938,8 +939,42 @@ def apply_look(paths: Paths, settings: dict):
     QApplication.instance().setStyleSheet(theme.stylesheet())
 
 
+ERRORS_MOST = 1_000_000      # errors.log starts over past this many bytes
+
+
+def log_errors(paths: Paths):
+    """an error in a click or timer handler, written to errors.log (and the terminal) instead of closing the app: PyQt6
+    ends the program on one otherwise"""
+    def hook(kind, err, tb):
+        text = "".join(traceback.format_exception(kind, err, tb))
+        sys.stderr.write(text)
+        try:
+            log = paths.data_dir / "errors.log"
+            log.parent.mkdir(parents=True, exist_ok=True)
+            with open(log, "w" if log.exists() and log.stat().st_size > ERRORS_MOST else "a", encoding="utf-8") as fh:
+                fh.write(f"{datetime.now():%Y-%m-%d %H:%M:%S} projectArthas {version()}\n{text}\n")
+        except OSError:
+            pass
+    sys.excepthook = hook
+
+
+def one_copy(paths: Paths) -> QLockFile | None:
+    """the lock that keeps a second copy from saving every fight again (None: one is open already, and it says so)"""
+    paths.data_dir.mkdir(parents=True, exist_ok=True)
+    lock = QLockFile(str(paths.data_dir / "app.lock"))
+    if lock.tryLock(100):
+        return lock
+    QMessageBox.information(None, "projectArthas", "projectArthas is already open. Look for it in the taskbar or "
+                                                   "the system tray.")
+    return None
+
+
 def run_app(paths: Paths) -> int:
     app = QApplication.instance() or QApplication(sys.argv)
+    log_errors(paths)
+    lock = one_copy(paths)
+    if lock is None:
+        return 1
     theme.set_app_icon(app)
     settings = app_settings.load(paths)
     if not paths.found():       # first start, or the game moved: ask rather than show an empty window

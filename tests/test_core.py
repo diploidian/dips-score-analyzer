@@ -68,6 +68,19 @@ class SavedVariables(unittest.TestCase):
         self.assertEqual(seg.lines[2].code, "A")
         self.assertEqual(seg.lines[2].fields, ["5", "spell", "589", "K"])
 
+    def test_falling_and_lava(self):
+        """an environmental hit: its type comes after the advanced block, then the damage"""
+        from dips_score.sources.combatlog import parse_line
+        me = 'Player-1-A,"Anna-Realm-US",0x511,0x80000000'
+        block = ("Player-1-A,0000000000000000,442,592,53,5,142,0,0,0,0,430,430,0,-462.55,-2605.87,1413,6.0193,2")
+        for kind, amount in (("Falling", 150), ("Lava", 463)):
+            e = parse_line(f"11/25/2026 11:34:35.752-8  ENVIRONMENTAL_DAMAGE,0000000000000000,nil,0x80000000,"
+                           f"0x80000000,{me},{block},{kind},{amount},{amount},0,1,0,0,0,nil,nil,nil")
+            self.assertEqual((e.spell_name, e.amount, e.overkill, e.info.hp), (kind, amount, 0, 442))
+        e = parse_line("11/25/2026 11:34:35.752-8  ENVIRONMENTAL_DAMAGE,0000000000000000,nil,0x80000000,0x80000000,"
+                       f"{me},Drowning,90,90,0,1,0,0,0,nil,nil,nil")        # no advanced block
+        self.assertEqual((e.spell_name, e.amount, e.info), ("Drowning", 90, None))
+
     def test_lua_values(self):
         d = luadata.loads('x = { 1, -2.5, true, nil, "a\\nb", ["k"] = { }, }')
         self.assertEqual(d["x"][1], 1)

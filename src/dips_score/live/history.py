@@ -10,7 +10,6 @@ What you did for other players (helping.py) goes into help.jsonl beside them, on
 from __future__ import annotations
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 
@@ -25,15 +24,7 @@ KEEP = 5000      # fights kept in the file
 KEEP_ACTS = 20000
 
 
-def write_file(path: Path, text: str):
-    """on disk before it takes the old file's place, so a half-written file is never read"""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as fh:
-        fh.write(text)
-        fh.flush()
-        os.fsync(fh.fileno())
-    os.replace(tmp, path)
+write_file = store.write_file
 
 
 def _start(f: dict) -> str:
@@ -54,16 +45,19 @@ class History:
 
     def load(self):
         self.fights = []
-        if self.file.exists():
-            for line in self.file.read_text(encoding="utf-8", errors="replace").splitlines():
-                try:
-                    f = json.loads(line)
-                    if "ilvl" not in f:         # before 0.22 the log's average item level was saved as the level
-                        f["ilvl"] = f.pop("level", None)
-                    self.fights.append(f)
-                except (ValueError, AttributeError, TypeError):
-                    continue
-        self.fights.sort(key=_start)       # a replay adds the older ones it finds last
+        text = self.file.read_text(encoding="utf-8", errors="replace") if self.file.exists() else ""
+        by_id: dict = {}
+        for line in text.splitlines():
+            try:
+                f = json.loads(line)
+                if "ilvl" not in f:         # before 0.22 the log's average item level was saved as the level
+                    f["ilvl"] = f.pop("level", None)
+                by_id[f.get("id")] = f      # one per fight, the last written (a second copy of the app saved it too)
+            except (ValueError, AttributeError, TypeError):
+                continue
+        self.fights = sorted(by_id.values(), key=_start)       # a replay adds the older ones it finds last
+        if text and (not text.endswith("\n") or len(by_id) < text.count("\n")):
+            self._rewrite()     # a line cut short (a crash mid-save) would swallow the next fight added after it
         self.acts = {}
         if self.help_file.exists():
             for line in self.help_file.read_text(encoding="utf-8", errors="replace").splitlines()[-KEEP_ACTS:]:
@@ -147,7 +141,7 @@ class History:
 
     def save_books(self):
         self.spells_file.parent.mkdir(parents=True, exist_ok=True)
-        self.spells_file.write_text(json.dumps(self.books, indent=0), encoding="utf-8")
+        write_file(self.spells_file, json.dumps(self.books, indent=0))
 
 
 class Live:

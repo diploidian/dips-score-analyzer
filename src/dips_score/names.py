@@ -4,6 +4,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from . import store
+
 NAMES: dict[str, str] = {}     # in use (load fills it): run or fight id -> your name for it
 
 
@@ -26,7 +28,7 @@ def rename(path: Path, id: str, text: str):
     else:
         NAMES.pop(id, None)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(NAMES, indent=1, ensure_ascii=False), encoding="utf-8")
+    store.write_file(path, json.dumps(NAMES, indent=1, ensure_ascii=False))
 
 
 def get(id: str) -> str:

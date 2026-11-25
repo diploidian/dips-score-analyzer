@@ -4,6 +4,7 @@ PYTHONPATH=<folder with PyQt6> python -m unittest discover -s tests"""
 import importlib.util
 import io
 import os
+import shutil
 import re
 import sys
 import tempfile
@@ -203,6 +204,56 @@ class ShellTests(unittest.TestCase):
                 self.assertTrue(w.fight_detail.plate.has_button)      # the fight was before it: in r7, which it opens
                 self.assertEqual(w.fight_run.id, "r7")
             self.assertTrue(w.mode_fights.isChecked())
+
+    def test_a_fight_finds_its_own_recording(self):
+        """a recording not ended yet runs to the game's last save; another character's recording isn't yours; with
+        none, it says why"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.fight_view import ARRIVES, NOT_HERE
+        from dips_score.ui.app import Window
+        start = datetime(2026, 11, 18, 23, 30)          # the fight is 530 s to 642 s in
+        fight = {"start": "2026-11-18T23:38:49.824000", "duration": 112.458, "damage": 2583, "dps": 23.0, "me": "me",
+                 "taken": 433, "healing": 53, "result": "they got away", "kind": "World", "target": "Wolf"}
+        run = SimpleNamespace(id="r7", zone="Kalimdor", kind="world", started=start.timestamp(), start_time=start,
+                              line_count=300, parts=["r7"], end_estimate=start.timestamp() + 300, ended=None)
+        who = {"guid": "me"}
+
+        def analysed(r, _paths):
+            return SimpleNamespace(data=SimpleNamespace(run=r, start=r.start_time, duration=900.0,
+                                                        player_guid=who["guid"], lines=[], events=[]),
+                                   card=SimpleNamespace(empty=True))
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}):
+            saved = Path(tmp) / "dips-Score.lua"
+            saved.write_text("", encoding="utf-8")
+            os.utime(saved, (start.timestamp() + 900, start.timestamp() + 900))     # the game's last save
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            for tab in (w.score, w.group, w.pulls, w.spells, w.timeline_tab):
+                tab.set_analysis = lambda _a: None
+            p1 = mock.patch("dips_score.analysis.load_saved", return_value=(None, [run]))
+            p2, p3 = mock.patch("dips_score.analysis.analyze", analysed), mock.patch("dips_score.analysis.rescore")
+            for p in (p1, p2, p3):
+                p.start()
+                self.addCleanup(p.stop)
+            w.reload()
+            w.saved, w.current = saved, None
+            w.fight_list.set_fights([fight])
+            w._mode("fights")
+            self.assertEqual((w.fight_run.id, w.fight_detail.plate.has_button), ("r7", True))     # past its estimate
+            who["guid"] = "alt"                              # the same recording, another character's
+            w.cache.clear()
+            shutil.rmtree(w.paths.analysis_dir, ignore_errors=True)     # analysed again, not read back from disk
+            w.current = None                                 # not the loaded run: found and read again
+            w._show_fight(fight)
+            self.assertIsNone(w.fight_run)
+            self.assertEqual(w.fight_detail.pressed.view.line, NOT_HERE)
+            os.utime(saved, (start.timestamp() + 100, start.timestamp() + 100))     # saved before the fight
+            w._show_fight(fight)
+            self.assertEqual(w.fight_detail.pressed.view.line, ARRIVES)
+            w.live.timer.stop()
 
     def test_a_new_visit_opens_by_itself(self):
         """a reload that brings a visit the game just saved opens it, even over another visit you had open; a
