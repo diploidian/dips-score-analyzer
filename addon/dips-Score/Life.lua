@@ -11,7 +11,7 @@
 --
 -- The first that applies: in combat, where you are (an instance), a fight with an enemy player ("skirmish") or what you were
 -- at; on a taxi; away (AFK); dead (what you were at, DEAD seconds of it); away (nothing done for IDLE seconds, outside an
--- instance); a profession at work (gathering, skinning, crafting); an instance; the auction house or the mailbox; a fight with
+-- instance); a profession at work (gathering, skinning, crafting; not with the auction house or the mailbox open); an instance; the auction house or the mailbox; a fight with
 -- an enemy player lately; quest progress lately; gathering lately; a fight lately; resting; roaming. A new column goes at the
 -- end of COLS.
 --
@@ -24,7 +24,7 @@ local TICK = 5
 local MOST = 10                     -- of one look: a loading screen or a freeze is not made up for
 local IDLE = 180                    -- without moving, casting or fighting, and no auction house or mailbox open
 local QUEST, GATHER, HUNT = 300, 180, 90 -- "lately"
-local CRAFT = 60                    -- a cast, with a profession window open
+local CRAFT = 60                    -- a cast you sent, with a profession window open
 local AT_WORK, SKIN = 30, 15        -- after a profession's own cast: to loot, to wait for a bite; a skinner is back at the hunt sooner
 local DEAD = 600                    -- a corpse run longer than this is being away
 local SETTLE = 10                   -- after entering the world, where the game may report the whole quest log as changed

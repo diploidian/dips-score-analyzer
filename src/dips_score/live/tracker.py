@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import re
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -39,6 +40,8 @@ RESUME = 60.0
 NOT_HOSTILE = {"SPELL_AURA_REMOVED", "SPELL_AURA_REMOVED_DOSE", "UNIT_DIED", "PARTY_KILL", "UNIT_DESTROYED",
                "SPELL_SUMMON", "SPELL_CREATE", "SPELL_AURA_REFRESH", "SPELL_CAST_FAILED"}
 RESTING = re.compile(r"Drink|Food|First Aid|Refreshment", re.I)
+MAP = re.compile(r"(?:Creature|Vehicle)-\d+-\d+-(\d+)-")     # an enemy's id has the map it is on
+WORLD_MAPS = {0, 1}     # the Eastern Kingdoms and Kalimdor, every other map is an instance
 KEEP_AFTER = 3000      # events kept after a fight closes, in case it's opened again
 
 
@@ -266,6 +269,13 @@ class Tracker:
     def _close(self) -> FightData:
         f = self.fight
         f.end = f.last_hostile or self.log_now
+        # the zone line is only written when the zone's name changes, and an entrance cave has its dungeon's name: the
+        # enemies' own ids say where they are
+        maps = Counter(int(m[1]) for g in f.foes if (m := MAP.match(g)))
+        if maps:
+            f.instance = maps.most_common(1)[0][0]
+        if f.instance in WORLD_MAPS:
+            f.instance = f.difficulty = 0
         self.last_end = f.end
         self.closed, self.after = f, []
         self.fight = None

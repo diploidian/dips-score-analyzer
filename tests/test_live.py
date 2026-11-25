@@ -15,6 +15,7 @@ from dips_score.live.summary import cooldown, learn_cooldowns, summarize  # noqa
 from dips_score.config import Paths  # noqa: E402
 from dips_score.live import history  # noqa: E402
 from dips_score.live.history import History, replay  # noqa: E402
+from dips_score.live.profile import _place  # noqa: E402
 from dips_score.live.tracker import Tracker  # noqa: E402
 from dips_score.sources.combatlog import UnitInfo  # noqa: E402
 
@@ -58,12 +59,35 @@ class Live(unittest.TestCase):
         self.assertEqual((s["swings_taken"]["landed"], s["swings_taken"]["misses"]), (1, {"parry": 1}))
 
     def test_summary_saves_difficulty(self):
+        mob = MOB.replace("-0-1-1-1-", "-0-1-409-1-")
         log = [line(0, 'ZONE_CHANGE,409,"Molten Core",9'),
-               *[dmg(t, ME, MOB, 8092, "Mind Blast", 300) for t in (1, 3, 5, 7)],
-               line(8, f"UNIT_DIED,{NONE},{MOB},0"), line(40, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")]
+               *[dmg(t, ME, mob, 8092, "Mind Blast", 300) for t in (1, 3, 5, 7)],
+               line(8, f"UNIT_DIED,{NONE},{mob},0"), line(40, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")]
         tr = Tracker()
         s = summarize(tr.feed_lines(log)[0], tr.me, tr.me_name, {}, [])
         self.assertEqual((s["kind"], s["instance"], s["difficulty"]), ("Dungeon", 409, 9))
+
+    def test_the_enemies_say_where(self):
+        """the zone line has the map's number, the open world's too, and none is written on entering a dungeon whose cave has its name"""
+        def where(zone, *maps, boss=False):
+            mobs = [f'Creature-0-1-{m}-1-100-{i},"Wolf",0xa48,0x80000000' if m else f'Player-1-F{i},"Foe-Realm-US",0x548,0x80000000'
+                    for i, m in enumerate(maps)]
+            log = [line(0, f"ZONE_CHANGE,{zone}"), *([line(1.5, 'ENCOUNTER_START,2741,"Wolf",1,5,36')] if boss else []),
+                   *[dmg(1 + i + n / 10, ME, m, 8092, "Mind Blast", 300) for i in range(5) for n, m in enumerate(mobs)],
+                   *[line(8 + i, f"UNIT_DIED,{NONE},{m},0") for i, m in enumerate(mobs)],
+                   *([line(14, 'ENCOUNTER_END,2741,"Wolf",1,5,1,9000')] if boss else []),
+                   line(60, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")]
+            tr = Tracker()
+            s = summarize(tr.feed_lines(sorted(log))[0], tr.me, tr.me_name, {}, [])
+            return s["kind"], s["instance"], s["difficulty"], _place(s)
+        self.assertEqual(where('1,"Tanaris",0', 1), ("World", 0, 0, "World"))
+        self.assertEqual(where('0,"Riverglades",0', "0"), ("World", 0, 0, "World"))
+        self.assertEqual(where('0,"The Deadmines",0', 36), ("Dungeon", 36, 0, "Dungeon"))
+        self.assertEqual(where('0,"The Deadmines",0', 36, boss=True), ("Boss", 36, 0, "Dungeon"))
+        self.assertEqual(where('189,"Scarlet Monastery",1', "0"), ("World", 0, 0, "World"))         # just left it
+        self.assertEqual(where('0,"Tirisfal Glades",0', "0", 189, 189), ("Dungeon", 189, 0, "Dungeon"))
+        self.assertEqual(where('1,"The Barrens",0', None)[:2], ("PvP", 0))                          # players only: the zone line
+        self.assertEqual(where('489,"Warsong Gulch",0', None)[:2], ("PvP", 489))
 
     def test_two_fights_and_a_summary(self):
         log = [
