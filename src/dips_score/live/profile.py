@@ -68,7 +68,7 @@ from statistics import median
 from ..scoring import usable
 from ..scoring.classes import talent_role
 from ..scoring.score import grade
-from . import helping, titles, traits
+from . import days, helping, titles, traits
 from .habits import _damage_fights, char_block, cooldown_losses, idle_spells
 from .sheet import sheet
 
@@ -224,7 +224,7 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
            "efficiency": _share(sum(f["damage"] for f in both), sum(f["potential"] for f in both)),
            "judged": len(both), "losses": _losses([f for f in dmg if f.get("damage")]), "close_calls": _close_calls(win),
            "overheal": _overheal([f for f in win if role[id(f)] == "healer"]),
-           "helping": helping.figures(acts, lo, hi)}
+           "helping": helping.figures(acts, lo, hi), "time": days.figures((char or {}).get("time"), lo, hi)}
     out["label"] = label(out) if win else None
     sc = traits.scores(win, out, book, ab)
     specs = Counter(f["spec"] for f in win if f.get("spec"))

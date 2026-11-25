@@ -18,6 +18,7 @@ from .live.profile_history import MIN_FIGHTS
 from .live.traits import BY_KEY, TIERS, needs, shown, written
 from .scoring import usable
 from .sheet_view import SheetView, build_sheet
+from .time_view import TimeBar, build_time
 from .trait_words import words
 
 NA = "–"
@@ -146,6 +147,7 @@ class ProfileView:
     hands: list[Row] = field(default_factory=list)
     roles: list[Row] = field(default_factory=list)
     places: list[Row] = field(default_factory=list)
+    time: TimeBar = field(default_factory=TimeBar)          # Where your time goes
     sheet: SheetView = field(default_factory=SheetView)     # the Character sheet drawer
     earlier_title: str = "Earlier (0)"
     earlier: list[EarlierRow] = field(default_factory=list)            # newest first
@@ -386,6 +388,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
         v.need_line = "Play a few more fights and it fills in." + (
             " Who you were in earlier slices is below." if v.earlier else "")
         return v
+    v.time = build_time(now.get("time"), (before or {}).get("time"))
     moves = []      # (row, points, highlighter note) for every share row that got a chip, in page order
 
     def share(row: Row, key, up: str, down: str) -> Row:

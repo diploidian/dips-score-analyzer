@@ -166,6 +166,29 @@ def _pulls(lines: list) -> list[tuple[datetime, int, int]]:
     return out
 
 
+def _life(log: dict) -> dict:
+    """what Life.lua counted: "time" {"2026-11-24": {column: seconds}}, "levels" [(time(), level)]"""
+    t = log.get("time") if isinstance(log.get("time"), dict) else {}
+    cols = str(t.get("cols") or "").split(",")
+    days: dict[str, dict[str, float]] = {}
+    for row in _as_list(t.get("days")):
+        day, *got = str(row).split(",")
+        if _is_day(day):
+            days[day] = {c: v for c, x in zip(cols, got) if c and (v := _float(x)) is not None and v >= 0}
+    now = t.get("now") if isinstance(t.get("now"), dict) else {}
+    if _is_day(day := str(now.get("day"))):
+        days[day] = {c: v for c in cols if c and (v := _float(now.get(c))) is not None and v >= 0}
+    levels = [tuple(map(_int, p)) for s in _as_list(log.get("levels")) if len(p := str(s).split(",")) == 2]
+    return {"time": days, "levels": [x for x in levels if None not in x]}
+
+
+def _is_day(s: str) -> bool:
+    try:
+        return len(s) == 10 and bool(datetime.fromisoformat(s))
+    except ValueError:
+        return False
+
+
 def load_char(path: str | Path) -> dict | None:
     """the character snapshot (Char.lua) in one saved file, or None; parts that are missing or odd come out empty.
     "pulls" is the gear wear at each pull, kept beside the snapshot (dipsScoreLog.pulls)."""
@@ -189,7 +212,7 @@ def load_char(path: str | Path) -> dict | None:
             "level": _int(c.get("level")), "taken": _int(c.get("taken")),
             "geartaken": _int(c.get("geartaken")) or _int(c.get("taken")),     # when what is worn was read
             "spells": _spells(_as_list(c.get("spells"))), "gear": gear, "talents": talents,
-            "pulls": _pulls(_as_list(log.get("pulls"))), **sheet,
+            "pulls": _pulls(_as_list(log.get("pulls"))), **sheet, **_life(log),
             "spec": max(points, key=lambda t: t[1])[0] or None if points else None}
 
 
