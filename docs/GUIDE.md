@@ -1054,8 +1054,8 @@ Titles are saved with each finished 15-day block, so Earlier reads as a history 
 - **Lifegiver** counts every revive you cast, in your group or not; the log does not say whether it was accepted.
 - **Benefactor** counts each stranger (a player outside your group) you helped, once a day. A buff, a heal or a dispel counts only when you
   cast it on that very player, so an aura that radiates does not, nor does a buff the game logs again when somebody
-  comes back into range. Buffs on your own group are shown but do not score. No names are saved. Press Import in
-  Settings once to fill it in from your old combat logs.
+  comes back into range. Buffs on your own group are shown but do not score. No names are saved. Click
+  **Add fights from my old combat logs** in Settings once to fill it in.
 - A close call is a fight where your health fell under 35%. It is answered if you cast a defensive on
   yourself within 10 seconds before or after your lowest moment. It counts toward Close calls answered
   only if you answered it or a defensive sat ready.
