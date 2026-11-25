@@ -399,7 +399,7 @@ The one solid block. On the Profile its tab reads "Going well" when it holds no 
 A double `gold` rule, 2px then 1px 3px inside it, square, around `panel`, 26px of air above and below: gold draws the rules, never a fill, and the highlighter never rings its letters. In it race, class and level (Barlow 600 15px, `tx2`), the Crest title, the second line (Barlow 500 16px), a 1px `gold` rule and the deeds (Barlow Condensed 600 18px, `tx2`). One per page, above the hero and the plate; it never moves.
 
 ### Tier rows (All traits)
-Name, the tier in a 1px `gold` frame (Barlow 500 12px), the figure (Barlow Condensed 700 20px) and a 6px bar on `track` in the trait's ink with a 1px tick where each tier begins (`panel` in the fill, `tx` past it) and, in `mu`, what the next tier needs. Full width in two columns, no family split; a new tier's ring goes round its frame.
+Name, the tier in a 1px `gold` frame (Barlow 500 12px), the figure (Barlow Condensed 700 20px) and a 6px bar on `track` in the trait's ink with a 1px tick where each tier begins (`panel` in the fill, `tx` past it). Under the name, in `tx2` 12px, what the figure counts; under the bar, in `mu` 11px and alone on their line, the figures it begins and ends at (beside words the first end reads as the player's own figure). How it is worked out is the row's hover. A `tx2` line at the head of the table says how to read it. Full width in two columns, no family split; a new tier's ring goes round its frame.
 
 ### Measure bars
 - **Style:** 10px tall, `track` behind, the measure's `m-*` ink as fill, square ends. A 2px `tx` tick at 90% marks the target on every effectiveness bar, overhanging 4px top and bottom.

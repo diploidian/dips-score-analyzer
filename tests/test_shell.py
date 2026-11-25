@@ -538,8 +538,8 @@ class ShellTests(unittest.TestCase):
         split = Row("Auto attack or abilities", "47", "% auto attack", "44% abilities, 9% procs and items", "m-dmg")
         pace = [TraitRow("Tempo", "Time between fights", "25", "s", "", .9, "Relentless", ink="m-pace"),
                 TraitRow("Streak", "Longest run without a death", "97", "", "", .44, "Surviving",
-                         "Unfallen at 126, you are at 97", "m-pace")]
-        nerve = [TraitRow(k, f"Nerve {k}", "9", "%", "", .4, "Daring", "Fearless at 17%, you are at 9%", "m-surv") for k in "abc"]
+                         ("15", "200"), "How it counts <here>.\nYou: 97.", "m-pace")]
+        nerve = [TraitRow(k, f"Nerve {k}", "9", "%", "", .4, "Daring", ("5%", "25%"), "How.", "m-surv") for k in "abc"]
         v = ProfileView(title="Bao", crest=Crest("Undead Paladin, level 37", "the Lone Storm, Crusader of the Wilds", "Wins on the edge.",
                                                  ["won after dropping to 2% health against Bloodscalp Berserker"]),
                         outdated=OUTDATED, ring="new: Relentless", ring_key="Tempo", card=[tempo, edge, split], hero="25", hero_unit="s",
@@ -601,7 +601,15 @@ class ShellTests(unittest.TestCase):
         self.assertEqual(page.crest.accessibleName(),
                          "Crest: Undead Paladin, level 37. The Lone Storm, Crusader of the Wilds. Wins on the edge. "
                          "Won after dropping to 2% health against Bloodscalp Berserker")
-        self.assertIn("Longest run without a death 97, Surviving, Unfallen at 126, you are at 97", page.traits.accessibleName())
+        self.assertIn("Longest run without a death 97, Surviving, bar from 15 to 200, How it counts <here>. You: 97. Nerve:",
+                      page.traits.accessibleName())         # what the hover says too
+        from dips_score.ui.kit import Tips
+        self.assertIsInstance(page.traits, Tips)
+        self.assertEqual(len(page.traits.tips), 6)          # a region per row with a tip, none over another
+        self.assertIn("How it counts &lt;here&gt;.</p>", page.traits.tips[0][1])
+        rects = [r for r, _ in page.traits.tips]
+        self.assertFalse(any(a.intersects(b) for i, a in enumerate(rects) for b in rects[:i]))
+        self.assertTrue(all(page.traits.rect().toRectF().contains(r) for r in rects))
         self.assertIn("Time between fights 25 s, new: Relentless", page.traits.accessibleName())
         self.assertEqual((page.traits_drawer.accessibleName(), page.hands_drawer.accessibleName()), ("All traits (7)", "Hands (3)"))
         self.assertTrue(page.plate.accessibleName().startswith("Going well: Your last 15 days were clean"))

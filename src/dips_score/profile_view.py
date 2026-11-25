@@ -15,8 +15,9 @@ from .dungeon_view import visits
 from .fight_view import CLEAN
 from .habits_view import MINUS, _meta, _plural
 from .live.profile_history import MIN_FIGHTS
-from .live.traits import BY_KEY, needs, shown, written
+from .live.traits import BY_KEY, TIERS, needs, shown, written
 from .scoring import usable
+from .trait_words import words
 
 NA = "–"
 CHIP_MIN = 5                # percentage points a share row must move against Before to get a chip
@@ -47,9 +48,11 @@ KEY_INK = {"Edgewise": "m-dmg", "split": "m-dmg", "Ready": "m-cd", "Planted": "m
            "Mercy": "role-heal", "Benefactor": "role-heal", "Lifegiver": "role-heal", "overheal": "role-heal", "heal_share": "role-heal", "dispels": "role-heal",
            "pull": "role-tank", "taken": "m-surv", "lowest": "m-surv", "War": "place-pvp", "broken_off": "place-pvp",
            "length": "place-pvp", "pvp_deaths": "place-pvp"}
-GUARD_NAME = {"%": "Average lowest health", "n1": "Deaths per 100 fights"}      # by the figure that scores it
+# a trait of two figures, by the one that scores it
+GUARD_NAME = {"%": "Average lowest health", "n1": "Deaths per 100 fights"}
+MERCY_NAME = {"%": "Share of group healing", "n1": "Dispels on others"}
 # How you fight rows whose caption only says their name again
-RESTATED = {"Tempo", "Swift", "Marathon", "Streak", "Brink", "Guard", "lowest", "Duel", "Finish", "Hound", "Boss", "War",
+RESTATED = {"Tempo", "Swift", "Marathon", "Streak", "Guard", "lowest", "Duel", "Finish", "Hound", "Boss", "War",
             "Edgewise", "Ready", "Primed", "Lone", "Bond", "Menagerie", "Crit", "pvp_deaths"}
 
 
@@ -93,10 +96,11 @@ class TraitRow:
     name: str                   # "Time between fights"
     value: str                  # "25"
     unit: str                   # "s"
-    note: str                   # "between one fight and the next"
+    line: str                   # what it is, under its name: "usual wait between fights"
     bar: float                  # its score 0..1
     tier: str = ""              # its epithet "Relentless", "" under the first tier
-    next: str = ""              # "Unfallen at 126, you are at 97", "" at the top tier; Benefactor's and Lifegiver's say more first
+    ends: tuple[str, str] = ("", "")    # the figures the bar begins and ends at: "120 s", "15 s"
+    tip: str = ""               # the hover: how it is worked out, your figures, where each tier begins (one line each)
     ink: str = "tx"             # its figure's and bar's
 
 
@@ -307,23 +311,53 @@ def _given(key: str, h: dict) -> str:
     """what a helping trait's figure is made of, or what goes with it"""
     if key == "Lifegiver":
         return f"{h['group_revives']:,} in your group, {_count(h['revives'] - h['group_revives'], 'stranger')}"
-    return f"strangers helped, and {_count(h['group_buffs'], 'buff')} for your group"
+    return _count(h["group_buffs"], "buff")
+
+
+def _you(t: dict, helping: dict | None) -> str | None:
+    """"You: 681 of 1,209 fights.", None when a figure it needs is unknown (an entry saved before 0.20)"""
+    tr, kind, v, n = BY_KEY[t["key"]], t["kind"], t["figure"], t.get("n")
+    if n is None:
+        return None
+    fine = lambda k, x: written(*shown(k, x, fine=k != "n"))  # noqa: E731
+    part = dict(map(tuple, t["parts"]))
+    names, extra = t.get("names") or [], ""
+    if tr.key == "Guard":
+        extra = "deaths" if kind == "n1" else "lowest health"
+    elif tr.key in ("Benefactor", "Lifegiver"):
+        if not helping:
+            return None
+        extra = _given(tr.key, helping)
+    named = [x for x, _ in names] if tr.key == "Scourge" else [f"{x} {_pct(s)}%" for x, s in names]
+    return "You: " + words(tr.key, kind).you.format(
+        v=fine(kind, v), n=f"{n:,}", hits=f"{round(v * n / (100 if kind == 'n1' else 1)):,}", extra=extra,
+        names=_and(named) if named else NA, v1=fine("n1", part.get("n1", 0)), v2=fine("%", part.get("%", 0))) + "."
+
+
+def _marks(tr, kind: str) -> str:
+    """"Wandering from 70%, Lone from 81%, Sovereign from 91%." """
+    parts = [p for p in tr.parts if tr.weaker or p.kind == kind]
+    rising = all(p.high > p.low for p in parts)
+
+    def at(p, score):
+        text = written(*needs({"needs": [[p.kind, p.low + score * (p.high - p.low)]]}, tr)[0])
+        return text if p.high > p.low else f"{text} {'deaths ' if tr.key == 'Guard' else ''}or {'fewer' if p.kind[0] == 'n' else 'under'}"
+    return ", ".join(f"{e} {'from' if rising else 'at'} {_and([at(p, s) for p in parts])}"
+                     for e, s in zip(tr.epithets, TIERS)) + "."
 
 
 def _trait_row(t: dict, main: str | None, helping: dict | None = None) -> TraitRow:
-    tr = BY_KEY[t["key"]]
+    tr, w = BY_KEY[t["key"]], words(t["key"], t["kind"])
     value, unit = shown(t["kind"], t["figure"])
-    name = GUARD_NAME[t["kind"]] if tr.key == "Guard" else tr.name
-    r = TraitRow(tr.key, name, value, unit, t["caption"], t["score"], t["epithet"] or "", ink=_ink(tr.key, main))
-    if t["next"]:
-        need = needs(t["next"], tr)
-        # the same rounded figure: one decimal more
-        at = shown(t["kind"], t["figure"], fine=(value, unit) in need)
-        r.next = f"{t['next']['epithet']} at {_and([written(*x) for x in need])}, you are at {written(*at)}"
-    if tr.key in ("Benefactor", "Lifegiver") and helping:       # their one line says more than the next tier
-        given = _given(tr.key, helping)
-        r.next = ". ".join(x for x in (given[0].upper() + given[1:], r.next) if x)
-    return r
+    name = MERCY_NAME[t["kind"]] if tr.key == "Mercy" else tr.name
+    if tr.key == "Guard" and len(t.get("parts") or []) == 2:     # both, so the figure left out is not a surprise
+        value, unit = ", ".join(written(*shown(k, v)) for k, v in t["parts"]), ""
+    elif tr.key == "Guard":
+        name = GUARD_NAME[t["kind"]]
+    p = next(p for p in tr.parts if p.kind == t["kind"])
+    return TraitRow(tr.key, name, value, unit, w.line, t["score"], t["epithet"] or "",
+                    tuple(written(*shown(p.kind, x)) for x in (p.low, p.high)),
+                    "\n".join(x for x in (w.how, _you(t, helping), _marks(tr, t["kind"])) if x), _ink(tr.key, main))
 
 
 def _new_tier(now: dict, before: dict | None) -> dict | None:
@@ -380,7 +414,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     for k in now["pack"] + cut:
         r = now["rows"][k]
         value, unit = shown(r["kind"], r["figure"])
-        row = Row(GUARD_NAME[r["kind"]] if k == "Guard" else r["name"], value, f"{unit} {r['unit']}".strip(),
+        row = Row({"Guard": GUARD_NAME, "Mercy": MERCY_NAME}.get(k, {}).get(r["kind"], r["name"]), value, f"{unit} {r['unit']}".strip(),
                   "" if k in RESTATED else r["note"], _ink(k, main), r["figure"] if r["share"] else None)
         if r["share"]:
             # a trait of two figures may be the other one in Before

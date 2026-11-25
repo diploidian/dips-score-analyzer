@@ -7,6 +7,7 @@ Sizes follow docs/design/mockups/profile.html (CSS px). The shared parts come fr
 """
 from __future__ import annotations
 
+import html
 import math
 import re
 from dataclasses import replace
@@ -17,9 +18,10 @@ from PyQt6.QtWidgets import QBoxLayout, QFrame, QHBoxLayout, QScrollArea, QVBoxL
 
 from ..live.traits import TIERS, written
 from ..profile_view import NA, Crest, EarlierRow, ProfileView, Row, TraitRow
+from ..trait_words import NOTE
 from . import theme
 from .debrief import FIGHTS_W, NARROW
-from .kit import (HEAD_H, Drawer, Fold, Hero, Part, Plate, Sheet, Side, adv, baseline, box, draw_hand_circle,
+from .kit import (HEAD_H, Drawer, Fold, Hero, Part, Plate, Sheet, Side, Tips, adv, baseline, box, draw_hand_circle,
                   draw_hand_note, draw_label_tab, elide, flow, font, hand_font, line, rule, text_at, wrapped)
 from .theme import tok
 
@@ -30,6 +32,7 @@ TIGHT = 400                 # a part narrower than this puts in two lines what i
 NO_MAX = 16777215           # Qt's QWIDGETSIZE_MAX
 TITLE_PX, TITLE_SHARE, WORTH_A_LINE = (74, 44, 16), 0.14, 1.15     # the crest's title, see fit_title
 NOTE_PX = 24                # the hand notes: large text, so hl-note needs 3:1
+TIP_W = 360                 # a trait's hover, px
 TWO_COLS = 700              # All traits in two columns from this width
 ENTRANCE_MS = 1760          # the one entrance, until the note has faded in; a part's p runs 0..1 over it
 COUNT_MS = GROW_MS = 700
@@ -456,10 +459,10 @@ class TraitCard(Part):
         return y + 13 + 5
 
 
-class TraitTable(Part):
-    """the All traits drawer, by family, in two columns when wide: a ruled row each, the name, its tier in a gold frame,
-    the figure, the score's bar with a tick where each tier begins, and what the next tier needs. new: the trait whose
-    tier is new, its tier ringed (ring, tier: where the two were last drawn)"""
+class TraitTable(Tips):
+    """the All traits drawer: a note on how to read it, then by family, in two columns when wide, a ruled row each, the
+    name, its tier in a gold frame, the figure, the score's bar with a tick where each tier begins and the figures it
+    begins and ends at under it, and what it is over the bar. How it is worked out is in the hover. new: the trait whose tier is new, its tier ringed (ring, tier: where the two were last drawn)"""
 
     def __init__(self):
         super().__init__()
@@ -469,8 +472,9 @@ class TraitTable(Part):
 
     def set(self, families: list[tuple[str, list[TraitRow]]], new: str | None):
         self.families, self.new = families, new
-        self.setAccessibleName("All traits: " + " ".join(f"{fam}: " + "; ".join(", ".join(filter(None, (
-            f"{r.name} {written(r.value, r.unit)}", r.tier and f"new: {r.tier}" if r.key == new else r.tier, r.next)))
+        self.setAccessibleName("All traits: " + NOTE + " " + " ".join(f"{fam}: " + "; ".join(", ".join(filter(None, (
+            f"{r.name} {written(r.value, r.unit)}", r.tier and f"new: {r.tier}" if r.key == new else r.tier, r.line,
+            r.ends[0] and f"bar from {r.ends[0]} to {r.ends[1]}", r.tip.replace("\n", " ").rstrip("."))))
             for r in rows) + "." for fam, rows in families))
         self.changed()
 
@@ -487,20 +491,24 @@ class TraitTable(Part):
     def draw(self, p, w):
         cols = self.columns(w)
         cw = (w - 56) / 2 if len(cols) == 2 else w
+        if p:
+            self.tips = []
+        top = 2.0 + wrapped(p, font(12), tok("tx2"), 0, 2, w, 12 * 1.4, NOTE) + 12
         h = 0.0
         for k, fams in enumerate(cols):
-            y = 2.0
+            y = top
             for j, fam in enumerate(fams):
                 y += 14 if j else 0
                 y += self.family(p, k * (cw + 56), y, cw, *fam)
             h = max(h, y)
         if p and len(cols) == 2:
-            p.fillRect(QRectF(round(cw + 28), 2, 1, h - 2), tok("ln"))
+            p.fillRect(QRectF(round(cw + 28), top, 1, h - top), tok("ln"))
         return h + 12
 
     def family(self, p, x, y0, w, fam, rows) -> float:
         hf, nf, vf, tf, sf = (font(11, 600, num=True, spacing=0.12), font(14, 500), font(20, 700, num=True), font(12, 500),
                               font(12))
+        ef = font(11)
         y = y0
         if p:
             line(p, hf, tok("mu"), x, y, 12, fam.upper())
@@ -508,7 +516,7 @@ class TraitTable(Part):
         for row in rows:
             if p:
                 rule(p, x, y, w, tok("ln"))
-            new = row.key == self.new and bool(row.tier)
+            new, y1 = row.key == self.new and bool(row.tier), y
             y += 1 + (10 if new else 5)
             value = written(row.value, row.unit)
             room, name_w, tag_w = w - adv(vf, value) - 12, adv(nf, row.name), adv(tf, row.tier) + 14
@@ -531,7 +539,8 @@ class TraitTable(Part):
                     box(p, tier, tok("gold"))
                     line(p, tf, tok("tx2"), tx + 7, top + 1, 19, row.tier)
                 name_h = max(name_h, top + 20 - y)
-            y += name_h + (12 if new else 6)
+            y += name_h + (10 if new else 1)
+            y += wrapped(p, sf, tok("tx2"), x, y, w, 12 * 1.4, row.line) + 5
             if p:
                 top, fill = round(y), w * row.bar
                 p.fillRect(QRectF(x, top, w, 6), tok("track"))
@@ -540,7 +549,13 @@ class TraitTable(Part):
                     p.fillRect(QRectF(x + t, top, 1, 6) if t < fill else QRectF(x + t, top - 2, 1, 10),
                                tok("panel" if t < fill else "tx"))
             y += 6 + 5
-            y += wrapped(p, sf, tok("mu"), x, y, w, 12 * 1.4, row.next) + 5 if row.next else 3
+            if p:       # alone on their line: beside the words the first end reads as your figure
+                line(p, ef, tok("mu"), x, y - 2, 14, row.ends[0])
+                right_text(p, ef, tok("mu"), x + w, baseline(ef, y - 2, 14), row.ends[1])
+            y += 14 + 4
+            if p and row.tip:       # rich text: long lines wrap
+                self.tips.append((QRectF(x, y1, w, y - y1), "<table width=%d><tr><td>" % TIP_W + "".join(
+                    f"<p style='margin: 0 0 6px 0'>{html.escape(x)}</p>" for x in row.tip.split("\n")) + "</td></tr></table>"))
         return y - y0
 
 

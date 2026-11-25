@@ -2,7 +2,8 @@
 its low and high anchor, with a tier (0 to 3, from TIERS) and an epithet per tier. Pure data.
 
 scores(win, fig, book) -> {key: None (unknown: too small a sample, no data, or not this role's trait) or {"figure",
-"kind" (how it is written, see shown), "score", "tier", "caption", "next": None at the top tier, else {"epithet",
+"kind" (how it is written, see shown), "score", "tier", "caption", "n" (the figure's sample), "parts" ([kind, figure] of every known figure),
+"names" (Range, Focus and Scourge: [[name, share of it], ...]), "next": None at the top tier, else {"epithet",
 "needs": [(kind, figure), ...]} for the next tier}}. win: the window's fights; fig: its profile.figures so far
 (main_role, efficiency, judged, temperament, hands, overheal); book: the spell book. pick() the traits that name a
 character; named() the two-trait title.
@@ -33,6 +34,7 @@ from .habits import SESSION_GAP, _damage_fights
 TIERS = (0.35, 0.60, 0.85)          # the score each tier begins at
 LOW = 0.35                          # health share under which a won fight was on the edge
 BRINK = 0.10
+WORTH = 0.05                        # of your ability damage, an ability is a main one
 USUAL_BUFF = 0.60                   # a buff up at this share of pulls is a usual one
 CAST_TIME = 0.50                    # of your casts must have a cast time before Planted says anything
 AUTOS = ("Auto Shot", "Shoot")      # the shots fired by themselves; "Melee" is the same for a swing
@@ -88,7 +90,7 @@ TRAITS: tuple[Trait, ...] = (
 
     _t("Edge", "Nerve", "Wins on the edge", .05, .25, 30, "%", "of your wins came after dropping under 35% health",
        "Daring, Fearless, Unyielding", "wins on the edge"),
-    _t("Brink", "Nerve", "Wins under 10% health", 2, 15, 30, "n", "wins after dropping under 10% health",
+    _t("Brink", "Nerve", "Wins under 10% health", .2, 1.7, 100, "n1", "wins under 10% health per 100 wins",
        "Lucky, Defiant, Death-Cheating", "comes back from the brink"),
     Trait("Guard", "Nerve", "Deaths and lowest health", (
         Part(8, 0, 30, "n1", "deaths per 100 fights"), Part(.50, .85, 30, "%", "is your average lowest health")),
@@ -119,7 +121,7 @@ TRAITS: tuple[Trait, ...] = (
        "Gifted, Fierce, Spellforged", "leans on abilities", FIGHTERS),
     _t("Focus", "Weapon", "Top ability's share", .35, .75, 30, "%", "of your ability damage is one ability",
        "Devoted, Single-Minded, Masterful", "leans on one ability", FIGHTERS),
-    _t("Range", "Weapon", "Abilities that count", 3, 9, 30, "n", "abilities worth 5% of your damage or more",
+    _t("Range", "Weapon", "Main damage abilities", 2, 8, 30, "n", "abilities with 5% of your ability damage each",
        "Adaptable, Cunning, Many-Handed", "draws on many abilities", FIGHTERS),
     _t("Crit", "Weapon", "Critical hits", .08, .30, 500, "%", "of your hits crit",
        "Fortunate, Savage, Fatebound", "crits often", FIGHTERS),
@@ -137,12 +139,12 @@ TRAITS: tuple[Trait, ...] = (
     _t("Break", "Craft of play", "Interrupts", 5, 40, 20, "n1", "interrupts per 100 group fights",
        "Watchful, Silencing, Spellbreaking", "interrupts often"),
 
-    _t("Lone", "Company", "Fights alone", .55, .97, 30, "%", "of fights alone",
+    _t("Lone", "Company", "Fights alone", .55, .97, 30, "%", "of your fights are alone",
        "Wandering, Lone, Sovereign", "fights alone"),
     _t("Bond", "Company", "Fights in a group", .50, .97, 30, "%", "of fights in a group",
        "Loyal, Stalwart, Sworn", "fights in a group"),
-    _t("Lead", "Company", "Top of the group", .25, .70, 20, "%", "of group fights topping the damage",
-       "Rising, Leading, Commanding", "tops the group's damage", FIGHTERS),
+    _t("Lead", "Company", "Groupmates out-damaged", .30, .90, 20, "%", "of your groupmates out-damaged, on average",
+       "Rising, Leading, Commanding", "out-damages the group", FIGHTERS),
     Trait("Mercy", "Company", "Help for the group", (
         Part(3, 25, 30, "n1", "dispels on others per 100 group fights"),
         Part(.10, .35, 20, "%", "of the group's healing on others is yours")),
@@ -257,7 +259,7 @@ def abilities(win: list[dict], main=lambda f: True) -> dict:
 
 def damage_split(rows: dict[str, list], fights: int) -> dict | None:
     """{"melee", "shot", "ability", "proc" (shares of all damage), "top" (of ability damage), "worth" (abilities of 5%
-    or more), "fights"} of the ability rows of the fights that did damage; None without any"""
+    of it or more), "names" ([[ability, share of it], ...], biggest first), "fights"} of the ability rows of the fights that did damage; None without any"""
     casts, damage = Counter({n: r[0] for n, r in rows.items()}), Counter({n: r[3] for n, r in rows.items()})
     total = damage.total()
     if not total:
@@ -275,7 +277,8 @@ def damage_split(rows: dict[str, list], fights: int) -> dict | None:
     used = sum(ability.values())
     return {"melee": damage["Melee"] / total, "shot": sum(damage[n] for n in AUTOS) / total, "ability": used / total,
             "proc": proc / total, "top": max(ability.values()) / used if used else None,
-            "worth": sum(d / total >= 0.05 for d in ability.values()), "fights": fights}
+            "worth": sum(d >= WORTH * used for d in ability.values() if d),
+            "names": [[n, d / used] for n, d in ability.most_common() if d], "fights": fights}
 
 
 def alone(f: dict) -> bool:
@@ -287,6 +290,14 @@ def helpful(win: list[dict]) -> list[dict]:
     """the group fights that tell help for others from help for yourself"""
     return [f for f in win if f.get("group") and f.get("healing_others") is not None
             and f.get("dispels_others") is not None]
+
+
+def outdamaged(f: dict) -> float | None:
+    """the share of your groupmates with less damage than you, those who mostly healed left out; None without any, or
+    when you did none"""
+    peers = [d for m in f["group"].get("members") or [] if (d := m.get("damage") or 0) > (m.get("healing") or 0)]
+    mine = f.get("damage")
+    return sum(d < mine for d in peers) / len(peers) if peers and mine else None
 
 
 def heal_share(win: list[dict]) -> tuple[float | None, int]:
@@ -332,7 +343,7 @@ def raw(win: list[dict], fig: dict, book: dict | None = None,
     fallen = beaten(win)
     known = [f for f in win if "group" in f]
     group = [f for f in known if f["group"]]
-    ranked = [f["group"]["damage_rank"] == 1 for f in group if f["group"].get("damage_rank") and f.get("damage") and not f.get("healing_role")]
+    beat = [x for f in group if f["group"].get("damage_rank") and not f.get("healing_role") and (x := outdamaged(f)) is not None]
     split = ab["split"] or {}
     own = [r for n, r in ab["all"].items() if not n.endswith(" (pet)")]
     n_hits = sum(r[1] for r in own)
@@ -359,7 +370,7 @@ def raw(win: list[dict], fig: dict, book: dict | None = None,
         "Marathon": [(max(sittings(win), default=0), n)],
         "Streak": [(streak(win), n)],
         "Edge": [s([v < LOW for v in won_low])],
-        "Brink": [(sum(v < BRINK for v in won_low), len(won_low))],
+        "Brink": [(100 * sum(v < BRINK for v in won_low) / len(won_low) if won_low else None, len(won_low))],
         "Guard": [(100 * deaths / n if n else None, n), (sum(low) / len(low) if low else None, len(low))],
         "Wary": [s([bool(d["answered"]) for d in calls])],
         "Crowd": [s(crowd)],
@@ -383,7 +394,7 @@ def raw(win: list[dict], fig: dict, book: dict | None = None,
         "Break": [per100("interrupts", group)],
         "Lone": [s([alone(f) for f in known])],
         "Bond": [s([bool(f["group"]) for f in known])],
-        "Lead": [s(ranked)],
+        "Lead": [s(beat)],
         "Mercy": [per100("dispels_others", helpful(win)), (None if fig.get("main_role") == "healer" else share, shared)],
         "Benefactor": [(strangers, strangers or 0)],
         "Lifegiver": [(revives, revives or 0)],
@@ -408,12 +419,19 @@ def score_of(t: Trait, parts: list[tuple[float | None, int]]) -> dict | None:
         need = TIERS[k]
         short = [g[1] for g in got if g[0] < need] if t.weaker else [p]
         nxt = {"epithet": t.epithets[k], "needs": [[q.kind, q.low + need * (q.high - q.low)] for q in short]}
-    return {"figure": v, "kind": p.kind, "score": score, "tier": k, "caption": p.caption, "next": nxt}
+    n = next(n for q, (w, n) in zip(t.parts, parts) if q is p)
+    return {"figure": v, "kind": p.kind, "score": score, "tier": k, "caption": p.caption, "n": n,
+            "parts": [[q.kind, w] for _, q, w in got], "next": nxt}
 
 
 def scores(win: list[dict], fig: dict, book: dict | None = None, ab: dict | None = None) -> dict[str, dict | None]:
     found = raw(win, fig, book, ab)
     out = {t.key: score_of(t, found[t.key]) if fig.get("main_role") in t.roles else None for t in TRAITS}
+    names = ((ab or abilities(win))["split"] or {}).get("names") or []
+    for k, own in (("Range", [x for x in names if x[1] >= WORTH]), ("Focus", names[:1]),
+                   ("Scourge", [[n, c] for n, c in beaten(win).most_common(1)])):
+        if out[k]:
+            out[k]["names"] = own
     if out["Crowd"] and fig["main_role"] == "tank":
         out["Crowd"]["caption"] = "of your wins were against three or more"      # with a group too
     return out

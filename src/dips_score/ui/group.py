@@ -4,9 +4,9 @@ numbers drawer, and their class and role in the Edit roles drawer.
 
 Sizes follow docs/design/mockups/group.html (CSS px). The shared parts come from kit.py, the map from radar.py.
 """
-from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt, pyqtSignal
+from PyQt6.QtCore import QPointF, QRectF, Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QFontMetricsF, QPen
-from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QPushButton, QScrollArea, QToolTip,
+from PyQt6.QtWidgets import (QAbstractItemView, QComboBox, QFrame, QHBoxLayout, QPushButton, QScrollArea,
                              QVBoxLayout, QWidget)
 
 from .. import names
@@ -16,7 +16,7 @@ from ..model.roster import CLASSES, ROLES
 from ..scoring.group import ordinal
 from . import assets, theme
 from .debrief import NARROW
-from .kit import (HEAD_H, MINUS, Drawer, Fold, Part, Plate, Sheet, adv, baseline, box, draw_label_tab, draw_tag, elide,
+from .kit import (HEAD_H, MINUS, Drawer, Fold, Part, Plate, Sheet, Tips, adv, baseline, box, draw_label_tab, draw_tag, elide,
                   flow, font, line, rule, text_at, wrapped)
 from .pages import dim_label, fmt_num, item, run_meta, table
 from .radar import H as MAP_H, W as MAP_W, draw_map, map_tips
@@ -87,24 +87,6 @@ def _mod_head(p, title: str, note: list[str | None], gap: float = 6) -> float:
                 text_at(p, f, tok("mu"), x - ink.left(), base, part)
                 x += ink.width()
     return 25 + 12
-
-
-class Tips(Part):
-    """a part with hover help: (rect, text) regions, found as it last painted"""
-
-    def __init__(self):
-        super().__init__()
-        self.tips: list[tuple[QRectF, str]] = []
-
-    def event(self, ev):
-        if ev.type() == QEvent.Type.ToolTip:
-            tip = next((t for r, t in self.tips if r.contains(QPointF(ev.pos()))), None)
-            if tip:
-                QToolTip.showText(ev.globalPos(), tip, self)
-            else:
-                QToolTip.hideText()
-            return True
-        return super().event(ev)
 
 
 class Placing(Part):

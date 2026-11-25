@@ -208,7 +208,7 @@ hero figure behind the title, the plate names the one thing worth changing (or w
 is hidden when there is nothing to say. Then Signature (melee included), Role mix, Where you fight, and
 How you fight, five rows that suit your role (or PvP). Hands (keys against clicks, presses per minute,
 refused presses; needs a recorded run) is a closed drawer and reaches the plate only when badly wrong.
-All traits lists every trait with its tier and what the next one takes. A new tier gets the page's one
+All traits lists every trait with its tier and what it counts; hover one to see how it is worked out. A new tier gets the page's one
 ring. Chips compare with days 16 to 30. Earlier keeps each 15-day block with its title once it has left
 the current window, never rewritten; blocks under 10 fights aren't kept.
 

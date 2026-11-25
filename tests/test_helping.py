@@ -168,11 +168,13 @@ class Trait(unittest.TestCase):
         got += acts(*(ev("SPELL_RESURRECT", i, flags=MATE if i else STRANGER) for i in range(4)))
         now = datetime(2026, 11, 24)
         v = build_profile(profile(fights, None, {}, [], now, None, got), [])
-        rows = {r.key: (r.name, r.value, r.next, r.ink) for _, rows in v.traits for r in rows}
+        rows = {r.key: (r.name, r.value, r.tip.split("\n")[1:], r.ink) for _, rows in v.traits for r in rows}
         self.assertEqual(rows["Benefactor"], (
-            "Benefactor", "6", "Strangers helped, and 0 buffs for your group. Kind at 30, you are at 6", "role-heal"))
+            "Benefactor", "6", ["You: 6 strangers, and 0 buffs for your group.",
+                                "Kind from 30, Generous from 47, Great-Hearted from 65."], "role-heal"))
         self.assertEqual(rows["Lifegiver"], (
-            "Lifegiver", "4", "3 in your group, 1 stranger. Rousing at 11, you are at 4", "role-heal"))
+            "Lifegiver", "4", ["You: 4 revives, 3 in your group, 1 stranger.",
+                               "Rousing from 11, Rekindling from 16, Life-Giving from 22."], "role-heal"))
         none = {r.key for _, rows in build_profile(profile(fights, None, {}, [], now), []).traits for r in rows}
         self.assertFalse(none & {"Benefactor", "Lifegiver"})
 

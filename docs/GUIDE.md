@@ -885,9 +885,11 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   how your character plays. It reaches the plate only when badly wrong (rule 7 above). It needs a
   recorded run: play with the add-on on and `/reload`. Without one the drawer is not there.
 - All traits is a drawer under both columns, open when the page is wide. It lists every trait with a
-  score above 0, by family, with its figure, a bar of its score, its tier in a gold frame (the epithet
-  you have earned, empty under the first tier) and what the next tier takes: "Unfallen at 126, you are
-  at 97". Its title counts them: "All traits (14)". It uses two columns from 700 px of width. If you open
+  score above 0, by family, with its figure, its tier in a gold frame (the epithet you have earned, empty
+  under the first tier), a line saying what the figure counts, and a bar of its score with the figures it
+  begins and ends at under it. Hover a row to see how it is worked out, your own numbers ("You: 681 of
+  1,209 fights") and where each tier begins. The app's author chose the two ends of every bar by hand; they
+  don't compare you with other players. Its title counts them: "All traits (14)". It uses two columns from 700 px of width. If you open
   or shut it yourself, it stays as you left it.
 - The one ring. When a trait reached a tier it had not reached in days 16 to 30 (the title's trait
   first, else one in How you fight, else the highest), the page circles it by hand and writes "new:
@@ -932,7 +934,7 @@ and the weaker one scores, and "or" means the better known one scores.
 | Pace | Longest sitting | fights in your longest sitting | 40 to 200 | 30 | Dogged, Unresting, Unwearied | all |
 | Pace | Longest run without a death | fights in a row survived | 15 to 200 | 30 | Surviving, Unfallen, Deathless | all |
 | Nerve | Wins on the edge | of your wins came after dropping under 35% health | 5% to 25% | 30 | Daring, Fearless, Unyielding | all |
-| Nerve | Wins under 10% health | wins after dropping under 10% health | 2 to 15 | 30 | Lucky, Defiant, Death-Cheating | all |
+| Nerve | Wins under 10% health | wins under 10% health per 100 wins | 0.2 to 1.7 | 100 | Lucky, Defiant, Death-Cheating | all |
 | Nerve | Deaths and lowest health | deaths per 100 fights; is your average lowest health | 8.0 to 0.0 / 50% to 85% | 30 / 30 | Guarded, Unbroken, Untouchable | all |
 | Nerve | Close calls answered | of close calls answered with a defensive | 30% to 90% | 10 | Wary, Cool-Headed, Unshaken | all |
 | Nerve | Wins against three or more | of your wins alone were against three or more | 8% to 40% | 30 | Bold, Overrunning, Unstoppable | all |
@@ -946,7 +948,7 @@ and the weaker one scores, and "or" means the better known one scores.
 | Weapon | Auto shot share | of your damage is automatic shots | 25% to 60% | 30 | Keen, Far-Sighted, True-Shot | damage, tank |
 | Weapon | Ability share | of your damage is your abilities | 60% to 95% | 30 | Gifted, Fierce, Spellforged | damage, tank |
 | Weapon | Top ability's share | of your ability damage is one ability | 35% to 75% | 30 | Devoted, Single-Minded, Masterful | damage, tank |
-| Weapon | Abilities that count | abilities worth 5% of your damage or more | 3 to 9 | 30 | Adaptable, Cunning, Many-Handed | damage, tank |
+| Weapon | Main damage abilities | abilities with 5% of your ability damage each | 2 to 8 | 30 | Adaptable, Cunning, Many-Handed | damage, tank |
 | Weapon | Critical hits | of your hits crit | 8% to 30% | 500 | Fortunate, Savage, Fatebound | damage, tank |
 | Weapon | Proc and item share | of your damage is procs and items | 8% to 30% | 30 | Charged, Crackling, Storm-Touched | damage, tank |
 | Craft of play | Possible damage reached | of possible damage reached | 75% to 95% | 30 | Honed, Precise, Flawless | damage, tank |
@@ -954,9 +956,9 @@ and the weaker one scores, and "or" means the better known one scores.
 | Craft of play | Casts not cut short | of casts not cut short by moving | 97% to 100% | 200 | Grounded, Unmoved, Rooted | all |
 | Craft of play | Pulled with your usual buffs | of fights pulled with your usual buffs | 70% to 98% | 30 | Ready-Armed, Blessed, Oathbound | all |
 | Craft of play | Interrupts | interrupts per 100 group fights | 5.0 to 40.0 | 20 | Watchful, Silencing, Spellbreaking | all |
-| Company | Fights alone | of fights alone | 55% to 97% | 30 | Wandering, Lone, Sovereign | all |
+| Company | Fights alone | of your fights are alone | 55% to 97% | 30 | Wandering, Lone, Sovereign | all |
 | Company | Fights in a group | of fights in a group | 50% to 97% | 30 | Loyal, Stalwart, Sworn | all |
-| Company | Top of the group | of group fights topping the damage | 25% to 70% | 20 | Rising, Leading, Commanding | damage, tank |
+| Company | Groupmates out-damaged | of your groupmates out-damaged, on average | 30% to 90% | 20 | Rising, Leading, Commanding | damage, tank |
 | Company | Help for the group | dispels on others per 100 group fights; of the group's healing on others is yours | 3.0 to 25.0 or 10% to 35% | 30 or 20 | Merciful, Guarding, Selfless | all |
 | Company | Benefactor | strangers buffed, healed or cleansed | 5 to 75 | 5 | Kind, Generous, Great-Hearted | all |
 | Company | Lifegiver | revives cast | 2 to 25 | 3 | Rousing, Rekindling, Life-Giving | all |
@@ -1021,11 +1023,11 @@ figure and the card.
 | Melee share + Wins one on one | the First Blade |
 | Wins against three or more + Proc and item share | the Gathering Thunder |
 | Nobody got away + Most beaten enemy | the Old Grudge |
-| Boss kills + Top of the group | the Crownbreaker |
+| Boss kills + Groupmates out-damaged | the Crownbreaker |
 | Player fights won + Wins on the edge | the Nerveless |
 | Player fights won + Wins one on one | the Arena's Answer |
 | Top ability's share + Possible damage reached | the Perfectionist |
-| Abilities that count + Cooldowns used | the Full Quiver |
+| Main damage abilities + Cooldowns used | the Full Quiver |
 | Zones fought in + Different enemies beaten | the Walking Atlas |
 | Fights in a group + Help for the group | the Open Hand |
 | Lifegiver + Benefactor | the Open Heart |
@@ -1056,6 +1058,13 @@ Titles are saved with each finished 15-day block, so Earlier reads as a history 
   cast it on that very player, so an aura that radiates does not, nor does a buff the game logs again when somebody
   comes back into range. Buffs on your own group are shown but do not score. No names are saved. Click
   **Add fights from my old combat logs** in Settings once to fill it in.
+- Groupmates out-damaged is the share of groupmates with less damage than you, averaged over your group
+  fights. Anyone who healed more than they hurt is left out, so 50% is an even share in a group of any size,
+  though tanks are easier to beat.
+- Help for the group shows as Share of group healing or Dispels on others, whichever scores.
+- Some figures are totals of the 15 days (bosses, zones, enemies, Benefactor, Lifegiver), so playing more
+  raises them.
+- Blocks saved by 0.19 or older keep the scores of the rules they were saved with.
 - A close call is a fight where your health fell under 35%. It is answered if you cast a defensive on
   yourself within 10 seconds before or after your lowest moment. It counts toward Close calls answered
   only if you answered it or a defensive sat ready.

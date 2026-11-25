@@ -265,6 +265,24 @@ class Part(QWidget):
         raise NotImplementedError
 
 
+class Tips(Part):
+    """a part with hover help: (rect, text) regions, found as it last painted"""
+
+    def __init__(self):
+        super().__init__()
+        self.tips: list[tuple[QRectF, str]] = []
+
+    def event(self, ev):
+        if ev.type() == QEvent.Type.ToolTip:
+            tip = next((t for r, t in self.tips if r.contains(QPointF(ev.pos()))), None)
+            if tip:
+                QToolTip.showText(ev.globalPos(), tip, self)
+            else:
+                QToolTip.hideText()
+            return True
+        return super().event(ev)
+
+
 class Hero(Part):
     """the page's one big figure: the number (ticking up in the entrance), a grade boxed in gold or a unit beside
     it, then an optional caption and chip, and the verdict. A "–" number (nothing to show) is muted."""

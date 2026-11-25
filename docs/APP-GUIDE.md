@@ -308,8 +308,8 @@ most recently. It needs 10 fights in those 15 days.
 - Hands (keys against clicks, presses per minute, refused presses) is a closed drawer. It is how you
   hold the mouse, not how your character plays, so it never touches your title and reaches the plate
   only when badly wrong. It needs a recorded run.
-- All traits lists every trait you have a score for, by family, with its tier and what the next tier
-  takes ("Unfallen at 126, you are at 97"). When a tier is new since days 16 to 30, it gets the page's
+- All traits lists every trait you have a score for, by family, with its tier and a line saying what it
+  counts. Hover a row to see how it is worked out, your own numbers and where each tier begins. When a tier is new since days 16 to 30, it gets the page's
   one ring and a note ("new: Relentless"). Without one, the biggest move of a share is ringed.
 - Earlier, at the foot, keeps each 15-day block once it has left the current window, with the title you
   had then, never rewritten. A block under 10 fights isn't kept. The app saves them in

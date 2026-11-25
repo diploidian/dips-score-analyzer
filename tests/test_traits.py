@@ -12,7 +12,7 @@ from dips_score.live import profile_history as ph  # noqa: E402
 from dips_score.live import titles, traits  # noqa: E402
 from dips_score.live.profile import profile  # noqa: E402
 from dips_score.live.traits import BY_KEY, NAMED, TRAITS, pick, raw, score_of, scores  # noqa: E402
-from dips_score.profile_view import OUTDATED, _ink, build_profile  # noqa: E402
+from dips_score.profile_view import OUTDATED, _ink, _trait_row, build_profile  # noqa: E402
 
 T0 = datetime(2026, 11, 23, 12, 0, 0)
 DAY = timedelta(days=1)
@@ -34,8 +34,8 @@ def many(n=30, **kw):
 
 
 def plain(n=40, **kw):
-    """nothing stands out: a third got away, half with a group, six ways of doing damage, 20 enemies"""
-    ab = [{"name": "Melee", "casts": 0, "damage": 30}] + [{"name": c, "casts": 1, "damage": 14} for c in "VWXYZ"]
+    """nothing stands out: a third got away, half with a group, five ways of doing damage, 20 enemies"""
+    ab = [{"name": "Melee", "casts": 0, "damage": 30}] + [{"name": c, "casts": 1, "damage": 17.5} for c in "VWXY"]
     return [f | {"result": "they got away" if i % 3 == 0 else "killed", "group": grouped(damage_rank=2) if i % 2 else None,
                  "foes": [[f"Ghoul {i % 20}", 1]], "abilities": ab} | kw for i, f in enumerate(many(n))]
 
@@ -133,7 +133,7 @@ class Figures(unittest.TestCase):
         win = [fight(0, lowest_hp=v) for v in (.349, .35, .099, .10)] + [
             fight(0, lowest_hp=.05, result="you died"), fight(0, lowest_hp=None)]
         self.assertEqual(figure("Edge", win), (.75, 4))                 # wins with a health reading only
-        self.assertEqual(figure("Brink", win), (1, 4))
+        self.assertEqual(figure("Brink", win), (25, 4))                 # per 100 wins
         self.assertEqual(figure("Guard", win), (100 / 6, 6))
         d = lambda **kw: fight(0, danger=kw)  # noqa: E731
         win = [d(answered=True, unused=[]), d(answered=False, unused=["X"]), d(answered=False, unused=[]),
@@ -187,8 +187,13 @@ class Figures(unittest.TestCase):
         win = [fight(0), fight(0, group=grouped(), healing=100, healing_others=30, dispels=4, dispels_others=2),
                fight(0, group=grouped(damage_rank=2)), fight(0, group=grouped(), healing_role=True)]
         self.assertEqual((figure("Lone", win), figure("Bond", win)), ((.25, 4), (.75, 4)))
-        self.assertEqual(figure("Lead", win), (.5, 2))                  # a healing fight is not for topping damage
-        self.assertEqual(figure("Lead", [fight(0, group=grouped(), damage=0)]), (None, 0))   # nobody did any: no first
+        self.assertEqual(figure("Lead", win), (None, 0))                # B mostly heals: nobody to compare with
+        duo = lambda mine, *theirs, **kw: fight(0, damage=mine, group=grouped(members=[  # noqa: E731
+            {"name": "C", "damage": d, "healing": h} for d, h in theirs]), **kw)
+        self.assertEqual(figure("Lead", [duo(300, (200, 0)), duo(300, (400, 0))]), (.5, 2))
+        self.assertEqual(figure("Lead", [duo(300, (200, 0), (400, 0), (100, 0), (9, 50))]), (2 / 3, 1))
+        self.assertEqual(figure("Lead", [duo(300, (300, 0))]), (0, 1))                       # equal is not less
+        self.assertEqual(figure("Lead", [duo(0, (1, 0)), duo(9, (1, 0), healing_role=True)]), (None, 0))
         self.assertEqual(figure("Lone", win + [fight(0, helped=True)]), (.2, 5))
         self.assertEqual(figure("Mercy", win), (200 / 3, 3))
         self.assertEqual(figure("Mercy", win, part=1), (30 / 300, 3))
@@ -398,27 +403,56 @@ class Page(unittest.TestCase):
         self.assertEqual((v.card[0].name, v.card[0].value, v.card[0].unit), ("Time between fights", "15", "s"))
         self.assertEqual(len(v.card), 5)
         pace = dict(v.traits)["Pace"]
-        self.assertEqual((pace[0].tier, pace[0].bar, pace[0].next), ("Relentless", 1, ""))
+        self.assertEqual((pace[0].tier, pace[0].bar, pace[0].ends), ("Relentless", 1, ("120 s", "15 s")))
+        self.assertEqual(pace[0].tip.split("\n")[1:], [
+            "You: 15.0 s over 40 waits.", "Steady at 83 s or under, Tireless at 57 s or under, Relentless at 30 s or under."])
         streak = next(r for r in pace if r.key == "Streak")
-        self.assertEqual(streak.next, "Surviving at 80, you are at 40")
+        self.assertEqual(streak.tip.split("\n")[1:], ["You: 40 in a row, of 40 fights.",
+                                                     "Surviving from 80, Unfallen from 126, Deathless from 173."])
         self.assertEqual(v.traits_title, f"All traits ({sum(len(r) for _, r in v.traits)})")
         self.assertTrue(all(r.bar > 0 for _, rows in v.traits for r in rows))       # no score: not listed
         self.assertTrue(all(rows for _, rows in v.traits))
         self.assertNotIn("Shot", {r.key for _, rows in v.traits for r in rows})
 
-    def test_next_and_now_never_read_the_same(self):
-        of = lambda v: dict(self.page(many(40, pull={"since_last": v})).traits)["Pace"][0].next  # noqa: E731
-        self.assertEqual(of(36), "Relentless at 30 s, you are at 36 s")
-        edge = many(38) + many(2, result="you died")        # Finish 95.0%, its top tier at 92.95%
-        self.assertEqual(dict(self.page(edge).traits)["Victory"][0].next, "")
-        streak = plain(80)                                  # Surviving at 79.75
-        self.assertEqual(next(r for r in dict(self.page(streak[1:]).traits)["Pace"] if r.key == "Streak").next,
-                         "Surviving at 80, you are at 79")
+    def tip(self, key, fights, **kw):
+        return next(r for _, rows in self.page(fights, **kw).traits for r in rows if r.key == key).tip.split("\n")
+
+    def test_tips_say_the_real_counts(self):
         low = plain(1000, result="killed")
         for f in low[:119]:
             f["lowest_hp"] = .3                             # 11.9% of wins, shown 12%; Daring at 12%
-        edge = next(r for r in dict(self.page(low).traits)["Nerve"] if r.key == "Edge")
-        self.assertEqual((edge.value, edge.next), ("12", "Daring at 12%, you are at 11.9%"))
+        self.assertEqual(self.tip("Edge", low)[1:], ["You: 119 of 1,000 wins.", "Daring from 12%, Fearless from 17%, Unyielding from 22%."])
+        for f in low[:12]:
+            f["lowest_hp"] = .05
+        self.assertEqual(self.tip("Brink", low)[1], "You: 12 of 1,000 wins.")
+        ab = [{"name": n, "casts": 1, "damage": d} for n, d in (("Smite", 70), ("Wrath", 26), ("Poke", 4))]
+        self.assertEqual(self.tip("Focus", plain(40, abilities=ab))[1], "You: Smite 70%, in 40 fights.")
+        ab = [{"name": "Melee", "casts": 0, "damage": 900}] + [{"name": n, "casts": 1, "damage": 20} for n in "VWXYZ"]
+        self.assertEqual(self.tip("Range", plain(40, abilities=ab))[1],     # a swinger's abilities count too
+                         "You: V 20%, W 20%, X 20%, Y 20% and Z 20%.")
+        guard = plain(40, lowest_hp=.6)
+        self.assertEqual(self.tip("Guard", guard)[1:], [
+            "You: 0.00 deaths per 100 fights and 60.0% lowest health. The bar shows lowest health.",
+            "Guarded at 5.2 deaths or fewer and 63%, Unbroken at 3.2 deaths or fewer and 71%, "
+            "Untouchable at 1.2 deaths or fewer and 80%."])
+
+    def test_every_trait_has_words(self):
+        from dips_score.trait_words import WORDS
+        self.assertEqual(len(WORDS), len(TRAITS) + 1)       # Mercy's two
+        for t in TRAITS:
+            for p in t.parts:
+                with self.subTest(t.key, kind=p.kind):
+                    s = score_of(t, [(q.high, 10**4) for q in t.parts] if t.weaker else
+                                 [(q.high, 10**4) if q is p else (None, 0) for q in t.parts])
+                    row = _trait_row({"key": t.key, "epithet": None, **s}, "damage",
+                                     {"strangers": 9, "revives": 9, "group_revives": 1, "group_buffs": 1})
+                    self.assertEqual(len(row.tip.split("\n")), 3)
+                    self.assertTrue(row.line and all(row.ends))
+                    self.assertFalse(set("{}\u2013\u2014") & set(row.line + row.tip.replace("\u2013", "", t.key in (
+                        "Range", "Focus", "Scourge"))), row.tip)
+                    self.assertTrue(all(e in row.tip for e in t.epithets))
+                    old = {k: v for k, v in s.items() if k not in ("n", "parts", "names")}      # saved before 0.20
+                    self.assertEqual(len(_trait_row({"key": t.key, "epithet": None, **old}, "damage").tip.split("\n")), 2)
 
     def test_hero_falls_back_to_the_role(self):
         v = self.page(many(12))
@@ -447,13 +481,15 @@ class Page(unittest.TestCase):
         dying = plain(40, lowest_hp=.9, pull={"since_last": 60})
         for f in dying[:3]:
             f["result"] = "you died"
-        self.assertIn("Deaths per 100 fights", {r.name for _, rows in self.page(dying).traits for r in rows})
+        v = self.page(dying)
+        self.assertEqual(next((r.value, r.unit, r.ends) for _, rows in v.traits for r in rows if r.key == "Guard"),
+                         ("7.5, 90%", "", ("8.0", "0.0")))         # both figures, the bar is the weaker
 
     def test_packs(self):
         pack = lambda fs, **kw: [r.name for r in self.page(fs, **kw).card]  # noqa: E731
         fs = plain(40, pull={"since_last": 60}, potential=400)
         self.assertEqual(pack(fs), ["Time between fights", "Auto attack or abilities", "Possible damage reached",
-                                    "Abilities that count", "Average lowest health"])     # 26 wins: no Edge
+                                    "Main damage abilities", "Average lowest health"])     # 26 wins: no Edge
         self.assertEqual(pack(plain(90, pull={"since_last": 30}))[:4],
                          ["Time between fights", "Wins on the edge", "Wins against three or more",
                           "Auto attack or abilities"])
