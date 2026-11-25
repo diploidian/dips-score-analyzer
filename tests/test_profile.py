@@ -57,6 +57,12 @@ class Windows(unittest.TestCase):
         self.assertIsNone(p["before"])
         self.assertIsNone(p["now"]["hands"])
 
+    def test_the_sheet_reaches_the_view(self):
+        char = {"taken": 1795576160, "stats": {"str": 93}, "pulls": [("x", 80, 1), ("y", 60, 2)]}
+        v = build_profile(profile([fight(1)], char, {}, [], T0), [])
+        self.assertEqual((v.sheet.need, v.sheet.wear, v.sheet.gear), ("", "2 pieces broken at your last pull.", []))
+        self.assertTrue(build_profile(profile([fight(1)], None, {}, [], T0), []).sheet.need)
+
     def test_newest_character_only(self):
         p = profile([fight(2, me="B"), fight(1, me="A")], None, {}, [], T0)
         self.assertEqual((p["name"], p["now"]["fights"]), ("A", 1))

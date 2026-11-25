@@ -2,7 +2,8 @@
 (Before). Pure data, plain JSON-able values; a figure that cannot be known is None, never a guess.
 
 profile(fights, char, book, runs, now, types=None, acts=None) -> {"name", "char" (habits.char_block), "level" (the newest fight's), "now": figures (None only when
-there are no fights at all), "before": figures or None when it has no fights}. Now is fights with start in (now - 15 days, now], Before (now - 30, now - 15].
+there are no fights at all), "before": figures or None when it has no fights,
+"sheet": sheet.sheet of the window, "broken": pieces broken at the last pull, None when not known}. Now is fights with start in (now - 15 days, now], Before (now - 30, now - 15].
 
 runs are plain dicts from the recorded runs: start (datetime), role ("tank"/"healer"/"damage"/None), score, grade,
 presses, by_key, by_click, failed, casts, combat_time (seconds), move_interrupts (casts the game cut because you
@@ -69,6 +70,7 @@ from ..scoring.classes import talent_role
 from ..scoring.score import grade
 from . import helping, titles, traits
 from .habits import _damage_fights, char_block, cooldown_losses, idle_spells
+from .sheet import sheet
 
 SLICE = timedelta(days=15)
 ROLES = ("damage", "healer", "tank")
@@ -272,6 +274,10 @@ def profile(fights: list[dict], char: dict | None, book: dict | None, runs: list
     mine = [f for f in fights if f["me"] == me]
     book, runs = book or {}, runs or []
     before = figures(mine, char, book, runs, now - 2 * SLICE, now - SLICE, types, acts)
+    fig = figures(mine, char, book, runs, now - SLICE, now, types, acts)
+    win = [f for f in mine if now - SLICE < datetime.fromisoformat(f["start"]) <= now]
+    pulls = (char or {}).get("pulls") or []
     return {"name": fights[-1].get("me_name", ""), "char": char_block(char), "level": fights[-1].get("level"),
-            "now": figures(mine, char, book, runs, now - SLICE, now, types, acts),
+            "sheet": sheet(char, win, fig), "broken": pulls[-1][2] if pulls else None,
+            "now": fig,
             "before": before if before["fights"] else None}

@@ -181,7 +181,9 @@ them to tell whether a spell that only works on some types had anything to work 
 
 Beside the run log, the add-on saves what the game knows about your character: level, race, class,
 your spells with their base cooldowns and whether they hit enemies, the item level of each filled
-gear slot, and the points in each talent tree. It takes the snapshot 3 seconds after you enter the
+gear slot, and the points in each talent tree. Since add-on 0.5.0 it also saves what the Character sheet
+shows: your stats, each worn item with its stats, text and enchant, spell ranks, talent and Legacy
+points, and professions. It takes the snapshot 3 seconds after you enter the
 world (spell and item data may not be ready on the first frame) and again at logout or `/reload`. If
 a list comes back empty at logout, the earlier good one is kept.
 
@@ -891,6 +893,23 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   1,209 fights") and where each tier begins. The app's author chose the two ends of every bar by hand; they
   don't compare you with other players. Its title counts them: "All traits (14)". It uses two columns from 700 px of width. If you open
   or shut it yourself, it stays as you left it.
+- Character sheet is a closed drawer under All traits. It needs the add-on from 0.21 (add-on 0.5.0), a full
+  restart of the game after installing it (a new add-on file is not picked up by `/reload`), then a
+  `/reload` or logout. Until then the drawer says so. It is what the character carries, as of that
+  `/reload` or logout, so only its measured figures come from the last 15 days.
+  - Gear: every piece on one line of item levels, the average, how many of each rarity, then each slot
+    with the item's name in its rarity's colour, its stats, what it does in the game's words, and a tag
+    for an empty slot, the lowest piece, or one that takes an enchant and has none. An item whose link the
+    game had not loaded is "name not read yet", and is never called not enchanted.
+  - Stats: what your fights measured (damage, healing, swing speed and average swing) beside what the
+    game says, then the game's figures. A primary stat's bar splits what your gear gives, by rarity, from
+    everything else. "estimate" marks what 10 more attack power is worth, by the classic formula, and is shown
+    only when that formula lands within 10% of the game's own damage. A figure the game hides is a dash.
+  - Abilities: casts in fights and each ability's share of your damage, its procs with it, with auto
+    attack and the remaining procs and items, so the shares add up. Then the casts that do no damage, and the
+    spells you know and did not cast in a fight. The rank you cast, and a flag when you know a
+    higher one, come from fights saved by 0.21 or newer.
+  - Talents and Legacy: the points you have, by name.
 - The one ring. When a trait reached a tier it had not reached in days 16 to 30 (the title's trait
   first, else one in How you fight, else the highest), the page circles it by hand and writes "new:
   Relentless". The circle goes on the tier in All traits while that is open, else on the figure in

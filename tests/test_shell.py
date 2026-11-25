@@ -654,6 +654,51 @@ class ShellTests(unittest.TestCase):
         self.assertFalse(page.crest.isHidden() or page.body.isHidden())
         page.hide()
 
+    def test_character_sheet(self):
+        """the drawer: shut, no count; a message before there is a sheet; one tab at a time; everything said; never sideways"""
+        from dips_score.sheet_view import NONE, Ability, Figure, Item, Ladder, SheetView, Talent
+        from dips_score.ui import theme
+        page, v = self.profile_page()
+        page.setStyleSheet(theme.stylesheet())
+        self.assertEqual((page.sheet_drawer.accessibleName(), page.sheet_drawer.open), ("Character sheet", False))
+        page.sheet_drawer.flip()
+        self.show_at(page, 1200)
+        s = page.sheet
+        self.assertEqual((s.message.isVisible(), s.message.accessibleName(), s.bar.isVisible()), (True, NONE, False))
+        self.assertFalse(any(p.isVisible() for p in s.parts))
+        ladder = Ladder(31, "Average 31.", 22, 35, .7, [(22, 0.0, [("Waist", "q-rare")]), (35, 1.0, [("Back", "q-uncommon")] * 2)],
+                        [("rare", "q-rare", 1), ("uncommon", "q-uncommon", 2)])
+        v.sheet = SheetView("As of 24 Nov 19:09.", "", "m-dmg", ladder,
+                            [Item("Waist", "Cobrahn's Grasp", "q-rare", "rare", "22", "+5 Agility", ["Use: it shines."], ["lowest"]),
+                             Item("Neck", "", "tx", level="", flags=["empty"], empty=True)] * 4, "2 pieces broken at your last pull.",
+                            [("Primary", [Figure("Strength", "93", "27 from gear", .8, [("q-rare", .2), ("", .1)])]),
+                             ("Attack", [Figure("Attack power", "287", "10 more adds 0.71", estimate=True)])],
+                            "Judgement leads.", [Ability("Judgement", "3,408", "14.4%", .144, "a higher rank is known"),
+                                                 Ability("Purify", "63", "", None, "")], "Known, not cast in a fight: Redemption.",
+                            [Talent("Benediction", 5, 5), Talent("Two-Handed Weapon Specialization", 1, 5)], "1 of 51 talents has points.", [], "0 of 27 Legacy choices have points.")
+        page.show_view(v)
+        for k, words in enumerate((("Average 31", "22 Waist", "broken", "Use: it shines", "empty"), ("Strength 93, 27 from gear", "estimate"),
+                                   ("Judgement, 3,408 casts, 14.4% of your damage, a higher rank", "Purify, 63 casts", "Redemption"),
+                                   ("Benediction 5 of 5", "Legacy choices"))):
+            s.buttons.button(k).click()
+            self.assertEqual([p.isVisible() for p in s.parts], [i == k for i in range(4)])
+            for x in words:
+                self.assertIn(x, s.parts[k].accessibleName())
+            for w in (1200, 600, 430, 278):
+                with self.subTest(tab=k, w=w):
+                    self.show_at(page, w)
+                    self.assertEqual(page.horizontalScrollBar().maximum(), 0)
+                    s.parts[k].grab()           # it paints
+                    for b in s.buttons.buttons():           # no tab cuts its own words
+                        self.assertGreaterEqual(b.width() + 1, b.sizeHint().width(), b.text())
+        self.assertFalse(s.message.isVisible())
+        v.sheet = SheetView("As of 24 Nov 19:09.", "")          # a snapshot that held none of it
+        page.show_view(v)
+        self.assertTrue(all("could not be read" in x.accessibleName() for x in s.parts))
+        for p in s.parts:
+            p.grab()
+        page.hide()
+
     def test_profile_stacks_and_widens_back(self):
         """the columns, the plate and All traits across the stacking width both ways, with nothing sideways; the entrance
         and the keyboard focus stay where they were"""

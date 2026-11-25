@@ -149,6 +149,14 @@ QListWidget::item:selected, QTableWidget::item:selected, QTreeWidget::item:selec
 QTreeWidget::item {{ padding: 4px 2px; }}
 QHeaderView::section {{ background: {pnl}; color: {mu}; border: 0; border-bottom: 1px solid {ln};
     padding: 4px 6px; }}
+QPushButton[tab="1"] {{ background: {pnl}; color: {T["tx2"].name()}; border: 1px solid {ln}; border-right-width: 0;
+    padding: 6px 10px; font-size: 12px; font-weight: 500; }}
+QPushButton[tab="1"][last="1"] {{ border-right-width: 1px; }}
+QPushButton[tab="1"][tight="1"] {{ padding: 6px 4px; }}
+QPushButton[tab="1"]:hover {{ color: {tx}; border-color: {ln}; }}
+QPushButton[tab="1"]:checked {{ color: {tx}; border: 1px solid {tx}; font-weight: 600; }}
+QPushButton[tab="1"]:focus {{ border: 2px solid {hl}; padding: 5px 9px; }}
+QPushButton[tab="1"][tight="1"]:focus {{ padding: 5px 3px; }}
 QLabel#dim {{ color: {mu}; }}
 QLabel#title {{ font-size: 15pt; font-weight: 600; color: {tx}; }}
 #rail {{ background: {T["rail"].name()}; color: {T["rail-tx"].name()}; }}

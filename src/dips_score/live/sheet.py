@@ -9,7 +9,7 @@ role.
                "stats" [(name, value)], "dps" (a weapon's), "text" (what it does, lines)}
   stats        {key: {"value" (None: hidden by the game), "gear" (how much of it the items give, None when none does),
                "by_quality" {item quality: its part of that}}}
-  abilities    every spell known: {"name", "rank" (highest known, its text), "ranks" (how many), "casts" (in fights),
+  abilities    every spell known: {"name", "rank" (the highest one cast, its text, None when the fights don't say), "ranks" (how many), "casts" (in fights),
                "share" (of the window's damage, its procs with it, None without), "lower" (only ranks under the highest one known were cast)}
   projections  {key: {"value", "source" ("measured", "game", "estimate" or None), "n" (what it rests on)}}, see _projections
 
@@ -54,6 +54,8 @@ def _named(stats: dict) -> list[tuple[str, float]]:
 
 def _gear(char: dict) -> list[dict]:
     levels, items = char.get("gear") or {}, char.get("items") or {}
+    if not levels and not items:            # not read: fourteen empty slots would be a guess
+        return []
     given = char.get("itemstats") or {}
     known = [levels[s] for s, _ in SLOTS if levels.get(s)]
     out = []
@@ -66,7 +68,7 @@ def _gear(char: dict) -> list[dict]:
             flags.append("empty")
         elif item and slot in ENCHANTABLE and item.get("enchant") == 0:
             flags.append("not enchanted")
-        if level and len(known) > 1 and level == min(known) and slot not in NO_GEAR_LEVEL:
+        if level and known and level == min(known) < max(known) and slot not in NO_GEAR_LEVEL:
             flags.append("lowest")
         out.append({"slot": slot, "label": label, "name": (item or {}).get("name") or None, "level": level,
                     "quality": (item or {}).get("quality"), "enchant": (item or {}).get("enchant"), "flags": flags,
@@ -108,7 +110,7 @@ def _abilities(char: dict, win: list[dict]) -> list[dict]:
         order = sorted(spells, key=lambda s: (_number(ranks.get(s)), s))
         top = order[-1]
         mine = cast.get(name, set()) & set(spells)
-        out.append({"name": name, "rank": ranks.get(top), "ranks": len(spells), "casts": (ab["all"].get(name) or [0])[0],
+        out.append({"name": name, "rank": ranks.get(max(mine, key=order.index)) if mine else None, "ranks": len(spells), "casts": (ab["all"].get(name) or [0])[0],
                     "share": share.get(name), "lower": bool(mine) and top not in mine})
     return sorted(out, key=lambda a: (-(a["share"] or 0), -a["casts"], a["name"]))
 

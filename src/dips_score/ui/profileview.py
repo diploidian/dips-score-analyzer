@@ -1,7 +1,7 @@
 """The Profile page: who you are as a player over the last 15 days, painted from a ProfileView (see
 dips_score/profile_view.py): the crest, the title's trait as the one big figure, the plate, Signature and the Hands drawer
 on the left; Role mix, Where you fight and How you fight on the right, under the left when both do not fit; every trait
-under them; the finished 15-day slices in the Earlier drawer.
+under them, then the Character sheet drawer (sheetpart.py); the finished 15-day slices in the Earlier drawer.
 
 Sizes follow docs/design/mockups/profile.html (CSS px). The shared parts come from kit.py.
 """
@@ -23,6 +23,7 @@ from . import theme
 from .debrief import FIGHTS_W, NARROW
 from .kit import (HEAD_H, Drawer, Fold, Hero, Part, Plate, Sheet, Side, Tips, adv, baseline, box, draw_hand_circle,
                   draw_hand_note, draw_label_tab, elide, flow, font, hand_font, line, rule, text_at, wrapped)
+from .sheetpart import CharacterSheet
 from .theme import tok
 
 HERO_W = (260, 214)         # the hero's column (narrow)
@@ -684,6 +685,10 @@ class ProfilePage(QScrollArea):
         self.traits_drawer = Drawer("All traits", self.traits)
         self.traits_fold, self.hands_fold = Fold(self.traits_drawer), Fold(self.hands_drawer)
         self.traits_drawer.toggled.connect(self._traits_toggled)
+        self.sheet = CharacterSheet()
+        self.sheet_drawer = Drawer("Character sheet", self.sheet)
+        self.sheet_drawer.set_count(None)
+        self.sheet_fold = Fold(self.sheet_drawer)
         self.earlier = EarlierTable()
         self.earlier_drawer = Drawer("Earlier", self.earlier)
         self.foot = Foot(self.earlier_drawer)
@@ -720,6 +725,7 @@ class ProfilePage(QScrollArea):
         cols.addWidget(self.side)
         stack.addLayout(cols, 1)
         stack.addWidget(self.traits_fold)
+        stack.addWidget(self.sheet_fold)
         lay = QVBoxLayout(self.page)
         lay.setContentsMargins(16, 4, 16, 16)
         lay.setSpacing(0)
@@ -774,6 +780,7 @@ class ProfilePage(QScrollArea):
         self.places.set(v.places)
         self.traits_drawer.set_count(sum(len(rows) for _, rows in v.traits))
         self.traits_fold.setVisible(bool(v.traits))
+        self.sheet.set(v.sheet)
         self._ring()
         self._fit(True)
         self.earlier.set(v.earlier)

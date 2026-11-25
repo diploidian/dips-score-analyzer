@@ -593,8 +593,9 @@ class Drawer(QWidget):
             body.hide()
         self.set_count(0)
 
-    def set_count(self, n: int):
-        s = f"{self.title} ({n})"
+    def set_count(self, n: int | None):
+        """None: a drawer that has no count"""
+        s = self.title if n is None else f"{self.title} ({n})"
         self.label = s.upper()
         self.setAccessibleName(s)
         self.setFixedSize(math.ceil(adv(font(12, 600, num=True, spacing=0.08), self.label)) + 28, 25)

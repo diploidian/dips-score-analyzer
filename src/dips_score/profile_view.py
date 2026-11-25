@@ -17,6 +17,7 @@ from .habits_view import MINUS, _meta, _plural
 from .live.profile_history import MIN_FIGHTS
 from .live.traits import BY_KEY, TIERS, needs, shown, written
 from .scoring import usable
+from .sheet_view import SheetView, build_sheet
 from .trait_words import words
 
 NA = "–"
@@ -145,6 +146,7 @@ class ProfileView:
     hands: list[Row] = field(default_factory=list)
     roles: list[Row] = field(default_factory=list)
     places: list[Row] = field(default_factory=list)
+    sheet: SheetView = field(default_factory=SheetView)     # the Character sheet drawer
     earlier_title: str = "Earlier (0)"
     earlier: list[EarlierRow] = field(default_factory=list)            # newest first
 
@@ -378,6 +380,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     v = ProfileView(title=p.get("name") or "Profile", earlier=_earlier(earlier),
                     meta=_meta({"char": p.get("char"), "level": p.get("level")}, window))
     v.earlier_title = f"Earlier ({len(v.earlier)})"
+    v.sheet = build_sheet(p.get("sheet"), p.get("broken"))
     if n < MIN_FIGHTS:
         v.need = f"Your profile needs {MIN_FIGHTS} fights from the last 15 days ({n} so far)."
         v.need_line = "Play a few more fights and it fills in." + (

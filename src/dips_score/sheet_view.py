@@ -139,7 +139,7 @@ def _ladder(gear: list[dict]) -> Ladder | None:
         else f" {weak}." if hi > lo else ""
     marks: dict[int, list] = {}
     for g in worn:
-        marks.setdefault(g["level"], []).append((g["label"], QUALITY.get(g["quality"], ("", "mu"))[1]))
+        marks.setdefault(g["level"], []).append((g["label"], QUALITY.get(g["quality"], ("", ""))[1]))     # "": not read
     return Ladder(str(round(mean)), best + worst, lo, hi, place(mean), [(v, place(v), marks[v]) for v in sorted(marks)],
                   [(*QUALITY[q], n) for q, n in count.items() if q in QUALITY])
 
@@ -178,7 +178,7 @@ def _primary(s: dict) -> list[Figure]:
             for q, n in sorted(s["stats"][key]["by_quality"].items(), key=lambda x: -(x[0] or 0)):
                 n = max(0, min(n, left))        # a set or a debuff can make the items' sum more than what is left of it
                 left -= n
-                f.gear.append((QUALITY.get(q, ("", "mu"))[1], n / top))
+                f.gear.append((QUALITY.get(q, ("", ""))[1], n / top))
         if f:
             out.append(f)
     return out
@@ -219,7 +219,7 @@ def _abilities(s: dict) -> tuple[str, list[Ability], str]:
                     f"{a['share'] * 100:.1f}%" if a["share"] else "", a["share"] or None, "a higher rank is known" if a["lower"] else "")
             for a in cast]
     for key, name in (("auto", "Auto attack"), ("proc", "Procs and items")):     # the rest of it, so the shares add up
-        if share := s["auto"].get(key):
+        if cast and (share := s["auto"].get(key)):
             used.append(Ability(name, "", f"{share * 100:.1f}%", share))
     idle = sorted(a["name"] for a in s["abilities"] if not a["casts"])
     top = max((a for a in cast if a["share"]), key=lambda a: a["share"], default=None)

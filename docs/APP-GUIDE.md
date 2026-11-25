@@ -113,7 +113,7 @@ those handlers, so their presses are recorded with an unknown source.
 
 The add-on also saves a character snapshot: level, race, class, every spell you know with its base
 cooldown, the item level of each gear slot, your talent points per tree, and your gear durability
-at each pull. That is how the app knows about a cooldown you own but have never pressed.
+at each pull, and (add-on 0.5.0) what the Character sheet shows. That is how the app knows about a cooldown you own but have never pressed.
 
 Recording starts on its own when you enter a dungeon and stops when you leave. You can switch on
 raids, scenarios, delves or the open world in `/dscore`. The add-on also turns on the combat log
@@ -311,6 +311,11 @@ most recently. It needs 10 fights in those 15 days.
 - All traits lists every trait you have a score for, by family, with its tier and a line saying what it
   counts. Hover a row to see how it is worked out, your own numbers and where each tier begins. When a tier is new since days 16 to 30, it gets the page's
   one ring and a note ("new: Relentless"). Without one, the biggest move of a share is ringed.
+- Character sheet is a closed drawer with four tabs, as of your last /reload or logout. Gear puts every
+  piece on a line of item levels, in its rarity's colour, with its stats, its text and what is missing
+  (empty, not enchanted). Stats gives what your fights measured, then the game's own figures and how
+  much of each your gear gives. Abilities shows each one's share of your damage over the last 15 days,
+  and Talents and Legacy your points.
 - Earlier, at the foot, keeps each 15-day block once it has left the current window, with the title you
   had then, never rewritten. A block under 10 fights isn't kept. The app saves them in
   `profile_history.json` and `profile_runs.json` in its data folder.

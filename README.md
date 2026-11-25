@@ -209,7 +209,8 @@ is hidden when there is nothing to say. Then Signature (melee included), Role mi
 How you fight, five rows that suit your role (or PvP). Hands (keys against clicks, presses per minute,
 refused presses; needs a recorded run) is a closed drawer and reaches the plate only when badly wrong.
 All traits lists every trait with its tier and what it counts; hover one to see how it is worked out. A new tier gets the page's one
-ring. Chips compare with days 16 to 30. Earlier keeps each 15-day block with its title once it has left
+ring. Chips compare with days 16 to 30. Character sheet is a closed drawer under it: your gear by item
+level and rarity, your stats and how much of each your gear gives, what each ability did for your damage, talents and Legacy. Earlier keeps each 15-day block with its title once it has left
 the current window, never rewritten; blocks under 10 fights aren't kept.
 
 Titles are made by fixed rules, with no AI: the best trait gives the epithet, your talent tree the class
@@ -222,7 +223,8 @@ closed. [All traits, epithets and named titles](docs/GUIDE.md#how-the-profile-ma
 
 The add-on saves what the game knows about your character: level, race, class, your spells with their
 base cooldowns and whether they hit enemies, the item level of each filled gear slot, the points in
-each talent tree, and gear durability at each pull (the last 60). It takes the snapshot 3 seconds
+each talent tree, and gear durability at each pull (the last 60). Since add-on 0.5.0 it also saves what the Character sheet shows:
+stats, each worn item with its stats and text, spell ranks, talent and Legacy points, professions. It takes the snapshot 3 seconds
 after you enter the world and again at logout or `/reload`, so it reaches the app when the game saves.
 A list that comes back empty at logout does not replace a good earlier one.
 
@@ -293,9 +295,11 @@ src/dips_score/
   live/history.py        fights.jsonl, spells.json and help.jsonl; follows the log
   live/helping.py        what you do for other players: revives, buffs, heals and dispels
   live/habits.py         the Habits page numbers and cards
+  live/sheet.py          the character sheet: the snapshot joined to your fights
   analysis.py            load + analyze (shared by CLI and window)
   ui/                    the PyQt6 window and timeline (fightsview.py, habitsview.py)
 addon/dips-Score/Char.lua  the character snapshot and gear wear
+addon/dips-Score/Sheet.lua  what the Character sheet shows, saved with the snapshot
 tests/test_core.py       python -m unittest discover -s tests
 tests/test_model.py      (same command)
 tests/test_live.py       (same command)

@@ -85,14 +85,27 @@ class Sheet(unittest.TestCase):
             {"name": "Holy Strike", "casts": 2, "hits": 2, "damage": 100}])
         by = lambda win: {a["name"]: a for a in made(win)["abilities"]}  # noqa: E731
         a = by([f(678)])["Holy Strike"]
-        self.assertEqual((a["rank"], a["ranks"], a["casts"], a["share"], a["lower"]), ("Rank 2", 2, 2, 1, True))
-        self.assertFalse(by([f(678), f(679)])["Holy Strike"]["lower"])     # the highest was cast too
-        self.assertFalse(by([fight()])["Holy Strike"]["lower"])            # fights that don't say which rank
+        self.assertEqual((a["rank"], a["ranks"], a["casts"], a["share"], a["lower"]), ("Rank 1", 2, 2, 1, True))
+        a = by([f(678), f(679)])["Holy Strike"]                            # the highest was cast too
+        self.assertEqual((a["rank"], a["lower"]), ("Rank 2", False))
+        a = by([fight()])["Holy Strike"]                                   # fights that don't say which rank
+        self.assertEqual((a["rank"], a["lower"]), (None, False))
         self.assertEqual(by([])["Redemption"]["casts"], 0)
         self.assertNotIn("Attack", by([]))
         proc = fight(abilities=[{"name": "Melee", "casts": 0, "hits": 1, "damage": 50}, {"name": "Judgement", "casts": 1, "damage": 0},
                                 {"name": "Judgement of Command", "casts": 0, "hits": 1, "damage": 50}])
         self.assertEqual(by([proc])["Judgement"]["share"], .5)             # its proc's damage is its own
+
+    def test_unread_is_never_said(self):
+        c = load()
+        c["gear"], c["items"] = {1: 31, 5: 31}, {1: {"name": "Cap", "id": 1, "quality": None, "enchant": None}}
+        self.assertFalse(any("lowest" in g["flags"] for g in made(char=c)["gear"]))           # all on one level
+        v = build_sheet(made(char=c))
+        self.assertEqual([ink for _, _, slots in v.ladder.marks for _, ink in slots], ["", ""])     # no rarity's ink
+        self.assertEqual(v.ladder.rarities, [])
+        c["spell_ids"], c["gear"], c["items"] = {}, {}, {}
+        v = build_sheet(made([fight()], c))
+        self.assertEqual((v.abilities, v.gear), ([], []))
 
     def test_measured_first(self):
         p = made([fight(i) for i in range(12)])["projections"]
