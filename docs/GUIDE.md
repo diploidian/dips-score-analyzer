@@ -187,6 +187,11 @@ points, and professions. It takes the snapshot 3 seconds after you enter the
 world (spell and item data may not be ready on the first frame) and again at logout or `/reload`. If
 a list comes back empty at logout, the earlier good one is kept.
 
+Since add-on 0.6.0 it also counts where your time goes, in seconds per day: hunting, questing, dungeons, raids,
+battlegrounds and arenas, gathering and crafting, the auction house and mailbox, travelling, in town, and away (AFK, or 3 minutes
+without moving, casting or fighting, outside an instance), with the quests handed in. It keeps 60 days, and the time of each level
+you reach. No place, name or chat is saved.
+
 At each pull it also records your gear durability: the lowest percentage and how many items are
 broken. It keeps the last 60. Durability can only be read inside the game, which is why the add-on
 records it.
@@ -917,10 +922,10 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
     glancing. Only days whose swings spread as your weapon's own roll does count, so another weapon or a buff on swings is
     left out, and swings under Seal of the Crusader never count. Until 100 swings say it clearly, "estimate" marks the classic
     formula's figure, shown only when that formula lands within 10% of the game's own damage.
-    "10 more spell power adds" compares hits of one spell, at one rank and one character level, at two amounts of spell power,
-    with attack power held still. "0" means none was seen. It needs the levels add-on 0.6.0 records, and says so until then.
+    "10 more spell power adds" compares hits of one spell, at one rank and one character level, on one day, at two amounts of spell power,
+    with attack power held still. "0" means none was seen. It needs the levels the add-on from 0.22 (add-on 0.6.0) records, and says so until then.
     Healing power is not measured. "How your swings land" counts your misses, dodges, parries, glancing blows and crits against
-    what you fought: the game does not give your weapon skill, and this is what it does. These need fights summed up by 0.22:
+    what you fought, and a glancing blow against your plain swings on the same enemy: the game does not give your weapon skill, and this is what it does. These need fights summed up by 0.22:
     press **Add fights from my old combat logs** once in Settings.
   - Abilities: casts in fights and each ability's share of your damage, its procs with it, with auto
     attack and the remaining procs and items, so the shares add up. Then the casts that do no damage, and the
@@ -934,8 +939,8 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   share chip is ringed then. With no new tier, the one biggest move of a share against days 16 to 30
   is ringed instead (on a tie, the increase).
 - Earlier, at the foot, lists your finished 15-day blocks: dates, the title you had (the label for a
-  block saved before titles existed), main role, deaths per hour and cooldowns used, and what your
-  middle fight had: gear, spell power, armor, health and mana, buffs included ("stats not recorded" before 0.22). A block is saved
+  block saved before titles existed), main role, deaths per hour and cooldowns used, and your Player Type when
+  it is known, then what your middle fight had: gear, spell power, armor, health and mana, buffs included ("stats not recorded" before 0.22). A block is saved
   once its end is 15 days back, when it has left the current window, and never rewritten. A block with
   fewer than 10 fights isn't saved. A block waits until every run's figures have been read. A block
   with a fight summed up before 0.18.0 isn't saved until that fight has been refreshed (see

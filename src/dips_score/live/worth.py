@@ -14,7 +14,7 @@ from math import sqrt
 MIN_HITS, MIN_AT_ONE = 100, 30      # hits a slope needs, and hits at each of two spell powers
 CLEAR = 4                           # a slope is at least this many times its own error
 ROLL = 0.06                         # a day's spread this near the weapon's own roll: nothing else moved its swings
-NONE_SEEN = 0.05                    # "none seen" when 10 points would have shown as this share of the hit
+NONE_SEEN = 0.05                    # "none seen": 10 points can't be worth more than this share of the hit
 
 
 def level_at(levels: list[tuple[int, int]] | None, iso: str) -> int | None:
@@ -77,13 +77,13 @@ def swing(win: list[dict], low: float | None, high: float | None) -> dict | None
 
 def spells(win: list[dict], levels: list[tuple[int, int]] | None) -> list[dict]:
     """what one spell power adds to a hit of each spell, attack power held still, most first: {"name", "value" (0.0: none
-    seen), "error", "n"}; compared only within one rank at one character level"""
+    seen), "error", "n"}; compared only within one rank, at one character level, on one day (gear changes over days)"""
     by: dict[tuple, dict] = defaultdict(lambda: defaultdict(list))
     for f in win:
         level = level_at(levels, f["start"])
         for c in f.get("power") or [] if level else ():
             if c[1]:
-                by[c[0], c[1]][level].append((c[3], c[2], *c[4:7]))
+                by[c[0], c[1]][level, f["start"][:10]].append((c[3], c[2], *c[4:7]))
     best: dict[str, dict] = {}
     for (name, _), groups in by.items():
         kept = []
@@ -98,7 +98,7 @@ def spells(win: list[dict], levels: list[tuple[int, int]] | None) -> list[dict]:
             continue
         b, err, n = got
         mean = sum(c[3] for cells in kept for c in cells) / n
-        none = abs(b) <= 2 * err and 20 * err <= NONE_SEEN * mean
+        none = abs(b) <= 2 * err and 10 * (abs(b) + 2 * err) <= NONE_SEEN * mean
         if (none or (b > 0 and b >= CLEAR * err)) and n > best.get(name, {"n": 0})["n"]:     # of its ranks, the most cast
             best[name] = {"name": name, "value": 0.0 if none else b, "error": err, "n": n}
     return sorted(best.values(), key=lambda s: (-s["value"], s["name"]))
@@ -106,17 +106,13 @@ def spells(win: list[dict], levels: list[tuple[int, int]] | None) -> list[dict]:
 
 def hits(win: list[dict]) -> dict | None:
     """how your swings landed: {"n" (all of them), "miss", "dodge", "parry", "block", "glancing", "crit" (counts),
-    "glancing_cost" (the share of a plain hit a glancing one loses, None when either is too few)}; None under MIN_HITS"""
+    "glancing_cost" (the share of a plain hit on the same enemy a glancing one loses, None when too few)}; None under MIN_HITS"""
     auto = [f["auto"] for f in win if (f.get("auto") or {}).get("misses") is not None]
     missed = {k: sum(a["misses"].get(k, 0) for a in auto) for k in ("miss", "dodge", "parry", "block")}
     n = sum(a["landed"] + sum(a["misses"].values()) for a in auto)
     if n < MIN_HITS:
         return None
-    cost = None
-    new = [a["dealt"] for a in auto if a.get("dealt")]
-    if new:
-        glancing, plain = ([sum(v) for v in zip(*(d[k] for d in new))] for k in ("glancing", "plain"))
-        if min(glancing[0], plain[0]) >= MIN_AT_ONE and plain[1]:
-            cost = 1 - (glancing[1] / glancing[2]) / (plain[1] / plain[2])
+    glanced, did, plain = (sum(v) for v in zip(*(a.get("glance") or (0, 0, 0) for a in auto)))
+    cost = 1 - did / plain if glanced >= MIN_AT_ONE and plain else None
     return {"n": n, **missed, "glancing": sum(a["glancing"] for a in auto), "crit": sum(a["crits"] for a in auto),
             "glancing_cost": cost}

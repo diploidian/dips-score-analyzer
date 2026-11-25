@@ -2,7 +2,7 @@
 (Before). Pure data, plain JSON-able values; a figure that cannot be known is None, never a guess.
 
 profile(fights, char, book, runs, now, types=None, acts=None) -> {"name", "char" (habits.char_block), "level" (the newest fight's, None when not recorded), "now": figures (None only when
-there are no fights at all), "before": figures or None when it has no fights,
+there are no fights at all), "before": figures or None when it has no fights, "time_before" (its days.figures, fights or not),
 "sheet": sheet.sheet of the window, "broken": pieces broken at the last pull, None when not known}. Now is fights with start in (now - 15 days, now], Before (now - 30, now - 15].
 
 runs are plain dicts from the recorded runs: start (datetime), role ("tank"/"healer"/"damage"/None), score, grade,
@@ -286,5 +286,5 @@ def profile(fights: list[dict], char: dict | None, book: dict | None, runs: list
     pulls = (char or {}).get("pulls") or []
     return {"name": fights[-1].get("me_name", ""), "char": char_block(char), "level": leveled(mine[-1:], char)[0].get("level"),
             "sheet": sheet(char, win, fig), "broken": pulls[-1][2] if pulls else None,
-            "now": fig,
+            "now": fig, "time_before": before["time"],
             "before": before if before["fights"] else None}

@@ -227,8 +227,8 @@ def _spell_worth(s: dict) -> list[Figure]:
     """what 10 more spell power adds to a hit of each spell; with spell power and nothing measured, why"""
     rows = [Figure(w["name"], f"+{_n(10 * w['value'], 1)}" if w["value"] else "0", f"a hit, before resists. Measured over {_plural(w['n'], 'hit')}, "
                    f"give or take {_n(max(.1, 20 * w['error']), 1)}") for w in s["worth"]]
-    if not rows and (s["stats"].get("spellpower") or {}).get("value"):
-        rows = [Figure("Not measured yet", NA, "needs 100 hits of a spell at two amounts of spell power at one level, and add-on 0.6")]
+    if not rows and (s["stats"].get("spellpower") or {"value": 0})["value"] != 0:
+        rows = [Figure("Not measured yet", NA, "needs 100 hits of a spell at two amounts of spell power on one day at one level, with the add-on from 0.22 or newer")]
     return rows
 
 

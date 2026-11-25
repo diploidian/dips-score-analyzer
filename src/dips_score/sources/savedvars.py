@@ -174,12 +174,20 @@ def _life(log: dict) -> dict:
     for row in _as_list(t.get("days")):
         day, *got = str(row).split(",")
         if _is_day(day):
-            days[day] = {c: v for c, x in zip(cols, got) if c and (v := _float(x)) is not None and v >= 0}
+            _add(days, day, zip(cols, got))
     now = t.get("now") if isinstance(t.get("now"), dict) else {}
     if _is_day(day := str(now.get("day"))):
-        days[day] = {c: v for c in cols if c and (v := _float(now.get(c))) is not None and v >= 0}
+        _add(days, day, ((c, now.get(c)) for c in cols))
     levels = [tuple(map(_int, p)) for s in _as_list(log.get("levels")) if len(p := str(s).split(",")) == 2]
     return {"time": days, "levels": [x for x in levels if None not in x]}
+
+
+def _add(days: dict, day: str, row):
+    """a day can be there twice when the PC's clock was set back: each counted other seconds"""
+    to = days.setdefault(day, {})
+    for c, x in row:
+        if c and (v := _float(x)) is not None and v >= 0:
+            to[c] = to.get(c, 0) + v
 
 
 def _is_day(s: str) -> bool:

@@ -30,7 +30,8 @@ def load(text):
 
 
 def of(hours: dict, day="2026-11-25"):
-    return figures({day: {k: v * 3600 for k, v in hours.items()}}, T0 - 15 * DAY, T0)
+    first = (T0 - 14 * DAY).date().isoformat()         # counted all through the window
+    return figures({first: {}, day: {k: v * 3600 for k, v in hours.items()}}, T0 - 15 * DAY, T0)
 
 
 class Days(unittest.TestCase):
@@ -48,6 +49,12 @@ class Days(unittest.TestCase):
         cols = [x.strip(' "') for x in lua.split("local COLS = {")[1].split("}")[0].split(",")]
         self.assertEqual({c for parts, _, _ in PARTS.values() for c in parts} | {"away", "turnins"}, set(cols))
 
+    def test_a_day_twice_and_when_counting_began(self):
+        c = load(SAVED.replace('"2026-11-23,1"', '"2026-11-24,40,0,400"'))          # the clock was set back
+        self.assertEqual(c["time"]["2026-11-24"], {"away": 100, "trade": 120, "quest": 4000, "hunt": 7200, "turnins": 5})
+        begun = lambda n: figures({(T0 - n * DAY).date().isoformat(): {"hunt": 1}}, T0 - 15 * DAY, T0)["since"]  # noqa: E731
+        self.assertEqual((begun(14), begun(2)), (None, "2026-11-23"))
+
     def test_windows_do_not_share_a_day(self):
         time = {(T0 - n * DAY).date().isoformat(): {"hunt": 1} for n in range(40)}
         now, before = figures(time, T0 - 15 * DAY, T0), figures(time, T0 - 30 * DAY, T0 - 15 * DAY)
@@ -59,8 +66,9 @@ class Days(unittest.TestCase):
         self.assertEqual((of({"hunt": 4.9})["type"], of({"hunt": 5})["type"]), (None, "Huntmaster"))
         f = of({"quest": 6, "hunt": 3, "town": 1, "away": 50})       # away is in no share
         self.assertEqual((f["seconds"], f["type"], f["second"], f["parts"]["quest"]), (36000, "Errant", "hunt", .6))
-        self.assertEqual(of({"hunt": 3.5, "trade": 2, "town": 4.5})["type"], "Merchant Prince")       # twice its bar
-        self.assertEqual(of({"hunt": 2, "quest": 2, "town": 4, "dungeon": 2})["type"], NONE)
+        self.assertEqual(of({"hunt": 3.5, "trade": 3, "town": 3.5})["type"], "Merchant Prince")       # twice its bar
+        self.assertEqual(of({"quest": 6, "trade": 2, "town": 2})["type"], "Errant")                   # most of the bar leads
+        self.assertEqual(of({"hunt": 2.5, "quest": 2.5, "town": 2.5, "dungeon": 2.5})["type"], NONE)
         self.assertIsNone(of({"hunt": 8, "town": 1.9, "quest": .1})["second"])
         self.assertEqual(of({"taxi": 3, "roam": 3})["type"], "Wayfarer")
         for p, (cols, _, name) in PARTS.items():
@@ -90,6 +98,9 @@ class View(unittest.TestCase):
         self.assertAlmostEqual(sum(p.width for p in v.parts), 1)
         self.assertEqual(v.note, "12 quests handed in. 2 h 0 min away left out.")
         self.assertFalse(any(p.chip for p in build_time(now, of({"hunt": 4})).parts))        # too little before to compare
+        part = {**of({"hunt": 4, "quest": 6}), "since": "2026-11-09"}
+        self.assertFalse(any(p.chip for p in build_time(now, part).parts))                   # not all of it was counted
+        self.assertTrue(build_time({**now, "since": "2026-11-23"}, None).meta.startswith("10 h 0 min played since 23 Nov, when counting began, as"))
 
     def test_inks(self):
         self.assertEqual(set(SHOWN), set(PARTS))

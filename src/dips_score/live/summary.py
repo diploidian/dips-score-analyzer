@@ -147,6 +147,17 @@ def _spans(marks: list[float], at_pull: bool, dur: float) -> list[tuple[float, f
     return out + ([(since, dur)] if since is not None else [])
 
 
+def _glance(dealt: dict[str, list]) -> list[float]:
+    """(glancing swings, their damage, what plain ones would have done), each foe against itself, since a better armored one is
+    glanced more: the Mantel-Haenszel sums, which add up over fights"""
+    out = [0, 0.0, 0.0]
+    for n, g_dmg, g_base, p_dmg, p_base in dealt.values():
+        if g_base and p_base:
+            for i, v in enumerate((n, g_dmg * p_base / (g_base + p_base), p_dmg * g_base / (g_base + p_base))):
+                out[i] += v
+    return out
+
+
 def filler(entry: dict) -> bool:
     """a damage spell you cast back to back, so there's always something to press"""
     cd = cooldown(entry)
@@ -246,7 +257,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     power_type = ilvl = own = None                               # from the advanced log block
     body: dict[str, list[int]] = defaultdict(list)               # in it: your spell power, armor, health, mana
     cells: dict[tuple, list[int]] = defaultdict(lambda: [0, 0, 0])   # see worth.py
-    dealt = {"glancing": [0, 0, 0], "plain": [0, 0, 0]}          # swings: how many, their damage, their base
+    dealt: dict[str, list] = defaultdict(lambda: [0] * 5)        # swings by foe: glancing ones, their damage and base, plain's
     odd = ODD_SWINGS in f.buffs_at_pull
     foe_hp: dict[str, list[tuple[float, float]]] = defaultdict(list)
     cc: list[tuple[float, float]] = []
@@ -330,8 +341,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                     swings.append(t)
                     swing_dmg.append(e.amount)
                     if e.base and not (e.crit or e.blocked or e.absorbed or e.resisted):
-                        for i, v in enumerate((1, e.amount, e.base)):
-                            dealt["glancing" if e.glancing else "plain"][i] += v
+                        for i, v in enumerate((1, e.amount, e.base) if e.glancing else (0, 0, 0, e.amount, e.base)):
+                            dealt[e.dst][i] += v
                 if e.src == me and own and e.base and (ev == "SPELL_DAMAGE" or (ev == "SWING_DAMAGE" and not odd)):
                     for i, v in enumerate((1, e.base, e.base ** 2)):
                         cells[name, e.spell_id or 0, own.ap, own.sp][i] += v
@@ -528,7 +539,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         swing_lost = lost_other * avg
         auto = {"swings": len(swings), "speed": speed, "lost": lost_while_casting + lost_other,
                 "lost_casting": lost_while_casting, "lost_other": lost_other, "damage_lost": swing_lost,
-                **melee, "extra": dict(extra_hits), "dealt": dealt}
+                **melee, "extra": dict(extra_hits), "glance": _glance(dealt)}
     shot_speed = 0.0
     if len(shots) >= 2:
         # moving, or no enemy alive, isn't a lost shot

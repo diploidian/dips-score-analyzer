@@ -113,7 +113,7 @@ class EarlierRow:
     role: str                   # main role and its share "Damage 96%"
     deaths: str                 # deaths per hour "3.1"
     cooldowns: str              # cooldowns used "49%"
-    stats: str = ""             # "gear 31 · 14 spell power · 940 armor", what the middle fight had; "stats not recorded"
+    stats: str = ""             # "gear 31 · 14 spell power · 940 armor", the Player Type, then what the middle fight had; "stats not recorded"
 
 
 @dataclass
@@ -170,10 +170,11 @@ def _day(iso: str, shift=timedelta()) -> str:
 
 def _had(f: dict) -> str:
     s = f.get("stats") or {}
-    parts = [f"gear {s['gear']:.0f}"] if "gear" in s else []
+    parts = [kind] if (kind := (f.get("time") or {}).get("type")) else []
+    parts += [f"gear {s['gear']:.0f}"] if "gear" in s else []
     parts += [f"{s[k]:,.0f} {name}" for k, name in (("sp", "spell power"), ("armor", "armor"), ("hp", "health"), ("mana", "mana"))
               if s.get(k)]
-    return " · ".join(parts) or "stats not recorded"
+    return " · ".join(parts if s else [*parts, "stats not recorded"])
 
 
 def _earlier(earlier: list[dict]) -> list[EarlierRow]:
@@ -392,12 +393,12 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
                     meta=_meta({"char": p.get("char"), "level": p.get("level")}, window))
     v.earlier_title = f"Earlier ({len(v.earlier)})"
     v.sheet = build_sheet(p.get("sheet"), p.get("broken"))
+    v.time = build_time((now or {}).get("time"), p.get("time_before"))      # days, not fights: an auction house day has none
     if n < MIN_FIGHTS:
         v.need = f"Your profile needs {MIN_FIGHTS} fights from the last 15 days ({n} so far)."
         v.need_line = "Play a few more fights and it fills in." + (
             " Who you were in earlier slices is below." if v.earlier else "")
         return v
-    v.time = build_time(now.get("time"), (before or {}).get("time"))
     moves = []      # (row, points, highlighter note) for every share row that got a chip, in page order
 
     def share(row: Row, key, up: str, down: str) -> Row:

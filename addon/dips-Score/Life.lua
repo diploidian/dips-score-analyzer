@@ -8,8 +8,8 @@
 --   }
 --   levels = {"time(),level", ...}                       -- at login when it changed, and at each level
 --
--- The first that applies: in combat, where you are (an instance) or what you were at; on a taxi; away (AFK, or nothing
--- done for IDLE seconds); dead (what you were at); an instance; the auction house or the mailbox; crafting; quest
+-- The first that applies: in combat, where you are (an instance) or what you were at; on a taxi; away (AFK); dead (what
+-- you were at, DEAD seconds of it); an instance; away (nothing done for IDLE seconds); the auction house or the mailbox; crafting; quest
 -- progress lately; gathering lately; a fight lately; resting; roaming. A new column goes at the end of COLS.
 --
 -- It writes straight into the saved table and does nothing at logout, where the game answers 0 to everything. No call is
@@ -23,15 +23,17 @@ local IDLE = 180                    -- without moving, casting or fighting, and 
 local QUEST, GATHER, HUNT = 300, 180, 90 -- "lately"
 local CRAFT = 60                    -- a cast, with a profession window open
 local DEAD = 600                    -- a corpse run longer than this is being away
+local SETTLE = 10                   -- after entering the world, where the game may report the whole quest log as changed
 local MAX_DAYS, MAX_LEVELS = 60, 100
 local COLS = {"away", "trade", "raid", "dungeon", "pvp", "taxi", "craft", "quest", "gather", "hunt", "town", "roam", "turnins"}
 local KINDS = {party = "dungeon", scenario = "dungeon", raid = "raid", pvp = "pvp", arena = "pvp"}
 local TRADE_FRAMES = {"AuctionHouseFrame", "AuctionFrame", "MailFrame"}
 local CRAFT_FRAMES = {"ProfessionsFrame", "TradeSkillFrame", "CraftFrame"}
-local GATHERING = {2575, 2366, 7620} -- mining, herbs, fishing: every rank has the same name
+local GATHERING = {2575, 2366, 7620} -- mining, herbs, fishing: every rank has the same name (skinning belongs to the hunt)
 
 local last, done = 0, 0             -- GetTime() of the last look, of the last thing you did
 local castAt, questAt, gatherAt, huntAt = -1e9, -1e9, -1e9, -1e9
+local entered = 0                   -- GetTime() of entering the world
 local inCombat, kind, deadSince
 local living = "roam"               -- the last state alive
 local midnight = 0                  -- time() of the next one
@@ -113,13 +115,14 @@ local function State(t)
         return "taxi"
     end
     if (Try(GetUnitSpeed, "player") or 0) > 0 then done = t end
-    local trading = Shown(TRADE_FRAMES)
-    if Try(UnitIsAFK, "player") or (not trading and t - done > IDLE) then return "away" end
+    if Try(UnitIsAFK, "player") then return "away" end
     if Try(UnitIsDeadOrGhost, "player") then
         deadSince = deadSince or t
         return t - deadSince <= DEAD and living or "away"
     end
     deadSince = nil
+    local trading = Shown(TRADE_FRAMES)
+    if not kind and not trading and t - done > IDLE then return "away" end
     living = kind
         or (trading and "trade")
         or (t - castAt < CRAFT and Shown(CRAFT_FRAMES) and "craft")
@@ -144,7 +147,10 @@ local function Start()
     if ticker or not (C_Timer and C_Timer.NewTicker) then return end
     last = GetTime()
     ticker = C_Timer.NewTicker(TICK, function()
-        if pcall(Look) then return end
+        if pcall(Look) then
+            failed = 0
+            return
+        end
         failed = failed + 1
         if failed >= 3 then ticker:Cancel() end
     end)
@@ -191,7 +197,7 @@ local function OnEvent(event, ...)
     elseif event == "PLAYER_ENTERING_WORLD" or event == "ZONE_CHANGED_NEW_AREA" then
         Where()
         if event == "PLAYER_ENTERING_WORLD" then
-            last, done = t, t
+            last, done, entered = t, t, t
             inCombat = Try(InCombatLockdown) or false
             if C_Timer and C_Timer.After then
                 C_Timer.After(3, function()
@@ -202,7 +208,7 @@ local function OnEvent(event, ...)
         end
     elseif event == "PLAYER_LEVEL_UP" then
         Level((...))
-    else -- quests
+    elseif event ~= "UNIT_QUEST_LOG_CHANGED" or t - entered > SETTLE then -- quests
         questAt, done = t, t
         if event == "QUEST_TURNED_IN" then
             local now = Today()

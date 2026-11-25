@@ -1,16 +1,17 @@
 """Where your time goes, from what the add-on (Life.lua) counted per day, and the Player Type it makes. Pure data.
 
 figures(time, lo, hi) -> None when the window has no day, else {"seconds" (played, away left out), "away", "turnins",
+"since" (the first day counted, ISO, when that is later than the window's first: the rest is not known; else None),
 "parts" {part: share of seconds, 0..1, those with any}, "type", "lead" (its part), "second" (a part, or None)}. time is
 {"2026-11-24": {column: seconds}}; a day belongs to the window (lo, hi] by its date, so each day is in one of two
 neighbouring windows. "type" and what follows are None under MIN_SECONDS.
 
 The type is the part furthest over its own bar. The bars differ because the parts do: an hour at the auction house is a
-lot, an hour in town is not. Both they and the names are fixed by hand, as the traits' ends are.
+lot, an hour of travel is not. Both they and the names are fixed by hand, as the traits' ends are.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 MIN_SECONDS = 5 * 3600
 SECOND = 0.20
@@ -21,9 +22,9 @@ PARTS = {"quest": (("quest",), .35, "Errant"),
          "raid": (("raid",), .25, "Siegebreaker"),
          "pvp": (("pvp",), .25, "Warmonger"),
          "craft": (("craft", "gather"), .20, "Artisan"),
-         "trade": (("trade",), .10, "Merchant Prince"),
+         "trade": (("trade",), .15, "Merchant Prince"),
          "travel": (("taxi", "roam"), .35, "Wayfarer"),
-         "town": (("town",), .50, "Hearthkeeper")}
+         "town": (("town",), .35, "Hearthkeeper")}
 NONE = "Adventurer"
 
 
@@ -31,11 +32,13 @@ def figures(time: dict[str, dict[str, float]] | None, lo: datetime, hi: datetime
     days = [d for day, d in (time or {}).items() if lo.date() < datetime.fromisoformat(day).date() <= hi.date()]
     if not days:
         return None
+    first = min(time)
     total = lambda *cols: sum(d.get(c) or 0 for d in days for c in cols)  # noqa: E731
     each = {p: total(*cols) for p, (cols, _, _) in PARTS.items()}
     seconds = sum(each.values())
     parts = {p: s / seconds for p, s in each.items() if s}
     out = {"seconds": seconds, "away": total("away"), "turnins": round(total("turnins")), "parts": parts,
+           "since": first if datetime.fromisoformat(first).date() > lo.date() + timedelta(days=1) else None,
            "type": None, "lead": None, "second": None}
     if seconds < MIN_SECONDS:
         return out
