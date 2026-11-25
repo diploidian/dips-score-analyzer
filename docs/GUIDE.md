@@ -938,7 +938,8 @@ and the weaker one scores, and "or" means the better known one scores.
 | Company | Fights in a group | of fights in a group | 50% to 97% | 30 | Loyal, Stalwart, Sworn | all |
 | Company | Top of the group | of group fights topping the damage | 25% to 70% | 20 | Rising, Leading, Commanding | damage, tank |
 | Company | Help for the group | dispels on others per 100 group fights; of the group's healing on others is yours | 3.0 to 25.0 or 10% to 35% | 30 or 20 | Merciful, Guarding, Selfless | all |
-| Company | Benefactor | strangers helped and revives cast | 5 to 100 | 5 | Kind, Generous, Great-Hearted | all |
+| Company | Benefactor | strangers buffed, healed or cleansed | 5 to 75 | 5 | Kind, Generous, Great-Hearted | all |
+| Company | Lifegiver | revives cast | 2 to 25 | 3 | Rousing, Rekindling, Life-Giving | all |
 | Road | Zones fought in | zones with five fights or more | 5 to 22 | 30 | Roaming, Far-Travelled, Worldly | all |
 | Road | Different enemies beaten | different enemies beaten | 80 to 500 | 30 | Curious, Seasoned, All-Seeing | all |
 
@@ -1007,6 +1008,9 @@ figure and the card.
 | Abilities that count + Cooldowns used | the Full Quiver |
 | Zones fought in + Different enemies beaten | the Walking Atlas |
 | Fights in a group + Help for the group | the Open Hand |
+| Lifegiver + Benefactor | the Open Heart |
+| Lifegiver + Help for the group | the Second Dawn |
+| Lifegiver + Fights in a group | the Last Hope |
 | Benefactor + Zones fought in | the Wayside Saint |
 | Benefactor + Fights alone | the Stranger's Friend |
 | Interrupts + Close calls answered | the Cold Eye |
@@ -1027,8 +1031,8 @@ Titles are saved with each finished 15-day block, so Earlier reads as a history 
 - Help for others (dispels, healing and your share of it) leaves out yourself, your pets and your
   guardians, and a dispel of an enemy, which is a purge. Your share of the group's healing is yours
   against what the group gave each other, and Help for the group uses it for non-healers only.
-- **Benefactor** counts each stranger (a player outside your group) once a day, plus every revive you cast, in your
-  group or not; the log does not say whether a revive was accepted. A buff, a heal or a dispel counts only when you
+- **Lifegiver** counts every revive you cast, in your group or not; the log does not say whether it was accepted.
+- **Benefactor** counts each stranger (a player outside your group) you helped, once a day. A buff, a heal or a dispel counts only when you
   cast it on that very player, so an aura that radiates does not, nor does a buff the game logs again when somebody
   comes back into range. Buffs on your own group are shown but do not score. No names are saved. Press Import in
   Settings once to fill it in from your old combat logs.

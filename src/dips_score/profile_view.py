@@ -44,7 +44,7 @@ WORTH, WELL = "Worth changing", "Going well"     # the plate's tab: a fix, or no
 FAMILY_INK = {"Pace": "m-pace", "Nerve": "m-surv", "Weapon": "m-dmg", "Healing": "role-heal", "Tanking": "role-tank",
               "Road": "place-world"}
 KEY_INK = {"Edgewise": "m-dmg", "split": "m-dmg", "Ready": "m-cd", "Planted": "m-cast", "cut": "m-cast", "Primed": "m-upk",
-           "Mercy": "role-heal", "Benefactor": "role-heal", "overheal": "role-heal", "heal_share": "role-heal", "dispels": "role-heal",
+           "Mercy": "role-heal", "Benefactor": "role-heal", "Lifegiver": "role-heal", "overheal": "role-heal", "heal_share": "role-heal", "dispels": "role-heal",
            "pull": "role-tank", "taken": "m-surv", "lowest": "m-surv", "War": "place-pvp", "broken_off": "place-pvp",
            "length": "place-pvp", "pvp_deaths": "place-pvp"}
 GUARD_NAME = {"%": "Average lowest health", "n1": "Deaths per 100 fights"}      # by the figure that scores it
@@ -96,7 +96,7 @@ class TraitRow:
     note: str                   # "between one fight and the next"
     bar: float                  # its score 0..1
     tier: str = ""              # its epithet "Relentless", "" under the first tier
-    next: str = ""              # "Unfallen at 126, you are at 97", "" at the top tier; Benefactor's begins with its parts
+    next: str = ""              # "Unfallen at 126, you are at 97", "" at the top tier; Benefactor's and Lifegiver's say more first
     ink: str = "tx"             # its figure's and bar's
 
 
@@ -303,10 +303,11 @@ def _ink(key: str, main: str | None) -> str:
     return KEY_INK.get(key) or FAMILY_INK.get(BY_KEY[key].family) or ROLE_INK.get(main, "tx")
 
 
-def _given(h: dict) -> str:
-    """36 strangers helped, 14 revives cast, 47 buffs for your group"""
-    return ", ".join((_count(h["strangers"], "stranger") + " helped", _count(h["revives"], "revive") + " cast",
-                      _count(h["group_buffs"], "buff") + " for your group"))
+def _given(key: str, h: dict) -> str:
+    """what a helping trait's figure is made of, or what goes with it"""
+    if key == "Lifegiver":
+        return f"{h['group_revives']:,} in your group, {_count(h['revives'] - h['group_revives'], 'stranger')}"
+    return f"strangers helped, and {_count(h['group_buffs'], 'buff')} for your group"
 
 
 def _trait_row(t: dict, main: str | None, helping: dict | None = None) -> TraitRow:
@@ -319,8 +320,9 @@ def _trait_row(t: dict, main: str | None, helping: dict | None = None) -> TraitR
         # the same rounded figure: one decimal more
         at = shown(t["kind"], t["figure"], fine=(value, unit) in need)
         r.next = f"{t['next']['epithet']} at {_and([written(*x) for x in need])}, you are at {written(*at)}"
-    if tr.key == "Benefactor" and helping:       # its one line says what it is made of too
-        r.next = ". ".join(x for x in (_given(helping), r.next) if x)
+    if tr.key in ("Benefactor", "Lifegiver") and helping:       # their one line says more than the next tier
+        given = _given(tr.key, helping)
+        r.next = ". ".join(x for x in (given[0].upper() + given[1:], r.next) if x)
     return r
 
 

@@ -1,4 +1,4 @@
-"""What you do for other players: which log events count, that live and replay agree, and the Benefactor trait."""
+"""What you do for other players: which log events count, that live and replay agree, and the two traits."""
 import sys
 import tempfile
 import unittest
@@ -13,7 +13,7 @@ from dips_score.live.helping import Watch, figures  # noqa: E402
 from dips_score.live.history import History  # noqa: E402
 from dips_score.live.profile import profile  # noqa: E402
 from dips_score.live.tracker import Tracker  # noqa: E402
-from dips_score.live.traits import raw, scores  # noqa: E402
+from dips_score.live.traits import named, pick, raw, scores  # noqa: E402
 from dips_score.profile_view import build_profile  # noqa: E402
 from dips_score.sources.combatlog import Event  # noqa: E402
 
@@ -91,7 +91,7 @@ class Figures(unittest.TestCase):
 
     def test_group(self):
         got = self.of(cast(flags=MATE), buff(flags=MATE), ev("SPELL_RESURRECT", 9, flags=MATE), ev("SPELL_RESURRECT", 10))
-        self.assertEqual(got, {"strangers": 0, "different": 0, "revives": 2, "group_buffs": 1})
+        self.assertEqual(got, {"strangers": 0, "different": 0, "revives": 2, "group_revives": 1, "group_buffs": 1})
 
     def test_window_and_unknown(self):
         a = acts(ev("SPELL_RESURRECT"))
@@ -136,15 +136,24 @@ class Kept(unittest.TestCase):
 class Trait(unittest.TestCase):
     def given(self, strangers, revives=0, **kw):
         return {"main_role": "damage", "helping": {"strangers": strangers, "different": strangers, "revives": revives,
-                                                   "group_buffs": 0} | kw}
+                                                   "group_revives": 0, "group_buffs": 0} | kw}
 
     def test_score(self):
-        self.assertEqual(raw([], self.given(36, 14))["Benefactor"], [(50, 50)])
-        self.assertEqual(raw([], {})["Benefactor"], [(None, 0)])
+        found = raw([], self.given(36, 14))
+        self.assertEqual((found["Benefactor"], found["Lifegiver"]), ([(36, 36)], [(14, 14)]))     # never added up
+        self.assertEqual([raw([], {})[k] for k in ("Benefactor", "Lifegiver")], [[(None, 0)]] * 2)
         at = lambda n: scores([], self.given(n))["Benefactor"]  # noqa: E731
         self.assertIsNone(at(4))                                                # nothing to give: no score, not a low one
-        self.assertEqual([at(n)["tier"] for n in (5, 39, 62, 86)], [0, 1, 2, 3])
-        self.assertIsNone(scores([], self.given(0))["Benefactor"])
+        self.assertEqual([at(n)["tier"] for n in (5, 30, 47, 65)], [0, 1, 2, 3])
+        self.assertIsNone(at(0))
+        rez = lambda n: scores([], self.given(0, n))["Lifegiver"]  # noqa: E731
+        self.assertEqual([rez(n)["tier"] for n in (3, 11, 16, 22)], [0, 1, 2, 3])
+        self.assertIsNone(rez(2))
+
+    def test_two_kinds_of_player(self):
+        buffer, raiser = scores([], self.given(60)), scores([], self.given(0, 20))
+        self.assertEqual((pick(buffer), pick(raiser)), (["Benefactor"], ["Lifegiver"]))
+        self.assertEqual(named(scores([], self.given(60, 20)))[0], "the Open Heart")
 
     def test_deeds(self):
         self.assertEqual(titles.deeds([], self.given(40, 14)), ["14 revives cast on the fallen", "40 different strangers helped"])
@@ -156,14 +165,16 @@ class Trait(unittest.TestCase):
         fights = [{"me": ME, "me_name": "Me", "start": (start + timedelta(minutes=i)).isoformat(), "duration": 30,
                    "kind": "World", "result": "killed"} for i in range(12)]
         got = [a for i in range(6) for a in acts(cast(i, dst=f"{A}{i}"), buff(i, dst=f"{A}{i}"))]
+        got += acts(*(ev("SPELL_RESURRECT", i, flags=MATE if i else STRANGER) for i in range(4)))
         now = datetime(2026, 11, 24)
         v = build_profile(profile(fights, None, {}, [], now, None, got), [])
-        row = next(r for _, rows in v.traits for r in rows if r.key == "Benefactor")
-        self.assertEqual((row.name, row.value, row.next, row.ink),
-                         ("Benefactor", "6", "6 strangers helped, 0 revives cast, 0 buffs for your group. "
-                          "Kind at 39, you are at 6", "role-heal"))
-        self.assertNotIn("Benefactor", [r.key for _, rows in build_profile(profile(fights, None, {}, [], now), []).traits
-                                        for r in rows])
+        rows = {r.key: (r.name, r.value, r.next, r.ink) for _, rows in v.traits for r in rows}
+        self.assertEqual(rows["Benefactor"], (
+            "Benefactor", "6", "Strangers helped, and 0 buffs for your group. Kind at 30, you are at 6", "role-heal"))
+        self.assertEqual(rows["Lifegiver"], (
+            "Lifegiver", "4", "3 in your group, 1 stranger. Rousing at 11, you are at 4", "role-heal"))
+        none = {r.key for _, rows in build_profile(profile(fights, None, {}, [], now), []).traits for r in rows}
+        self.assertFalse(none & {"Benefactor", "Lifegiver"})
 
 
 if __name__ == "__main__":

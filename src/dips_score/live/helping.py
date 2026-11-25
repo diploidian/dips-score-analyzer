@@ -61,11 +61,12 @@ class Watch:
 
 def figures(acts: list[dict] | None, lo: datetime, hi: datetime) -> dict | None:
     """one character's acts in (lo, hi], None without any act known at all: {"strangers" (each once a day), "different"
-    (strangers), "revives", "group_buffs"}"""
+    (strangers), "revives", "group_revives" (of them, in your group), "group_buffs"}"""
     if not acts:
         return None
     win = [a for a in acts if lo < datetime.fromisoformat(a["t"]) <= hi]
     out = [a for a in win if not a["group"] and a["kind"] != "revive"]
     return {"strangers": len({(a["t"][:10], a["who"]) for a in out}), "different": len({a["who"] for a in out}),
             "revives": sum(a["kind"] == "revive" for a in win),
+            "group_revives": sum(a["group"] and a["kind"] == "revive" for a in win),
             "group_buffs": sum(a["group"] and a["kind"] == "buff" for a in win)}
