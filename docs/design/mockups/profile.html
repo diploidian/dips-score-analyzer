@@ -92,6 +92,16 @@
 .tr p{grid-column:1/-1;margin-top:1px;font-size:12px;color:var(--tx2)}
 .tr .ends{grid-column:1/-1;display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--mu)}.tr .ends i{font-style:normal}
 .how{margin:0 0 12px;font-size:12px;color:var(--tx2)}
+/* Where your time goes: one bar, its parts named and timed under it; the Player Type over it */
+.time{padding:16px 0 18px;border-top:1px solid var(--ln)}.time>.illus{margin-left:12px}
+.time .ty{margin-top:12px;font:700 34px/1.1 "Barlow Condensed",sans-serif;text-wrap:balance}.time .cap{margin-top:4px;font-size:13px;color:var(--tx2)}
+.time .ty2{margin-top:12px;font:600 23px/1.2 "Barlow Condensed",sans-serif;text-wrap:balance}.time [hidden]{display:none}
+.tb{display:flex;gap:2px;height:22px;margin:14px 0 4px}.tb i{height:22px;min-width:3px}
+.tps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 40px}
+.tp{display:grid;grid-template-columns:10px minmax(0,1fr) auto 92px;gap:0 10px;align-items:baseline;align-content:start;padding:6px 0 7px;border-bottom:1px solid var(--ln)}
+.tp i{width:10px;height:10px;align-self:center;grid-row:1}.tp .n{font-weight:500}.tp b{font:700 20px/1 "Barlow Condensed",sans-serif;font-variant-numeric:tabular-nums}
+.tp .t{font-size:13px;color:var(--tx2);text-align:right}.tp .chip{grid-column:2/-1;justify-self:start;margin-top:4px}.tps+.cap{margin-top:10px}
+@media (max-width:1275px){.tps{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (max-width:760px){.tps{grid-template-columns:minmax(0,1fr)}}
 /* Character sheet: gear leads, in its rarity's ink (the word beside it); slots sit in a gutter, as a timing sheet's lanes */
 .sheet-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:2px 0 14px}.sheet-head .taken{font-size:12px;color:var(--tx2)}
 .sheet-head .illus{margin-left:auto}.sheet-head .illus[hidden],.sp[hidden]{display:none}.sp{padding-bottom:16px}
@@ -325,6 +335,17 @@ body{min-width:0}
       </div>
     </div>
 
+    <!-- time bar -->
+    <section class="time need-profile" id="time" aria-labelledby="timeh">
+      <h2 class="tab" id="timeh">Where your time goes</h2><span class="illus">hours illustrative</span>
+      <div class="time-in"><p class="ty">Huntmaster, and part Errant</p><p class="cap">39 h 21 min played in the last 15 days, as of your last /reload or logout.</p>
+      <div class="tb" aria-hidden="true"><i data-grow style="flex:0.3609 1 0;background:var(--m-surv)"></i><i data-grow style="flex:0.3075 1 0;background:var(--role-tank)"></i><i data-grow style="flex:0.1220 1 0;background:var(--place-dungeon)"></i><i data-grow style="flex:0.0864 1 0;background:var(--place-world)"></i><i data-grow style="flex:0.0584 1 0;background:var(--m-act)"></i><i data-grow style="flex:0.0432 1 0;background:var(--m-cd)"></i><i data-grow style="flex:0.0191 1 0;background:var(--gold)"></i><i data-grow style="flex:0.0025 1 0;background:var(--place-pvp)"></i></div>
+      <div class="tps"><div class="tp"><i style="background:var(--m-surv)"></i><span class="n">Hunting</span><b>36%</b><span class="t">14 h 12 min</span><span class="chip">+7 pts vs the 15 days before</span></div><div class="tp"><i style="background:var(--role-tank)"></i><span class="n">Questing</span><b>31%</b><span class="t">12 h 6 min</span><span class="chip">−8 pts vs the 15 days before</span></div><div class="tp"><i style="background:var(--place-dungeon)"></i><span class="n">Dungeons</span><b>12%</b><span class="t">4 h 48 min</span></div><div class="tp"><i style="background:var(--place-world)"></i><span class="n">Travelling</span><b>9%</b><span class="t">3 h 24 min</span></div><div class="tp"><i style="background:var(--m-act)"></i><span class="n">In town</span><b>6%</b><span class="t">2 h 18 min</span></div><div class="tp"><i style="background:var(--m-cd)"></i><span class="n">Gathering and crafting</span><b>4%</b><span class="t">1 h 42 min</span></div><div class="tp"><i style="background:var(--gold)"></i><span class="n">Auction house and mail</span><b>2%</b><span class="t">45 min</span></div><div class="tp"><i style="background:var(--place-pvp)"></i><span class="n">PvP</span><b>under 1%</b><span class="t">6 min</span></div></div>
+      <p class="cap">31 quests handed in. 2 h 5 min away left out.</p></div>
+      <p class="ty2" hidden>Your time bar needs 5 hours of play with the add-on (3 h 30 min so far).</p>
+      <p class="ty2" hidden>Your time bar fills in after you play and /reload with the add-on from 0.22 or newer.</p>
+    </section>
+    <!-- /time bar -->
     <details class="dr need-profile" id="traits" style="margin-top:0" open><summary><svg viewBox="0 0 10 10" aria-hidden="true"><polyline points="3,1 7,5 3,9"/></svg>All traits <span>(21)</span></summary>
         <p class="how">The three ticks on a bar are its tiers, and the framed word is the one you hold. This app chose each bar's two ends by hand; they don't compare you with other players. Hover a trait to see how it's worked out.</p>
         <div class="traits">
@@ -400,6 +421,12 @@ body{min-width:0}
   seg.addEventListener("click", function (ev) { var b = ev.target.closest("button"); if (b) set(b.getAttribute("data-state")); });
   var m = location.hash.match(/s:(\w+)/); if (m) set(m[1]);
   if (matchMedia("(max-width:1275px)").matches) document.getElementById("traits").open = false;
+})();
+(function () {       // mock-up only: #time=1 too few hours, #time=2 none yet
+  var m = location.hash.match(/time=(\d)/);
+  if (!m) return;
+  document.querySelector(".time-in").hidden = true;
+  document.querySelectorAll(".ty2")[m[1] - 1].hidden = false;
 })();
 (function () {
   var seg = document.getElementById("sheet-tabs");
