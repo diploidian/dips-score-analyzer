@@ -1202,6 +1202,7 @@ Everything is in `%APPDATA%\dips-score`: `weights.json` and `classes.json` (your
 other players, without their names).
 `errors.log` holds any error the app ran into and carried on past, for a bug report (it starts over past 1 MB).
 Only one copy of the app runs at a time; starting a second says so, so the same fight is never saved twice.
+Close the app before running `replay` from the command line, which writes the same file.
 `profile_history.json` holds the Earlier blocks of the Profile page, and `profile_runs.json` what it
 takes from each recorded run, kept 60 days because the add-on keeps only its last runs.
 `spells.json` replaced the older `cooldowns.json`, which is no longer read. Run `replay` once to

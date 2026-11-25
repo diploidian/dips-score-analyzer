@@ -194,7 +194,7 @@ def analyze(run: Run, paths: Paths, role: str | None = None) -> Analysis:
         a.upkeep = measure_upkeep(rd, base=ub)
         for fr in fights:
             fr.upkeep = measure_upkeep(rd, [(fr.fight.start, fr.fight.end)], ub)
-        h = History(paths)
+        h = History(paths, mend=False)      # a reader, on the loader's thread: the app's own History mends the file
         h.load_types(paths.account_saved_files())
         a.cooldowns, per_fight = measure_cooldowns(rd, h.book(me), h.types)
         for fr, cm in zip(fights, per_fight):

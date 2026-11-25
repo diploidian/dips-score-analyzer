@@ -205,6 +205,31 @@ class ShellTests(unittest.TestCase):
                 self.assertEqual(w.fight_run.id, "r7")
             self.assertTrue(w.mode_fights.isChecked())
 
+    def test_errors_are_logged_and_one_copy_runs(self):
+        """an error in a handler goes to errors.log (once, even without a console) and the app goes on; a second
+        copy is refused and says so"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication, QMessageBox
+        app = QApplication.instance() or QApplication([])  # noqa: F841
+        from dips_score.config import Paths
+        from dips_score.ui.app import log_errors, one_copy
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}), \
+                mock.patch.object(sys, "excepthook"), mock.patch.object(sys, "stderr", None), \
+                mock.patch.object(QMessageBox, "information") as told:
+            paths = Paths(Path(tmp) / "no game")
+            log_errors(paths)
+            for _ in range(3):
+                try:
+                    raise KeyError("boom")
+                except KeyError:
+                    sys.excepthook(*sys.exc_info())
+            self.assertEqual((paths.data_dir / "errors.log").read_text(encoding="utf-8").count("KeyError: 'boom'"), 1)
+            first = one_copy(paths)
+            self.assertIsNotNone(first)
+            self.assertIsNone(one_copy(paths))
+            self.assertTrue(told.called)
+            first.unlock()
+
     def test_a_fight_finds_its_own_recording(self):
         """a recording not ended yet runs to the game's last save; another character's recording isn't yours; with
         none, it says why"""

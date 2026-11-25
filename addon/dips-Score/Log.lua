@@ -117,7 +117,7 @@ function ns.Log() return log end
 
 ----------------------------------------------------------------------
 -- Loading: start the saved table, drop the oldest runs past maxRuns: open-world ones first (every zone change can
--- start one), so they don't push out the dungeon runs; never the one open
+-- start one), so they don't push out the dungeon runs; never one you started by hand, nor the one open
 ----------------------------------------------------------------------
 ns.OnLoad(function()
     if type(dipsScoreLog) ~= "table" or dipsScoreLog.version ~= ns.VERSION then
@@ -127,7 +127,11 @@ ns.OnLoad(function()
     log.runs = log.runs or {}
     local runs, i = log.runs, 1
     while #runs > ns.db.maxRuns and i <= #runs do
-        if runs[i].kind == "world" and runs[i].id ~= log.active then table.remove(runs, i) else i = i + 1 end
+        if runs[i].kind == "world" and not runs[i].manual and runs[i].id ~= log.active then
+            table.remove(runs, i)
+        else
+            i = i + 1
+        end
     end
     while #runs > ns.db.maxRuns do table.remove(runs, 1) end
 end)

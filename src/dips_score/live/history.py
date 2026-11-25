@@ -32,7 +32,10 @@ def _start(f: dict) -> str:
 
 
 class History:
-    def __init__(self, paths: Paths):
+    def __init__(self, paths: Paths, mend: bool = True):
+        """mend: a file with a cut last line or a fight twice is written again clean (only the app's own History, not a
+        reader on another thread)"""
+        self.mend = mend
         self.file = paths.data_dir / "fights.jsonl"
         self.spells_file = paths.data_dir / "spells.json"
         self.help_file = paths.data_dir / "help.jsonl"
@@ -52,11 +55,11 @@ class History:
                 f = json.loads(line)
                 if "ilvl" not in f:         # before 0.22 the log's average item level was saved as the level
                     f["ilvl"] = f.pop("level", None)
-                by_id[f.get("id")] = f      # one per fight, the last written (a second copy of the app saved it too)
+                by_id[f.get("id") or len(by_id)] = f    # one per fight, the last written (a second copy of the app saved it)
             except (ValueError, AttributeError, TypeError):
                 continue
         self.fights = sorted(by_id.values(), key=_start)       # a replay adds the older ones it finds last
-        if text and (not text.endswith("\n") or len(by_id) < text.count("\n")):
+        if self.mend and text and (not text.endswith("\n") or len(by_id) < text.count("\n")):
             self._rewrite()     # a line cut short (a crash mid-save) would swallow the next fight added after it
         self.acts = {}
         if self.help_file.exists():

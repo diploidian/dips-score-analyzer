@@ -400,7 +400,8 @@ class Window(QMainWindow):
         if a is None:
             self.run_rows.setdefault(rid, None)     # a good row stays
             if wanted:
-                sys.stderr.write(err)       # as traceback.print_exc did
+                if sys.stderr:              # as traceback.print_exc did (no console when installed)
+                    sys.stderr.write(err)
                 self.failed.add(key)
         else:
             analysis.rescore(a)             # the store's were scored with the weights of their day
@@ -945,9 +946,15 @@ ERRORS_MOST = 1_000_000      # errors.log starts over past this many bytes
 def log_errors(paths: Paths):
     """an error in a click or timer handler, written to errors.log (and the terminal) instead of closing the app: PyQt6
     ends the program on one otherwise"""
+    last = [""]
+
     def hook(kind, err, tb):
         text = "".join(traceback.format_exception(kind, err, tb))
-        sys.stderr.write(text)
+        if sys.stderr:              # the installed app has no console: None
+            sys.stderr.write(text)
+        if text == last[0]:         # a timer failing over and over: once is enough, and the first cause stays
+            return
+        last[0] = text
         try:
             log = paths.data_dir / "errors.log"
             log.parent.mkdir(parents=True, exist_ok=True)
