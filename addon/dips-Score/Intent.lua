@@ -24,6 +24,7 @@ local function EndFight()
     fight = nil
     local secs = f and math.floor(GetTime() - f.start + 0.5)
     if not secs or secs < 3 or not (ns.db and ns.db.fightLine) then return end
+    if ns.Quiet(select(2, GetInstanceInfo())) then return end
     local parts = {Count(f.presses, "press", "presses") .. " (" .. Count(f.clicks, "click", "clicks") .. ")"}
     if f.refused > 0 then parts[#parts + 1] = f.refused .. " refused" end
     if f.interrupted > 0 then parts[#parts + 1] = f.interrupted .. " interrupted" end

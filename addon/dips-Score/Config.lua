@@ -15,12 +15,19 @@ ns.DEFAULTS = {
     announce = true,    -- a chat line when a run starts and ends
     combatLog = true,   -- turn the game's combat log (and advanced logging) on at login and when a run starts
     fightLine = true,   -- a chat line after each fight: presses, clicks, refused casts
+    dungeonsOnly = false, -- those two lines only in dungeons and raids
     button = {          -- the record button
         shown = true,
         locked = false,
         point = {"TOP", "TOP", 0, -120}, -- point, relPoint (on the screen), x, y
     },
 }
+
+-- Whether the chat lines stay away in a place of that kind (GetInstanceInfo's, "none" or "world" outside).
+local INSIDE = {party = true, raid = true, scenario = true}
+function ns.Quiet(kind)
+    return ns.db.dungeonsOnly and not INSIDE[kind] or false
+end
 
 -- Files keep a local `db`; this hands it to them once the settings are loaded.
 local loaders = {}

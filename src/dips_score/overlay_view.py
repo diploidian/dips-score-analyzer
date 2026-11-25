@@ -8,6 +8,7 @@ from datetime import datetime
 
 from .debrief import fmt_time
 from .fight_view import CLEAN, _hero, _losses, _n
+from .live.profile import place
 
 PANEL_ALPHA = 232      # the card's panel over the game (of 255): its inks are checked on that blend (the tests)
 
@@ -28,6 +29,11 @@ class CardView:
     caption: str = ""
     died: bool = False
     updated: bool = False       # a combat that carried on: this card replaced its first one
+
+
+def shows(settings: dict, d: dict) -> bool:
+    """whether a fight gets a card by itself (Settings, After each fight)"""
+    return bool(settings.get("overlay", True)) and (not settings.get("overlay_dungeons") or place(d) in ("Dungeon", "Raid"))
 
 
 def _name(d: dict) -> str:

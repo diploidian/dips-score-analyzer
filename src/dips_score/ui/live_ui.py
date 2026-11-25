@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from ..config import Paths
 from ..live.history import History, Live
+from ..overlay_view import shows
 from ..sources.savedvars import load_char
 from . import settings as app_settings
 from . import theme
@@ -55,7 +56,7 @@ class LiveController(QObject):
             return
         for s in done:
             self.fight.emit(s)
-            if self.settings.get("overlay", True):
+            if shows(self.settings, s):
                 self.show(s)
 
     def _sync(self):
@@ -89,12 +90,13 @@ class LiveController(QObject):
         app_settings.save(self.paths, self.settings)
 
     def refresh(self):
-        """apply changed overlay settings: hide the card, or put the last fight up (kept, or timed again)"""
+        """apply changed overlay settings: hide the card, or put the last fight that gets one up (kept, or timed again)"""
         self._sync()
-        if not self.settings.get("overlay", True):
+        last = next((f for f in reversed(self.history.fights) if shows(self.settings, f)), None)
+        if last is None:
             self.overlay.hide()
         elif self.settings.get("overlay_keep") or self.overlay.isVisible():
-            self.show_last()
+            self.show(last)
 
 
 def run_tray(paths: Paths) -> int:

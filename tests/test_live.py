@@ -15,7 +15,7 @@ from dips_score.live.summary import cooldown, learn_cooldowns, summarize  # noqa
 from dips_score.config import Paths  # noqa: E402
 from dips_score.live import history  # noqa: E402
 from dips_score.live.history import History, replay  # noqa: E402
-from dips_score.live.profile import _place  # noqa: E402
+from dips_score.live.profile import place  # noqa: E402
 from dips_score.live.tracker import Tracker  # noqa: E402
 from dips_score.sources.combatlog import UnitInfo  # noqa: E402
 
@@ -79,7 +79,7 @@ class Live(unittest.TestCase):
                    line(60, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")]
             tr = Tracker()
             s = summarize(tr.feed_lines(sorted(log))[0], tr.me, tr.me_name, {}, [])
-            return s["kind"], s["instance"], s["difficulty"], _place(s)
+            return s["kind"], s["instance"], s["difficulty"], place(s)
         self.assertEqual(where('1,"Tanaris",0', 1), ("World", 0, 0, "World"))
         self.assertEqual(where('0,"Riverglades",0', "0"), ("World", 0, 0, "World"))
         self.assertEqual(where('0,"The Deadmines",0', 36), ("Dungeon", 36, 0, "Dungeon"))
@@ -195,6 +195,18 @@ class Live(unittest.TestCase):
         tr, (f,) = self._wall(log, 2.5)
         again = tr.feed_lines([dmg(3, ME, MOB2, 8092, "Mind Blast", 300), line(4, f"UNIT_DIED,{NONE},{MOB2},0"),
                                line(30, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")])
+        self.assertEqual((again[0].start, again[0].reopened), (f.start, 1))
+
+    def test_a_new_fight_is_not_glued_to_one_that_was_over(self):
+        """every enemy was dead: the log's 2 s end it, however late the game wrote the next lines"""
+        log = [dmg(0, ME, MOB, 8092, "Mind Blast", 300), line(1, f"UNIT_DIED,{NONE},{MOB},0")]
+        tr, (f,) = self._wall(log, 2.5)
+        again = tr.feed_lines([dmg(10, ME, MOB2, 8092, "Mind Blast", 300), line(11, f"UNIT_DIED,{NONE},{MOB2},0"),
+                               line(30, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")])
+        self.assertGreater(again[0].start, f.start)
+        tr, (f,) = self._wall(log[:1], 10.5)        # one was alive: not over until 15 s
+        again = tr.feed_lines([dmg(12, ME, MOB2, 8092, "Mind Blast", 300),
+                               line(40, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")])
         self.assertEqual((again[0].start, again[0].reopened), (f.start, 1))
 
     def test_a_live_enemy_waits_ten_seconds(self):
@@ -459,6 +471,13 @@ class AutoAttack(unittest.TestCase):
         for extra, lost in (([], 1), (hs, 0)):
             tr, f = one_fight(base + extra)
             self.assertEqual(summarize(f, tr.me, tr.me_name, {}, [])["auto"]["lost_other"], lost)
+
+    def test_swings_nobody_could_make_are_not_lost(self):
+        """nobody fought for 10 s; a shorter wait is the lost swings themselves"""
+        lost = lambda times: (lambda tr, f: summarize(f, tr.me, tr.me_name, {}, [])["auto"]["lost_other"])(  # noqa: E731
+            *one_fight([swing(t, ME, MOB, 100) for t in times]))
+        self.assertEqual(lost([0, 2, 4, 6, 8, 20, 22, 24]), 0)
+        self.assertEqual(lost([0, 2, 4, 6, 8, 17, 19, 21]), 3)
 
     def test_swinging_between_abilities_is_not_idle(self):
         tr, f = one_fight([*[swing(t, ME, MOB, 100) for t in range(0, 31, 2)],

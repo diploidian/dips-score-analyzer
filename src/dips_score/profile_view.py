@@ -17,6 +17,7 @@ from .habits_view import MINUS, _meta, _plural
 from .live.profile_history import MIN_FIGHTS
 from .live.traits import BY_KEY, TIERS, needs, shown, written
 from .scoring import usable
+from .scoring.score import RULES
 from .sheet_view import SheetView, build_sheet
 from .time_view import TimeBar, build_time
 from .trait_words import words
@@ -300,7 +301,7 @@ def run_row(a) -> dict:
     known = visit.score is not None and a.me and a.me.role
     return {"me": a.data.player_guid, "parts": list(run.parts) or [run.id], "name": run.player_name,
             "start": run.start_time, "role": {"dps": "damage"}.get(a.role, a.role) if known else None,
-            "score": visit.score, "grade": visit.grade, "presses": m.presses, "by_key": m.by_key, "by_click": m.by_click,
+            "score": visit.score, "grade": visit.grade, "rules": RULES, "presses": m.presses, "by_key": m.by_key, "by_click": m.by_click,
             "failed": m.failed, "casts": m.casts, "combat_time": m.combat_time, "moving_time": m.moving_time,
             "move_interrupts": m.move_interrupts, "wasted_cast_time": m.wasted_cast_time}
 

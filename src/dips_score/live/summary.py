@@ -15,7 +15,8 @@ reason not to (see readiness.py):
                            A spell that only works on some targets or after a dodge, block or parry
                            (scoring/usable.py) is excused while it couldn't be used; its row says its
                            chances, and possible counts only the casts that fit in those chances.
-    melee swings lost      gaps in your auto-attacks longer than 1.6 swings, while you weren't casting; a
+    melee swings lost      gaps in your auto-attacks longer than 1.6 swings, while you weren't casting, less
+                           time moving, stunned or where nobody fought for LONG_LULL seconds; a
                            next-swing ability (Heroic Strike, metrics.NEXT_SWING) fills the swing it replaces
     shots lost             the same for Auto Shot and wand Shoot, less time moving or with no enemy alive;
                            shots clipped by a cast (a hard cast; any cast for a wand) are counted apart;
@@ -69,6 +70,7 @@ from .tracker import NOT_HOSTILE as NOT_FIGHTING
 from .tracker import FightData, affiliation, is_foe, is_group
 
 GCD = 1.5
+LONG_LULL = 10.0      # a shorter one can be the lost swings themselves, when only you are fighting
 AUTO = {5019, 75}                      # wand Shoot, Auto Shot
 IDLE_GAP = 2.5
 MIN_COOLDOWN = 4.0                     # shorter "cooldowns" are just how often you cast it
@@ -534,7 +536,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     slots = sorted(swings + slots)
     speed = 0.0
     if len(swings) >= 2:
-        speed, lost_while_casting, lost_other = swing_stats(slots, hard)
+        speed, lost_while_casting, lost_other = swing_stats(
+            slots, hard, None, ctx.moving + ctx.cc + [(a, b) for a, b in ctx.lulls if b - a >= LONG_LULL])
         avg = statistics.mean(swing_dmg) if swing_dmg else 0
         swing_lost = lost_other * avg
         auto = {"swings": len(swings), "speed": speed, "lost": lost_while_casting + lost_other,

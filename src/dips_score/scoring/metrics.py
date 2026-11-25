@@ -457,10 +457,10 @@ def measure(rd: RunData, windows: list[Interval] | None = None) -> Metrics:
 
     # auto-attack: each swing or shot keeps you busy until the next one, at most one swing or shot
     slots = sorted(swings + slots)
-    m.swing_speed, _, m.swings_lost = swing_stats(slots, casting, windows)
+    no_enemy = gaps(list(map(tuple, alive.values())), windows, 0.0)
+    m.swing_speed, _, m.swings_lost = swing_stats(slots, casting, windows, moving + no_enemy)
     m.swings, m.hard_casts, m.shots = len(swings), len(casting), len(shots)
     wand = shot_ids.most_common(1)[0][0] == WAND if shot_ids else False
-    no_enemy = gaps(list(map(tuple, alive.values())), windows, 0.0)
     m.shot_speed, m.shots_clipped, m.shots_lost = swing_stats(shots, bars if wand else casting, windows,
                                                               moving + no_enemy)
     running = auto_running(slots, m.swing_speed) + auto_running(shots, m.shot_speed)

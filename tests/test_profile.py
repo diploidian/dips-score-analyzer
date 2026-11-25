@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from dips_score import removed  # noqa: E402
 from dips_score.live import profile_history as ph  # noqa: E402
 from dips_score.live import profile_runs  # noqa: E402
+from dips_score.scoring.score import RULES  # noqa: E402
 from dips_score.live.profile import label, profile  # noqa: E402
 from dips_score.profile_view import build_profile, mine, run_row  # noqa: E402
 
@@ -32,7 +33,7 @@ def fight(days_ago=1.0, me="A", **kw):
 def run(days_ago=1.0, **kw):
     r = {"start": T0 - days_ago * DAY, "role": "damage", "score": 85.0, "grade": "A", "presses": 100,
          "by_key": 90, "by_click": 10, "failed": 5, "casts": 95, "combat_time": 600, "move_interrupts": 4,
-         "wasted_cast_time": 6.5}
+         "wasted_cast_time": 6.5, "rules": RULES}
     r.update(kw)
     return r
 
@@ -342,6 +343,10 @@ class History(unittest.TestCase):
         self.assertEqual(list(profile_runs.merge(kept, {"r1b": run(40, parts=["r1b"])})), ["r1"])
         # a score is kept over none (its combat log is gone)
         self.assertEqual(profile_runs.merge(kept, {"r1": run(40, parts=["r1"], score=None)})["r1"]["score"], 85.0)
+        # scored by other rules: its presses stay, its score goes
+        for old in (run(40, parts=["r1"], rules=RULES - 1), {k: v for k, v in run(40, parts=["r1"]).items() if k != "rules"}):
+            r = profile_runs.merge(profile_runs.pack({"r1": old}, T0), {})["r1"]
+            self.assertEqual((r["score"], r["grade"], r["role"], r["presses"]), (None, None, None, 100))
         bare = profile_runs.pack({"r1": run(40, parts=["r1"], score=None)}, T0)
         self.assertEqual(profile_runs.merge(bare, {"r1": run(40, parts=["r1"], score=None, presses=7)})["r1"]["presses"], 7)
         with mock.patch.object(removed, "IDS", {"r1"}):
@@ -599,7 +604,7 @@ class View(unittest.TestCase):
                       deaths=[], wipes=[], me=me, role=role)
         r = run_row(a())
         self.assertEqual(r, {"me": "A", "parts": ["r"], "name": "Bao", "start": T0, "role": "damage",
-                             "score": 72.0, "grade": "B", "presses": 9, "by_key": 8, "by_click": 1, "failed": 2, "casts": 7, "combat_time": 600.0,
+                             "score": 72.0, "grade": "B", "rules": RULES, "presses": 9, "by_key": 8, "by_click": 1, "failed": 2, "casts": 7, "combat_time": 600.0,
                              "moving_time": 1.5, "move_interrupts": 1, "wasted_cast_time": 0.5})
         short, unknown = run_row(a(combat=20.0)), run_row(a(guid=None, role="healer", me=None))
         self.assertEqual((short["role"], short["score"]), (None, None))     # too short to compare: no grade

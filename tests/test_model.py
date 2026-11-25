@@ -575,6 +575,32 @@ class Phase5(unittest.TestCase):
     def test_no_advanced_shield_on_other_counts(self):
         self.assertIn("Shield", self.healer(TANK, advanced=False).heal_spells)
 
+    def instant(self, cast_at, on=TANK, name="Holy Shock", event="SPELL_HEAL"):
+        """an instant heal 1.5 s after the tank's dip, under another id than its cast's"""
+        from dips_score.scoring.healer import measure_healer
+        from dips_score.sources.combatlog import UnitInfo
+        hit = ev(10, "SWING_DAMAGE", MOB1, TANK, amount=500)
+        hit.info = UnitInfo(TANK, 400, 1000, 0, 0, 0, 0.0, 0.0, 0, 0.0, 60)
+        events = [ev(0, "SWING_DAMAGE", MOB1, ME, amount=1), hit, sp(11.5, "SPELL_CAST_SUCCESS", ME, cast_at, name, 1),
+                  sp(11.5, event, ME, on, name, 2)]
+        events[-1].amount = 300
+        return measure_healer(rundata(events, [Fight(0, 30)]))
+
+    def test_instant_and_channelled_heals_are_yours(self):
+        for hm in (self.instant(TANK), self.instant("0000000000000000", name="Penance")):      # a channel has no target
+            self.assertEqual((hm.missed, round(hm.dips[0].response, 1), hm.cast_heal, hm.passive_heal), (0, 1.5, 300, 0))
+
+    def test_procs_and_damage_are_not(self):
+        """what an enemy got, or only you: not an answer to a dip"""
+        for hm in (self.instant(MOB1, name="Vampiric Embrace"), self.instant(ME, on=ME, name="Cannibalize")):
+            self.assertEqual((hm.missed, hm.cast_heal, hm.passive_heal), (1, 0, 300))
+
+    def test_running_dry_counts(self):
+        from dips_score.scoring.healer import HealerMetrics
+        from dips_score.scoring.score import healer_categories
+        eff = lambda mana: healer_categories(HealerMetrics(lowest_mana=mana))[2].score  # noqa: E731
+        self.assertEqual((eff(None), eff(0.04), eff(0.0)), (100.0, eff(0.0), 91.0))
+
     def test_dispels_in_summary(self):
         from dips_score.scoring.score import healer_categories
         eff = {c.name: c for c in healer_categories(self.healer(TANK, dispel=True))}["Efficiency"]

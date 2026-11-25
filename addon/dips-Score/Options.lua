@@ -38,6 +38,7 @@ local OPTIONS = {
     {type = "toggle", key = "record.world", label = "Everywhere else", onChange = ns.UpdateRecording},
     {type = "toggle", key = "announce", label = "Say in chat when a run starts and ends"},
     {type = "toggle", key = "fightLine", label = "Print a line in chat after each fight (presses, clicks, refused casts)"},
+    {type = "toggle", key = "dungeonsOnly", label = "Those two lines only in dungeons and raids"},
     {type = "toggle", key = "combatLog", label = "Turn on the combat log (with advanced logging) when you log in"},
 
     {type = "header", label = "Record button"},

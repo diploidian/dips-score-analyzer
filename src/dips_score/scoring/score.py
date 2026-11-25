@@ -59,6 +59,7 @@ from .tank import PICKUP_CAP, TankMetrics
 from .upkeep import UpkeepMetrics
 
 ROLES = ("healer", "dps", "tank")
+RULES = 1       # raised when a run would score otherwise than before: the Profile doesn't mix them (live/profile_runs.py)
 
 TUNING = {
     # activity (dps): share of combat time casting, channeling, on the GCD or wanding
@@ -509,7 +510,7 @@ def healer_categories(hm: HealerMetrics, you: bool = True) -> list[Category]:
     cats.append(Category("Response", s, W["Response"], summary, tip))
 
     s_over = ramp(hm.overheal_share, T["overheal_zero"], T["overheal_full"])
-    mana_pen = T["oom_cost"] * hm.oom_refusals + (T["low_mana_cost"] if (hm.lowest_mana or 1) < T["low_mana"] else 0)
+    mana_pen = T["oom_cost"] * hm.oom_refusals + (T["low_mana_cost"] if hm.lowest_mana is not None and hm.lowest_mana < T["low_mana"] else 0)
     s_mana = max(0.0, 100 - mana_pen)
     s = 0.7 * s_over + 0.3 * s_mana
     mana_txt = f"lowest mana {hm.lowest_mana:.0%}" if hm.lowest_mana is not None else "mana unknown"

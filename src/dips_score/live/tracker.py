@@ -13,7 +13,7 @@ still alive.
 A closed fight is opened again - the same combat, carried on - when
     a new enemy joins within CHAIN seconds of it ending (the next one was already on its way), or
     fighting resumes with one of its enemies that hadn't died, within RESUME seconds, or
-    it was closed on the real-time rule and the log shows the fighting never really stopped.
+    it was closed on the real-time rule and the log, whose clock decides, shows it wasn't over yet.
 It's then handed out again when it ends, with the same start, so its card and saved summary are updated
 instead of a second one being made.
 
@@ -88,6 +88,10 @@ class FightData:
     forbearance: datetime | None = None        # since when Forbearance was on you, when it was
     reopened: int = 0                          # times it was opened again (a carried-on combat)
     closed_by_wall: bool = False
+
+
+def _all_dead(f: FightData) -> bool:
+    return bool(f.foes) and all(fo.died is not None for fo in f.foes.values())
 
 
 class Tracker:
@@ -194,7 +198,7 @@ class Tracker:
         if f is None or f.last_hostile is None:
             return False
         quiet = (log_now - f.last_hostile).total_seconds()
-        all_dead = all(fo.died is not None for fo in f.foes.values()) if f.foes else False
+        all_dead = _all_dead(f)
         if (all_dead and quiet >= QUIET_DEAD) or quiet >= QUIET_ALIVE:
             return True
         if wall_now is None:
@@ -209,7 +213,8 @@ class Tracker:
         gap = (e.ts - last.last_hostile).total_seconds()
         foe = last.foes.get(side[0])
         same_foe = foe is not None and foe.died is None
-        if not (gap <= CHAIN or (same_foe and gap <= RESUME) or (last.closed_by_wall and gap < QUIET_ALIVE)):
+        if not (gap <= CHAIN or (same_foe and gap <= RESUME)
+                or (last.closed_by_wall and not _all_dead(last) and gap < QUIET_ALIVE)):
             return False
         last.events.extend(self.after)
         last.end, last.closed_by_wall = None, False

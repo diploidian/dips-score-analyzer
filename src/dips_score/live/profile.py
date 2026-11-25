@@ -18,7 +18,7 @@ figures(...) keys (shares are fractions 0..1; None when there is nothing to divi
   seconds          their summed duration
   roles            {"damage", "healer", "tank"} -> share of fight seconds
   main_role        the role with the largest share (None without fights)
-  places           {"Dungeon", "Raid", "World", "PvP"} -> share of fight seconds (see _place)
+  places           {"Dungeon", "Raid", "World", "PvP"} -> share of fight seconds (see place)
   grades           role -> {"runs": graded runs, "score": mean score, "grade": letter of that mean}, or None
   signature        {"basis": "damage" | "casts", "top": first 5 spells, "spells": every spell}, each spell
                    {"name", "casts", "damage", "share", "swings"}: every row of the fights' abilities, Melee
@@ -102,7 +102,7 @@ def _role(f: dict, cls: str | None) -> str:
     return TALENT.get(talent_role(cls, [(f.get("spec"), 1)]), "damage")
 
 
-def _place(f: dict) -> str | None:
+def place(f: dict) -> str | None:
     """PvP; inside an instance Raid by its difficulty, else Dungeon; outside one World, a world boss too"""
     if f.get("kind") == "PvP":
         return "PvP"
@@ -209,8 +209,8 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
     role = {id(f): _role(f, cls) for f in win}
     for f in win:
         by_role[role[id(f)]] += f.get("duration") or 0
-        if place := _place(f):
-            by_place[place] += f.get("duration") or 0
+        if where := place(f):
+            by_place[where] += f.get("duration") or 0
     roles = {r: _share(by_role[r], seconds) for r in ROLES}
     main = max(ROLES, key=lambda r: roles[r] or 0) if seconds else None
     unused = idle_spells(win, char, book, types) if win and char else None

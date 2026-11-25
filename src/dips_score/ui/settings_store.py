@@ -10,6 +10,7 @@ DEFAULTS = {"theme": "timeless",
             "motion": True,           # the debrief's short entrance (number ticks, bars grow, circles draw on)
             "mode": "auto",           # day | night | auto (follow the OS)
             "overlay": True,          # the card after each fight
+            "overlay_dungeons": False,    # only after fights in dungeons and raids
             "overlay_seconds": 12,
             "overlay_keep": False,    # stay up, updated after each fight, instead of fading out
             "overlay_side": "right",

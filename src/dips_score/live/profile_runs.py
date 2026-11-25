@@ -1,5 +1,6 @@
 """What the Profile takes from each recorded run (profile_view.run_row), kept for 60 days because the add-on keeps only
 its last runs: %APPDATA%/dips-score/profile_runs.json, {character guid: {run id: row, its start as ISO time}}.
+A row scored by other rules than today's (score.RULES) keeps its presses and casts, and loses its score.
 Loaded and saved as the slices are (profile_history.load and save)."""
 from __future__ import annotations
 
@@ -7,8 +8,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from .. import removed
+from ..scoring.score import RULES
 
 KEEP = timedelta(days=60)
+NO_SCORE = {"score": None, "grade": None, "role": None}
 
 
 def file(paths) -> Path:
@@ -18,7 +21,8 @@ def file(paths) -> Path:
 def merge(stored: dict, current: dict[str, dict]) -> dict[str, dict]:
     """the stored rows with the current ones over them, by run id (a scored one stays over one without a score, as when
     the run's combat log is gone); without the deleted runs, and without a visit's later piece saved alone (the add-on dropped its first) when the whole visit has a row"""
-    rows = {rid: {**r, "start": datetime.fromisoformat(r["start"])} for rid, r in stored.items()}
+    rows = {rid: {**r, "start": datetime.fromisoformat(r["start"])} | ({} if r.get("rules") == RULES else NO_SCORE)
+            for rid, r in stored.items()}
     rows |= {rid: r for rid, r in current.items()
              if r["score"] is not None or rid not in rows or rows[rid]["score"] is None}
     pieces = {p for r in rows.values() for p in r["parts"][1:]}

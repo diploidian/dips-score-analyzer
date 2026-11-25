@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dips_score.overlay_view import PANEL_ALPHA, build_card  # noqa: E402
+from dips_score.overlay_view import PANEL_ALPHA, build_card, shows  # noqa: E402
 from dips_score.ui import tokens  # noqa: E402
 from test_tokens import contrast  # noqa: E402
 
@@ -120,6 +120,14 @@ class CardViewTests(unittest.TestCase):
                          ("Trash", "22:22", "–", "not measured in this older fight", None, []))
         heal = build_card(dict(GAP, healing_role=True, healing=4200, efficiency=1.0, verdict="Healed 4,200."))
         self.assertEqual((heal.gap, heal.caption), (None, "mostly healing: damage you didn't do isn't counted"))
+
+    def test_which_fights_get_a_card(self):
+        boar, trash = {"kind": "World", "instance": 0, "difficulty": 0}, {"kind": "Dungeon", "instance": 36, "difficulty": 0}
+        world_boss, bg = boar | {"kind": "Boss"}, {"kind": "PvP", "instance": 489, "difficulty": 0}
+        shown = lambda **s: [shows(s, f) for f in (boar, world_boss, bg, trash, trash | {"kind": "Boss"})]  # noqa: E731
+        self.assertEqual(shown(), [True] * 5)
+        self.assertEqual(shown(overlay_dungeons=True), [False, False, False, True, True])
+        self.assertEqual(shown(overlay=False, overlay_dungeons=False), [False] * 5)
 
     def test_inks_read_on_the_see_through_card(self):
         """the card's panel is painted at PANEL_ALPHA over the game: its text inks reach 4.5:1 on that blend over a

@@ -128,7 +128,8 @@ game's `Logs`. From a terminal, `--wow "<your folder>"` overrides it; the `DIPS_
 
 In the settings you choose where recording starts by itself: dungeons (on by default), raids,
 scenarios and delves, or everywhere else. Two more switches, both on by default: the chat line after
-each fight, and turning the combat log on when you log in. The add-on only ever turns the log on. It
+each fight, and turning the combat log on when you log in. "Those two lines only in dungeons and raids",
+off by default, keeps that line and the one that says a run starts or ends out of the open world. The add-on only ever turns the log on. It
 does this once per login, so if you type `/combatlog` to turn it off, it stays off until you log in
 again.
 
@@ -312,7 +313,7 @@ median time and 40% from the share of dips you missed.
 Group health and Response both need health readings. Without Advanced Combat Logging they show
 "needs Advanced Combat Logging" and take no weight.
 
-Efficiency is 70% overhealing on your cast heals and HoTs, and 30% mana. Passive healing, such as
+Efficiency is 70% overhealing on your cast heals (instant and channelled ones too) and HoTs, and 30% mana. Passive healing, such as
 Vampiric Embrace or potions, isn't judged. Each heal refused for lack of mana costs 25 points of the
 mana part, and dropping under 5% mana costs 30. The summary also lists your dispels.
 
@@ -533,7 +534,8 @@ Your melee swings and your ranged shots (Auto Shot, wand Shoot) are read from th
   while swinging" (or shooting); the rest is idle. Both cost the damage an ability could have added,
   and only if you have a filler.
 - Heroic Strike, Cleave, Raptor Strike and Maul replace the next swing, so they fill the swing they
-  take. A gap in your swings longer than 1.6 swings, while you weren't casting, is swings lost. For
+  take. A gap in your swings longer than 1.6 swings, while you weren't casting, is swings lost, less the
+  time you were moving or stunned, or nobody fought for 10 seconds or more. For
   Auto Shot and wands it is shots lost, less time moving or with no enemy alive. A shot that a cast
   pushed back is counted apart, as "Shots clipped by casts" (a hard cast, or any cast for a wand).
   A wand's shots inside an idle gap that was already priced aren't lost a second time.
@@ -627,7 +629,8 @@ less can be the reason nobody died.
 
 The app sorts your healing from the combat log, without a spell list:
 
-- a cast heal is a spell with a cast start and a heal
+- a cast heal is a spell with a cast start and a heal, or an instant or channelled one such as Holy Shock or Penance:
+  it healed someone else in the group, and you cast it at least once at something other than an enemy
 - a HoT is periodic healing
 - a shield is an aura you put on a player with "Shield" in its name, as long as it went on someone
   else in the group at least once, or showed an absorb on its target within 2 seconds of going on
@@ -819,7 +822,8 @@ Fights saved before the newer columns existed show "-" in them.
 The overlay is the card that slides in after each fight: the share of your possible damage, the verdict,
 and the biggest gap or your death. It needs the game in borderless fullscreen; exclusive fullscreen hides
 it. You can change how long it stays (4 to 30 seconds, 12 by default), keep it up, pick its side or drag
-it where you want it. It never takes focus from the game.
+it where you want it. "Only in dungeons and raids" (off by default) keeps it away elsewhere; those fights
+are still saved and listed. It never takes focus from the game.
 
 ### The Habits page
 
@@ -1209,8 +1213,6 @@ one that saved most recently. And it only sees other players through the combat 
 - Pets are credited to their owner only when the log shows them being summoned.
 - Positioning's "behind the target" assumes how this client's log writes facing, which hasn't been
   confirmed on real data. Positioning is info only by default.
-- Running out of mana to exactly 0% isn't caught by the low-mana penalty on the healer card. The
-  refused-for-mana penalty still applies.
 
 ## Questions
 
