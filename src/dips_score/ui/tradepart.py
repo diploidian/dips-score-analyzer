@@ -10,7 +10,7 @@ from .kit import Part, adv, baseline, font, rule, text_at, wrapped
 from .sheetpart import GAP, TWO_COLS, heading, lead, right_text
 from .theme import tok
 
-NAME_W, BAR_H = 110, 10
+NAME_W, BAR_H, NOTE_W = 110, 10, 560        # NOTE_W: about 68 characters
 
 
 class TradeSection(Part):
@@ -34,21 +34,22 @@ class TradeSection(Part):
         two = w >= TWO_COLS
         cw = (w - GAP) / 2 if two else w
         left = y
-        for k, r in enumerate(v.rows):
-            left += self.row(p, 0, left, cw, r, k > 0)
+        for r in v.rows:
+            left += self.row(p, 0, left, cw, r)
         x, top = (cw + GAP, y) if two else (0, left + 18)
+        if not v.ledger:
+            return left + 18
         return max(left, self.sums(p, x, top, cw)) + 18
 
     @staticmethod
-    def row(p, x, y, w, r: TradeRow, ruled: bool) -> float:
+    def row(p, x, y, w, r: TradeRow) -> float:
         nf, vf, uf, tf = font(15, 500), font(26, 700, num=True), font(17, 600, num=True), font(13)
         uw = adv(uf, r.unit) + 6 if r.unit else 0
         vw = adv(vf, r.value)
-        y1 = y + (8 if ruled else 0)
+        y1 = y + 8
         base = baseline(vf, y1, 26)
         if p:
-            if ruled:
-                rule(p, x, y, w, tok("ln"))
+            rule(p, x, y, w, tok("ln"))
             right_text(p, vf, tok("mu" if r.value == NA else r.ink), x + w - uw, base, r.value)
             if r.unit:
                 text_at(p, uf, tok("tx2"), x + w - uw + 6, base, r.unit)
@@ -73,4 +74,4 @@ class TradeSection(Part):
             y += 1 + 5 + 20 + 6
         if p:
             rule(p, x, y, w, tok("ln"))
-        return y + 1 + 8 + wrapped(p, font(13), tok("tx2"), x, y + 9, w, 13 * 1.4, self.view.note)
+        return y + 1 + 8 + wrapped(p, font(13), tok("tx2"), x, y + 9, min(w, NOTE_W), 13 * 1.4, self.view.note)

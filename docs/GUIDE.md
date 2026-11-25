@@ -193,8 +193,9 @@ without moving, casting or fighting, outside an instance), with the quests hande
 you reach and each change of your main hand (the item and its enchant). No place, name or chat is saved.
 
 Since add-on 0.7.0 it also counts your trade, per day: the seconds the auction house window is open, the money that leaves your
-purse while it is open, and the money that reaches your purse from auction mails (a sale, or a bid refunded), with how many sale
-mails and the items in them. A mail counts when its money arrives, not when it is sent. No item, buyer or price is saved.
+purse while it is open, and the money that reaches your purse from auction mails (a sale, or a bid refunded when you were outbid or
+the auction was cancelled), with how many sale mails and the items in them. A mail counts when its money arrives, not when it is
+sent. Time away (AFK) with the auction house open is not counted. No item, buyer or price is saved.
 
 At each pull it also records your gear durability: the lowest percentage and how many items are
 broken. It keeps the last 60. Durability can only be read inside the game, which is why the add-on
@@ -905,7 +906,8 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   profit or loss, with the profit per hour there from 10 minutes on. Beside them are the two sums it comes from: money from auction
   mails (sales and refunded bids, after the house's cut) and money spent while the auction house was open (buying, bids,
   deposits). Things you bought and kept count as spent, and a sale counts when you collect its mail, so it can land after what it
-  cost you. When a sale mail doesn't say how many items it held, the count says "or more"; when none does, it is a dash. Gold
+  cost you. When a sale mail doesn't say how many items it held, the count says "or more"; when none does, it is a dash. If the
+  game doesn't let the add-on read your mail at all, items and profit are dashes and it says so, rather than showing a loss. Gold
   stays off the crest, the titles and Share.
 - All traits is a drawer under both columns, open when the page is wide. It lists every trait with a
   score above 0, by family, with its figure, its tier in a gold frame (the epithet you have earned, empty

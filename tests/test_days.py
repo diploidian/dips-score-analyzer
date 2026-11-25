@@ -65,7 +65,7 @@ class Days(unittest.TestCase):
              day(1): {"hunt": 3600, "auction": 2280, "spent": 50275, "mailin": 84620, "sales": 14, "sold": 34},
              day(0): {"quest": 3600, "auction": 0, "mailin": 0}}
         got = trade(t, T0 - 15 * DAY, T0)
-        self.assertEqual(got, {"auction": 2280, "spent": 50275, "came": 84620, "sales": 14, "sold": 34, "unread": 0,
+        self.assertEqual(got, {"auction": 2280, "spent": 50275, "came": 84620, "sales": 14, "sold": 34, "unread": 0, "blind": 0,
                                "seconds": 14400 + 600, "since": None})
         v = build_trade(got)
         self.assertEqual(v.need, "")
@@ -96,6 +96,14 @@ class Days(unittest.TestCase):
         self.assertEqual(rows(sales=2, sold=0, unread=2)[0], ("–", "", "the game didn't say how many were in your 2 sale mails"))
         self.assertEqual(rows(sales=1, sold=5, unread=0)[1], ("0c", "", "Things you bought and kept count as spent."))
         self.assertEqual(build_trade(base | {"sales": 0, "sold": 0, "unread": 0}).say, "Your auctions came out even.")
+        quiet = build_trade(base | {"spent": 0, "came": 0, "auction": 20, "sales": 0, "sold": 0, "unread": 0})
+        self.assertEqual((quiet.say, quiet.rows[0].value), ("You bought and sold nothing.", "under 1 min"))
+        self.assertEqual(rows(spent=99, auction=36000, sales=1, sold=1, unread=0)[1][2], "Things you bought and kept count as spent.")      # 0c an hour: not said
+        blind = build_trade(base | {"spent": 900, "came": 0, "sales": 0, "sold": 0, "unread": 0, "blind": 2})
+        self.assertEqual((blind.say, [(r.value, r.note) for r in blind.rows[1:]], blind.ledger), (
+            "Your sale mails can't be read, so only your time is known.",
+            [("–", "the game doesn't show the add-on your sale mails"), ("–", "needs the sale mails too")], []))
+        self.assertEqual(build_trade(base | {"sales": 1, "sold": 1, "unread": 0, "blind": 1}).say, "Your auctions came out even.")     # one read: shown
 
     def test_coin(self):
         self.assertEqual([coin(x) for x in (0, 7, 9017, 10000, 50275, 30005, -123456789, 99.6)],

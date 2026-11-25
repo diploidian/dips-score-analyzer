@@ -49,7 +49,7 @@ def coin(c: float) -> str:
 
 def _hm(seconds: float) -> str:
     h, m = divmod(round(seconds / 60), 60)
-    return f"{h} h {m} min" if h else f"{m} min"
+    return f"{h} h {m} min" if h else f"{m} min" if m else "under 1 min"
 
 
 def _day(iso: str) -> str:
@@ -67,14 +67,20 @@ def build_trade(t: dict | None) -> TradeView:
         return TradeView()
     net = t["came"] - t["spent"]
     word = "ahead" if net > 0 else "behind" if net < 0 else ""
-    v = TradeView("", f"Your auctions put {coin(net)} in your purse." if net > 0 else f"Your auctions cost you {coin(net)}." if net
-                  else "Your auctions came out even.",
+    blind = t.get("blind") and not (t["sales"] or t["came"])       # nothing of the mail could be read: no loss is made up
+    v = TradeView("", "Your sale mails can't be read, so only your time is known." if blind
+                  else f"Your auctions put {coin(net)} in your purse." if net > 0 else f"Your auctions cost you {coin(net)}." if net
+                  else "You bought and sold nothing." if not t["came"] else "Your auctions came out even.",
                   f"{'Since ' + _day(t['since']) + ', when counting began' if t['since'] else 'In the last 15 days'}, "
                   "as of your last /reload or logout.")
     share = t["auction"] / t["seconds"] if t["seconds"] else 0
     v.rows.append(TradeRow("Time at the auction house", _hm(t["auction"]),
                            note=(f"{round(share * 100)}%" if round(share * 100) >= 1 else "under 1%") + " of your play, the auction house window only",
                            ink="gold"))
+    if blind:
+        v.rows += [TradeRow("Items sold", NA, note="the game doesn't show the add-on your sale mails"),
+                   TradeRow("Profit or loss", NA, note="needs the sale mails too")]
+        return v
     mails = _plural(t["sales"], "sale mail")
     if not t["sales"]:
         v.rows.append(TradeRow("Items sold", "0", note="no sale mail collected", ink="m-cast"))
@@ -83,7 +89,8 @@ def build_trade(t: dict | None) -> TradeView:
     else:
         v.rows.append(TradeRow("Items sold", f"{t['sold']:,}", "or more" if t["unread"] else "", ink="m-cast",
                                note=f"from {mails} you collected" + (f"; {t['unread']} didn't say how many" if t["unread"] else "")))
-    per = f"{coin(net * 3600 / t['auction'])} {word} per hour at the auction house. " if net and t["auction"] >= PER_HOUR_MIN else ""
+    hourly = round(net * 3600 / t["auction"]) if t["auction"] >= PER_HOUR_MIN else 0
+    per = f"{coin(hourly)} {word} per hour at the auction house. " if hourly else ""
     v.rows.append(TradeRow("Profit or loss", coin(net), word, per + "Things you bought and kept count as spent.",
                            IN if net > 0 else OUT if net < 0 else "tx"))
     top = max(t["came"], t["spent"]) or 1

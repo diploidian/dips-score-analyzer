@@ -10,7 +10,7 @@ taken from what it took the time for. Not on the first day counted, which it may
 
 trade(time, lo, hi) -> None when the window has no auction house time and no auction money, else {"auction" (seconds with it
 open), "spent", "came" (copper: spent while it was open, in from auction mails), "sales" (sale mails), "sold" (their items),
-"unread" (sale mails that did not say how many), "seconds" (played, as figures), "since" (the first day the add-on counted trade,
+"unread" (sale mails that did not say how many), "blind" (mails whose money could not be read), "seconds" (played, as figures), "since" (the first day the add-on counted trade,
 when later than the window's first)}.
 
 The type is the part furthest over its own bar. The bars differ because the parts do: an hour at the auction house is a
@@ -34,7 +34,7 @@ PARTS = {"quest": (("quest",), .35, "Errant"),
          "travel": (("taxi", "roam"), .35, "Wayfarer"),
          "town": (("town",), .35, "Hearthkeeper")}
 NONE = "Adventurer"
-TRADE = ("auction", "spent", "mailin", "sales", "sold", "unread")       # the add-on's trade columns (0.7.0)
+TRADE = ("auction", "spent", "mailin", "sales", "sold", "unread", "blind")       # the add-on's trade columns (0.7.0)
 TAKEN_AS = ("hunt", "quest", "gather", "roam", "town")      # what a fight with a player counted as when it was not seen
 
 
@@ -83,6 +83,6 @@ def trade(time: dict[str, dict[str, float]] | None, lo: datetime, hi: datetime) 
         return None
     first = min((day for day, d in (time or {}).items() if any(c in d for c in TRADE)), default=None)
     return {"auction": total("auction"), "spent": round(total("spent")), "came": round(total("mailin")), "sales": round(total("sales")),
-            "sold": round(total("sold")), "unread": round(total("unread")),
+            "sold": round(total("sold")), "unread": round(total("unread")), "blind": round(total("blind")),
             "seconds": sum(total(c) for cols, _, _ in PARTS.values() for c in cols),
             "since": first if first and datetime.fromisoformat(first).date() > lo.date() + timedelta(days=1) else None}

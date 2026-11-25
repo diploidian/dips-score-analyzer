@@ -11,7 +11,8 @@
 --
 -- Trade, beside the states in the same day: "auction" seconds with the auction house open, "spent" copper that left your
 -- purse while it was open, "mailin" copper that came from auction mails (a sale, a refunded bid), "sales" sale mails taken,
--- "sold" the items in them, "unread" sale mails that did not say how many. Mail money counts when it reaches your purse.
+-- "sold" the items in them, "unread" sale mails that did not say how many, "blind" mails whose money could not be read (or the
+-- mailbox could not be watched at all). Mail money counts when it reaches your purse. Away time is not auction time.
 --
 -- The first that applies: in combat, where you are (an instance), a fight with an enemy player ("skirmish") or what you were
 -- at; on a taxi; away (AFK); dead (what you were at, DEAD seconds of it); away (nothing done for IDLE seconds, outside an
@@ -35,7 +36,7 @@ local SETTLE = 10                   -- after entering the world, where the game 
 local MAX_DAYS, MAX_LEVELS, MAX_WEAPONS = 60, 100, 400
 local MAIN_HAND = 16
 local COLS = {"away", "trade", "raid", "dungeon", "pvp", "skirmish", "taxi", "craft", "quest", "gather", "hunt", "town", "roam", "turnins",
-    "auction", "spent", "mailin", "sales", "sold", "unread"}
+    "auction", "spent", "mailin", "sales", "sold", "unread", "blind"}
 local KINDS = {party = "dungeon", scenario = "dungeon", raid = "raid", pvp = "pvp", arena = "pvp"}
 local TRADE_FRAMES = {"AuctionHouseFrame", "AuctionFrame", "MailFrame"}
 local AUCTION_FRAMES = {"AuctionHouseFrame", "AuctionFrame"}
@@ -57,6 +58,8 @@ local midnight = 0                  -- time() of the next one
 local actions                       -- name -> its entry of ACTIONS
 local money                         -- copper in the purse at the last look
 local taken = {}                    -- auction mails whose money was taken and has not arrived: {copper, sale, items, GetTime()}
+local auctionOpen = false           -- between the game's AUCTION_HOUSE_SHOW and _CLOSED (another auction UI may hide its frame)
+local hooked = false                -- the mail calls could be watched
 
 local function Try(fn, ...)
     if type(fn) ~= "function" then return nil end
@@ -179,6 +182,10 @@ local function State(t)
     return living
 end
 
+local function AtAuction()
+    return auctionOpen or Shown(AUCTION_FRAMES)
+end
+
 local function Look()
     local t = GetTime()
     local dt = math.min(t - last, MOST)
@@ -187,7 +194,8 @@ local function Look()
     if not now then return end
     local state = State(t)
     now[state] = (now[state] or 0) + dt
-    if Shown(AUCTION_FRAMES) then now.auction = (now.auction or 0) + dt end
+    if state ~= "away" and AtAuction() then now.auction = (now.auction or 0) + dt end
+    if not hooked and Shown({"MailFrame"}) then now.blind = 1 end
 end
 
 ----------------------------------------------------------------------
@@ -198,20 +206,32 @@ local function Add(now, col, n) now[col] = (now[col] or 0) + n end
 -- A mail's subject against one of the game's formats ("Auction successful: %s").
 local function Says(subject, format)
     if type(subject) ~= "string" or IsSecret(subject) or type(format) ~= "string" then return false end
-    local pattern = "^" .. format:gsub("[%^%$%(%)%.%[%]%*%+%-%?]", "%%%0"):gsub("%%s", ".+") .. "$"
-    return subject:match(pattern) ~= nil
+    local pattern = format:gsub("%%%d*%$?s", "\1"):gsub("[%%%^%$%(%)%.%[%]%*%+%-%?]", "%%%0"):gsub("\1", ".+")
+    return subject:match("^" .. pattern .. "$") ~= nil
+end
+
+local function Expire(t)
+    for k = #taken, 1, -1 do
+        if t - taken[k][4] > MAIL_WAIT then table.remove(taken, k) end
+    end
 end
 
 -- Hooked after the game's TakeInboxMoney and AutoLootMailItem: an auction mail's money is on its way.
 local function Taking(i)
     if type(i) ~= "number" then return end
     local ok, _, _, _, subject, cash = pcall(GetInboxHeaderInfo, i)
-    if not ok or IsSecret(cash) or type(cash) ~= "number" or cash <= 0 then return end
-    local ok2, kind, _, _, _, _, _, _, _, _, _, items = pcall(GetInboxInvoiceInfo or error, i)
-    if not ok2 or IsSecret(kind) then kind = nil end
+    if not ok or IsSecret(cash) or type(cash) ~= "number" then
+        local now = Today()
+        if now then Add(now, "blind", 1) end
+        return
+    end
+    if cash <= 0 then return end
+    local ok2, invoice, _, _, _, _, _, _, _, _, _, items = pcall(GetInboxInvoiceInfo or error, i)
+    if not ok2 or IsSecret(invoice) then invoice = nil end
     if IsSecret(items) or type(items) ~= "number" or items < 1 then items = nil end
-    local sale = kind == "seller" or (kind == nil and Says(subject, _G.AUCTION_SOLD_MAIL_SUBJECT))
-    if not (sale or kind or Says(subject, _G.AUCTION_OUTBID_MAIL_SUBJECT)) then return end
+    local sale = invoice == "seller" or (invoice == nil and Says(subject, _G.AUCTION_SOLD_MAIL_SUBJECT))
+    if not (sale or invoice or Says(subject, _G.AUCTION_OUTBID_MAIL_SUBJECT) or Says(subject, _G.AUCTION_REMOVED_MAIL_SUBJECT)) then return end
+    Expire(GetTime())
     taken[#taken + 1] = {cash, sale, sale and items, GetTime()}
     while #taken > 50 do table.remove(taken, 1) end
 end
@@ -225,21 +245,28 @@ local function Money()
     local now = was and m ~= was and Today()
     if not now then return end
     if m < was then
-        if Shown(AUCTION_FRAMES) then Add(now, "spent", was - m) end
+        if m > 0 and AtAuction() then Add(now, "spent", was - m) end      -- at logout the game answers 0
         return
     end
-    local t = GetTime()
-    for k = #taken, 1, -1 do
-        local mail = taken[k]
-        if t - mail[4] > MAIL_WAIT then
-            table.remove(taken, k)
-        elseif mail[1] == m - was then
-            table.remove(taken, k)
-            Add(now, "mailin", mail[1])
-            if mail[2] then
-                Add(now, "sales", 1)
-                if mail[3] then Add(now, "sold", mail[3]) else Add(now, "unread", 1) end
-            end
+    Expire(GetTime())
+    local function Count(mail)
+        Add(now, "mailin", mail[1])
+        if mail[2] then
+            Add(now, "sales", 1)
+            if mail[3] then Add(now, "sold", mail[3]) else Add(now, "unread", 1) end
+        end
+    end
+    for k = 1, #taken do
+        if taken[k][1] == m - was then
+            Count(table.remove(taken, k))
+            return
+        end
+    end
+    local sum = 0                   -- several arrived at once: the oldest ones, adding up to it
+    for k = 1, #taken do
+        sum = sum + taken[k][1]
+        if sum == m - was then
+            for _ = 1, k do Count(table.remove(taken, 1)) end
             return
         end
     end
@@ -292,14 +319,15 @@ end
 
 local E = CreateFrame("Frame")
 for _, event in ipairs({"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
-    "QUEST_ACCEPTED", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_STARTED_MOVING", "PLAYER_MONEY"}) do
+    "QUEST_ACCEPTED", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_STARTED_MOVING", "PLAYER_MONEY",
+    "AUCTION_HOUSE_SHOW", "AUCTION_HOUSE_CLOSED"}) do
     pcall(E.RegisterEvent, E, event)
 end
 pcall(E.RegisterUnitEvent, E, "UNIT_SPELLCAST_SENT", "player")      -- only what you pressed: in a town the game casts one on you every second
 pcall(E.RegisterUnitEvent, E, "UNIT_SPELLCAST_SUCCEEDED", "player")
 pcall(E.RegisterUnitEvent, E, "UNIT_QUEST_LOG_CHANGED", "player")
 for _, name in ipairs({"TakeInboxMoney", "AutoLootMailItem"}) do
-    if type(_G[name]) == "function" then pcall(hooksecurefunc, name, function(i) pcall(Taking, i) end) end
+    if type(_G[name]) == "function" and pcall(hooksecurefunc, name, function(i) pcall(Taking, i) end) then hooked = true end
 end
 
 local function OnEvent(event, ...)
@@ -312,6 +340,8 @@ local function OnEvent(event, ...)
         done = t
     elseif event == "PLAYER_MONEY" then
         if ticker then Money() end
+    elseif event == "AUCTION_HOUSE_SHOW" or event == "AUCTION_HOUSE_CLOSED" then
+        auctionOpen = event == "AUCTION_HOUSE_SHOW"
     elseif event == "PLAYER_REGEN_DISABLED" then
         inCombat = true
     elseif event == "PLAYER_REGEN_ENABLED" then

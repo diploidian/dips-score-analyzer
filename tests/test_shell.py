@@ -703,7 +703,7 @@ class ShellTests(unittest.TestCase):
         self.assertEqual((page.trade_drawer.accessibleName(), page.trade_drawer.open), ("Trade", False))
         self.assertEqual(page.trade.accessibleName(), f"Trade: {NEED}")
         self.assertEqual(page.stack.indexOf(page.trade_fold) + 1, page.stack.indexOf(page.traits_fold))
-        v.trade = build_trade({"auction": 2280, "spent": 50275, "came": 1234567891, "sales": 14, "sold": 34, "unread": 1,
+        v.trade = build_trade({"auction": 2280, "spent": 50275, "came": 1234567891, "sales": 14, "sold": 34, "unread": 1, "blind": 0,
                                "seconds": 141660, "since": None})
         page.show_view(v)
         page.trade_drawer.flip()
