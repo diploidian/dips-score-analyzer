@@ -60,10 +60,10 @@ The add-on fills in that missing half. A few examples of what you get to see:
   unused ones cost.
 
 You get feedback after every fight, too. If the app is open while you play, a panel slides in at
-the edge of the game window about 2 seconds after the last enemy dies. It opens with one sentence
-about the fight ("Killed by Defias Pillager: Fireball for 412.", or "Clean fight: 94% of the damage
-that was possible."), then your numbers, the cooldowns you missed, what went well and what to
-improve. Even with the app closed, the add-on prints a line in chat:
+the edge of the game window about 2 seconds after the last enemy dies. It shows how much of your
+possible damage you did, with one sentence about the fight ("Killed by Defias Pillager: Fireball for 412.", or "Clean fight: 94% of the damage
+that was possible."), and your biggest gap.
+The Fights page has the rest. Even with the app closed, the add-on prints a line in chat:
 `14 s - 31 presses (4 clicks), 2 refused, 1 interrupted`.
 
 Over time, the Habits page looks across your last 40 fights and tells you what you keep doing
@@ -78,10 +78,10 @@ over a week of practice.
 
 This takes about ten minutes the first time.
 
-1. Install Python 3.13 from python.org, then run `pip install PyQt6` in a terminal.
-2. Copy the `addon/dips-Score` folder into your game's `Interface/AddOns/` folder. If you keep the
-   project somewhere permanent, you can link the folder instead, so updates arrive by themselves:
-   `New-Item -ItemType Junction -Path "<WoW>\Interface\AddOns\dips-Score" -Target "<project>\addon\dips-Score"`
+1. Run `projectArthas-setup-<version>.exe` and pick your `_forever_` folder. It installs the app and
+   the add-on, and you don't need Python. Windows may warn you, as the installer isn't code signed.
+2. If the game was open, close it and start it again. Check that projectArthas is ticked under
+   AddOns at the character screen.
 3. Log in. The add-on turns on the combat log and Advanced Combat Logging for you and says so in
    chat ("turned the combat log on for the analyzer."). If the game won't let an add-on change the
    advanced setting, the chat line tells you to turn it on yourself in the game's options.
@@ -97,13 +97,18 @@ This takes about ten minutes the first time.
    still show up on the Fights page, because those come from the combat log alone.
 7. Save. The game only writes add-on data to disk when you `/reload` or log out. Do one of those
    after the run. The record button's right-click menu has "Save now (reload)".
-8. Double-click `projectArthas.pyw`. It finds your newest run and opens it.
+8. Open projectArthas from the Start menu. It finds your newest run and opens it.
+
+To run it from source, install Python 3.13, run `pip install PyQt6` and double-click
+`projectArthas.pyw`. Copy the `addon/dips-Score` folder into the game's `Interface/AddOns/` folder, or
+link it so updates arrive by themselves:
+`New-Item -ItemType Junction -Path "<WoW>\Interface\AddOns\dips-Score" -Target "<project>\addon\dips-Score"`
 
 Installed and want the short version, with fixes for common problems? See [First run](FIRST-RUN.md).
 
 The app looks for the game in `D:\Program Files (x86)\World of Warcraft\_forever_`. If yours is
 elsewhere, it asks for the folder the first time and remembers it. You can change it later in
-Settings (the cog), under Game folders, along with a separate combat log folder if yours isn't the
+Settings, under Game folders, along with a separate combat log folder if yours isn't the
 game's `Logs`. From a terminal, `--wow "<your folder>"` overrides it; the `DIPS_WOW` environment variable
 (the installer sets it) is used when nothing is picked in Settings.
 
@@ -210,7 +215,7 @@ draws a straight line between anchors, so slow drift over a long run is correcte
 
 Then it checks its own work. Each of your successful casts in the add-on's record is matched to the
 same spell's cast in the combat log, if one is within 1.5 seconds. Once at least five casts match,
-the app shifts everything by the median gap. The Score page shows the result in a line such as
+the app shifts everything by the median gap. The Debrief shows the result in a line such as
 "42/45 casts matched, corrected +8 ms, spread -6..9 ms". Wand Shoot and Auto Shot are left out of
 this matching because they repeat too often to pair reliably.
 
@@ -279,6 +284,7 @@ the group finder and have no snapshot yet, set your role on the Group tab. The c
 | Response | 35 | 1 second to start a heal | 6 seconds, or half of dips missed |
 | Efficiency | 20 | 15% overhealing | 50% overhealing |
 | Casting | 10 | 10% of presses refused | 55% refused |
+| Pacing | 5 | 95% of pulls entered safely and on time | 50% |
 | Movement | info only | | |
 | Input | info only | | |
 | Positioning | info only | | |
@@ -327,6 +333,7 @@ A healer who let the group fall over to squeeze in damage gets little or nothing
 | Upkeep | 5 | buffs and DoTs up 90% of combat | up 40% |
 | Input | 5 | 1.3 presses per cast, 10% clicks | 2.6 presses per cast, 60% clicks |
 | Resource | 5 | at full rage or energy 2% of combat | 20% |
+| Pacing | 5 | 95% of pulls entered safely and on time | 50% |
 | Positioning | info only | | |
 
 Damage is your damage, your pets' included, against an even split of the group's damage. Solo there
@@ -370,6 +377,11 @@ Input is 60% presses per successful cast and 40% the share of presses made with 
 Resource is for rage and energy users only: the share of combat your power sat at its maximum, so
 anything more coming in was wasted. It needs Advanced Combat Logging.
 
+Pacing is on all three scorecards: the share of pulls you went into safely and on time. Safe is at
+least 50% health and, if you use mana, 30% mana, half a second before the pull. On time is a first
+press within 3 seconds of your combat beginning; a pull you started yourself is always on time. It
+needs Advanced Combat Logging.
+
 ### The tank scorecard
 
 | Category | Weight | Scores 100 at | Scores 0 at |
@@ -381,6 +393,7 @@ anything more coming in was wasted. It needs Advanced Combat Logging.
 | Upkeep | 10 | as DPS | |
 | Casting | 5 | as DPS | |
 | Input | 5 | as DPS | |
+| Pacing | 5 | as DPS | |
 | Movement, Interrupts, Cooldowns, Resource, Positioning | info only | | |
 
 Holding mobs counts, of the mobs pulled, how many went for you first. The combat log has no threat
@@ -399,8 +412,8 @@ they work for any tank in the group.
 
 ### Tips
 
-Every category that scores below 85 has a tip attached. The scorecard shows the tips for your three
-lowest categories, under "Work on". The tips name specifics where they can: the refusal reason you
+Every category that scores below 85 has a tip attached. The Debrief puts the one that costs you
+the most points on its plate and the next two under it. The tips name specifics where they can: the refusal reason you
 hit most, the person whose dips you were slowest on, the cooldown that sat ready longest, the enemy
 spell you most often let through, or the buff that fell off most. If nothing is under 85, the card
 says "Nothing stands out - nice run."
@@ -490,7 +503,7 @@ you pressed it in this fight:
   its rows but loses no damage.
 - Procs aren't casts. A Seal of Command hit that the log writes as your cast is left out.
 
-The overlay lists them in one line, such as "Missed: Judgement x2, Exorcism x1".
+The rows are in the fight's All the details drawer. The overlay shows only the biggest gap.
 
 ### Idle time
 
@@ -503,7 +516,7 @@ there was nothing to press, so nothing is lost.
 
 Your melee swings and your ranged shots (Auto Shot, wand Shoot) are read from the combat log.
 
-- On the Spells page the Melee row, and the Auto Shot or Shoot row, have a hit table line: how many
+- On the Spells tab the Melee row, and the Auto Shot or Shoot row, have a hit table line: how many
   swings or shots, their speed, the share that landed (with crit and glancing among the landed ones,
   as the Crit column), and the share missed, dodged, parried, blocked and so on. Extra swings are
   listed by the spell that gave them. Only swings at enemies count.
@@ -577,7 +590,7 @@ drinking or bandaging), and average health and mana at the pull.
 The trend chart draws your efficiency for each fight, oldest on the left, once there are 5 fights.
 A gray line marks a level-up, with the new level on top. Yellow dashes mark a change in gear level.
 
-The cards are green (keep doing it), orange (fix it) or blue (build on it). The ones it can show:
+The cards are grouped into Fix, Build and Keep. The ones it can show:
 
 - Efficiency over the last 20 fights against the 20 before, when both halves have at least 5
   fights: dropping or improving by 3 points or more, otherwise steady (75% or more) or stuck low.
@@ -747,52 +760,59 @@ appears and opens on its own after a second or two.
 
 ### The main window
 
-The switch at the top has three modes: Dungeons, Fights and Habits. In Dungeons, the left side lists
-your dungeons, each with its visits labelled by date, time, score and grade. "Scoring weights..."
-and the settings cog are below.
+The left side has five pages at the top: Dungeons, Raids, Fights, Habits and Profile. In Dungeons and
+Raids it lists each one with its visits, labelled by date, time, score and grade. The theme and day or
+night are at the bottom, with Settings, Reload and Share. "Scoring weights..." is in Settings.
 
-A dungeon page shows a bar chart of your score on every visit, coloured by grade, and a table with
-the length, time in combat, score, bosses, deaths and wipes of each. Double-click a visit to open
-it.
+A dungeon's or raid's own page has three tabs:
+
+- History draws your score on every visit over the grade bands, calls out the best and the last, names
+  the measure that keeps costing you points, and lists every visit. Double-click one to open it. A visit
+  with under 60 seconds in combat is listed but not compared.
+- Bosses has the average boss score on the last visit, the route with the weakest boss circled, and each
+  boss's score visit by visit. "Show the fight" opens it on the timeline.
+- Records has your best score, fastest clear, least time in combat, most killing blows, highest damage
+  per second in a fight, longest S streak and deathless visits, and says when the last visit's top fix
+  would have beaten your best score.
 
 ### A visit
 
-A visit has five tabs above a timeline.
+A visit has five tabs.
 
-- Score shows your total, grade, every category with its numbers, the "Work on" tips, a radar chart
-  and the sync line. A table lists each fight; click one to score just that fight, or "Whole run" to
-  go back. The player picker at the top shows anyone else's group card.
-- Group lists every player with class, race and role, where each role came from ("your pick", "from
-  the add-on", "talents" or "guessed from spells"), and lets you correct them. Your own role here
-  decides which scorecard you get.
-- Pulls lists every pull: when, how many mobs and packs, who pulled, how long, and who died. A
-  second list shows each mob, its raid marker, who it went for, when it died and who killed it.
-- Spells breaks down casts, casts per minute, failures, damage, healing, overhealing, crits and
-  share, for any player, over the whole run, bosses only or trash only. Clicking a spell highlights
-  its casts on the timeline.
-- Summary shows the podium, everyone's placing with the reason, their strengths and weaknesses, and
-  their awards.
+- Debrief shows your score, grade and verdict, the one fix to make with the next two, the main measures,
+  and where the points went. Every category is in the All categories drawer. A grid has every fight with
+  its score and circles the ones to review; pick one to score just that fight. "Show me" opens the
+  timeline there. The player picker at the top shows anyone else's card.
+- Timeline has the run on one clock, with a fight picker and every idle moment, longest first (see
+  below).
+- Pulls shows how safely you went into them, the one pull to fix, the run pull by pull with your mana
+  under it, and who pulled. The All pulls drawer has every pull with its mobs.
+- Spells ranks your abilities by damage and by healing, with casts, casts per minute, refusals, crits,
+  overhealing and share, for any player, over the whole run, bosses only or trash only. Picking a spell
+  highlights its casts on the timeline.
+- Group shows where you placed and what would move you up, the podium, everyone's card with their
+  strengths, weaknesses and map, and the awards. The Edit roles drawer lets you correct a class or role.
+  Your own role there decides which scorecard you get.
 
 ### The timeline
 
 The timeline has lanes for pulls, deaths, your Response (healers) or Activity (everyone else), your
-casts, your presses (white for a key, orange for a click, red for mashing) and your movement, then a
-spell row and a health row for every player. Scroll to zoom, drag to pan, double-click to see the
-whole run, and shift-scroll to reach everyone's rows. Hovering shows everyone's health at that
-moment and who reacted to a sharp drop.
+casts and spells, your presses (white for a key, orange for a click, red under mashing), your movement,
+and health for you and the tank. The Group row opens to everyone else's spells and health. Scroll to
+zoom, drag to pan and double-click to see the whole run. Hover for details.
 
 ### The Fights page and the overlay
 
-Each fight gets a card with the verdict, its stats, damage left on the table, your group, your best
-previous damage on the same target, the danger box, the top findings, your abilities, your
-cooldowns (Spell, CD, Used, Possible, Missed, Excused, Free, Lost), auto attacks, buffs, failed
-casts, idle time and resources. It keeps your last 5,000 fights. Fights saved before the newer
-columns existed show "-" in them.
+Each fight's page shows how much of the damage you could have done you did, the verdict, the biggest
+gap, the key figures, where the rest went, what went well, the pull, the danger box and your group. The
+All the details drawer has your abilities, cooldowns (Spell, CD, Used, Possible, Missed, Excused, Free,
+Lost), auto attacks, buffs, failed casts, idle time and resources. The app keeps your last 5,000 fights.
+Fights saved before the newer columns existed show "-" in them.
 
-The overlay is the panel that slides in after each fight, with the verdict on top and the Missed
-line below your numbers. It needs the game in borderless fullscreen; exclusive fullscreen hides it.
-You can change how long it stays (4 to 30 seconds, 12 by default) and which side it appears on. It
-never takes focus from the game.
+The overlay is the card that slides in after each fight: the share of your possible damage, the verdict,
+and the biggest gap or your death. It needs the game in borderless fullscreen; exclusive fullscreen hides
+it. You can change how long it stays (4 to 30 seconds, 12 by default), keep it up, pick its side or drag
+it where you want it. It never takes focus from the game.
 
 ### The Habits page
 
@@ -1108,7 +1128,7 @@ one that saved most recently. And it only sees other players through the combat 
   and the snapshot only reaches the app after a save. Fight cards don't wait for a save.
 - Without a combat log that covers the run, the healer and tank scorecards can't be worked out at
   all. The DPS scorecard falls back to the add-on categories.
-- Without Advanced Combat Logging, Group health, Response, Resource and Positioning can't be judged,
+- Without Advanced Combat Logging, Group health, Response, Resource, Pacing and Positioning can't be judged,
   and Survival only counts deaths.
 - Presses on action bars drawn by other add-ons are recorded without a key or click source.
 - Pets are credited to their owner only when the log shows them being summoned.

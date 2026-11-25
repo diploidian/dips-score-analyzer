@@ -53,6 +53,7 @@ shown, but it doesn't count and gives no tips.
 | Group health | 35 | Deaths in the group, and time with someone under 35% |
 | Response | 35 | When someone drops under 60% (after taking damage): seconds until you *start* a heal, HoT or shield on them; how many got nothing from you within 6s (dips someone else covered don't count) |
 | Efficiency | 20 | Overhealing on your cast heals and HoTs (passive healing like Vampiric Embrace isn't judged); running out of mana |
+| Pacing | 5 | Pulls you went into with at least 50% health (and 30% mana if you use mana), with your first press within 3 s of your combat beginning; a pull you started is always on time (needs Advanced Combat Logging) |
 | Casting | 10 | Refused presses that mean something went wrong (out of range, wrong target, no mana); pressing early doesn't count |
 | Movement | info | Casts cut short by moving, per minute |
 | Input | info | Presses per successful cast (mashing), and the share made with the mouse |
@@ -72,6 +73,7 @@ shown, but it doesn't count and gives no tips.
 | Survival | 10 | Deaths, and time under 35% health |
 | Upkeep | 5 | The buffs and DoTs your class keeps up, as the share of combat they were up (only ones you applied this run) |
 | Input | 5 | Presses per successful cast (mashing), and the share made with the mouse |
+| Pacing | 5 | Pulls you went into with at least 50% health (and 30% mana if you use mana), with your first press within 3 s of your combat beginning; a pull you started is always on time (needs Advanced Combat Logging) |
 | Resource | 5 | Share of combat your rage or energy sat at its maximum, so more coming in was wasted (needs Advanced Combat Logging) |
 | Positioning | info | Melee: how often you were behind your target; everyone else: how often you took hits far from the tank (needs Advanced Combat Logging) |
 
@@ -84,6 +86,7 @@ shown, but it doesn't count and gives no tips.
 | Survival | 20 | Deaths, and time under 35% health |
 | Activity | 10 | Share of combat spent casting, channeling, on the GCD, wanding or swinging in melee (time waiting for rage/energy doesn't count against you) |
 | Upkeep | 10 | The buffs and DoTs your class keeps up, as the share of combat they were up (only ones you applied this run) |
+| Pacing | 5 | Pulls you went into with at least 50% health (and 30% mana if you use mana), with your first press within 3 s of your combat beginning; a pull you started is always on time (needs Advanced Combat Logging) |
 | Casting | 5 | Share of presses the game refused, with the reasons from the combat log (waiting for rage or energy doesn't count) |
 | Input | 5 | Presses per successful cast (mashing), and the share made with the mouse |
 | Movement | info | Casts cut short by moving, per minute |
@@ -93,7 +96,7 @@ shown, but it doesn't count and gives no tips.
 | Positioning | info | Melee: how often you were behind your target; everyone else: how often you took hits far from the tank (needs Advanced Combat Logging) |
 
 Some categories need health, power or position readings, which the combat log only has with Advanced
-Combat Logging. Without them, Group health, Response (healer) and Positioning show "needs Advanced
+Combat Logging. Without them, Group health, Response (healer), Pacing and Positioning show "needs Advanced
 Combat Logging" and take no weight, so the total is worked out from what's left (`unavailable` in
 `score.py`). Resource is left off the card when there are no power readings, and Survival still scores
 its deaths. The add-on turns the combat log and advanced logging on at login (once per load, so a
@@ -170,7 +173,7 @@ between fights, average rest, and average health and mana at the pull.
 The trend chart draws efficiency per fight, oldest on the left, once there are 5 fights. A gray line
 marks a level-up (with the new level on top) and yellow dashes mark a change in gear level.
 
-Cards are green (keep doing it), orange (fix) or blue (build). The ones it can show:
+The cards are grouped into Fix, Build and Keep. The ones it can show:
 
 - Efficiency over the last 20 fights against the 20 before, when both halves have 5 fights: dropping or
   improving at 3 points or more, otherwise steady (75% or more) or stuck low.
@@ -186,7 +189,7 @@ Cards are green (keep doing it), orange (fix) or blue (build). The ones it can s
 
 ## Melee, ranged and chances
 
-Melee swings and ranged shots get a hit table on the Spells page (count, speed, landed, crit, glancing,
+Melee swings and ranged shots get a hit table on the Spells tab (count, speed, landed, crit, glancing,
 missed, dodged, parried). Melee or shots at 10% or more of your damage get a words-only line over the
 losses on the Fight page and the Debrief. No-ability time is split into swinging (or shooting) and idle;
 Heroic Strike, Cleave, Raptor Strike and Maul fill the swing they replace; lost and clipped shots are

@@ -24,7 +24,7 @@ The first time, if the app can't find the game, it asks for the game folder. Pic
 `_forever_` folder inside your World of Warcraft folder. Picking the World of Warcraft folder
 itself works too. The app remembers your choice.
 
-You can check or change the folder any time: click the cog (⚙) at the bottom left, next to Reload, and the
+You can check or change the folder any time: click **Settings** at the bottom left, next to Reload, and the
 folders are at the top under **Game folders**: the game folder, and the combat log folder if yours isn't the
 game's own `Logs`. A change takes effect right away; the line under them says how many combat logs and
 projectArthas saved files it finds there.
@@ -37,7 +37,7 @@ While the app is open, a card slides in over the game after each fight (the over
 show, set the game's display mode to **borderless fullscreen** (Options > Graphics). Exclusive
 fullscreen hides it.
 
-To check the overlay, open the cog's settings and click **Show it** under "After each fight". The
+To check the overlay, open Settings and click **Show it** under "After each fight". The
 same section sets how long the card stays and which side it appears on.
 
 ## 4. Run a dungeon
@@ -64,19 +64,19 @@ Open the run's **Group** tab and find yourself. Your role there decides which sc
 healer, tank or damage. It is usually right ("from the add-on" or "talents"). If it says
 "guessed from spells" and is wrong, change it. The app remembers your pick.
 
-That's it. The **Score** tab now shows your grade and what to work on.
+That's it. The **Debrief** tab now shows your grade and what to work on.
 
 ## Optional: add your old fights
 
-If you've played with the combat log on before, click the cog and then **Add fights from my old
-combat logs**. Those fights then show on the **Fights** and **Habits** pages.
+If you've played with the combat log on before, click **Settings** and then **Add fights from my old
+combat logs**. Those fights then show on the **Fights**, **Habits** and **Profile** pages.
 
 ## If something's wrong
 
 | What you see | What to do |
 |---|---|
 | Double-clicking `projectArthas.pyw` does nothing | Python or PyQt6 isn't installed. Go back to [Setting it up](GUIDE.md#setting-it-up). |
-| "Game folder not found" at the bottom of the window | Click the cog, then **Browse...** next to World of Warcraft under Game folders, and pick `_forever_`. |
+| "Game folder not found" at the bottom of the window | Click **Settings**, then **Browse...** next to World of Warcraft under Game folders, and pick `_forever_`. |
 | "No runs yet" after a dungeon | You haven't saved since the run. Type `/reload` in the game. `/dscore status` says how many runs are saved. |
 | `/dscore` is an unknown command | The add-on isn't loaded. Check the AddOns list at the character screen (step 1). |
 | A run says no combat log covers it | The combat log was off. In `/dscore` settings, leave "Turn on the combat log" ticked, or type `/combatlog` before the first pull. |

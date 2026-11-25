@@ -43,10 +43,10 @@ add-on.
 ## What you get
 
 - A grade from S to F for every dungeon run, scored on the card for your role (healer, DPS or
-  tank), with the tips for your three weakest categories under "Work on".
+  tank), with the fix that costs you the most points, and the next two, on the Debrief.
 - A card that slides in over the game about 2 seconds after each kill, with one sentence about the
   fight ("Killed by Defias Pillager: Fireball for 412." or "Clean fight: 94% of the damage that
-  was possible."), the cooldowns you missed, and what to try next.
+  was possible."), and your biggest gap.
 - A row for every damage cooldown you own, in every fight, with how many casts would have fit, how
   many you made, and roughly how much damage the gap cost.
 - A danger box when you drop under 35% health, listing the hits and the defensives you had ready
@@ -68,11 +68,11 @@ Python, a terminal or any packages: everything the app needs is inside it.
 2. It asks where the game is. Pick the `_forever_` folder, the one with `Logs`, `WTF` and
    `Interface` in it. If the folder has no `WTF` inside, the installer warns you before it goes on.
 3. Choose whether you want a desktop icon. The app is in the Start menu as "projectArthas" either way.
-4. Copy the `addon/dips-Score` folder into the game's `Interface/AddOns/` folder.
+4. Setup puts the add-on into the game's `Interface/AddOns/` folder too. Restart the game if it was open.
 5. Log in to the game and type `/dscore watch`, then press a few abilities with keys and a few
    with the mouse. Chat prints "key" or "click" for each one, which confirms the add-on is working.
 
-If you ever move the game, open the app's settings (the cog at the bottom left) and change the
+If you ever move the game, open Settings (at the bottom left) and change the
 folder under Game folders. You can point it at a separate combat log folder there too. The note
 under the folders says how many combat logs and saved add-on files it found, so you can tell at a
 glance that it is looking in the right place.
@@ -134,7 +134,7 @@ both clocks down. At 144 frames per second that reading is good to about 3 ms. T
 line between these readings, which also corrects slow drift over a long run.
 
 Then it checks itself. Each successful cast in the add-on's record is paired with the same cast in
-the log. With five or more pairs, it shifts everything by the median gap, and the Score page shows
+the log. With five or more pairs, it shifts everything by the median gap, and the Debrief shows
 how well it did, for example "42/45 casts matched, corrected +8 ms, spread -6..9 ms". That
 precision is what makes reaction times and "moved just before the cast broke" trustworthy.
 
@@ -190,6 +190,7 @@ spells.
 | | | Upkeep | 5 | | |
 | | | Input | 5 | | |
 | | | Resource | 5 | | |
+| Pacing | 5 | Pacing | 5 | Pacing | 5 |
 
 Categories not listed for a role are still shown, as info only. The weights are yours: "Scoring
 weights..." in the app has a slider for each, and a weight of 0 keeps the category on the card
@@ -211,6 +212,7 @@ Several categories can't be built from the log alone:
 | Damage | Your share of the group's damage, pets included | Log |
 | Interrupts | Enemy casts you could have stopped, and how fast you did | Log |
 | Upkeep | How long your class's buffs and DoTs were up | Log |
+| Pacing | Pulls entered with enough health and mana, and with a prompt first press | Both (Advanced Combat Logging) |
 | Resource | Time spent at full rage or energy | Log (Advanced Combat Logging) |
 | Holding mobs, Pickups | Who mobs went for first, and how fast you got them back | Log |
 
@@ -231,7 +233,7 @@ The app is careful not to punish what isn't your fault:
 
 ### Tips that name names
 
-Every category under 85 gets a tip, and the card shows the tips for your three lowest. They point
+Every category under 85 gets a tip, and the Debrief shows the three that cost you the most points. They point
 at specifics: the refusal reason you hit most, the player whose dips you were slowest to answer,
 the cooldown that sat ready longest, the enemy spell you most often let through. If nothing is
 under 85, the card says "Nothing stands out - nice run."
@@ -246,14 +248,14 @@ The card opens with a verdict, the first of these that fits: how you died, what 
 mostly healed, "No damage done this fight.", the biggest finding if it cost 3% of your damage or
 more, or how close you came to the most you could have done.
 
-Below that you get the cooldown sheet. Each damage cooldown you have cast in the last week gets a
+The fight's own page has the cooldown sheet. Each damage cooldown you have cast in the last week gets a
 row: Used, Possible, Missed, Excused, Free and Lost. A cooldown only counts as missed when it sat
 ready for 2 seconds or more with no excuse. Moving (for cast-time spells), being out of mana,
 stunned, healing someone who was low, or a target that was nearly dead are all excuses. Idle time
 is counted the same way: 2.5 seconds or more with nothing cast while you could have acted, and only
 when you had a filler spell to press.
 
-Melee and ranged auto attacks are tracked as well. The Spells page gives the Melee row, and Auto Shot
+Melee and ranged auto attacks are tracked as well. The Spells tab gives the Melee row, and Auto Shot
 or wand Shoot, a hit table: swings, speed, how many landed, crit and glancing, and what was missed,
 dodged or parried. When melee or shots make up 10% or more of your damage, the card and the Debrief
 say so in a line over the losses, in words, since it isn't a loss. Time with no ability used is split
@@ -336,8 +338,7 @@ who you are ("Mapomimi, level 33 Undead Priest, Shadow, gear 31") and your sessi
 per hour, average rest between pulls, and average health and mana at the pull.
 
 The trend chart shows your efficiency per fight, with a gray line at each level-up and yellow
-dashes where your gear level changed. The cards are green for habits to keep, orange for ones to
-fix and blue for ones to build on. The most useful for a levelling character splits a change in
+dashes where your gear level changed. The cards are grouped into Fix, Build and Keep. The most useful for a levelling character splits a change in
 damage into the part that came from your play and the part that came from gear, level and what
 you fought. So when your damage goes up 15%, you can see how much of that you earned.
 
@@ -542,7 +543,7 @@ with last week's even if the group was different.
   including you, on the log alone.
 - The game only saves add-on data on `/reload` or logout. A crash before that loses the run's
   presses and movement, though fight cards don't wait for a save.
-- Without Advanced Combat Logging, Group health, Response, Resource and Positioning can't be judged,
+- Without Advanced Combat Logging, Group health, Response, Resource, Pacing and Positioning can't be judged,
   and Survival only counts deaths.
 - Presses on action bars from other add-ons have no key or click source.
 - The scoring thresholds are a first guess and may change. You can change the weights yourself.
