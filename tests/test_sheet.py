@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from dips_score.live.sheet import sheet  # noqa: E402
-from dips_score.sheet_view import NONE, build_sheet  # noqa: E402
+from dips_score.sheet_view import NONE, PARTLY, build_sheet  # noqa: E402
 from dips_score.sources.savedvars import load_char  # noqa: E402
 
 T0 = datetime(2026, 11, 24, 12)
@@ -21,7 +21,11 @@ dipsScoreLog = { ["version"] = 1, ["runs"] = {}, ["char"] = { ["guid"] = "Player
 ["items"] = { "1,4724,2,,Humbert's Helm", "5,273035,3,1234,Mana-Warped, Chain Shirt", "16,267369,3,0,Wolfsbane", "x", },
 ["itemstats"] = { "1,ITEM_MOD_STAMINA_SHORT,9", "5,ITEM_MOD_STRENGTH_SHORT,12", "16,ITEM_MOD_STRENGTH_SHORT,15",
   "16,ITEM_MOD_DAMAGE_PER_SECOND_SHORT,20.0", "5,RESISTANCE0_NAME,255", },
-["itemtext"] = { "16,Chance on hit: Wounds the target, for 12 damage.", "16,\"It howls.\"", "x", },
+["tips"] = { "16,267369,0,Wolfsbane", "16,267369,0,Item Level 31", "16,267369,20,Soulbound", "16,267369,0,Two-Hand", "16,267369,R,Sword",
+  "16,267369,0,49 - 74 Damage", "16,267369,R,Speed 3.40", "16,267369,0,(20.0 damage per second)", "16,267369,0,+15 Strength",
+  "16,267369,0,Durability 80 / 80", "16,267369,0,Requires Level 26", "16,267369,0,Equip: Improves your chance to hit by 0.5%.",
+  "16,267369,0,Chance on hit: Wounds the target, for 12 damage.", "16,267369,0,Something new", "16,267369,0,Wolf Set (1/2)",
+  "16,267369,0,  Wolf Cap", "16,267369,0,(2) Set: Bites.", "16,267369,0,\"It howls.\"", "16,267369,11,Sell Price: 1", "5,9,0,Another item", "x", },
 ["ranks"] = { "679,Rank 2", "678,Rank 1", },
 ["points"] = { "talent,1100,105625,1,1,Conviction, Improved", "talent,1100,105626,5,5,Benediction", },
 ["trees"] = { "talent,1100,51,12,", "legacy,1187,9,0,3", "legacy,1188,9,0,", },
@@ -111,6 +115,37 @@ class Sheet(unittest.TestCase):
                                 {"name": "Judgement of Command", "casts": 0, "hits": 1, "damage": 50}])
         self.assertEqual(by([proc])["Judgement"]["share"], .5)             # its proc's damage is its own
 
+    def test_gear_is_the_games_own_lines(self):
+        c = load()
+        self.assertNotIn(5, c["tips"])                  # lines of another item: an earlier reading's
+        v = build_sheet(made(char=c))
+        self.assertEqual(v.partly, PARTLY)
+        chest = next(i for i in v.gear if i.slot == "Chest")
+        self.assertEqual((chest.stats, chest.text), ("255 Armor, +12 Strength", []))
+        c["itemstats"][5] |= {"ITEM_MOD_HIT_RATING_SHORT": 5, "ITEM_MOD_ATTACK_POWER_SHORT": 7}
+        self.assertEqual(next(i for i in build_sheet(made(char=c)).gear if i.slot == "Chest").stats, chest.stats)      # a rating is not a percent
+        c["tips"] |= {1: [(0, "Humbert's Helm", "")], 5: [(0, "Mana-Warped, Chain Shirt", ""), (0, "+7 Attack Power", "")]}
+        v = build_sheet(made(char=c))
+        self.assertEqual((v.partly, next(i for i in v.gear if i.slot == "Chest").stats), ("", "+7 Attack Power"))
+        c["tips"][5] = c["tips"][5][:1]                 # its name alone: not loaded yet
+        v = build_sheet(made(char=c))
+        self.assertEqual((v.partly, next(i for i in v.gear if i.slot == "Chest").stats), (PARTLY, chest.stats))
+
+    def test_gear_is_summed_only_when_all_of_it_was_read(self):
+        for change in (lambda c: c["items"][16].update(name=""), lambda c: c["itemstats"].pop(16)):
+            c = load()
+            change(c)
+            c["stats"] |= {"str_pos": 27, "str_neg": 0}
+            self.assertEqual(made(char=c)["stats"]["str"], {"value": 93, "gear": None, "by_quality": {}})
+        c = load()
+        del c["itemstats"][5]           # no stats, and no lines that say it has any
+        self.assertEqual(made(char=c)["stats"]["str"]["gear"], 15)
+
+    def test_the_sheet_is_dated_by_what_is_worn(self):
+        c = load(SAVED.replace('["taken"] = 1795576160,', '["taken"] = 1795576160, ["geartaken"] = 1795570000,'))
+        self.assertEqual(made(char=c)["taken"], 1795570000)
+        self.assertEqual(made()["taken"], 1795576160)
+
     def test_unread_is_never_said(self):
         c = load()
         c["gear"], c["items"] = {1: 31, 5: 31}, {1: {"name": "Cap", "id": 1, "quality": None, "enchant": None}}
@@ -155,8 +190,9 @@ class View(unittest.TestCase):
         self.assertEqual((head.name, head.rarity, head.ink, head.level, head.flags),
                          ("Humbert's Helm", "uncommon", "q-uncommon", "30", ["lowest"]))
         self.assertEqual((chest.stats, chest.ink), ("255 Armor, +12 Strength", "q-rare"))
-        self.assertEqual((hand.stats, hand.flags), ("20.0 damage per second, +15 Strength", ["not enchanted"]))
-        self.assertEqual(hand.text, ["Chance on hit: Wounds the target, for 12 damage.", '"It howls."'])
+        self.assertEqual((hand.stats, hand.flags), ("49 - 74 Damage, Speed 3.40, 20.0 damage per second, +15 Strength", ["not enchanted"]))
+        self.assertEqual(hand.text, ["Equip: Improves your chance to hit by 0.5%.", "Chance on hit: Wounds the target, for 12 damage.", "Something new",
+                                     "Wolf Set (1/2)", "(2) Set: Bites.", '"It howls."'])
         self.assertEqual((items["Neck"].flags, items["Neck"].empty, items["Neck"].level), (["empty"], True, ""))
         self.assertEqual(v.wear, "2 pieces broken at your last pull.")
 

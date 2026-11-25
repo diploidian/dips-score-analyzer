@@ -10,6 +10,7 @@ NA = "–"
 HIDDEN = "hidden by the game"
 NONE = "Your character sheet fills in after you /reload with the add-on from 0.21 or newer."
 RESIST = ("holy", "fire", "nature", "frost", "shadow", "arcane")
+PARTLY = "Some items show only their basic stats until you /reload with add-on 0.5.2 or newer."
 QUALITY = {0: ("poor", "mu"), 1: ("common", "tx"), 2: ("uncommon", "q-uncommon"), 3: ("rare", "q-rare"),
            4: ("epic", "q-epic"), 5: ("legendary", "q-legendary")}
 ROLE_INK = {"damage": "role-dmg", "healer": "role-heal", "tank": "role-tank"}
@@ -83,6 +84,7 @@ class SheetView:
     talents_note: str = ""      # "12 of 51 talents have points."
     legacy: list[Talent] = field(default_factory=list)
     legacy_note: str = ""
+    partly: str = ""            # said over the gear when an item is not shown whole
 
 
 def _n(v, decimals=0) -> str:
@@ -109,11 +111,8 @@ def _item(g: dict) -> Item:
     if "empty" in g["flags"]:
         return Item(g["label"], "", "tx", level="", flags=["empty"], empty=True)
     rarity, ink = QUALITY.get(g["quality"], ("", "tx"))
-    armor = [f"{_trim(v)} Armor" for n, v in g["stats"] if n == "Armor"]
-    other = [f"{'+' if v > 0 else '−'}{_trim(abs(v))} {n}" for n, v in g["stats"] if n != "Armor"]
-    weapon = [f"{_n(g['dps'], 1)} damage per second"] if g["dps"] else []
     return Item(g["label"], g["name"] or "name not read yet", ink if g["name"] else "mu", rarity,
-                _n(g["level"]) if g["level"] else NA, ", ".join(weapon + armor + other), list(g["text"]), flags)
+                _n(g["level"]) if g["level"] else NA, ", ".join(g["stats"]), list(g["text"]), flags)
 
 
 NUMBERS = ("no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve")
@@ -253,6 +252,7 @@ def build_sheet(s: dict | None, broken: int | None = None) -> SheetView:
         return SheetView()
     v = SheetView(_when(s["taken"]), "", ROLE_INK.get(s["role"], "tx"), _ladder(s["gear"]), [_item(g) for g in s["gear"]])
     v.wear = f"{_plural(broken, 'piece')} broken at your last pull." if broken else ""
+    v.partly = PARTLY if any(not g["whole"] for g in s["gear"]) else ""
     rows = lambda specs: [f for spec in specs if (f := _stat(s, *spec))]  # noqa: E731
     resist = rows([(f"res_{k}", f"{k.title()} resistance") for k in RESIST])
     skills = [Figure(k["name"], f"{k['level']:,}" + (f" of {k['max']:,}" if k["max"] else "")) for k in s["skills"]]

@@ -182,7 +182,7 @@ them to tell whether a spell that only works on some types had anything to work 
 Beside the run log, the add-on saves what the game knows about your character: level, race, class,
 your spells with their base cooldowns and whether they hit enemies, the item level of each filled
 gear slot, and the points in each talent tree. Since add-on 0.5.0 it also saves what the Character sheet
-shows: your stats, each worn item with its stats, text and enchant, spell ranks, talent and Legacy
+shows: your stats, each worn item with its stats, tooltip and enchant, spell ranks, talent and Legacy
 points, and professions. It takes the snapshot 3 seconds after you enter the
 world (spell and item data may not be ready on the first frame) and again at logout or `/reload`. If
 a list comes back empty at logout, the earlier good one is kept.
@@ -898,9 +898,12 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
   `/reload` or logout. Until then the drawer says so. It is what the character carries, as of that
   `/reload` or logout, so only its measured figures come from the last 15 days.
   - Gear: every piece on one line of item levels, the average, how many of each rarity, then each slot
-    with the item's name in its rarity's colour, its stats, what it does in the game's words, and a tag
+    with the item's name in its rarity's colour, its stats and what it does, every line as the game's tooltip writes it, and a tag
     for an empty slot, the lowest piece, or one that takes an enchant and has none. An item whose link the
-    game had not loaded is "name not read yet", and is never called not enchanted.
+    game had not loaded is "name not read yet", and is never called not enchanted. The tooltip lines need add-on
+    0.5.2; without them an item shows only its armor, five stats, resistances and weapon damage, and the page says so.
+    Left out: the item's name and level, how it binds, where it is worn, durability, requirements, price, the list of
+    a set's pieces, and who made it, which is never saved.
   - Stats: what your fights measured (damage, healing, swing speed and average swing) beside what the
     game says, then the game's figures. A primary stat's bar is your own total (it compares you with nobody): what
     your gear gives, by rarity, what is your own without gear or buffs (race, class, level and talents), and

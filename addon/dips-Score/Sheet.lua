@@ -4,7 +4,8 @@
 --                                                      str_pos, str_neg: what items and buffs add, what debuffs take
 --   items     = {"slot,itemID,quality,enchantID,name", ...}
 --   itemstats = {"slot,KEY,value", ...}                the game's own stat keys (ITEM_MOD_STRENGTH_SHORT, ...)
---   itemtext  = {"slot,text", ...}                   what it does (Equip, Use, Chance on hit, Set) and its quoted line
+--   tips      = {"slot,itemID,type,text", ...}         its whole tooltip in order, but for who made it; type R: the right
+--                                                      side of the line before
 --   ranks     = {"spellID,rank", ...}                  the rank text of every spell in the book that has one
 --   points    = {"c,tree,node,rank,maxRank,name", ...} talents (c "talent") and Legacy (c "legacy") with points in them
 --   trees     = {"c,tree,nodes,withPoints,left", ...}  left: points still to spend, "" when not known
@@ -16,7 +17,6 @@ local IsSecret, Field = ns.IsSecret, ns.Field
 
 local LEGACY_SYSTEM = 45
 local LAST_SLOT = 19
-local MAX_LINES, MAX_TEXT = 6, 240 -- of one item's description
 
 -- Every result of a call, or an empty list when it is missing or fails.
 local function Results(ok, ...) return ok and {...} or {} end -- a nil among them keeps the others' places
@@ -99,34 +99,47 @@ end
 ----------------------------------------------------------------------
 -- Gear
 ----------------------------------------------------------------------
--- A tooltip line worth keeping: what the item does, or its quoted line. Nothing else is: the rest is names and
--- numbers the sheet has already, or a person's name ("Made by ...").
-local function Describes(line)
-    if line:sub(1, 1) == '"' then return true end
-    for _, name in ipairs({"ITEM_SPELL_TRIGGER_ONEQUIP", "ITEM_SPELL_TRIGGER_ONUSE", "ITEM_SPELL_TRIGGER_ONPROC"}) do
-        local start = _G[name]
-        if type(start) == "string" and start ~= "" and line:sub(1, #start) == start then return true end
-    end
-    return line:find("^%(%d+%) ") ~= nil or line:find("^Set: ") ~= nil
+-- A line as it reads: no colours, pictures or links.
+local function Plain(line)
+    return (line:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:]*:", ""):gsub("|r", ""):gsub("|T.-|t", "")
+        :gsub("|A.-|a", ""):gsub("|H.-|h", ""):gsub("|h", ""):gsub("[\r\n]+", " "))
 end
 
-local function Text(slot, out)
+-- A line that names a person ("<Made by ...>"): never saved.
+local function NamesPerson(line)
+    if line:sub(1, 1) == "<" then return true end
+    for _, key in ipairs({"ITEM_CREATED_BY", "ITEM_WRAPPED_BY", "ITEM_WRITTEN_BY"}) do
+        local format = _G[key]
+        local start = type(format) == "string" and Plain(format):match("^(.-)%%s")
+        if start and start ~= "" and line:sub(1, #start) == start then return true end
+    end
+    return false
+end
+
+-- Every line of a worn item's tooltip, as the game writes it. All of it or nothing: a hidden line, or an item the
+-- game has not loaded, leaves the slot out, so the app never shows part of an item as the whole.
+local function Tip(slot, id, out)
     local tip = First(C_TooltipInfo and C_TooltipInfo.GetInventoryItem, "player", slot)
-    local kept = 0
+    local mine = {}
     for _, l in ipairs(type(tip) == "table" and type(tip.lines) == "table" and tip.lines or {}) do
-        local line = l.leftText
-        if type(line) == "string" and not IsSecret(line) and kept < MAX_LINES then
-            line = line:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|cn[^:]*:", ""):gsub("|r", ""):gsub("[\r\n]+", " ")
-            if Describes(line) then
-                kept = kept + 1
-                out[#out + 1] = slot .. "," .. line:sub(1, MAX_TEXT)
+        local left, right = l.leftText, l.rightText
+        if IsSecret(left) or IsSecret(right) or (left and left == RETRIEVING_ITEM_INFO) then return end
+        if type(left) == "string" then
+            left = Plain(left)
+            if not NamesPerson(left) then
+                local kind = type(l.type) == "number" and not IsSecret(l.type) and l.type or 0
+                mine[#mine + 1] = slot .. "," .. id .. "," .. kind .. "," .. left
+                if type(right) == "string" and right ~= "" then
+                    mine[#mine + 1] = slot .. "," .. id .. ",R," .. Plain(right)
+                end
             end
         end
     end
+    for _, line in ipairs(mine) do out[#out + 1] = line end
 end
 
 local function Items()
-    local items, stats, text = {}, {}, {}
+    local items, stats, tips = {}, {}, {}
     for slot = 1, LAST_SLOT do
         local id = First(GetInventoryItemID, "player", slot)
         local link = First(GetInventoryItemLink, "player", slot)
@@ -146,11 +159,11 @@ local function Items()
                     end
                 end
             end
-            Text(slot, text)
+            Tip(slot, id, tips)
             items[#items + 1] = slot .. "," .. id .. "," .. Field(quality) .. "," .. enchant .. "," .. name
         end
     end
-    return items, stats, text
+    return items, stats, tips
 end
 
 ----------------------------------------------------------------------
@@ -219,10 +232,10 @@ end
 
 -- Adds the sheet to the snapshot being built (Char.lua); a part that fails stays empty.
 function ns.ReadSheet(read)
-    read.stats, read.items, read.itemstats, read.itemtext, read.ranks = {}, {}, {}, {}, {}
+    read.stats, read.items, read.itemstats, read.tips, read.ranks = {}, {}, {}, {}, {}
     read.points, read.trees, read.skills = {}, {}, {}
     pcall(function() read.stats = Stats() end)
-    pcall(function() read.items, read.itemstats, read.itemtext = Items() end)
+    pcall(function() read.items, read.itemstats, read.tips = Items() end)
     pcall(function() read.ranks = Ranks(read.spells) end)
     pcall(function()
         Trees("talent", First(C_ClassTalents and C_ClassTalents.GetActiveConfigID), read.points, read.trees)
@@ -230,4 +243,5 @@ function ns.ReadSheet(read)
     end)
     pcall(function() read.skills = Skills() end)
 end
-ns.SHEET = {"stats", "items", "itemstats", "itemtext", "ranks", "points", "trees", "skills"}
+ns.SHEET = {"ranks", "points", "trees", "skills"}
+ns.WORN = {"gear", "items", "itemstats", "tips", "stats"} -- of one moment: kept or replaced together

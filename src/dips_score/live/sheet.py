@@ -1,12 +1,13 @@
 """The character sheet: what the character carries and knows, from the add-on's snapshot (Sheet.lua), joined to how the
 window's fights used it. Pure data, plain values; what cannot be known is None, never a guess.
 
-sheet(char, win, fig) -> None without a snapshot that holds one, else {"taken" (the snapshot's time()), "gear", "stats",
+sheet(char, win, fig) -> None without a snapshot that holds one, else {"taken" (the time() what is worn was read), "gear", "stats",
 "abilities", "points", "trees", "skills", "projections"}. win: the window's fights; fig: profile.figures of it, for the main
 role.
 
   gear         one per slot of SLOTS: {"slot", "label", "name", "level", "quality", "enchant" (id, 0 none, None not read), "flags",
-               "stats" [(name, value)], "dps" (a weapon's), "text" (what it does, lines)}
+               "stats" (its numbers) and "text" (what it does), both lines as the game writes them, "whole" (the tooltip was read;
+               else "stats" has only what reads the same everywhere: armor, the five, resistances, a weapon's damage)}
   stats        {key: {"value" (None: hidden by the game), "gear" (how much of it the items give, None when none does),
                "by_quality" {item quality: its part of that}}}; a primary one also has "own" (without gear or buffs), "buffs"
                (buffs and enchants) and "lost" (to debuffs) when the snapshot has the game's bonus figure (add-on 0.5.1)
@@ -18,6 +19,7 @@ The combat log's own attack power is another number than the game's (625 against
 is not used: the worth of attack power is an estimate, not a measure."""
 from __future__ import annotations
 
+import re
 from statistics import median
 
 from . import traits
@@ -35,9 +37,7 @@ ITEM_KEY = {"str": "ITEM_MOD_STRENGTH_SHORT", "agi": "ITEM_MOD_AGILITY_SHORT", "
 STAT_NAME = {"ITEM_MOD_STRENGTH_SHORT": "Strength", "ITEM_MOD_AGILITY_SHORT": "Agility", "ITEM_MOD_STAMINA_SHORT": "Stamina",
              "ITEM_MOD_INTELLECT_SHORT": "Intellect", "ITEM_MOD_SPIRIT_SHORT": "Spirit", "RESISTANCE0_NAME": "Armor",
              "RESISTANCE1_NAME": "Holy resistance", "RESISTANCE2_NAME": "Fire resistance", "RESISTANCE3_NAME": "Nature resistance",
-             "RESISTANCE4_NAME": "Frost resistance", "RESISTANCE5_NAME": "Shadow resistance", "RESISTANCE6_NAME": "Arcane resistance",
-             "ITEM_MOD_MANA_REGENERATION_SHORT": "Mana per 5 s", "ITEM_MOD_ATTACK_POWER_SHORT": "Attack power",
-             "ITEM_MOD_SPELL_POWER_SHORT": "Spell power", "ITEM_MOD_CRIT_RATING_SHORT": "Critical hits", "ITEM_MOD_HIT_RATING_SHORT": "Hit"}
+             "RESISTANCE4_NAME": "Frost resistance", "RESISTANCE5_NAME": "Shadow resistance", "RESISTANCE6_NAME": "Arcane resistance"}
 WEAPON_DPS = "ITEM_MOD_DAMAGE_PER_SECOND_SHORT"
 AP_PER_DPS = 14                         # the classic rule: 14 attack power is one damage per second
 NOT_A_SPELL = {"Attack"}                # auto attack is in the book too
@@ -45,12 +45,45 @@ CLOSE = 0.10                            # an estimate is shown only this near th
 MIN_DAMAGE, MIN_HEALING, MIN_SWINGS = 10, 5, 10      # fights a measure needs
 
 
-def _named(stats: dict) -> list[tuple[str, float]]:
-    """an item's stats by name, the ones everybody knows first; a key not in STAT_NAME reads as its own words"""
-    order = list(STAT_NAME)
-    plain = lambda k: k.removeprefix("ITEM_MOD_").removesuffix("_SHORT").replace("_", " ").capitalize()  # noqa: E731
-    keys = sorted((k for k in stats if k != WEAPON_DPS and stats[k]), key=lambda k: (order.index(k) if k in order else len(order), k))
-    return [(STAT_NAME.get(k) or plain(k), stats[k]) for k in keys]
+NOT_SAID = re.compile(r"Item Level |Soulbound$|Binds |Unique|Durability |Requires |Classes: |Races: |Sell Price|Quest Item$|\s*$")
+WORN_AS = {"Head", "Neck", "Shoulder", "Back", "Chest", "Shirt", "Tabard", "Wrist", "Hands", "Waist", "Legs", "Feet", "Finger", "Trinket",
+           "One-Hand", "Two-Hand", "Main Hand", "Off Hand", "Held In Off-hand", "Held In Off-Hand", "Ranged", "Thrown", "Relic", "Projectile"}
+NUMBER_LINE = re.compile(r"[+\-−] ?\d|[\d,.]+ (?:- [\d,.]+ )?(?:\w+ )?(?:Armor|Block|Damage)$|\([\d,.]+ damage per second\)$")
+
+
+def _lines(tip: list[tuple[int, str, str]], name: str | None) -> tuple[list[str], list[str]]:
+    """an item's tooltip, its name and what the sheet says elsewhere left out: (its numbers, what it does). A line not known
+    to be noise stays, word for word: an item is never shown short of something"""
+    stats, text = [], []
+    for _, left, right in tip:
+        s = left.strip()
+        if s == name or NOT_SAID.match(s) or s in WORN_AS or left[:1].isspace():
+            continue
+        if NUMBER_LINE.match(s):
+            stats += [s.removeprefix("(").removesuffix(")") if s.startswith("(") else s] + ([right] if right else [])
+        else:
+            text.append(f"{s} {right}".strip())
+    return stats, text
+
+
+def _flat(stats: dict) -> list[str]:
+    """an item's numbers without its tooltip: those that mean the same on every item (a rating's key is not its percent)"""
+    weapon = [f"{stats[WEAPON_DPS]:.1f} damage per second"] if stats.get(WEAPON_DPS) else []
+    number = lambda v: f"{v:g}" if v == int(v) else f"{v:.1f}"  # noqa: E731
+    names = ["RESISTANCE0_NAME"] + [k for k in STAT_NAME if k != "RESISTANCE0_NAME"]
+    return weapon + [f"{number(stats[k])} Armor" if STAT_NAME[k] == "Armor" else f"{'+' if stats[k] > 0 else '−'}{number(abs(stats[k]))} {STAT_NAME[k]}"
+                     for k in names if stats.get(k)]
+
+
+def _all_read(char: dict) -> bool:
+    """whether every worn item's stats were read, so a sum of them is the whole of it"""
+    given, tips = char.get("itemstats") or {}, char.get("tips") or {}
+    for slot, item in (char.get("items") or {}).items():
+        if slot in NO_GEAR_LEVEL:
+            continue
+        if not item.get("name") or (slot not in given and any(re.match(r"[+\-−]\d|\d+ Armor$", x) for x in _lines(tips.get(slot) or [], item["name"])[0])):
+            return False
+    return True
 
 
 def _gear(char: dict) -> list[dict]:
@@ -69,23 +102,28 @@ def _gear(char: dict) -> list[dict]:
             flags.append("empty")
         elif item and slot in ENCHANTABLE and item.get("enchant") == 0:
             flags.append("not enchanted")
+        tip = (char.get("tips") or {}).get(slot) or []
+        flat = _flat(given.get(slot) or {})
+        stats, text = _lines(tip, (item or {}).get("name"))
+        whole = bool(tip) and bool(stats or not flat)       # an item with numbers and a tooltip without: not all there yet
+        if not whole:
+            stats, text = flat, []
         if level and known and level == min(known) < max(known) and slot not in NO_GEAR_LEVEL:
             flags.append("lowest")
         out.append({"slot": slot, "label": label, "name": (item or {}).get("name") or None, "level": level,
                     "quality": (item or {}).get("quality"), "enchant": (item or {}).get("enchant"), "flags": flags,
-                    "stats": _named(given.get(slot) or {}), "dps": (given.get(slot) or {}).get(WEAPON_DPS),
-                    "text": (char.get("itemtext") or {}).get(slot) or []})
+                    "stats": stats, "text": text, "whole": whole or not item})
     return out
 
 
 def _stats(char: dict) -> dict[str, dict]:
     given, items = char.get("itemstats") or {}, char.get("items") or {}
-    out, read = {}, char.get("stats") or {}
+    out, read, whole = {}, char.get("stats") or {}, _all_read(char)
     for key, value in read.items():
         if key.endswith(("_pos", "_neg")):
             continue
         by: dict[int | None, float] = {}
-        for slot, s in given.items():
+        for slot, s in given.items() if whole else ():          # part of the gear is not "from gear"
             if (n := s.get(ITEM_KEY.get(key, ""))):
                 q = (items.get(slot) or {}).get("quality")
                 by[q] = by.get(q, 0) + n
@@ -93,7 +131,7 @@ def _stats(char: dict) -> dict[str, dict]:
         pos, neg = read.get(f"{key}_pos"), read.get(f"{key}_neg")
         gear = sum(by.values())
         # a bonus under what the items give can't hold them: then it is not split
-        if None not in (value, pos, neg) and pos >= gear and value - pos + abs(neg) >= 0:
+        if whole and key in ITEM_KEY and None not in (value, pos, neg) and pos >= gear and value - pos + abs(neg) >= 0:
             out[key] |= {"own": value - pos + abs(neg), "buffs": pos - gear, "lost": abs(neg)}
     return out
 
@@ -175,6 +213,6 @@ def sheet(char: dict | None, win: list[dict], fig: dict | None = None) -> dict |
     if not char or not (char.get("stats") or char.get("items")):
         return None
     stats, fig = _stats(char), fig or {}
-    return {"taken": char.get("taken"), "gear": _gear(char), "stats": stats, "abilities": _abilities(char, win),
+    return {"taken": char.get("geartaken") or char.get("taken"), "gear": _gear(char), "stats": stats, "abilities": _abilities(char, win),
             "points": char.get("points") or [], "trees": char.get("trees") or [], "skills": char.get("skills") or [],
             "projections": _projections(char, win, stats), "role": fig.get("main_role"), "auto": _auto(win)}

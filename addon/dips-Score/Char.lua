@@ -224,6 +224,13 @@ function ns.Snapshot()
             stored[key] = before[key]
         end
     end
+    -- what is worn and the stats with it go together, or new gear would stand beside an old item's lines. In combat the
+    -- stats can't be read, so the last whole reading stays, with its own time.
+    stored.geartaken = read.taken
+    if (#read.items == 0 or #read.stats == 0) and type(before.items) == "table" and #before.items > 0 then
+        for _, key in ipairs(ns.WORN) do stored[key] = before[key] or {} end
+        stored.geartaken = before.geartaken or before.taken
+    end
     log.char = stored
     return stored, read
 end

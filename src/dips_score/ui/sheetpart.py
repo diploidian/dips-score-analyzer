@@ -74,7 +74,7 @@ class Gear(Part):
         said = lambda i: ", ".join(filter(None, (i.slot, i.name, i.rarity, i.level and f"level {i.level}", i.stats, *i.flags, *i.text)))  # noqa: E731
         ladder = v.ladder and "Item levels: " + "; ".join(f"{lv} {', '.join(s for s, _ in slots)}" for lv, _, slots in v.ladder.marks)
         self.setAccessibleName("Gear: " + ". ".join(x.rstrip(".") for x in filter(None, (
-            v.ladder and v.ladder.verdict, ladder, v.wear, *map(said, v.gear), not v.gear and "could not be read"))))
+            v.ladder and v.ladder.verdict, ladder, v.wear, v.partly, *map(said, v.gear), not v.gear and "could not be read"))))
         self.changed()
 
     def draw(self, p, w):
@@ -88,6 +88,8 @@ class Gear(Part):
             if p:
                 line(p, font(14, 600), tok("tx"), 0, y, 20, v.wear)
             y += 28
+        if v.partly:
+            y += wrapped(p, font(13), tok("tx2"), 0, y, w, 13 * 1.4, v.partly) + 10
         if w < TWO_COLS:
             return self.column(p, 0, y, w, v.gear) + 8
         cw, half = (w - GAP) / 2, len(v.gear) // 2
