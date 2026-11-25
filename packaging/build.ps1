@@ -14,6 +14,7 @@ if ($LASTEXITCODE) { throw "pip install failed" }
 
 & "$venv\Scripts\pyinstaller.exe" --noconfirm --clean --windowed --name projectArthas `
     --add-data "..\src\dips_score\ui\fonts;dips_score\ui\fonts" `
+    --add-data "..\pyproject.toml;." `
     --add-data "..\src\dips_score\ui\icon.ico;dips_score\ui" --icon "$root\src\dips_score\ui\icon.ico" `
     --paths src --distpath build\pyinstaller --workpath build\pyinstaller-work --specpath build `
     projectArthas.pyw

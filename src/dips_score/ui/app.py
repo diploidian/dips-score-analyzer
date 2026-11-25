@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QInputDial
                              QMessageBox, QProgressBar, QPushButton, QSplitter, QStackedWidget, QTabWidget,
                              QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
 
-from .. import analysis, names, removed, store
+from .. import analysis, names, removed, store, version
 from ..analysis import Analysis
 from ..config import Paths
 from ..debrief import DebriefView
@@ -75,7 +75,7 @@ class Window(QMainWindow):
         self.warm_timer.timeout.connect(self._warm_up)
         names.load(paths.names_file)
         removed.load(paths.removed_file)
-        self.setWindowTitle("projectArthas")
+        self.setWindowTitle(f"projectArthas {version()}".strip())
         self.resize(1500, 950)
 
         # ---- left: dungeons and their visits
