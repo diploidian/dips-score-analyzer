@@ -70,7 +70,7 @@ label and hours, and the type as its headline:
 | Questing | Errant |
 | Dungeon / Raid | Delver / Siegebreaker |
 | PvP | Warmonger |
-| Gathering and crafting | Artisan |
+| Professions (gathering, skinning, crafting) | Artisan |
 | Trading | Merchant Prince |
 | Travelling and Roaming | Wayfarer |
 | In town | Townsman |

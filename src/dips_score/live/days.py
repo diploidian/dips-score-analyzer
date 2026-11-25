@@ -1,16 +1,19 @@
 """Where your time goes, from what the add-on (Life.lua) counted per day, and the Player Type it makes. Pure data.
 
-figures(time, lo, hi) -> None when the window has no day, else {"seconds" (played, away left out), "away", "turnins",
+figures(time, lo, hi, fights=()) -> None when the window has no day, else {"seconds" (played, away left out), "away", "turnins",
 "since" (the first day counted, ISO, when that is later than the window's first: the rest is not known; else None),
 "parts" {part: share of seconds, 0..1, those with any}, "type", "lead" (its part), "second" (a part, or None)}. time is
 {"2026-11-24": {column: seconds}}; a day belongs to the window (lo, hi] by its date, so each day is in one of two
-neighbouring windows. "type" and what follows are None under MIN_SECONDS.
+neighbouring windows. "type" and what follows are None under MIN_SECONDS. fights: the character's; those against players outside
+an instance are the least a day's "skirmish" can be, since the add-on sees an enemy player only while you target one: what is missing is
+taken from what it took the time for. Not on the first day counted, which it may have joined halfway.
 
 The type is the part furthest over its own bar. The bars differ because the parts do: an hour at the auction house is a
 lot, an hour of travel is not. Both they and the names are fixed by hand, as the traits' ends are.
 """
 from __future__ import annotations
 
+from collections import Counter
 from datetime import datetime, timedelta
 
 MIN_SECONDS = 5 * 3600
@@ -20,16 +23,33 @@ PARTS = {"quest": (("quest",), .35, "Errant"),
          "hunt": (("hunt",), .30, "Huntmaster"),
          "dungeon": (("dungeon",), .30, "Delver"),
          "raid": (("raid",), .25, "Siegebreaker"),
-         "pvp": (("pvp",), .25, "Warmonger"),
+         "pvp": (("pvp", "skirmish"), .25, "Warmonger"),
          "craft": (("craft", "gather"), .20, "Artisan"),
          "trade": (("trade",), .15, "Merchant Prince"),
          "travel": (("taxi", "roam"), .35, "Wayfarer"),
          "town": (("town",), .35, "Hearthkeeper")}
 NONE = "Adventurer"
+TAKEN_AS = ("hunt", "quest", "gather", "roam", "town")      # what a fight with a player counted as when it was not seen
 
 
-def figures(time: dict[str, dict[str, float]] | None, lo: datetime, hi: datetime) -> dict | None:
-    days = [d for day, d in (time or {}).items() if lo.date() < datetime.fromisoformat(day).date() <= hi.date()]
+def _skirmishes(day: dict[str, float], least: float) -> dict[str, float]:
+    day = dict(day)
+    missing = least - (day.get("skirmish") or 0)
+    for col in TAKEN_AS:
+        took = min(day.get(col) or 0, max(0.0, missing))
+        if took:
+            day[col] -= took
+            day["skirmish"] = (day.get("skirmish") or 0) + took
+            missing -= took
+    return day
+
+
+def figures(time: dict[str, dict[str, float]] | None, lo: datetime, hi: datetime, fights=()) -> dict | None:
+    least: Counter = Counter()
+    for f in fights:
+        if f.get("kind") == "PvP" and not f.get("instance"):
+            least[f["start"][:10]] += f.get("duration") or 0
+    days = [_skirmishes(d, least[day] if day != min(time) else 0) for day, d in (time or {}).items() if lo.date() < datetime.fromisoformat(day).date() <= hi.date()]
     if not days:
         return None
     first = min(time)

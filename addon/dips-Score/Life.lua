@@ -8,12 +8,14 @@
 --   }
 --   levels = {"time(),level", ...}                       -- at login when it changed, and at each level
 --
--- The first that applies: in combat, where you are (an instance) or what you were at; on a taxi; away (AFK); dead (what
--- you were at, DEAD seconds of it); an instance; away (nothing done for IDLE seconds); the auction house or the mailbox; crafting; quest
--- progress lately; gathering lately; a fight lately; resting; roaming. A new column goes at the end of COLS.
+-- The first that applies: in combat, where you are (an instance), a fight with an enemy player ("skirmish") or what you were
+-- at; on a taxi; away (AFK); dead (what you were at, DEAD seconds of it); away (nothing done for IDLE seconds, outside an
+-- instance); a profession at work (gathering, skinning, crafting); an instance; the auction house or the mailbox; a fight with
+-- an enemy player lately; quest progress lately; gathering lately; a fight lately; resting; roaming. A new column goes at the
+-- end of COLS.
 --
--- It writes straight into the saved table and does nothing at logout, where the game answers 0 to everything. No call is
--- made in combat. Calls are looked for first and run under pcall; a hidden answer counts as "no".
+-- It writes straight into the saved table and does nothing at logout, where the game answers 0 to everything. In combat it
+-- only asks who your target is. Calls are looked for first and run under pcall; a hidden answer counts as "no".
 local ADDON, ns = ...
 local IsSecret = ns.IsSecret
 
@@ -22,22 +24,28 @@ local MOST = 10                     -- of one look: a loading screen or a freeze
 local IDLE = 180                    -- without moving, casting or fighting, and no auction house or mailbox open
 local QUEST, GATHER, HUNT = 300, 180, 90 -- "lately"
 local CRAFT = 60                    -- a cast, with a profession window open
+local AT_WORK, SKIN = 30, 15        -- after a profession's own cast: to loot, to wait for a bite; a skinner is back at the hunt sooner
 local DEAD = 600                    -- a corpse run longer than this is being away
 local SETTLE = 10                   -- after entering the world, where the game may report the whole quest log as changed
 local MAX_DAYS, MAX_LEVELS = 60, 100
-local COLS = {"away", "trade", "raid", "dungeon", "pvp", "taxi", "craft", "quest", "gather", "hunt", "town", "roam", "turnins"}
+local COLS = {"away", "trade", "raid", "dungeon", "pvp", "skirmish", "taxi", "craft", "quest", "gather", "hunt", "town", "roam", "turnins"}
 local KINDS = {party = "dungeon", scenario = "dungeon", raid = "raid", pvp = "pvp", arena = "pvp"}
 local TRADE_FRAMES = {"AuctionHouseFrame", "AuctionFrame", "MailFrame"}
 local CRAFT_FRAMES = {"ProfessionsFrame", "TradeSkillFrame", "CraftFrame"}
-local GATHERING = {2575, 2366, 7620} -- mining, herbs, fishing: every rank has the same name (skinning belongs to the hunt)
+-- what a profession casts outside its window, by a rank of it (every rank has the same name): its state, its seconds, a trip of it
+local ACTIONS = {
+    [2575] = {"gather", AT_WORK, true}, [2366] = {"gather", AT_WORK, true}, [7620] = {"gather", AT_WORK, true}, -- mining, herbs, fishing
+    [8613] = {"gather", SKIN}, [13262] = {"craft", AT_WORK}, [31252] = {"craft", AT_WORK}, [51005] = {"craft", AT_WORK}, -- skinning, disenchanting, prospecting, milling
+}
 
 local last, done = 0, 0             -- GetTime() of the last look, of the last thing you did
-local castAt, questAt, gatherAt, huntAt = -1e9, -1e9, -1e9, -1e9
+local castAt, questAt, gatherAt, huntAt, pvpAt = -1e9, -1e9, -1e9, -1e9, -1e9
+local work, workUntil = nil, 0      -- "gather" or "craft", and until when
 local entered = 0                   -- GetTime() of entering the world
 local inCombat, kind, deadSince
 local living = "roam"               -- the last state alive
 local midnight = 0                  -- time() of the next one
-local gatherNames
+local actions                       -- name -> its entry of ACTIONS
 
 local function Try(fn, ...)
     if type(fn) ~= "function" then return nil end
@@ -99,15 +107,23 @@ end
 -- One look
 ----------------------------------------------------------------------
 local function Lately(t)
+    if t - pvpAt < HUNT then return "skirmish" end
     if t - questAt < QUEST then return "quest" end
     if t - gatherAt < GATHER then return "gather" end
     if t - huntAt < HUNT then return "hunt" end
 end
 
+-- Fighting an enemy player or a pet of one (a duel too).
+local function Skirmish()
+    return (Try(UnitPlayerControlled, "target") or Try(UnitIsPlayer, "target")) and Try(UnitCanAttack, "player", "target")
+        and Try(UnitAffectingCombat, "target")
+end
+
 local function State(t)
     if inCombat then
         done, huntAt, deadSince = t, t, nil
-        living = kind or (t - questAt < QUEST and "quest") or "hunt"
+        if not kind and Skirmish() then pvpAt = t end
+        living = kind or (t - pvpAt < HUNT and "skirmish") or (t - questAt < QUEST and "quest") or "hunt"
         return living
     end
     if Try(UnitOnTaxi, "player") then
@@ -123,9 +139,10 @@ local function State(t)
     deadSince = nil
     local trading = Shown(TRADE_FRAMES)
     if not kind and not trading and t - done > IDLE then return "away" end
-    living = kind
-        or (trading and "trade")
+    living = (not trading and t < workUntil and work)
         or (t - castAt < CRAFT and Shown(CRAFT_FRAMES) and "craft")
+        or kind
+        or (trading and "trade")
         or Lately(t)
         or (Try(IsResting) and "town")
         or "roam"
@@ -164,17 +181,27 @@ local function Where()
     kind = ok and not IsSecret(what) and KINDS[what] or nil
 end
 
-local function Gathers(spell)
-    if inCombat or IsSecret(spell) or type(spell) ~= "number" then return false end
-    if not gatherNames then
-        gatherNames = {}
-        for _, id in ipairs(GATHERING) do
+-- A profession's own cast: one of ACTIONS, or a recipe.
+local function Work(spell, t)
+    if inCombat or IsSecret(spell) or type(spell) ~= "number" then return end
+    if not actions then
+        actions = {}
+        for id, action in pairs(ACTIONS) do
             local name = Try(C_Spell and C_Spell.GetSpellName, id)
-            if type(name) == "string" then gatherNames[name] = true end
+            if type(name) == "string" then actions[name] = action end
         end
     end
     local name = Try(C_Spell and C_Spell.GetSpellName, spell)
-    return type(name) == "string" and gatherNames[name] or false
+    local action = type(name) == "string" and actions[name]
+    if action then
+        work, workUntil = action[1], t + action[2]
+        if action[3] then gatherAt = t end
+        return
+    end
+    local recipe = Try(C_TradeSkillUI and C_TradeSkillUI.GetRecipeInfo, spell)
+    if type(recipe) == "table" and not IsSecret(recipe.learned) and recipe.learned == true then
+        work, workUntil = "craft", t + AT_WORK
+    end
 end
 
 local E = CreateFrame("Frame")
@@ -189,7 +216,7 @@ local function OnEvent(event, ...)
     local t = GetTime()
     if event == "UNIT_SPELLCAST_SUCCEEDED" then
         done, castAt = t, t
-        if Gathers((select(3, ...))) then gatherAt = t end
+        Work(select(3, ...), t)
     elseif event == "PLAYER_REGEN_DISABLED" then
         inCombat = true
     elseif event == "PLAYER_REGEN_ENABLED" then

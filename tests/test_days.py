@@ -55,6 +55,18 @@ class Days(unittest.TestCase):
         begun = lambda n: figures({(T0 - n * DAY).date().isoformat(): {"hunt": 1}}, T0 - 15 * DAY, T0)["since"]  # noqa: E731
         self.assertEqual((begun(14), begun(2)), (None, "2026-11-23"))
 
+    def test_fights_with_players(self):
+        """what the log saw of them is the least; the rest of the day makes room, and no second is added"""
+        days = {(T0 - n * DAY).date().isoformat(): {"hunt": 600, "quest": 300, "skirmish": 60} for n in (0, 1, 9)}
+        at = lambda n, s, **kw: {"start": (T0 - n * DAY).isoformat(), "duration": s, "kind": "PvP", "instance": 0} | kw  # noqa: E731
+        share = lambda *fs: figures(days, T0 - 15 * DAY, T0, fs)  # noqa: E731
+        secs = lambda f: {p: round(s * f["seconds"]) for p, s in f["parts"].items()}  # noqa: E731
+        self.assertEqual(secs(share()), {"hunt": 1800, "quest": 900, "pvp": 180})
+        self.assertEqual(secs(share(at(0, 200), at(0, 560))), {"hunt": 1200, "quest": 800, "pvp": 880})     # 700 more than was seen
+        self.assertEqual(secs(share(at(0, 50), at(9, 500), at(1, 500, instance=30), at(1, 500, kind="World"))), secs(share()))
+        self.assertEqual(share(at(0, 9999))["seconds"], share()["seconds"])
+        self.assertEqual(days[T0.date().isoformat()], {"hunt": 600, "quest": 300, "skirmish": 60})
+
     def test_windows_do_not_share_a_day(self):
         time = {(T0 - n * DAY).date().isoformat(): {"hunt": 1} for n in range(40)}
         now, before = figures(time, T0 - 15 * DAY, T0), figures(time, T0 - 30 * DAY, T0 - 15 * DAY)

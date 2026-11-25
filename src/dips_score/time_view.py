@@ -9,7 +9,7 @@ from .live.days import MIN_SECONDS, PARTS
 
 # part: (name, ink)
 SHOWN = {"hunt": ("Hunting", "m-surv"), "quest": ("Questing", "role-tank"), "dungeon": ("Dungeons", "place-dungeon"),
-         "raid": ("Raids", "place-raid"), "pvp": ("PvP", "place-pvp"), "craft": ("Gathering and crafting", "m-cd"),
+         "raid": ("Raids", "place-raid"), "pvp": ("PvP", "place-pvp"), "craft": ("Professions", "m-cd"),
          "trade": ("Auction house and mail", "gold"), "travel": ("Travelling", "place-world"), "town": ("In town", "m-act")}
 NEED = "Your time bar fills in after you play and /reload with the add-on from 0.22 or newer."
 CHIP_MIN = 5

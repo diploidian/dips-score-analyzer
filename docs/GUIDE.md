@@ -188,7 +188,7 @@ world (spell and item data may not be ready on the first frame) and again at log
 a list comes back empty at logout, the earlier good one is kept.
 
 Since add-on 0.6.0 it also counts where your time goes, in seconds per day: hunting, questing, dungeons, raids,
-battlegrounds and arenas, gathering and crafting, the auction house and mailbox, travelling, in town, and away (AFK, or 3 minutes
+PvP (battlegrounds, arenas, and any fight with an enemy player), professions (gathering, skinning, crafting), the auction house and mailbox, travelling, in town, and away (AFK, or 3 minutes
 without moving, casting or fighting, outside an instance), with the quests handed in. It keeps 60 days, and the time of each level
 you reach. No place, name or chat is saved.
 
