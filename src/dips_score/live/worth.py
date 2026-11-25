@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from bisect import bisect_right
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from math import sqrt
 
 MIN_HITS, MIN_AT_ONE = 100, 30      # hits a slope needs, and hits at each of two spell powers
@@ -17,11 +17,27 @@ ROLL = 0.06                         # a day's spread this near the weapon's own 
 NONE_SEEN = 0.05                    # "none seen": 10 points can't be worth more than this share of the hit
 
 
+def _at(record: list[tuple] | None, when: datetime):
+    """what the add-on's record [(time(), what)] says it was then; None before it"""
+    order = sorted(record or [])
+    at = bisect_right([t for t, _ in order], when.timestamp())
+    return order[at - 1][1] if at else None
+
+
 def level_at(levels: list[tuple[int, int]] | None, iso: str) -> int | None:
     """the character's level at that time, by the add-on's record of them; None before it"""
-    order = sorted(levels or [])
-    at = bisect_right([t for t, _ in order], datetime.fromisoformat(iso).timestamp())
-    return order[at - 1][1] if at else None
+    return _at(levels, datetime.fromisoformat(iso))
+
+
+def _with(f: dict, weapon: tuple | None, weapons: list[tuple] | None) -> bool:
+    """whether the fight was fought with that weapon (item id, enchant id or None: not read), start to end; a fight from
+    before the record may have been"""
+    start = datetime.fromisoformat(f["start"])
+    held = {_at(weapons, start), _at(weapons, start + timedelta(seconds=f.get("duration") or 0))}
+    held |= {w for t, w in weapons or [] if start.timestamp() < t <= start.timestamp() + (f.get("duration") or 0)}
+    if None in held:
+        return held == {None}
+    return weapon is not None and all(w[0] == weapon[0] and weapon[1] in (None, w[1]) for w in held)
 
 
 def leveled(fights: list[dict], char: dict | None) -> list[dict]:
@@ -54,15 +70,18 @@ def _slope(groups: list[list[float]]) -> tuple[float, float, int] | None:
     return b, sqrt(max(0.0, yy - b * xy) / free / xx), n
 
 
-def swing(win: list[dict], low: float | None, high: float | None) -> dict | None:
-    """what one attack power adds to a swing: {"value", "error", "n"}. low, high: the damage the game says a swing does.
-    Only the days whose swings spread as that weapon's roll does: another weapon or a buff on swings spreads them more"""
+def swing(win: list[dict], low: float | None, high: float | None, weapon: tuple | None = None,
+          weapons: list[tuple] | None = None) -> dict | None:
+    """what one attack power adds to a swing: {"value", "error", "n"}. low, high: the damage the game says a swing does with
+    weapon (item id, enchant id); weapons: the add-on's record of the main hand, only fights with that weapon once it begins.
+    And only the days whose swings spread as that weapon's roll does: another weapon or a buff on swings spreads them more"""
     if not low or not high or high <= low:
         return None
     roll = (high - low) / sqrt(12)
     days = defaultdict(list)
     for f in win:
-        days[f["start"][:10]] += [(c[2], 0, *c[4:7]) for c in f.get("power") or [] if not c[1]]
+        if _with(f, weapon, weapons):
+            days[f["start"][:10]] += [(c[2], 0, *c[4:7]) for c in f.get("power") or [] if not c[1]]
     good = []
     for cells in days.values():
         if sum(c[2] for c in cells) >= MIN_AT_ONE and (s := _sums(cells))[1] > 0:

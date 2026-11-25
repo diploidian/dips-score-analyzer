@@ -167,7 +167,8 @@ def _pulls(lines: list) -> list[tuple[datetime, int, int]]:
 
 
 def _life(log: dict) -> dict:
-    """what Life.lua counted: "time" {"2026-11-24": {column: seconds}}, "levels" [(time(), level)]"""
+    """what Life.lua counted: "time" {"2026-11-24": {column: seconds}}, "levels" [(time(), level)], "weapons" [(time(), (item id, enchant
+    id))], the main hand from then on"""
     t = log.get("time") if isinstance(log.get("time"), dict) else {}
     cols = str(t.get("cols") or "").split(",")
     days: dict[str, dict[str, float]] = {}
@@ -179,7 +180,9 @@ def _life(log: dict) -> dict:
     if _is_day(day := str(now.get("day"))):
         _add(days, day, ((c, now.get(c)) for c in cols))
     levels = [tuple(map(_int, p)) for s in _as_list(log.get("levels")) if len(p := str(s).split(",")) == 2]
-    return {"time": days, "levels": [x for x in levels if None not in x]}
+    weapons = [(_int(p[0]), tuple(map(_int, p[1].split(":")))) for s in _as_list(log.get("weapons")) if len(p := str(s).split(",")) == 2]
+    return {"time": days, "levels": [x for x in levels if None not in x],
+            "weapons": [(t, w) for t, w in weapons if t is not None and len(w) == 2 and None not in w]}
 
 
 def _add(days: dict, day: str, row):

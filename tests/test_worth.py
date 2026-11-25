@@ -51,6 +51,19 @@ class Swing(unittest.TestCase):
         mixed = swings(.24) + swings(.24, low=40, aps=(600, 650), seed=3)   # swapped within the day
         self.assertIsNone(swing([fight(mixed)], 139, 175))
 
+    def test_the_weapon_is_the_one_held(self):
+        at = int(T0.timestamp())
+        win = [fight(swings(.24), duration=60), fight(swings(.24, seed=5), day=-1, duration=60)]
+        n = lambda weapon, record: (swing(win, 139, 175, weapon, record) or {"n": 0})["n"]  # noqa: E731
+        sword, other = (7, 0), (8, 0)
+        self.assertEqual(n(sword, []), 1200)                                                    # no record: the spread alone
+        self.assertEqual(n(sword, [(at - 3600, sword)]), 1200)                                  # the day before may have been
+        self.assertEqual(n(sword, [(at - 9 * 86400, other), (at - 3600, sword)]), 600)          # it was another
+        self.assertEqual(n(sword, [(at - 9 * 86400, sword), (at + 30, other), (at + 40, sword)]), 600)     # swapped in the fight
+        self.assertEqual(n((7, 5), [(at - 9 * 86400, sword)]), 0)                               # enchanted since
+        self.assertEqual(n((7, None), [(at - 9 * 86400, sword)]), 1200)                         # its enchant was not read
+        self.assertEqual(n(None, [(at - 9 * 86400, sword)]), 0)
+
     def test_nothing_is_guessed(self):
         self.assertIsNone(swing([fight(swings(.24, aps=(700,)))], 139, 175))      # one amount
         self.assertIsNone(swing([fight(swings(.24, n=10))], 139, 175))            # too few

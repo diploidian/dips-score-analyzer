@@ -7,6 +7,7 @@
 --       days = {"2026-11-24,310,420,...", ...},          -- finished days, whole seconds, the last MAX_DAYS
 --   }
 --   levels = {"time(),level", ...}                       -- at login when it changed, and at each level
+--   weapons = {"time(),itemID:enchantID", ...}           -- the main hand, the same way; "0:0" for none
 --
 -- The first that applies: in combat, where you are (an instance), a fight with an enemy player ("skirmish") or what you were
 -- at; on a taxi; away (AFK); dead (what you were at, DEAD seconds of it); away (nothing done for IDLE seconds, outside an
@@ -27,7 +28,8 @@ local CRAFT = 60                    -- a cast, with a profession window open
 local AT_WORK, SKIN = 30, 15        -- after a profession's own cast: to loot, to wait for a bite; a skinner is back at the hunt sooner
 local DEAD = 600                    -- a corpse run longer than this is being away
 local SETTLE = 10                   -- after entering the world, where the game may report the whole quest log as changed
-local MAX_DAYS, MAX_LEVELS = 60, 100
+local MAX_DAYS, MAX_LEVELS, MAX_WEAPONS = 60, 100, 400
+local MAIN_HAND = 16
 local COLS = {"away", "trade", "raid", "dungeon", "pvp", "skirmish", "taxi", "craft", "quest", "gather", "hunt", "town", "roam", "turnins"}
 local KINDS = {party = "dungeon", scenario = "dungeon", raid = "raid", pvp = "pvp", arena = "pvp"}
 local TRADE_FRAMES = {"AuctionHouseFrame", "AuctionFrame", "MailFrame"}
@@ -93,14 +95,34 @@ local function Today()
     return t.now
 end
 
+-- "time(),what" at the end of a list, when it is not what the last one says.
+local function Note(list, what, most)
+    local was = list[#list]
+    if was and was:match(",(.+)$") == what then return list end
+    list[#list + 1] = time() .. "," .. what
+    while #list > most do table.remove(list, 1) end
+    return list
+end
+
 local function Level(level)
     local log = ns.Log()
     if not log or type(level) ~= "number" or level < 1 then return end
-    log.levels = log.levels or {}
-    local was = log.levels[#log.levels]
-    if was and tonumber(was:match(",(%d+)$")) == level then return end
-    log.levels[#log.levels + 1] = time() .. "," .. level
-    while #log.levels > MAX_LEVELS do table.remove(log.levels, 1) end
+    log.levels = Note(log.levels or {}, tostring(level), MAX_LEVELS)
+end
+
+-- changed: the game says so; else an empty answer may only mean it is not loaded yet.
+local function Weapon(changed)
+    local log = ns.Log()
+    if not log then return end
+    local link = Try(GetInventoryItemLink, "player", MAIN_HAND)
+    local what
+    if type(link) == "string" then
+        local id, enchant = link:match("item:(%d+):?(%d*)")
+        what = id and id .. ":" .. (enchant ~= "" and enchant or "0")
+    elseif changed and Try(GetInventoryItemID, "player", MAIN_HAND) == nil then
+        what = "0:0"
+    end
+    if what then log.weapons = Note(log.weapons or {}, what, MAX_WEAPONS) end
 end
 
 ----------------------------------------------------------------------
@@ -206,7 +228,7 @@ end
 
 local E = CreateFrame("Frame")
 for _, event in ipairs({"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
-    "QUEST_ACCEPTED", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP"}) do
+    "QUEST_ACCEPTED", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "PLAYER_EQUIPMENT_CHANGED"}) do
     pcall(E.RegisterEvent, E, event)
 end
 pcall(E.RegisterUnitEvent, E, "UNIT_SPELLCAST_SUCCEEDED", "player")
@@ -229,12 +251,15 @@ local function OnEvent(event, ...)
             if C_Timer and C_Timer.After then
                 C_Timer.After(3, function()
                     pcall(Level, Try(UnitLevel, "player"))
+                    pcall(Weapon)
                     pcall(Start)
                 end)
             end
         end
     elseif event == "PLAYER_LEVEL_UP" then
         Level((...))
+    elseif event == "PLAYER_EQUIPMENT_CHANGED" then
+        if (...) == MAIN_HAND and ticker then Weapon(true) end
     elseif event ~= "UNIT_QUEST_LOG_CHANGED" or t - entered > SETTLE then -- quests
         questAt, done = t, t
         if event == "QUEST_TURNED_IN" then

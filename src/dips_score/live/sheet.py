@@ -232,7 +232,8 @@ def _projections(char: dict, win: list[dict], stats: dict[str, dict]) -> dict[st
                       "game_low": v("dmgmin"), "game_high": v("dmgmax")}
     weapon, speed, ap = (char.get("itemstats") or {}).get(16, {}).get(WEAPON_DPS), v("speed"), v("ap")
     out["ap10"]["why"] = "weapon"
-    got = worth.swing(win, v("dmgmin"), v("dmgmax"))
+    held = (char.get("items") or {}).get(16)
+    got = worth.swing(win, v("dmgmin"), v("dmgmax"), held and (held["id"], held["enchant"]), char.get("weapons"))
     if got and speed:
         out["ap10"] = {"value": 10 * got["value"] / speed, "source": "measured", "n": got["n"], "swing": 10 * got["value"],
                        "error": 10 * got["error"]}

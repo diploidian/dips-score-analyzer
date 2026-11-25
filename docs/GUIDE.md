@@ -190,7 +190,7 @@ a list comes back empty at logout, the earlier good one is kept.
 Since add-on 0.6.0 it also counts where your time goes, in seconds per day: hunting, questing, dungeons, raids,
 PvP (battlegrounds, arenas, and any fight with an enemy player), professions (gathering, skinning, crafting), the auction house and mailbox, travelling, in town, and away (AFK, or 3 minutes
 without moving, casting or fighting, outside an instance), with the quests handed in. It keeps 60 days, and the time of each level
-you reach. No place, name or chat is saved.
+you reach and each change of your main hand (the item and its enchant). No place, name or chat is saved.
 
 At each pull it also records your gear durability: the lowest percentage and how many items are
 broken. It keeps the last 60. Durability can only be read inside the game, which is why the add-on
@@ -919,8 +919,8 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
     what buffs, enchants and set bonuses added when it was read. The last two need add-on 0.5.2 and a `/reload`;
     until then they are one part. A figure the game hides is a dash.
     What 10 more attack power adds is measured from your own swings: the log has each one's damage before armor, crits and
-    glancing. Only days whose swings spread as your weapon's own roll does count, so another weapon or a buff on swings is
-    left out, and swings under Seal of the Crusader never count. Until 100 swings say it clearly, "estimate" marks the classic
+    glancing. Only fights with the weapon you hold now count, from when add-on 0.6.0 began to record it, and only days whose swings
+    spread as that weapon's own roll does, so another weapon before that, or a buff on swings, is left out, and swings under Seal of the Crusader never count. Until 100 swings say it clearly, "estimate" marks the classic
     formula's figure, shown only when that formula lands within 10% of the game's own damage.
     "10 more spell power adds" compares hits of one spell, at one rank and one character level, on one day, at two amounts of spell power,
     with attack power held still. "0" means none was seen. It needs the levels the add-on from 0.22 (add-on 0.6.0) records, and says so until then.

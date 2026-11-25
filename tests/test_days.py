@@ -19,7 +19,8 @@ DAY = timedelta(days=1)
 SAVED = """dipsScoreLog = { ["version"] = 1, ["char"] = { ["guid"] = "Player-1-A" }, ["time"] = {
 ["cols"] = "away,trade,quest,hunt,turnins", ["now"] = { ["day"] = "2026-11-25", ["quest"] = 310.25, ["away"] = -4, ["hunt"] = "x" },
 ["days"] = { "2026-11-24,60,120,3600,7200,5,99", "2026-11-23,1", "nonsense,1,2", "2026-13-40,1,2" }, },
-["levels"] = { "1795594976,39", "x,1", "1795594976" } }"""
+["levels"] = { "1795594976,39", "x,1", "1795594976" },
+["weapons"] = { "1795594976,267369:0", "1795594990,0:0", "x,1:2", "1795594999,267369", "1795594999,a:1" } }"""
 
 
 def load(text):
@@ -40,6 +41,7 @@ class Days(unittest.TestCase):
         self.assertEqual(c["time"], {"2026-11-24": {"away": 60, "trade": 120, "quest": 3600, "hunt": 7200, "turnins": 5},
                                      "2026-11-23": {"away": 1}, "2026-11-25": {"quest": 310.25}})
         self.assertEqual(c["levels"], [(1795594976, 39)])
+        self.assertEqual(c["weapons"], [(1795594976, (267369, 0)), (1795594990, (0, 0))])
         for odd in ("", '["time"] = 3, ["levels"] = 4', '["time"] = { ["now"] = 1, ["days"] = { } }'):
             c = load('dipsScoreLog = { ["version"] = 1, ["char"] = { ["guid"] = "A" }, ' + odd + " }")
             self.assertEqual((c["time"], c["levels"]), ({}, []))
