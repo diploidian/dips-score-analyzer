@@ -420,6 +420,14 @@ Name, the tier in a 1px `gold` frame (Barlow 500 12px), the figure (Barlow Conde
 ### Time bar (Where your time goes)
 A module label, the Player Type in Barlow Condensed 700 34px, one 22px bar the width of the page (2px of ground between parts, none under 3px), then each part on a ruled row: a 10px square of its ink, its name (Barlow 500 14px), its share (Condensed 700 20px), its hours (13px `tx2`) and, when it moved 5 points or more, the chip. Three columns from 1000px, two from 620px, largest first. Every colour is named beside its square, so no part is told by colour alone. It borrows measure, role and place inks (hunting `m-surv`, questing `role-tank`, professions `m-cd`, trade `gold`, town `m-act`, travel `place-world`) and gives them no other meaning. With nothing counted it is the label and one sentence.
 
+### Trade
+A closed drawer under the time bar. A sentence in Barlow Condensed 600 23px, its date line in 13px `tx2` under it, then two
+columns from 700px (one under the other below). Left, three ruled rows as How you fight's: name (Barlow 500 15px), the figure in
+Condensed 700 26px in its own ink (time `gold`, items `m-cast`, profit `role-heal` ahead and `role-dmg` behind, `tx` even), a
+quiet word after it ("ahead", "or more") in 17px `tx2`, and a 13px `tx2` note. Right, "What it comes from": two 10px bars on one
+scale, money in `role-heal`, money out `role-dmg`, each value in its bar's ink, closed by a rule and a 13px note. Every bar is
+named beside it. Bars do not grow: a drawer has no entrance.
+
 ### Character sheet
 Gear leads: the item's name in Barlow Condensed 600 20px in its rarity's ink, the rarity as a word in the gutter under the slot, the level in Condensed 700 24px, stats and what it does in Barlow 13px, in the game's own words. Rarity inks (`q-uncommon`, `q-rare`, `q-epic`, `q-legendary`; poor is `mu`, common `tx`) mean an item's rarity and nothing else, and the word is always beside them. The item level ladder stacks a 10px square per piece at its level on a `tx` axis, levels printed under it. A stat's bar shows the part gear gives in the rarities that give it, 2px of `bg` between parts, your own in `tx2`, then buffs, enchants and set bonuses in `m-upk`. A gold tag is a fact to act on (empty, broken, not enchanted); a `ln` tag is only a fact (lowest, estimate).
 

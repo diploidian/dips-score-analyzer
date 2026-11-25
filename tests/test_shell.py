@@ -675,7 +675,7 @@ class ShellTests(unittest.TestCase):
             self.show_at(page, w)
             self.assertLessEqual(page.widget().width(), page.viewport().width())
             self.assertLess(page.time.y(), page.traits_fold.y())
-        self.assertEqual(page.stack.indexOf(page.time) + 1, page.stack.indexOf(page.traits_fold))
+        self.assertEqual(page.stack.indexOf(page.time) + 1, page.stack.indexOf(page.trade_fold))
         drawn = []
         page.time.p = 1.0
         class Painter:
@@ -692,6 +692,31 @@ class ShellTests(unittest.TestCase):
         self.assertTrue(page.time.isHidden())
         page.show_view(v)
         self.assertFalse(page.time.isHidden())
+        page.hide()
+
+    def test_trade(self):
+        """a drawer, shut and with no count, under the time bar; its sentence before anything is counted; everything said aloud;
+        never sideways"""
+        from dips_score.trade_view import NEED, build_trade
+        from dips_score.ui import theme
+        theme.load_fonts()
+        page, v = self.profile_page()
+        self.assertEqual((page.trade_drawer.accessibleName(), page.trade_drawer.open), ("Trade", False))
+        self.assertEqual(page.trade.accessibleName(), f"Trade: {NEED}")
+        self.assertEqual(page.stack.indexOf(page.trade_fold) + 1, page.stack.indexOf(page.traits_fold))
+        v.trade = build_trade({"auction": 2280, "spent": 50275, "came": 1234567891, "sales": 14, "sold": 34, "unread": 1, "blind": 0,
+                               "seconds": 141660, "since": None})
+        page.show_view(v)
+        page.trade_drawer.flip()
+        said = page.trade.accessibleName()
+        self.assertTrue(said.startswith("Trade: Your auctions put 123,451g 76s 16c in your purse. In the last 15 days"))
+        self.assertIn("Items sold: 34 or more. from 14 sale mails you collected; 1 didn't say how many", said)
+        self.assertIn("What it comes from: Auction mails 123,456g 78s 91c; Spent there 5g 2s 75c.", said)
+        for w in (1500, 1000, 620, 360):
+            self.show_at(page, w)
+            self.assertLessEqual(page.widget().width(), page.viewport().width())
+            self.assertTrue(page.time.y() < page.trade_fold.y() < page.traits_fold.y())
+            self.assertGreater(page.trade.height(), 200)
         page.hide()
 
     def test_character_sheet(self):

@@ -82,7 +82,7 @@ class Player:
     role_from: str = "?"
     is_me: bool = False
     race: str | None = None  # the game's token, e.g. "NightElf"; None for logs from before races were recorded
-    level: int | None = None  # from the add-on's P line (0.6.3 on); None before, or when the game didn't say
+    level: int | None = None  # from the add-on's P line (0.7.1 on); None before, or when the game didn't say
 
     @property
     def color(self) -> tuple[float, float, float]:
