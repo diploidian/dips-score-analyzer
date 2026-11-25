@@ -902,8 +902,10 @@ most recently. It needs 10 fights in those 15 days. With fewer it shows one line
     for an empty slot, the lowest piece, or one that takes an enchant and has none. An item whose link the
     game had not loaded is "name not read yet", and is never called not enchanted.
   - Stats: what your fights measured (damage, healing, swing speed and average swing) beside what the
-    game says, then the game's figures. A primary stat's bar splits what your gear gives, by rarity, from
-    everything else. "estimate" marks what 10 more attack power is worth, by the classic formula, and is shown
+    game says, then the game's figures. A primary stat's bar is your own total (it compares you with nobody): what
+    your gear gives, by rarity, what is your own without gear or buffs (race, class, level and talents), and
+    what buffs and enchants added when the snapshot was taken. The last two need add-on 0.5.1 and a `/reload`;
+    until then they are one part. "estimate" marks what 10 more attack power is worth, by the classic formula, and is shown
     only when that formula lands within 10% of the game's own damage. A figure the game hides is a dash.
   - Abilities: casts in fights and each ability's share of your damage, its procs with it, with auto
     attack and the remaining procs and items, so the shares add up. Then the casts that do no damage, and the

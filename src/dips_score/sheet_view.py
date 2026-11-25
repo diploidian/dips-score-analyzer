@@ -47,6 +47,7 @@ class Figure:
     note: str = ""              # what it rests on
     bar: float | None = None    # 0..1 of the longest in its group
     gear: list[tuple[str, float]] = field(default_factory=list)     # its parts that gear gives: (rarity ink, 0..1 of the same length)
+    buffs: float | None = None  # the part buffs and enchants give, like gear; None when it is not known apart
     estimate: bool = False
 
 
@@ -167,7 +168,9 @@ def _stat(s: dict, key: str, name: str, decimals: int = 0, unit: str = "") -> Fi
 
 
 def _primary(s: dict) -> list[Figure]:
-    """as bars on one scale, so the five compare; the part gear gives is drawn within"""
+    """as bars on one scale, so the five compare; what gear and buffs give is drawn within, buffs only when all five are known"""
+    there = [s["stats"][k] for k, _ in PRIMARY if k in s["stats"] and s["stats"][k]["value"]]
+    split = bool(there) and all("own" in x for x in there)
     top = max((s["stats"][k]["value"] or 0 for k, _ in PRIMARY if k in s["stats"]), default=0)
     out = []
     for key, name in PRIMARY:
@@ -179,6 +182,11 @@ def _primary(s: dict) -> list[Figure]:
                 n = max(0, min(n, left))        # a set or a debuff can make the items' sum more than what is left of it
                 left -= n
                 f.gear.append((QUALITY.get(q, ("", ""))[1], n / top))
+            if split:
+                got = s["stats"][key]
+                f.buffs = min(got["buffs"], left) / top
+                f.note = f"{_trim(got['own'])} your own" + "".join(f", {_trim(got[k])} {words}" for k, words in (
+                    ("gear", "from gear"), ("buffs", "from buffs and enchants"), ("lost", "taken by debuffs")) if got[k])
         if f:
             out.append(f)
     return out

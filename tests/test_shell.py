@@ -671,7 +671,7 @@ class ShellTests(unittest.TestCase):
         v.sheet = SheetView("As of 24 Nov 19:09.", "", "m-dmg", ladder,
                             [Item("Waist", "Cobrahn's Grasp", "q-rare", "rare", "22", "+5 Agility", ["Use: it shines."], ["lowest"]),
                              Item("Neck", "", "tx", level="", flags=["empty"], empty=True)] * 4, "2 pieces broken at your last pull.",
-                            [("Primary", [Figure("Strength", "93", "27 from gear", .8, [("q-rare", .2), ("", .1)])]),
+                            [("Primary", [Figure("Strength", "93", "27 from gear", .8, [("q-rare", .2), ("", .1)], .1)]),
                              ("Attack", [Figure("Attack power", "287", "10 more adds 0.71", estimate=True)])],
                             "Judgement leads.", [Ability("Judgement", "3,408", "14.4%", .144, "a higher rank is known"),
                                                  Ability("Purify", "63", "", None, "")], "Known, not cast in a fight: Redemption.",

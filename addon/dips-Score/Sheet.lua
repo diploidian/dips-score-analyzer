@@ -1,6 +1,7 @@
 -- projectArthas: the character sheet, read with the snapshot (Char.lua) and saved beside it in dipsScoreLog.char:
 --
 --   stats     = {"key,value", ...}                     value "?" when the game hides it; read out of combat only
+--                                                      str_pos, str_neg: what items and buffs add, what debuffs take
 --   items     = {"slot,itemID,quality,enchantID,name", ...}
 --   itemstats = {"slot,KEY,value", ...}                the game's own stat keys (ITEM_MOD_STRENGTH_SHORT, ...)
 --   itemtext  = {"slot,text", ...}                   what it does (Equip, Use, Chance on hit, Set) and its quoted line
@@ -49,7 +50,12 @@ local function Stats()
         end
         return total
     end
-    for i, key in ipairs({"str", "agi", "sta", "int", "spi"}) do put(key, All(UnitStat, "player", i)[2]) end
+    for i, key in ipairs({"str", "agi", "sta", "int", "spi"}) do
+        local stat = All(UnitStat, "player", i) -- base, total, what items and buffs add, what debuffs take
+        put(key, stat[2])
+        put(key .. "_pos", stat[3])
+        put(key .. "_neg", stat[4])
+    end
     local ap, rap = All(UnitAttackPower, "player"), All(UnitRangedAttackPower, "player")
     put("ap", sum(ap[1], ap[2], ap[3]))
     put("rap", sum(rap[1], rap[2], rap[3]))

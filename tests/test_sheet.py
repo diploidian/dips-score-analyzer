@@ -80,6 +80,21 @@ class Sheet(unittest.TestCase):
         s = made()["stats"]
         self.assertEqual((s["str"], s["armor"]["gear"], s["ap"]["gear"]), ({"value": 93, "gear": 27, "by_quality": {3: 27}}, 255, None))
 
+    def test_own_gear_and_buffs(self):
+        c = load()
+        c["stats"] |= {"str": 105, "str_pos": 37, "str_neg": 0, "spi": 80, "spi_pos": 10, "spi_neg": -5}
+        s = made(char=c)["stats"]
+        self.assertEqual({k: s["str"][k] for k in ("own", "gear", "buffs", "lost")}, {"own": 68, "gear": 27, "buffs": 10, "lost": 0})
+        self.assertNotIn("str_pos", s)
+        f, spi = dict(build_sheet(made(char=c)).stats)["Primary"]
+        self.assertEqual((f.note, round(f.buffs, 4)), ("68 your own, 27 from gear, 10 from buffs and enchants", round(10 / 105, 4)))
+        self.assertEqual(spi.note, "75 your own, 10 from buffs and enchants, 5 taken by debuffs")
+        c["stats"]["spi_pos"] = None                    # hidden: none of the five is split
+        f, spi = dict(build_sheet(made(char=c)).stats)["Primary"]
+        self.assertEqual((f.note, f.buffs, spi.buffs), ("27 from gear", None, None))
+        c["stats"]["str_pos"] = 20                      # under what the items give: not what it says it is
+        self.assertNotIn("own", made(char=c)["stats"]["str"])
+
     def test_abilities(self):
         f = lambda *ids: fight(cast_ids={"Holy Strike": list(ids)}, abilities=[  # noqa: E731
             {"name": "Holy Strike", "casts": 2, "hits": 2, "damage": 100}])

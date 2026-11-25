@@ -8,7 +8,8 @@ role.
   gear         one per slot of SLOTS: {"slot", "label", "name", "level", "quality", "enchant" (id, 0 none, None not read), "flags",
                "stats" [(name, value)], "dps" (a weapon's), "text" (what it does, lines)}
   stats        {key: {"value" (None: hidden by the game), "gear" (how much of it the items give, None when none does),
-               "by_quality" {item quality: its part of that}}}
+               "by_quality" {item quality: its part of that}}}; a primary one also has "own" (without gear or buffs), "buffs"
+               (buffs and enchants) and "lost" (to debuffs) when the snapshot has the game's bonus figure (add-on 0.5.1)
   abilities    every spell known: {"name", "rank" (the highest one cast, its text, None when the fights don't say), "ranks" (how many), "casts" (in fights),
                "share" (of the window's damage, its procs with it, None without), "lower" (only ranks under the highest one known were cast)}
   projections  {key: {"value", "source" ("measured", "game", "estimate" or None), "n" (what it rests on)}}, see _projections
@@ -79,14 +80,21 @@ def _gear(char: dict) -> list[dict]:
 
 def _stats(char: dict) -> dict[str, dict]:
     given, items = char.get("itemstats") or {}, char.get("items") or {}
-    out = {}
-    for key, value in (char.get("stats") or {}).items():
+    out, read = {}, char.get("stats") or {}
+    for key, value in read.items():
+        if key.endswith(("_pos", "_neg")):
+            continue
         by: dict[int | None, float] = {}
         for slot, s in given.items():
             if (n := s.get(ITEM_KEY.get(key, ""))):
                 q = (items.get(slot) or {}).get("quality")
                 by[q] = by.get(q, 0) + n
         out[key] = {"value": value, "gear": sum(by.values()) or None, "by_quality": by}
+        pos, neg = read.get(f"{key}_pos"), read.get(f"{key}_neg")
+        gear = sum(by.values())
+        # a bonus under what the items give can't hold them: then it is not split
+        if None not in (value, pos, neg) and pos >= gear and value - pos + abs(neg) >= 0:
+            out[key] |= {"own": value - pos + abs(neg), "buffs": pos - gear, "lost": abs(neg)}
     return out
 
 

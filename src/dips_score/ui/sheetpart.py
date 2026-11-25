@@ -223,7 +223,7 @@ class Stats(Part):
 
     def group(self, p, x, y0, w, title, rows) -> float:
         y = y0 + heading(p, x, y0, title)
-        if title == "Primary" and any(f.gear for f in rows):
+        if title == "Primary" and any(f.gear or f.buffs is not None for f in rows):
             y += self.key(p, x, y, w) + 8
         for f in rows:
             y += self.figure(p, x, y, w, f, big=title == "From your fights")
@@ -231,10 +231,14 @@ class Stats(Part):
 
     def key(self, p, x, y, w) -> float:
         kf, cx, cy = font(12), x, y
-        inks = [i for f in dict(self.view.stats).get("Primary", []) for i, n in f.gear if n]
+        rows = dict(self.view.stats).get("Primary", [])
+        inks = [i for f in rows for i, n in f.gear if n]
         words = {ink: word for word, ink in QUALITY.values()}
         items = [(i, f"from {words.get(i, 'other')} gear") for i in dict.fromkeys(inks)]
-        for ink, s in items + [("tx2", "everything else")]:
+        items.append(("tx2", "your own, without gear or buffs" if any(f.buffs is not None for f in rows) else "your own and buffs"))
+        if any(f.buffs for f in rows):
+            items.append(("m-upk", "from buffs and enchants"))
+        for ink, s in items:
             iw = 8 + 6 + adv(kf, s)
             if cx > x and cx + iw > x + w:
                 cx, cy = x, cy + 17
@@ -266,7 +270,11 @@ class Stats(Part):
                         ink_box(p, QRectF(at, by, max(0.0, w * n - 2), 10), ink)
                         p.fillRect(QRectF(at + w * n - 2, by, 2, 10), tok("bg"))
                         at += w * n
-                p.fillRect(QRectF(at, by, max(0.0, x + full - at), 10), tok("tx2"))
+                own = x + full - w * (f.buffs or 0)
+                p.fillRect(QRectF(at, by, max(0.0, own - at), 10), tok("tx2"))
+                if f.buffs:
+                    p.fillRect(QRectF(own, by, w * f.buffs, 10), tok("bg"))
+                    p.fillRect(QRectF(own + 2, by, max(0.0, w * f.buffs - 2), 10), tok("m-upk"))
             h += 6 + 10
         if f.note:
             nh = wrapped(p, tf, tok("tx2"), x, y1 + h + 2, w, 12 * 1.4, f.note)
