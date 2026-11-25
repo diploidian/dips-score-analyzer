@@ -130,7 +130,7 @@ def _who(p) -> dict:
     if not p.cls:
         return {}
     tips = (["Class guessed from the spells they cast"] if p.cls_from == "spells" else []) + \
-        (["Level not recorded: the run is older than add-on 0.6.3"] if p.level is None else [])
+        (["Level not recorded"] if p.level is None else [])
     return {"who": " ".join(filter(None, (p.cls.title(), p.level and str(p.level)))), "who_tip": ". ".join(tips)}
 
 

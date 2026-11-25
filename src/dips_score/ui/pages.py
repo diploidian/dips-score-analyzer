@@ -90,6 +90,7 @@ class ScoreTab(QWidget):
         self.fight = -1                    # the fight showing; -1: the whole run
         self.cards: list[Scorecard] = []   # the picked player's card for each fight
         self.others: list[float] = []      # your runs' shares in combat, up to this one (app.py sets it)
+        self.span = None                   # the run's time in combat and length (debrief.combat_span)
         self.cells: list = []
         self.deaths: list = []             # the picked player's
         self.page = DebriefPage()
@@ -167,16 +168,25 @@ class ScoreTab(QWidget):
         self.page.show_view(view, title, sub if card.empty else f"{sub} · as {role}",
                             self._window(fight) if view.fix and fight is not None else None, whose, self.fight >= 0)
 
+    def set_others(self, others: list[float]):
+        """your runs' shares in combat, up to this one: the range beside its own, on the whole run's debrief"""
+        self.others = others
+        if self.fight < 0:
+            self.page.combat.set(combat_figures(self.span, others))
+
     def show_whole(self):
         a = self.a
         self.fight = -1
         if not a or not self._guid():
+            self.span = None
+            self.page.combat.set([])
             self.page.show_view(DebriefView(), "No run selected", "")
             return
         rd = a.data
         zone = names.titled(rd.run.id, rd.run.zone)
         when = run_meta(a, role=False)     # _show adds the role of the card it shows
-        self.page.combat.set(combat_figures(combat_span(a), self.others))
+        self.span = combat_span(a)
+        self.page.combat.set(combat_figures(self.span, self.others))
         if self._is_me():
             sync = "; ".join(s.describe() for s in rd.sync if s.anchors) or "no clock anchors"
             if rd.has_combat_log and not rd.has_advanced:

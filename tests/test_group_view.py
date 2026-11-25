@@ -162,7 +162,7 @@ class GroupViewTests(unittest.TestCase):
         self.assertEqual((cards["Bao Kahn"].who, cards["Bao Kahn"].who_tip, cards["Bao Kahn"].cls), ("Paladin 39", "", "PALADIN"))
         self.assertEqual((cards["Evilguy Verybad"].who, cards["Evilguy Verybad"].who_tip),
                          ("Hunter", "Class guessed from the spells they cast. "
-                                    "Level not recorded: the run is older than add-on 0.6.3"))
+                                    "Level not recorded"))
         self.assertEqual((cards["Piraña Segundo"].who, cards["Piraña Segundo"].who_tip), ("", ""))      # not known
 
     def test_breakdown(self):

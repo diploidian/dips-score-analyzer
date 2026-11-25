@@ -543,6 +543,7 @@ class KeyFigures(Part):
     def set(self, items: list[tuple[str, ...]]):
         """(number, caption) pairs, or (number, caption, sub) triples for stacked cells"""
         self.items = items
+        self.setAccessibleName("; ".join(" ".join(filter(None, it)) for it in items))
         self.changed()
 
     def draw(self, p, w):

@@ -389,3 +389,12 @@ class PressTests(unittest.TestCase):
         self.assertEqual((presses(lines, (30, 40), names).rows, presses(lines, (30, 40), names).line),
                          ([], NONE_PRESSED))
 
+    def test_why_no_presses(self):
+        from dips_score.fight_view import ARRIVES, NOT_HERE, NOT_RECORDED, OLDER, press_reason
+        at, saved, oldest = datetime(2026, 11, 25, 12), datetime(2026, 11, 25, 11).timestamp(), datetime(2026, 11, 20)
+        self.assertEqual(press_reason(at, saved, oldest, False), ARRIVES)          # after the game's last save
+        self.assertEqual(press_reason(datetime(2026, 11, 19), saved, oldest, False), OLDER)
+        self.assertEqual(press_reason(datetime(2026, 11, 22), saved, oldest, False), NOT_HERE)
+        self.assertEqual(press_reason(datetime(2026, 11, 22), saved, oldest, True), NOT_RECORDED)   # a dungeon's
+        self.assertEqual(press_reason(at, None, None, False), NOT_HERE)
+

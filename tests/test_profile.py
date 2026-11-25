@@ -599,7 +599,7 @@ class View(unittest.TestCase):
 
     def test_run_rows(self):
         def a(guid="A", role="dps", combat=600.0, me=NS(role="DPS"), grade="B", total=72.0):
-            run_ = NS(start_time=T0, id="r", parts=["r"], player_name="Bao")
+            run_ = NS(start_time=T0, id="r", parts=["r"], player_name="Bao", kind="party")
             m = NS(combat_time=combat, presses=9, by_key=8, by_click=1, failed=2, casts=7, moving_time=1.5,
                    move_interrupts=1, wasted_cast_time=0.5)
             card = NS(empty=False, grade=grade, total=total, role=role, categories=[], points_lost=lambda: [])
@@ -609,14 +609,15 @@ class View(unittest.TestCase):
                       summary=None, deaths=[], wipes=[], me=me, role=role)
         r = run_row(a())
         self.assertEqual(r, {"me": "A", "parts": ["r"], "name": "Bao", "start": T0, "role": "damage",
-                             "score": 72.0, "grade": "B", "rules": RULES, "in_combat": 600 / 650, "presses": 9, "by_key": 8, "by_click": 1, "failed": 2, "casts": 7, "combat_time": 600.0,
+                             "score": 72.0, "grade": "B", "rules": RULES, "in_combat": 600 / 650, "kind": "party", "presses": 9, "by_key": 8, "by_click": 1, "failed": 2, "casts": 7, "combat_time": 600.0,
                              "moving_time": 1.5, "move_interrupts": 1, "wasted_cast_time": 0.5})
         short, unknown = run_row(a(combat=20.0)), run_row(a(guid=None, role="healer", me=None))
         self.assertEqual((short["role"], short["score"]), (None, None))     # too short to compare: no grade
         self.assertIsNone(unknown["role"])                                  # no combat log: "healer" is only a default
         rows = {"1": r, "2": run_row(a(combat=300.0)) | {"start": T0 - DAY}, "3": run_row(a("B")), "4": None}
-        self.assertEqual(combat_shares(rows, "A", T0), [300 / 350, 600 / 650])         # yours, oldest first
-        self.assertEqual(combat_shares(rows, "A", T0 - DAY), [300 / 350])
+        self.assertEqual(combat_shares(rows, "A", T0, "party"), [300 / 350, 600 / 650])         # yours, oldest first
+        self.assertEqual(combat_shares(rows, "A", T0 - DAY, "party"), [300 / 350])
+        self.assertEqual(combat_shares(rows, "A", T0, "world"), [])                     # the open world's apart
         self.assertEqual(mine({"1": r, "2": unknown, "3": run_row(a("B")), "4": None}, "A", "Bao"),
                          {"1": r, "2": unknown})
 

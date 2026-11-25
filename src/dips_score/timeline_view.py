@@ -98,7 +98,7 @@ def step(starts: list[float], scope, d: int) -> int | None:
     return i if 0 <= i < len(starts) else None
 
 
-QUIET_NOTE = "2.5 s or more without a press. Not judged: a healthy group needs no heal."
+QUIET_NOTE = "2.5 s or more with nothing cast. Not judged: a healthy group needs no heal."
 QUIET_MOST = 10
 
 
@@ -109,6 +109,7 @@ class AnswerView:
     unit: str = "s to answer"
     verdict: str = ""
     count: int = 0
+    dips_caption: str = ""
     rows: list[tuple[str, str, float, str]] = field(default_factory=list)    # when, who, share of the cap, answer
     quiet: list[tuple[str, str]] = field(default_factory=list)              # when, how long, in time order
     more_quiet: int = 0
@@ -122,7 +123,7 @@ def answer_view(dips, idle: list[tuple[float, float]], window: tuple[float, floa
     a, b = window
     judged = [d for d in dips if a <= d.start <= b and not d.covered]
     quiet = sorted(idle_moments(idle, window), key=lambda m: m[0])
-    v = AnswerView(quiet=[(fmt_time(s), f"{e - s:.1f} s") for s, e in quiet[:QUIET_MOST]],
+    v = AnswerView(dips_caption=f"dips under {DIP_HP:.0%}", quiet=[(fmt_time(s), f"{e - s:.1f} s") for s, e in quiet[:QUIET_MOST]],
                    more_quiet=max(0, len(quiet) - QUIET_MOST), count=len(judged))
     if not judged:
         v.big, v.unit, v.verdict = "0", f"dips under {DIP_HP:.0%}", f"Nobody dropped under {DIP_HP:.0%} {where}."
@@ -133,7 +134,7 @@ def answer_view(dips, idle: list[tuple[float, float]], window: tuple[float, floa
     v.big = f"{mid:.1f}"
     v.verdict = (f"{len(judged)} dip{'s' if len(judged) != 1 else ''} under {DIP_HP:.0%} {where}, the middle answer "
                  f"{mid:.1f} s." + ("" if not missed else f" {_count_words(missed)} no heal from you within "
-                                                          f"{RESPONSE_CAP:.0f} s and counts as {RESPONSE_CAP:.0f}."))
+                                                          f"{RESPONSE_CAP:.0f} s and count{'s' if missed == 1 else ''} as {RESPONSE_CAP:.0f}."))
     slow = sorted(judged, key=lambda d: (-(RESPONSE_CAP if d.response is None else d.response), d.start))
     v.rows = [(fmt_time(d.start), who(d.guid), (RESPONSE_CAP if d.response is None else d.response) / RESPONSE_CAP,
                "no heal" if d.response is None else f"{d.response:.1f} s") for d in slow]

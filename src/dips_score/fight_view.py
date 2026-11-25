@@ -218,6 +218,7 @@ ARRIVES = "Arrives after a /reload or logout: the game only saves your presses t
 NOT_HERE = ("Not recorded here. Turn on \"Everywhere else\" in the add-on's options to record presses outside "
             "dungeons.")
 OLDER = "This fight is older than the recordings the add-on keeps."
+NOT_RECORDED = "Not recorded: no recording the add-on kept has this fight."
 READING = "Reading this fight's recording…"
 NONE_PRESSED = "No presses recorded in this fight."
 
@@ -228,6 +229,17 @@ class Presses:
     told), most pressed first, and the line over them; or no rows and why (ARRIVES, NOT_HERE, ...)"""
     rows: list[tuple[str, str, str, int, int, int]] = field(default_factory=list)
     line: str = ""
+
+
+def press_reason(start: datetime, saved: float | None, oldest: datetime | None, inside: bool) -> str:
+    """why a fight has no presses, when no recorded run has it: saved, when the game last saved the add-on's file
+    (time()); oldest, the oldest recording it keeps; inside, the fight was in an instance (recorded by default, so
+    "Everywhere else" isn't the reason)"""
+    if saved is not None and start.timestamp() > saved:
+        return ARRIVES
+    if oldest is not None and start < oldest:
+        return OLDER
+    return NOT_RECORDED if inside else NOT_HERE
 
 
 def presses(lines, window: tuple[float, float], names: dict[int, str]) -> Presses:
@@ -241,10 +253,12 @@ def presses(lines, window: tuple[float, float], names: dict[int, str]) -> Presse
         if ln.code != "A" or not a <= ln.t <= b:
             continue
         kind, pid, how = ln.f(1), ln.num(2), ln.f(3)
-        spell = pid if kind == "spell" or (kind == "macro" and pid in names) else None
-        if spell is None and kind != "spell":
+        spell = pid if kind == "spell" else None
+        if spell is None:       # a macro or an item: the spell sent with it, else a macro's own id when it names one
             i = bisect_left(times, ln.t)
             spell = sent[i][1] if i < len(sent) and sent[i][0] <= ln.t + FOLLOW else None
+            if spell is None and kind == "macro" and pid in names:
+                spell = pid
         note = "" if kind == "spell" else kind
         if spell is not None and spell in names:
             key = (names[spell], note, str(spell))

@@ -220,7 +220,7 @@ class TimelineTab(QScrollArea):
             self.moments = []
             h = answer_view(self.healer[0], idle, window, self.healer[1], label.lower())
             self.hero.set(h.big, h.unit, None, None, h.verdict)
-            self.figures.set([(num, cap, "") for num, cap in figures + [(str(h.count), "dips under 60%")]])
+            self.figures.set([(num, cap, "") for num, cap in figures + [(str(h.count), h.dips_caption)]])
             self.plate.setVisible(False)
             self.list.setVisible(False)
             self.dips.set([BarRow(at, answer, share, "m-surv", who) for at, who, share, answer in h.rows], None)

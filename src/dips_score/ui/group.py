@@ -180,6 +180,8 @@ class Standings(Tips):
 
     def set(self, cards: list[PlayerCard], average: list[float] | None):
         self.cards, self.average = cards, average
+        self.setAccessibleName("Standings: " + "; ".join(
+            f"{ordinal(c.rank)} {c.name}, {' '.join(filter(None, (c.who, c.role)))}, {c.points:.0f} points" for c in cards))
         self.changed()
 
     def draw(self, p, w):
@@ -383,6 +385,7 @@ class GroupTab(QScrollArea):
         hero_row.addWidget(self.plate, 0, Qt.AlignmentFlag.AlignTop)
         self.combat = KeyFigures()          # the second tier: time in combat (debrief.combat_figures)
         self.others: list[float] = []       # your runs' shares in combat, up to this one (app.py sets it)
+        self.span = None                    # this run's time in combat and length (debrief.combat_span)
         lay = QVBoxLayout(self.page)
         lay.setContentsMargins(16, 4, 16, 16)
         lay.setSpacing(0)
@@ -406,10 +409,17 @@ class GroupTab(QScrollArea):
         self._fill_numbers(a)
         if not a:
             self.show_view(GroupView(), "No run selected", "")
+            self.span = None
             self.combat.set([])
             return
         self.show_view(build_group(a), names.titled(a.data.run.id, a.data.run.zone), run_meta(a))
-        self.combat.set(combat_figures(combat_span(a), self.others))
+        self.span = combat_span(a)
+        self.combat.set(combat_figures(self.span, self.others))
+
+    def set_others(self, others: list[float]):
+        """your runs' shares in combat, up to this one: the range beside its own"""
+        self.others = others
+        self.combat.set(combat_figures(self.span, others))
 
     def show_view(self, view: GroupView, title: str, sub: str):
         self.view = view

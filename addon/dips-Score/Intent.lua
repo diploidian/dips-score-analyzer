@@ -142,7 +142,11 @@ local handlers = {
     CHALLENGE_MODE_COMPLETED = function() Write("MP", 0) end,
     GROUP_ROSTER_UPDATE = function() ns.WriteRoster() end,
     PLAYER_ROLES_ASSIGNED = function() ns.WriteRoster() end,
-    UNIT_LEVEL = function() ns.WriteRoster() end,       -- a level-up in the run
+    UNIT_LEVEL = function(unit)                         -- a level-up in the run (it fires for any unit)
+        if type(unit) == "string" and (unit == "player" or unit:find("^party%d") or unit:find("^raid%d")) then
+            ns.WriteRoster()
+        end
+    end,
 }
 
 ----------------------------------------------------------------------
