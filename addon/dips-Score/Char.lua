@@ -10,6 +10,7 @@
 --   gear    = {"slot,itemID,itemLevel", ...}          inventory slots 1-19 that hold something
 --   talents = {"tab,tabName,points", ...}
 --
+-- Sheet.lua adds the character sheet to it.
 -- Beside it, dipsScoreLog.pulls = {"time,lowestPercent,brokenCount", ...}: gear durability at each pull.
 local ADDON, ns = ...
 local IsSecret, Field = ns.IsSecret, ns.Field
@@ -212,10 +213,13 @@ function ns.Snapshot()
         race = UnitRace("player"), level = Try(UnitLevel, "player"), taken = time(), -- race: the display name
         spells = Spells(), gear = Gear(), talents = Talents(),
     }
+    ns.ReadSheet(read) -- Sheet.lua
     local stored, before = {}, log.char or {}
     for k, v in pairs(read) do stored[k] = v end
     -- at logout these calls may stop answering: an empty read must not wipe a good earlier one
-    for _, key in ipairs({"spells", "gear", "talents"}) do
+    local keys = {"spells", "gear", "talents"}
+    for _, key in ipairs(ns.SHEET) do keys[#keys + 1] = key end
+    for _, key in ipairs(keys) do
         if #stored[key] == 0 and type(before[key]) == "table" and #before[key] > 0 then
             stored[key] = before[key]
         end

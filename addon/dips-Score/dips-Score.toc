@@ -2,13 +2,14 @@
 ## Title: projectArthas
 ## Notes: Records what you pressed and when (keys, clicks, movement, casts) in dungeons, for the projectArthas app.
 ## Author: Diploid
-## Version: 0.4.0
+## Version: 0.5.0
 ## SavedVariables: dipsScoreDB
 ## SavedVariablesPerCharacter: dipsScoreLog
 
 Base.lua
 Config.lua
 Log.lua
+Sheet.lua
 Char.lua
 Types.lua
 Clock.lua

@@ -256,6 +256,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
     hurt: list[tuple[float, float]] = []
     fighting: list[float] = []                                   # moments of fighting between the group and foes
     proc = procs(f, me)
+    ranks: dict[str, set] = defaultdict(set)                     # the spell ids you cast, by name
     feigned = {id(f.events[i]) for i in feigns(f.events, {e.dst for e in f.events if e.dst.startswith("Player-")})}
     proc_ids = {e.spell_id for e in f.events if id(e) in proc}
     valued: Counter = Counter()                                  # your damage that values your casts (no procs)
@@ -346,6 +347,8 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
                 cost = e.info.cost if e.info and e.info.guid == me else 0
                 if cost and e.spell_id:
                     costs[name].append(cost)
+                if e.spell_id:
+                    ranks[name].add(e.spell_id)
                 casts.append((t, e.spell_id or 0, name, began if began is not None and t - began < 10 else None, cost))
                 if name in NEXT_SWING:
                     slots.append(t)
@@ -674,6 +677,7 @@ def summarize(f: FightData, me: str, me_name: str, book: dict[str, dict], histor
         "opener": [c[2] for c in casts[:3]],       # your first three casts, in time order
         "best_before": best,
         "good": good[:4], "improve": [text for _, text in improve][:5],
+        "cast_ids": {n: sorted(ids) for n, ids in ranks.items()},      # which rank of a spell, by id
         "danger": danger, "abilities": abilities, "cooldowns": cd_rows, "auto": auto,
         "ranged": ranged if ranged["landed"] or ranged["misses"] else None,
         "swings_taken": taken_swings if taken_swings["landed"] or taken_swings["misses"] else None,
