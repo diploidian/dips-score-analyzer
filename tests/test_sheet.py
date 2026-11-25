@@ -124,7 +124,7 @@ class Sheet(unittest.TestCase):
         self.assertEqual((chest.stats, chest.text), ("255 Armor, +12 Strength", []))
         c["itemstats"][5] |= {"ITEM_MOD_HIT_RATING_SHORT": 5, "ITEM_MOD_ATTACK_POWER_SHORT": 7}
         self.assertEqual(next(i for i in build_sheet(made(char=c)).gear if i.slot == "Chest").stats, chest.stats)      # a rating is not a percent
-        c["tips"] |= {1: [(0, "Humbert's Helm", "")], 5: [(0, "Mana-Warped, Chain Shirt", ""), (0, "+7 Attack Power", "")]}
+        c["tips"] |= {1: [(0, "Humbert's Helm", ""), (0, "+9 Stamina", "")], 5: [(0, "Mana-Warped, Chain Shirt", ""), (0, "+7 Attack Power", "")]}
         v = build_sheet(made(char=c))
         self.assertEqual((v.partly, next(i for i in v.gear if i.slot == "Chest").stats), ("", "+7 Attack Power"))
         c["tips"][5] = c["tips"][5][:1]                 # its name alone: not loaded yet
