@@ -197,6 +197,8 @@ SlashCmdList.DIPSSCORE = function(msg)
         ns.SetButtonShown(not db.button.shown)
     elseif cmd == "clear" then
         ns.ClearRuns()
+    elseif cmd == "probe" then
+        ns.Probe()
     elseif cmd == "char" then
         ns.PrintSnapshot()
     else

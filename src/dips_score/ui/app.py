@@ -568,7 +568,8 @@ class Window(QMainWindow):
         me = h.fights[-1]["me"] if h.fights else ""
         runs, saved = self._keep_profile()
         self.profile_page.show_view(build_profile(
-            profile(h.fights, h.chars.get(me), h.book(me) if me else None, runs, now, h.types), saved.get(me, [])))
+            profile(h.fights, h.chars.get(me), h.book(me) if me else None, runs, now, h.types, h.helped(me)),
+            saved.get(me, [])))
         self.stack.setCurrentIndex(5)
 
     def _keep_profile(self) -> tuple[list[dict] | None, dict]:
@@ -582,7 +583,7 @@ class Window(QMainWindow):
         # a saved slice is never rewritten, so it waits until every run's figures are in
         if me and readable and saved is not None and self._own_data(me, last.get("me_name", "")) and \
                 self.run_rows.keys() >= self.by_id.keys() and \
-                profile_history.update(saved, h.fights, h.chars.get(me), h.book(me), runs, now, h.types):
+                profile_history.update(saved, h.fights, h.chars.get(me), h.book(me), runs, now, h.types, h.helped(me)):
             self._save_profile(path, saved)
         return runs, saved or {}
 

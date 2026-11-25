@@ -287,7 +287,8 @@ src/dips_score/
   scoring/positioning.py where you stood
   live/tracker.py        tells fights apart in the combat log as it is written
   live/summary.py        one fight summed up, and the spell book
-  live/history.py        fights.jsonl and spells.json; follows the log
+  live/history.py        fights.jsonl, spells.json and help.jsonl; follows the log
+  live/helping.py        what you do for other players: revives, buffs, heals and dispels
   live/habits.py         the Habits page numbers and cards
   analysis.py            load + analyze (shared by CLI and window)
   ui/                    the PyQt6 window and timeline (fightsview.py, habitsview.py)

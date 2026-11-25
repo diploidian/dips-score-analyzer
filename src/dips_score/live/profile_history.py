@@ -4,7 +4,7 @@ profile_history.json (beside fights.jsonl), {character guid: [slice, ...] oldest
 (profile.figures)}; one saved before 0.18 has no title and no traits.
 
 file(paths) is the path; load(path) -> dict ({} when missing), or None when it can't be read now (locked, or broken
-and set aside): nothing may be saved over it then; update(saved, fights, char, book, runs, now, types=None) adds the
+and set aside): nothing may be saved over it then; update(saved, fights, char, book, runs, now, types=None, acts=None) adds the
 slices that have finished for the newest fight's character and returns them; save(path, saved) writes atomically. A
 block is saved once its end is 15 days back, so it has left Now. A slice with fewer than MIN_FIGHTS fights is skipped,
 and so is one with a fight that lacks profile.CURRENT (summed up before 0.18.0: its title would be from stale data) until
@@ -49,10 +49,10 @@ def save(path: Path, saved: dict):
     write_file(path, json.dumps(saved))
 
 
-def _slice(mine, char, book, runs, lo: datetime, hi: datetime, types=None) -> dict | None:
+def _slice(mine, char, book, runs, lo: datetime, hi: datetime, types=None, acts=None) -> dict | None:
     if any(CURRENT not in f for f in mine if lo < datetime.fromisoformat(f["start"]) <= hi):
         return None
-    fig = figures(mine, char, book, runs, lo, hi, types)
+    fig = figures(mine, char, book, runs, lo, hi, types, acts)
     if fig["fights"] < MIN_FIGHTS:
         return None
     return {"from": lo.isoformat(), "to": hi.isoformat(), "fights": fig["fights"], "label": fig["label"],
@@ -60,7 +60,7 @@ def _slice(mine, char, book, runs, lo: datetime, hi: datetime, types=None) -> di
 
 
 def update(saved: dict, fights: list[dict], char: dict | None, book: dict | None, runs: list[dict] | None,
-           now: datetime, types: dict | None = None) -> list[dict]:
+           now: datetime, types: dict | None = None, acts: list[dict] | None = None) -> list[dict]:
     """add the finished slices of the newest fight's character to saved (in place); returns the ones added"""
     if not fights:
         return []
@@ -72,7 +72,7 @@ def update(saved: dict, fights: list[dict], char: dict | None, book: dict | None
     if slices:          # carry on from the last saved slice's end, one block at a time, while a block has finished
         hi = datetime.fromisoformat(slices[-1]["to"]) + SLICE
         while hi <= now - SLICE:            # it has left Now
-            if s := _slice(mine, char, book, runs, hi - SLICE, hi, types):
+            if s := _slice(mine, char, book, runs, hi - SLICE, hi, types, acts):
                 added.append(s)
             hi += SLICE
         slices.extend(added)
@@ -80,7 +80,7 @@ def update(saved: dict, fights: list[dict], char: dict | None, book: dict | None
         oldest = min(datetime.fromisoformat(f["start"]) for f in mine)
         hi = now - SLICE
         while hi >= oldest:
-            if s := _slice(mine, char, book, runs, hi - SLICE, hi, types):
+            if s := _slice(mine, char, book, runs, hi - SLICE, hi, types, acts):
                 added.insert(0, s)
             hi -= SLICE
         slices.extend(added)

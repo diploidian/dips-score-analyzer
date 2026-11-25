@@ -1,7 +1,7 @@
 """Who you are as a player: the newest fight's character over the last 15 days (Now) against days 16 to 30
 (Before). Pure data, plain JSON-able values; a figure that cannot be known is None, never a guess.
 
-profile(fights, char, book, runs, now, types=None) -> {"name", "char" (habits.char_block), "level" (the newest fight's), "now": figures (None only when
+profile(fights, char, book, runs, now, types=None, acts=None) -> {"name", "char" (habits.char_block), "level" (the newest fight's), "now": figures (None only when
 there are no fights at all), "before": figures or None when it has no fights}. Now is fights with start in (now - 15 days, now], Before (now - 30, now - 15].
 
 runs are plain dicts from the recorded runs: start (datetime), role ("tank"/"healer"/"damage"/None), score, grade,
@@ -48,6 +48,8 @@ figures(...) keys (shares are fractions 0..1; None when there is nothing to divi
                    defensive sat ready), "spell" (the one that did most often, by name on a tie), "count" (fights it did)}, the last two
                    None when unused is 0
   overheal         {"fights", "healing", "overheal"} of the healer fights, None when they healed nothing
+  helping          helping.figures of acts (this character's only): strangers helped, revives, buffs for the group;
+                   None without any act known
   label            label(figures), None without fights (shown for slices saved without a title)
   traits           [{"key", "family", "epithet" (None under tier 1) and traits.scores' entry}], the known ones, in the
                    table's order
@@ -65,7 +67,7 @@ from statistics import median
 from ..scoring import usable
 from ..scoring.classes import talent_role
 from ..scoring.score import grade
-from . import titles, traits
+from . import helping, titles, traits
 from .habits import _damage_fights, char_block, cooldown_losses, idle_spells
 
 SLICE = timedelta(days=15)
@@ -191,7 +193,7 @@ def _restricted(win: list[dict], unused: list[str] | None, types: dict | None) -
 
 
 def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], lo: datetime, hi: datetime,
-            types: dict | None = None) -> dict:
+            types: dict | None = None, acts: list[dict] | None = None) -> dict:
     """the figures of one window (lo, hi] of one character's fights (see the module docstring)"""
     win = [f for f in mine if lo < datetime.fromisoformat(f["start"]) <= hi]
     runs = [r for r in runs if lo < r["start"] <= hi]
@@ -219,7 +221,8 @@ def figures(mine: list[dict], char: dict | None, book: dict, runs: list[dict], l
            "damage": sum(f.get("damage") or 0 for f in dmg) or None,
            "efficiency": _share(sum(f["damage"] for f in both), sum(f["potential"] for f in both)),
            "judged": len(both), "losses": _losses([f for f in dmg if f.get("damage")]), "close_calls": _close_calls(win),
-           "overheal": _overheal([f for f in win if role[id(f)] == "healer"])}
+           "overheal": _overheal([f for f in win if role[id(f)] == "healer"]),
+           "helping": helping.figures(acts, lo, hi)}
     out["label"] = label(out) if win else None
     sc = traits.scores(win, out, book, ab)
     specs = Counter(f["spec"] for f in win if f.get("spec"))
@@ -262,13 +265,13 @@ def label(fig: dict) -> str:
 
 
 def profile(fights: list[dict], char: dict | None, book: dict | None, runs: list[dict] | None,
-            now: datetime, types: dict | None = None) -> dict:
+            now: datetime, types: dict | None = None, acts: list[dict] | None = None) -> dict:
     if not fights:
         return {"name": "", "char": None, "level": None, "now": None, "before": None}
     me = fights[-1]["me"]
     mine = [f for f in fights if f["me"] == me]
     book, runs = book or {}, runs or []
-    before = figures(mine, char, book, runs, now - 2 * SLICE, now - SLICE, types)
+    before = figures(mine, char, book, runs, now - 2 * SLICE, now - SLICE, types, acts)
     return {"name": fights[-1].get("me_name", ""), "char": char_block(char), "level": fights[-1].get("level"),
-            "now": figures(mine, char, book, runs, now - SLICE, now, types),
+            "now": figures(mine, char, book, runs, now - SLICE, now, types, acts),
             "before": before if before["fights"] else None}

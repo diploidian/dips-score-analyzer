@@ -184,6 +184,11 @@ def deeds(win: list[dict], fig: dict) -> list[str]:
     levels = [f["level"] for f in win if f.get("level")]
     if levels and (up := max(levels) - min(levels)):
         add(up, 0, 10, f"gained {up} level{'' if up == 1 else 's'}")
+    given = fig.get("helping") or {}
+    for key, low, high, text in (("revives", 2, 20, "revives cast on the fallen"),
+                                 ("different", 4, 60, "different strangers helped")):
+        if n := given.get(key):
+            add(n, low, high, f"{n} {text}")
     if sits := traits.sittings(win):
         add(max(sits), 40, 200, f"{max(sits)} fights in one sitting")
     return [text for v, text in sorted(out, key=lambda d: -min(1, d[0])) if v >= DEED_MIN][:2]

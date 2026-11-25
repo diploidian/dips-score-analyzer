@@ -147,6 +147,8 @@ TRAITS: tuple[Trait, ...] = (
         Part(3, 25, 30, "n1", "dispels on others per 100 group fights"),
         Part(.10, .35, 20, "%", "of the group's healing on others is yours")),
         ("Merciful", "Guarding", "Selfless"), "looks after others", weaker=False),
+    _t("Benefactor", "Company", "Benefactor", 5, 100, 5, "n", "strangers helped and revives cast",
+       "Kind, Generous, Great-Hearted", "helps strangers on the road"),
 
     _t("Travel", "Road", "Zones fought in", 5, 22, 30, "n", "zones with five fights or more",
        "Roaming, Far-Travelled, Worldly", "fights all over the map"),
@@ -158,6 +160,7 @@ BY_KEY = {t.key: t for t in TRAITS}
 # both at tier 2 or better; the first that applies
 NAMED: tuple[tuple[str, str, str], ...] = (
     ("Edge", "Crowd", "the Cornered Lion"), ("Edge", "Streak", "the One Who Walks Away"),
+    ("Benefactor", "Travel", "the Wayside Saint"), ("Benefactor", "Lone", "the Stranger's Friend"),
     ("Guard", "Streak", "the Unfelled"), ("Brink", "Lone", "the Last One Standing"), ("Lone", "Tempo", "the Lone Storm"),
     ("Lone", "Travel", "the Long Walker"), ("Tempo", "Finish", "the Reaping Wind"), ("Swift", "Crit", "the Sudden End"),
     ("Blade", "Endure", "the Grinding Wheel"), ("Blade", "Duel", "the First Blade"),
@@ -339,6 +342,8 @@ def raw(win: list[dict], fig: dict, book: dict | None = None,
     swings = sum((x.get("landed") or 0) + sum((x.get("misses") or {}).values()) for x in tables)
     zones = Counter(f.get("zone") or "" for f in win)
     s = lambda flags: (sum(flags) / len(flags) if flags else None, len(flags))  # noqa: E731
+    given = fig.get("helping")
+    given = given and given["strangers"] + given["revives"]
     n, w = len(win), split.get("fights", 0)
     per100 = lambda k, of: (100 * sum(f.get(k) or 0 for f in of) / len(of) if of else None, len(of))  # noqa: E731
     return {
@@ -377,6 +382,7 @@ def raw(win: list[dict], fig: dict, book: dict | None = None,
         "Bond": [s([bool(f["group"]) for f in known])],
         "Lead": [s(ranked)],
         "Mercy": [per100("dispels_others", helpful(win)), (None if fig.get("main_role") == "healer" else share, shared)],
+        "Benefactor": [(given, given or 0)],
         "Travel": [(sum(c >= 5 for z, c in zones.items() if z not in NO_ZONE), n)],
         "Menagerie": [(len(fallen), n)],
     }

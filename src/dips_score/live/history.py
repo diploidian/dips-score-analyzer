@@ -5,6 +5,7 @@ cooldowns.json is no longer read: `replay` learns the books again from the logs.
 
 `Live` puts it together: follow the log, tell fights apart, sum each one up, save it, and hand it on (to
 the overlay and the Fights page). `replay()` does the same for log files already on disk.
+What you did for other players (helping.py) goes into help.jsonl beside them, one act per line.
 """
 from __future__ import annotations
 
@@ -21,6 +22,7 @@ from .tail import LogTail
 from .tracker import Tracker
 
 KEEP = 5000      # fights kept in the file
+KEEP_ACTS = 20000
 
 
 def write_file(path: Path, text: str):
@@ -42,7 +44,9 @@ class History:
     def __init__(self, paths: Paths):
         self.file = paths.data_dir / "fights.jsonl"
         self.spells_file = paths.data_dir / "spells.json"
+        self.help_file = paths.data_dir / "help.jsonl"
         self.fights: list[dict] = []
+        self.acts: dict[str, dict] = {}        # what you did for others, by id (every character's)
         self.books: dict[str, dict[str, dict]] = {}
         self.chars: dict[str, dict] = {}       # character snapshots from the add-on, by guid (not saved here)
         self.types: dict[str, str] = {}        # enemy name -> creature type, from the add-on (not saved here)
@@ -57,6 +61,14 @@ class History:
                 except ValueError:
                     continue
         self.fights.sort(key=_start)       # a replay adds the older ones it finds last
+        self.acts = {}
+        if self.help_file.exists():
+            for line in self.help_file.read_text(encoding="utf-8", errors="replace").splitlines()[-KEEP_ACTS:]:
+                try:
+                    act = json.loads(line)
+                    self.acts[act["id"]] = act
+                except (ValueError, KeyError, TypeError):
+                    continue
         if self.spells_file.exists():
             try:
                 self.books = json.loads(self.spells_file.read_text(encoding="utf-8"))
@@ -110,6 +122,19 @@ class History:
                 fh.write(json.dumps(fight) + "\n")
         return False
 
+    def helped(self, me: str) -> list[dict]:
+        return [a for a in self.acts.values() if a["me"] == me]
+
+    def add_acts(self, acts: list[dict]):
+        """save the acts not known yet (a replay finds the live ones again)"""
+        new = {a["id"]: a for a in acts if a["id"] not in self.acts}
+        if not new:
+            return
+        self.acts |= new
+        self.help_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.help_file, "a", encoding="utf-8") as fh:
+            fh.write("".join(json.dumps(a) + "\n" for a in new.values()))
+
     def remove(self, ids):
         self.fights = [f for f in self.fights if f.get("id") not in ids]
         self._rewrite()
@@ -134,6 +159,7 @@ class Live:
     def poll(self) -> list[dict]:
         lines = self.tail.poll()
         done = self.tracker.feed_lines(lines)
+        self.history.add_acts(self.tracker.take_acts())
         if lines and self.tracker.log_now:
             self.lag = (datetime.now() - self.tracker.log_now).total_seconds()
         late = self.tracker.tick()
@@ -171,6 +197,7 @@ def replay(paths: Paths, files: list[Path]) -> tuple[int, int]:
         last = tr.flush()
         if last:
             done.add(_keep(h, tr, last))
+        h.add_acts(tr.take_acts())
     if done:
         h.save_books()
         h._rewrite()

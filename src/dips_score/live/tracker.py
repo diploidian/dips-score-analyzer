@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from ..sources.combatlog import Event, is_enemy, parse_line
+from .helping import Watch
 
 QUIET_DEAD = 2.0
 QUIET_ALIVE = 15.0
@@ -105,6 +106,8 @@ class Tracker:
         self._rest = 0.0                   # seconds resting since the last fight opened
         self._resting: dict[str, datetime] = {}   # eating/drinking auras running now
         self._wall_hostile = 0.0
+        self._watch = Watch()
+        self.acts: list[dict] = []         # what you did for others (helping.py), until take_acts()
 
     # ------------------------------------------------------------------ feeding
     def feed_lines(self, lines: list[str]) -> list[FightData]:
@@ -124,6 +127,8 @@ class Tracker:
         if self.fight and self._over(e.ts):        # the log's own clock says it's over
             finished = self._close()
         self._context(e)
+        if act := self._watch.feed(e, self.me):
+            self.acts.append(act)
         side = self._hostile(e)
         if side is not None:
             if self.fight is None:
@@ -158,6 +163,10 @@ class Tracker:
             f.closed_by_wall = True
             return f
         return None
+
+    def take_acts(self) -> list[dict]:
+        acts, self.acts = self.acts, []
+        return acts
 
     def flush(self) -> FightData | None:
         """end any open fight now (end of a replayed file)"""
