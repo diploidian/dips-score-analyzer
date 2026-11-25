@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Healer feedback</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<script src="assets/theme.js"></script>
+<style>
+body{background:var(--bg);color:var(--tx)}
+.pg{max-width:1280px;margin:0 auto;padding:20px 28px 40px}
+.pg>h1{font:700 34px/1.1 "Barlow Condensed",sans-serif}
+.look{display:flex;gap:12px;margin:12px 0 0}
+.pt{margin-top:38px;border-top:2px solid var(--tx);padding-top:12px}
+.pt>h2{font:700 24px/1.2 "Barlow Condensed",sans-serif}
+.pt>p.sub{font-size:14px;color:var(--mu);margin-top:2px;max-width:80ch}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;margin-top:16px;align-items:start}
+.meta{font-size:14px;color:var(--mu);margin-top:4px}.meta b{color:var(--tx);font-weight:600}
+
+/* 1 the second tier: a ruled row of figures under the hero */
+.kf{display:flex;border-top:1px solid var(--ln);border-bottom:1px solid var(--ln);padding:10px 0 9px;margin-top:16px;gap:24px;flex-wrap:wrap}
+.kf div{display:flex;align-items:baseline;gap:8px;flex:1 1 220px}
+.kf b{font:700 30px/1 "Barlow Condensed",sans-serif}.kf span{font-size:13px;color:var(--tx2)}
+
+/* 2 cards: class and level */
+.cards{list-style:none;margin-top:16px}
+.card{display:grid;grid-template-columns:80px minmax(0,1fr) 96px;gap:0 24px;padding:14px 20px;background:var(--panel);border:1px solid var(--ln)}
+.card+.card{margin-top:8px}.card.me{border:3px solid var(--hl);padding:12px 18px}
+.card .rk{font:700 40px/.9 "Barlow Condensed",sans-serif}
+.card .nm{font-size:17px;font-weight:600;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.card .cl{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500;color:var(--tx2);white-space:nowrap}
+.card .cl i{width:10px;height:10px;border:1px solid var(--tx2);flex:none}
+.card .ro{font-size:14px;font-weight:400;color:var(--mu)}
+.card .why{margin-top:3px;font-size:14px;color:var(--tx2)}
+.card .p{font:700 34px/1 "Barlow Condensed",sans-serif;text-align:right}
+
+/* 3 what you pressed: the Fight page's right column, 420px */
+.rc{width:420px;max-width:100%}
+.sec{padding:14px 0;border-bottom:1px solid var(--ln)}.sec>.tab{margin-bottom:8px}
+.sec>p{font-size:15px;line-height:1.4;color:var(--tx2)}.sec>p b{color:var(--tx);font-weight:600}
+.pr{display:grid;grid-template-columns:minmax(0,1fr) 76px 46px 46px;margin-top:6px}
+.pr>*{padding:6px 0;border-top:1px solid var(--ln);min-height:32px;display:flex;align-items:center}
+.pr .h{border-top:0;min-height:0;padding:0 0 4px;justify-content:flex-end;font:600 11px/1 "Barlow Condensed",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--mu)}
+.pr .n{font-size:14px}.pr .n small{font-size:12px;color:var(--mu);margin-left:6px}
+.pr .id{justify-content:flex-end;font:500 14px "Barlow Condensed",sans-serif;color:var(--mu)}
+.pr .v{justify-content:flex-end;font:700 17px/1 "Barlow Condensed",sans-serif}.pr .z{color:var(--mu);font-weight:600}
+.lk{display:inline-block;margin-top:10px;font-size:14px;font-weight:600;color:var(--tx);text-decoration:underline;text-underline-offset:3px}
+.em{font-size:14px;color:var(--tx2);line-height:1.45;padding:8px 0;border-top:1px solid var(--ln)}
+
+/* 4 the healer's timeline */
+.hero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:32px;align-items:end;padding:16px 0 18px;border-bottom:1px solid var(--ln)}
+.big{font:700 104px/.8 "Barlow Condensed",sans-serif;letter-spacing:-.02em;display:flex;align-items:flex-start}
+.big small{font:600 26px/1 "Barlow Condensed",sans-serif;margin:4px 0 0 10px;color:var(--tx2);letter-spacing:.02em}
+.vd{font-size:16px;line-height:1.4;color:var(--tx2);max-width:560px}
+.ir{display:grid;grid-template-columns:52px 84px minmax(0,1fr) 110px;gap:14px;align-items:center;padding:5px 0;border-top:1px solid var(--ln);font-size:14px}
+.ir .c{font:500 15px "Barlow Condensed",sans-serif;color:var(--tx2)}.ir b{font:700 18px/1 "Barlow Condensed",sans-serif;text-align:right}
+.bar{height:10px;background:var(--track);position:relative}.bar i{position:absolute;inset:0 auto 0 0}
+.q{display:flex;gap:18px;flex-wrap:wrap;font-size:14px;color:var(--tx2);margin-top:8px}
+.q b{font:600 16px "Barlow Condensed",sans-serif;color:var(--tx)}
+@media (max-width:760px){.two{grid-template-columns:minmax(0,1fr)}.hero{grid-template-columns:minmax(0,1fr)}.card{grid-template-columns:56px minmax(0,1fr)}.card .p{grid-column:2;text-align:left;margin-top:6px}}
+</style>
+</head>
+<body>
+<div class="pg">
+  <h1>0.24.0: class and level, time in combat, what you pressed, the healer's timeline</h1>
+  <div class="look"><div class="seg" role="group" aria-label="Theme"><button data-set-theme="classical">Classical</button><button data-set-theme="timeless">Timeless</button></div><div class="seg" role="group" aria-label="Day or night"><button data-set-mode="day">Day</button><button data-set-mode="night">Night</button></div></div>
+
+  <section class="pt"><h2>Time in combat, second tier</h2>
+    <p class="sub">Under the hero of the Group and Debrief pages. Information, no points. Scarlet Monastery, 22 Nov (real figures; the range of your runs is <span class="illus">illustrative</span>, it appears from five runs).</p>
+    <div class="kf"><div><b class="c">63%</b><span>of the run in combat</span></div><div><b class="c">21:59</b><span>of 34:42, first pull to last fight</span></div><div><b class="c">54–63%</b><span>your last 5 runs</span></div></div>
+  </section>
+
+  <section class="pt"><h2>Class and level beside names</h2>
+    <p class="sub">A square in the class's colour and the word, so colour never says it alone. Levels come with add-on 0.6.3; a run recorded before shows the class alone. Names are <span class="illus">illustrative</span>, the rest is the same run with 0.23.1's healing.</p>
+    <ol class="cards">
+      <li class="card"><div class="rk">1st</div><div><div class="nm">Adela Frost<span class="cl"><i style="background:#3FC7EB"></i>Mage 40</span><span class="ro">DPS</span></div><p class="why">79 as a damage dealer, +6 from awards — strongest at survival</p></div><div class="p">85</div></li>
+      <li class="card"><div class="rk">2nd</div><div><div class="nm">Wren Hale<span class="cl"><i style="background:#FFFFFF"></i>Priest 39</span><span class="ro">Healer</span></div><p class="why">76 as a healer, +2 from awards — strongest at group health, held back by response</p></div><div class="p">78</div></li>
+      <li class="card me"><div class="rk">3rd</div><div><div class="nm">Bao Kahn<span class="cl"><i style="background:#F48CBA"></i>Paladin 39</span><span class="ro">DPS</span><span class="tag">you</span></div><p class="why">75 as a damage dealer, +2 from awards — strongest at damage, held back by utility</p></div><div class="p">77</div></li>
+      <li class="card"><div class="rk">4th</div><div><div class="nm">Torv Ironside<span class="cl" title="Level not recorded: the run is older than add-on 0.6.3"><i style="background:#C69B6D"></i>Warrior</span><span class="ro">Tank</span></div><p class="why">56 as a tank — strongest at survival, held back by holding mobs</p></div><div class="p">56</div></li>
+    </ol>
+  </section>
+
+  <section class="pt"><h2>What you pressed</h2>
+    <p class="sub">The Fight page's right column, under Group. Left: the longest fight of that run, real presses. Right: every other state.</p>
+    <div class="two">
+      <div class="rc"><section class="sec"><span class="tab">What you pressed</span>
+        <p><b>42 presses</b>, all by key.</p>
+        <div class="pr">
+          <span class="h"></span><span class="h">Spell ID</span><span class="h">Key</span><span class="h">Click</span>
+          <span class="n">Holy Strike</span><span class="id">2495</span><span class="v">14</span><span class="v z">0</span>
+          <span class="n">Swift Judgement<small>macro</small></span><span class="id">1310994</span><span class="v">9</span><span class="v z">0</span>
+          <span class="n">Consecration</span><span class="id">20116</span><span class="v">9</span><span class="v z">0</span>
+          <span class="n">Seal of Command</span><span class="id">20915</span><span class="v">8</span><span class="v z">0</span>
+          <span class="n">Attack</span><span class="id">6603</span><span class="v">1</span><span class="v z">0</span>
+          <span class="n">Divine Protection</span><span class="id">5573</span><span class="v">1</span><span class="v z">0</span>
+        </div>
+        <a class="lk" href="timeline.html">See them in order on the timeline</a></section></div>
+      <div class="rc"><section class="sec"><span class="tab">What you pressed</span>
+        <p><b>57 presses</b>, 41 by key, 12 by click, 4 the game's bars didn't say. <span class="illus">illustrative</span></p>
+        <div class="pr" style="grid-template-columns:minmax(0,1fr) 66px 42px 42px 62px">
+          <span class="h"></span><span class="h">Spell ID</span><span class="h">Key</span><span class="h">Click</span><span class="h">Unknown</span>
+          <span class="n">Seal of Command</span><span class="id">20915</span><span class="v">41</span><span class="v">3</span><span class="v">4</span>
+          <span class="n">Macro 2<small>no spell followed</small></span><span class="id">–</span><span class="v z">0</span><span class="v">9</span><span class="v z">0</span>
+        </div></section>
+        <section class="sec"><span class="tab">What you pressed</span>
+        <p class="em">Arrives after a /reload or logout: the game only saves your presses then.</p>
+        <p class="em">Not recorded here. Turn on "Everywhere else" in the add-on's options to record presses outside dungeons.</p>
+        <p class="em">This fight is older than the recordings the add-on keeps.</p></section></div>
+    </div>
+  </section>
+
+  <section class="pt"><h2>A healer's timeline</h2>
+    <p class="sub">For a run scored as a healer. The idle figure, its plate and its verdict go; what a healer answers takes their place. Waiting with a healthy group, wanding and saving mana are never called idle. Real figures: the same fight, the healer of that run.</p>
+    <div class="hero"><div class="big c">2.0<small>s to answer</small></div><p class="vd">5 dips under 60% in this fight, the middle answer 2.0 s. One had no heal from you within 6 s and counts as 6.</p></div>
+    <div class="two">
+      <section><span class="tab">Dips, slowest answer first</span>
+        <div class="ir" style="border-top:0;margin-top:8px"><span class="c">32:45</span><span>You</span><span class="bar"><i style="width:100%;background:var(--m-surv)"></i></span><b style="color:var(--gD)">no heal</b></div>
+        <div class="ir"><span class="c">32:06</span><span>DPS</span><span class="bar"><i style="width:40%;background:var(--m-surv)"></i></span><b>2.4 s</b></div>
+        <div class="ir"><span class="c">32:26</span><span>Tank</span><span class="bar"><i style="width:33%;background:var(--m-surv)"></i></span><b>2.0 s</b></div>
+        <div class="ir"><span class="c">32:08</span><span>DPS</span><span class="bar"><i style="width:6%;background:var(--m-surv)"></i></span><b>0.4 s</b></div>
+        <div class="ir"><span class="c">32:28</span><span>Tank</span><span class="bar"><i style="width:1%;background:var(--m-surv)"></i></span><b>0.0 s</b></div>
+      </section>
+      <section><span class="tab">Quiet moments</span>
+        <p style="font-size:14px;color:var(--tx2);margin-top:8px">2.5 s or more without a press. Not judged: a healthy group needs no heal.</p>
+        <div class="q"><span><b>31:58</b> 4.1 s</span><span><b>32:17</b> 3.2 s</span><span><b>32:51</b> 2.6 s</span><span class="illus">illustrative</span></div>
+      </section>
+    </div>
+  </section>
+</div>
+</body>
+</html>
