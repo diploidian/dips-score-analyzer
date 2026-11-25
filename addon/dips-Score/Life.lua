@@ -161,8 +161,7 @@ local function State(t)
     deadSince = nil
     local trading = Shown(TRADE_FRAMES)
     if not kind and not trading and t - done > IDLE then return "away" end
-    living = (not trading and t < workUntil and work)
-        or (t - castAt < CRAFT and Shown(CRAFT_FRAMES) and "craft")
+    living = (not trading and (t < workUntil and work or t - castAt < CRAFT and Shown(CRAFT_FRAMES) and "craft"))
         or kind
         or (trading and "trade")
         or Lately(t)
@@ -228,17 +227,21 @@ end
 
 local E = CreateFrame("Frame")
 for _, event in ipairs({"PLAYER_ENTERING_WORLD", "ZONE_CHANGED_NEW_AREA", "PLAYER_REGEN_DISABLED", "PLAYER_REGEN_ENABLED",
-    "QUEST_ACCEPTED", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "PLAYER_EQUIPMENT_CHANGED"}) do
+    "QUEST_ACCEPTED", "QUEST_TURNED_IN", "PLAYER_LEVEL_UP", "PLAYER_EQUIPMENT_CHANGED", "PLAYER_STARTED_MOVING"}) do
     pcall(E.RegisterEvent, E, event)
 end
+pcall(E.RegisterUnitEvent, E, "UNIT_SPELLCAST_SENT", "player")      -- only what you pressed: in a town the game casts one on you every second
 pcall(E.RegisterUnitEvent, E, "UNIT_SPELLCAST_SUCCEEDED", "player")
 pcall(E.RegisterUnitEvent, E, "UNIT_QUEST_LOG_CHANGED", "player")
 
 local function OnEvent(event, ...)
     local t = GetTime()
-    if event == "UNIT_SPELLCAST_SUCCEEDED" then
+    if event == "UNIT_SPELLCAST_SENT" then
         done, castAt = t, t
+    elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
         Work(select(3, ...), t)
+    elseif event == "PLAYER_STARTED_MOVING" then
+        done = t
     elseif event == "PLAYER_REGEN_DISABLED" then
         inCombat = true
     elseif event == "PLAYER_REGEN_ENABLED" then
