@@ -129,7 +129,7 @@ class View(unittest.TestCase):
         swing = rows("Stats", "From your fights")["Average swing"]
         self.assertEqual(swing.note, "measured in 24 hits, crits included; the game says 139 to 175 before armor")
         self.assertTrue(rows("Stats", "From your fights")["10 attack power"].estimate)
-        self.assertEqual(rows("Talents and Legacy", "Legacy")["Points spent in"].note, "in 2 trees, 3 points left to spend")
+        self.assertEqual(rows("Talents and Legacy", "Legacy")["With points in them"].note, "in 2 trees, 3 points left to spend")
         self.assertEqual(rows("Abilities", "Known, not cast in a fight")["Redemption"].value, "")
         self.assertEqual(rows("Abilities", "Casts in fights, last 15 days")["Judgement"].note, "60.0% of your damage")
 

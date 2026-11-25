@@ -153,7 +153,7 @@ def _points(s: dict) -> SheetTab:
             with_points = sum(t["with"] or 0 for t in trees)
             of = sum(t["nodes"] or 0 for t in trees)
             note = f"in {_plural(len(trees), 'tree')}" + (f", {_plural(sum(left), 'point')} left to spend" if left else "")
-            rows.insert(0, SheetRow("Points spent in", f"{with_points} of {of}", note))
+            rows.insert(0, SheetRow("With points in them", f"{with_points} of {of}", note))
         if rows:
             tab.groups.append((title, rows))
     return tab
