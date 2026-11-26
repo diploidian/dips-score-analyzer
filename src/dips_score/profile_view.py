@@ -22,6 +22,7 @@ from .debrief import combat_span
 from .sheet_view import SheetView, build_sheet
 from .time_view import TimeBar, build_time
 from .trade_view import TradeView, build_trade
+from .upgrades_view import UpgradesView, build_upgrades
 from .trait_words import words
 
 NA = "–"
@@ -154,6 +155,7 @@ class ProfileView:
     time: TimeBar = field(default_factory=TimeBar)          # Where your time goes
     trade: TradeView = field(default_factory=TradeView)     # the Trade drawer
     sheet: SheetView = field(default_factory=SheetView)     # the Character sheet drawer
+    upgrades: UpgradesView = field(default_factory=UpgradesView)     # the Upgrades drawer
     earlier_title: str = "Earlier (0)"
     earlier: list[EarlierRow] = field(default_factory=list)            # newest first
 
@@ -408,6 +410,7 @@ def build_profile(p: dict, earlier: list[dict]) -> ProfileView:
     v.sheet = build_sheet(p.get("sheet"), p.get("broken"))
     v.time = build_time((now or {}).get("time"), p.get("time_before"))      # days, not fights: an auction house day has none
     v.trade = build_trade((now or {}).get("trade"))
+    v.upgrades = build_upgrades(p.get("upgrades"))
     if n < MIN_FIGHTS:
         v.need = f"Your profile needs {MIN_FIGHTS} fights from the last 15 days ({n} so far)."
         v.need_line = "Play a few more fights and it fills in." + (

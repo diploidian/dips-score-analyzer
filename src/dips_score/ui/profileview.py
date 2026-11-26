@@ -1,7 +1,8 @@
 """The Profile page: who you are as a player over the last 15 days, painted from a ProfileView (see
 dips_score/profile_view.py): the crest, the title's trait as the one big figure, the plate, Signature and the Hands drawer
 on the left; Role mix, Where you fight and How you fight on the right, under the left when both do not fit; where your
-time goes under them (timepart.py), also with too few fights for the rest; Trade (tradepart.py); every trait, then the Character sheet drawer (sheetpart.py); the finished 15-day slices in the Earlier drawer.
+time goes under them (timepart.py), also with too few fights for the rest; Trade (tradepart.py); every trait, then the Character sheet drawer (sheetpart.py) and
+Upgrades (upgradespart.py); the finished 15-day slices in the Earlier drawer.
 
 Sizes follow docs/design/mockups/profile.html (CSS px). The shared parts come from kit.py.
 """
@@ -27,6 +28,7 @@ from .sheetpart import CharacterSheet
 from .theme import tok
 from .timepart import TimeSection
 from .tradepart import TradeSection
+from .upgradespart import UpgradesSection
 
 HERO_W = (260, 214)         # the hero's column (narrow)
 LEFT_MIN = 450              # the left column's width, at least, with the right one beside it
@@ -698,6 +700,10 @@ class ProfilePage(QScrollArea):
         self.sheet_drawer = Drawer("Character sheet", self.sheet)
         self.sheet_drawer.set_count(None)
         self.sheet_fold = Fold(self.sheet_drawer)
+        self.upgrades = UpgradesSection()
+        self.upgrades_drawer = Drawer("Upgrades", self.upgrades)
+        self.upgrades_drawer.set_count(None)
+        self.upgrades_fold = Fold(self.upgrades_drawer)
         self.earlier = EarlierTable()
         self.earlier_drawer = Drawer("Earlier", self.earlier)
         self.foot = Foot(self.earlier_drawer)
@@ -737,6 +743,7 @@ class ProfilePage(QScrollArea):
         stack.addWidget(self.trade_fold)
         stack.addWidget(self.traits_fold)
         stack.addWidget(self.sheet_fold)
+        stack.addWidget(self.upgrades_fold)
         self.lay = lay = QVBoxLayout(self.page)
         lay.setContentsMargins(16, 4, 16, 16)
         lay.setSpacing(0)
@@ -802,6 +809,7 @@ class ProfilePage(QScrollArea):
         self.traits_drawer.set_count(sum(len(rows) for _, rows in v.traits))
         self.traits_fold.setVisible(bool(v.traits))
         self.sheet.set(v.sheet)
+        self.upgrades.set(v.upgrades)
         self._ring()
         self._fit(True)
         self.earlier.set(v.earlier)

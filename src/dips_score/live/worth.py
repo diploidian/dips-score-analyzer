@@ -123,6 +123,19 @@ def spells(win: list[dict], levels: list[tuple[int, int]] | None) -> list[dict]:
     return sorted(best.values(), key=lambda s: (-s["value"], s["name"]))
 
 
+def per_second(win: list[dict], slopes: list[dict]) -> list[dict]:
+    """what one spell power adds to your damage per second through each spell of spells(): its slope times its hits per second
+    of fighting in the window, {"name", "value", "n"} (n: the hits its slope rests on); [] without fight time"""
+    seconds = sum(f.get("duration") or 0 for f in win)
+    if not seconds:
+        return []
+    landed: dict[str, int] = defaultdict(int)
+    for f in win:
+        for a in f.get("abilities") or []:
+            landed[a["name"]] += a.get("hits") or 0
+    return [{"name": s["name"], "value": s["value"] * landed[s["name"]] / seconds, "n": s["n"]} for s in slopes]
+
+
 def hits(win: list[dict]) -> dict | None:
     """how your swings landed: {"n" (all of them), "miss", "dodge", "parry", "block", "glancing", "crit" (counts),
     "glancing_cost" (the share of a plain hit on the same enemy a glancing one loses, None when too few)}; None under MIN_HITS"""

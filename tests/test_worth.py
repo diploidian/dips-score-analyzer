@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from dips_score.live.worth import hits, level_at, leveled, spells, swing  # noqa: E402
+from dips_score.live.worth import hits, level_at, leveled, per_second, spells, swing  # noqa: E402
 from dips_score.config import Paths  # noqa: E402
 from dips_score.live.history import History  # noqa: E402
 from dips_score.live.profile import profile  # noqa: E402
@@ -104,6 +104,15 @@ class Spells(unittest.TestCase):
         flat = [cell("Consecration", 2, 600, sp, [10, 10, 10, 11] * 100) for sp in (11, 14)]
         got, = spells([fight(flat)], self.LEVELS)
         self.assertEqual((got["value"], _spell_worth({"worth": [got], "stats": {}})[0].value), (0.0, "0"))
+
+    def test_per_second(self):
+        """a slope times the spell's hits per second of fighting"""
+        got = spells([fight(self.CELLS)], self.LEVELS)
+        win = [fight([], duration=60, abilities=[{"name": "Judgement", "hits": 6}]), fight([], duration=60, abilities=[{"name": "Melee", "hits": 40}])]
+        row, = per_second(win, got)
+        self.assertEqual((row["name"], round(row["value"], 4), row["n"]), ("Judgement", round(got[0]["value"] * 6 / 120, 4), 180))
+        self.assertEqual(per_second([fight([], abilities=[])], got), [])          # no fight time
+        self.assertEqual(per_second(win, []), [])
 
     def test_not_measured_yet(self):
         row, = _spell_worth({"worth": [], "stats": {"spellpower": {"value": 14}}})

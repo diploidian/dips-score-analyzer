@@ -795,6 +795,39 @@ class ShellTests(unittest.TestCase):
             self.assertGreater(page.trade.height(), 200)
         page.hide()
 
+    def test_upgrades(self):
+        """a drawer, shut and with no count, under the Character sheet; its sentence before any scan; the guardrails pick again;
+        a row's tooltip on hover; never sideways"""
+        from dips_score.upgrades_view import NEED, build_upgrades
+        from dips_score.ui import theme
+        theme.load_fonts()
+        page, v = self.profile_page()
+        self.assertEqual((page.upgrades_drawer.accessibleName(), page.upgrades_drawer.open), ("Upgrades", False))
+        self.assertEqual(page.upgrades.list.accessibleName(), f"Upgrades: {NEED}")
+        self.assertEqual(page.stack.indexOf(page.sheet_fold) + 1, page.stack.indexOf(page.upgrades_fold))
+        row = lambda n, price: {"n": n, "id": n, "name": f"Ring {n}, Lesser", "quality": 2, "kind": 11, "price": price, "count": 1,  # noqa: E731
+                                "tips": [(True, f"Ring {n}, Lesser", ""), (True, "+5 Strength", "")], "slot": "Ring", "source": "scan",
+                                "age": 600, "gain": {"dps": None, "points": 10, "rank": 10}, "why": "", "usual": None, "usual_from": None,
+                                "usual_seen": None, "usual_min": False, "per_gold": 10 / (price / 10000), "gold_rank": n}
+        v.upgrades = build_upgrades({"taken": 1, "money": 2000000, "age": 600, "role": "melee", "rows": [row(1, 50000), row(2, 900000)], "unread": 3})
+        page.show_view(v)
+        page.upgrades_drawer.flip()
+        said = page.upgrades.list.accessibleName()
+        self.assertTrue(said.startswith("Upgrades: Ring 1, Lesser is your biggest upgrade, for 5g."), said)
+        self.assertEqual((page.upgrades.gold.value(), page.upgrades.times.value()), (100, 2))
+        self.assertIn("Ring 2, Lesser", said)
+        page.upgrades.gold.setValue(10)                 # the guardrail moves: picked again
+        self.assertNotIn("Ring 2, Lesser", page.upgrades.list.accessibleName())
+        self.assertIn("1 more costs over 10g.", page.upgrades.list.accessibleName())
+        page.show_view(v)                               # the same scan keeps what you set
+        self.assertEqual(page.upgrades.gold.value(), 10)
+        for w in (1500, 1000, 620, 360):
+            self.show_at(page, w)
+            self.assertLessEqual(page.widget().width(), page.viewport().width())
+            self.assertTrue(page.sheet_fold.y() < page.upgrades_fold.y())
+        self.assertEqual(page.upgrades.list.tips[0][1], "Ring 1, Lesser\n+5 Strength")
+        page.hide()
+
     def test_character_sheet(self):
         """the drawer: shut, no count; a message before there is a sheet; one tab at a time; everything said; never sideways"""
         from dips_score.sheet_view import NONE, Ability, Figure, Item, Ladder, SheetView, Talent

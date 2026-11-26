@@ -57,9 +57,11 @@ local OPTIONS = {
     {type = "button", label = "Clear saved runs", func = function() ns.ClearRuns() end},
 
     {type = "section", label = "Commands"},
-    {type = "description", text = "/dscore status | start | stop | mark [note] | watch | button | clear | char\n"
+    {type = "description", text = "/dscore status | start | stop | mark [note] | watch | button | clear | char | upgrades\n"
         .. "watch prints each press with whether it was a key or a click - use it to check this client "
-        .. "tells them apart. char saves a snapshot of your spells, gear and talents and says what this client returned."},
+        .. "tells them apart. char saves a snapshot of your spells, gear and talents and says what this client returned. "
+        .. "upgrades, at the auction house, looks for gear you can wear and afford, for the app's Upgrades drawer "
+        .. "(upgrades stop cancels it)."},
 }
 
 -- "record.party" -> db.record, "party"
@@ -200,6 +202,8 @@ SlashCmdList.DIPSSCORE = function(msg)
         ns.ClearRuns()
     elseif cmd == "probe" then
         ns.Probe()
+    elseif cmd == "upgrades" then
+        ns.Upgrades(rest)
     elseif cmd == "char" then
         ns.PrintSnapshot()
     else

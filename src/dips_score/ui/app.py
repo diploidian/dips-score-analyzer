@@ -39,7 +39,7 @@ from .spells import SpellsTab
 from .timelinetab import TimelineTab
 from .settings import SettingsDialog
 from .tokens import THEMES
-from ..live import profile_history, profile_runs
+from ..live import profile_history, profile_runs, upgrades
 from ..live.habits import habits
 from ..live.profile import profile
 from ..live.tail import LogTail
@@ -626,9 +626,10 @@ class Window(QMainWindow):
         h, now = self.live.history, datetime.now()
         me = h.fights[-1]["me"] if h.fights else ""
         runs, saved = self._keep_profile()
-        self.profile_page.show_view(build_profile(
-            profile(h.fights, h.chars.get(me), h.book(me) if me else None, runs, now, h.types, h.helped(me)),
-            saved.get(me, [])))
+        p, char = profile(h.fights, h.chars.get(me), h.book(me) if me else None, runs, now, h.types, h.helped(me)), h.chars.get(me)
+        if char and char.get("market"):         # what your last auction house scan has for you, by its usual prices
+            p["upgrades"] = upgrades.upgrades(char, p.get("sheet"), upgrades.remember(self.paths, char["market"]), upgrades.web(self.paths))
+        self.profile_page.show_view(build_profile(p, saved.get(me, [])))
         self.stack.setCurrentIndex(5)
 
     def _keep_profile(self) -> tuple[list[dict] | None, dict]:

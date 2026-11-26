@@ -7,6 +7,7 @@
 --   tips      = {"slot,itemID,type,text", ...}         its whole tooltip in order, but for who made it; type R: the right
 --                                                      side of the line before; type with "!": red or grey, not active
 --   wear      = {"slot,durability,most", ...}
+--   links     = {"slot,item:...", ...}                 the item's own text (its enchant and bonus ids), to compare it by
 --   ranks     = {"spellID,rank", ...}                  the rank text of every spell in the book that has one
 --   points    = {"c,tree,node,rank,maxRank,name", ...} talents (c "talent") and Legacy (c "legacy") with points in them
 --   trees     = {"c,tree,nodes,withPoints,left", ...}  left: points still to spend, "" when not known
@@ -119,40 +120,50 @@ local function NamesPerson(line)
     return false
 end
 
--- Red or grey: the game says the line does not count now (a need not met, a set bonus not reached).
-local function Off(color)
-    if IsSecret(color) or type(color) ~= "table" then return false end
+-- Red or grey: the game says the line does not count now (a need not met, a set bonus not reached). Returns which.
+local function Shade(color)
+    if IsSecret(color) or type(color) ~= "table" then return nil end
     local r, g, b = color.r, color.g, color.b
-    if IsSecret(r) or type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then return false end
-    local red = r > 0.9 and g < 0.3 and b < 0.3
-    local grey = r < 0.7 and math.abs(r - g) < 0.05 and math.abs(g - b) < 0.05
-    return red or grey
+    if IsSecret(r) or type(r) ~= "number" or type(g) ~= "number" or type(b) ~= "number" then return nil end
+    if r > 0.9 and g < 0.3 and b < 0.3 then return "red" end
+    if r < 0.7 and math.abs(r - g) < 0.05 and math.abs(g - b) < 0.05 then return "grey" end
 end
 
--- Every line of a worn item's tooltip, as the game writes it. All of it or nothing: a hidden line, or an item the
--- game has not loaded, leaves the slot out, so the app never shows part of an item as the whole.
-local function Tip(slot, id, out)
-    local tip = First(C_TooltipInfo and C_TooltipInfo.GetInventoryItem, "player", slot)
-    local mine = {}
+-- A tooltip's lines (C_TooltipInfo's answer) as the game writes them: {type, shade, left, right}, but for who made it.
+-- All of it or nothing: a hidden line, or an item the game has not loaded, gives nil, so the app never shows part of an
+-- item as the whole. Market.lua reads an auction's item with it too.
+function ns.TipLines(tip)
+    local out = {}
     for _, l in ipairs(type(tip) == "table" and type(tip.lines) == "table" and tip.lines or {}) do
         local left, right = l.leftText, l.rightText
-        if IsSecret(left) or IsSecret(right) or (left and left == RETRIEVING_ITEM_INFO) then return end
+        if IsSecret(left) or IsSecret(right) or (left and left == RETRIEVING_ITEM_INFO) then return nil end
         if type(left) == "string" then
             left = Plain(left)
             if not NamesPerson(left) then
-                local kind = type(l.type) == "number" and not IsSecret(l.type) and l.type or 0
-                mine[#mine + 1] = slot .. "," .. id .. "," .. kind .. (Off(l.leftColor) and "!" or "") .. "," .. left
-                if type(right) == "string" and right ~= "" then
-                    mine[#mine + 1] = slot .. "," .. id .. ",R," .. Plain(right)
-                end
+                out[#out + 1] = {type = type(l.type) == "number" and not IsSecret(l.type) and l.type or 0,
+                    shade = Shade(l.leftColor), left = left,
+                    right = type(right) == "string" and right ~= "" and Plain(right) or nil}
             end
         end
     end
-    for _, line in ipairs(mine) do out[#out + 1] = line end
+    return out
+end
+
+-- Those lines as saved: "type,text" (type with "!" when red or grey), then "R,text" for the right side of one.
+function ns.TipRows(lines, prefix, out)
+    for _, l in ipairs(lines or {}) do
+        out[#out + 1] = prefix .. l.type .. (l.shade and "!" or "") .. "," .. l.left
+        if l.right then out[#out + 1] = prefix .. "R," .. l.right end
+    end
+end
+
+-- Every line of a worn item's tooltip.
+local function Tip(slot, id, out)
+    ns.TipRows(ns.TipLines(First(C_TooltipInfo and C_TooltipInfo.GetInventoryItem, "player", slot)), slot .. "," .. id .. ",", out)
 end
 
 local function Items()
-    local items, stats, tips, wear = {}, {}, {}, {}
+    local items, stats, tips, wear, links = {}, {}, {}, {}, {}
     for slot = 1, LAST_SLOT do
         local id = First(GetInventoryItemID, "player", slot)
         local link = First(GetInventoryItemLink, "player", slot)
@@ -163,6 +174,8 @@ local function Items()
                 enchant = link:match("item:%d+:(%d*)") or "" -- "0": read, and there is none; "": not read
                 if enchant == "" and link:find("item:%d+:") then enchant = "0" end
                 name = link:match("%[(.-)%]") or ""
+                local text = link:match("item:[%-%d:]+")
+                if text then links[#links + 1] = slot .. "," .. text end
                 local found = First(C_Item and C_Item.GetItemStats, link)
                 if type(found) == "table" then
                     for key, v in pairs(found) do
@@ -180,7 +193,7 @@ local function Items()
             items[#items + 1] = slot .. "," .. id .. "," .. Field(quality) .. "," .. enchant .. "," .. name
         end
     end
-    return items, stats, tips, wear
+    return items, stats, tips, wear, links
 end
 
 ----------------------------------------------------------------------
@@ -249,10 +262,10 @@ end
 
 -- Adds the sheet to the snapshot being built (Char.lua); a part that fails stays empty.
 function ns.ReadSheet(read)
-    read.stats, read.items, read.itemstats, read.tips, read.wear, read.ranks = {}, {}, {}, {}, {}, {}
+    read.stats, read.items, read.itemstats, read.tips, read.wear, read.ranks, read.links = {}, {}, {}, {}, {}, {}, {}
     read.points, read.trees, read.skills = {}, {}, {}
     pcall(function() read.stats = Stats() end)
-    pcall(function() read.items, read.itemstats, read.tips, read.wear = Items() end)
+    pcall(function() read.items, read.itemstats, read.tips, read.wear, read.links = Items() end)
     pcall(function() read.ranks = Ranks(read.spells) end)
     pcall(function()
         Trees("talent", First(C_ClassTalents and C_ClassTalents.GetActiveConfigID), read.points, read.trees)
@@ -261,4 +274,4 @@ function ns.ReadSheet(read)
     pcall(function() read.skills = Skills() end)
 end
 ns.SHEET = {"ranks", "points", "trees", "skills"}
-ns.WORN = {"gear", "items", "itemstats", "tips", "wear", "stats"} -- of one moment: kept or replaced together
+ns.WORN = {"gear", "items", "itemstats", "tips", "wear", "stats", "links"} -- of one moment: kept or replaced together
