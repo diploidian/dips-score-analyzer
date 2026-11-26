@@ -106,6 +106,7 @@ class Tracker:
         self.hp: float | None = None
         self.power: float | None = None
         self.zone, self.difficulty, self.instance = "", 0, 0
+        self.encounter: str | None = None  # boss of the encounter running now; its start can come before the pull
         self.log_now: datetime | None = None
         self.allies: set[str] = set()      # players seen in your group: never foes (a mind-controlled
                                             # party member shows up as a hostile player)
@@ -234,6 +235,10 @@ class Tracker:
                     self.instance, self.difficulty = int(e.raw[0]), int(e.raw[2])
                 except ValueError:
                     self.instance = self.difficulty = 0
+            if e.event == "ENCOUNTER_START" and len(e.raw) > 1:
+                self.encounter = e.raw[1]
+            elif e.event in ("ENCOUNTER_END", "ZONE_CHANGE"):
+                self.encounter = None
             return
         if self.me is None and e.src.startswith("Player-") and affiliation(e.src_flags) == 0x1:
             self.me, self.me_name = e.src, e.src_name
@@ -269,7 +274,7 @@ class Tracker:
             own_buffs_at_pull=sorted(n for n, (who, _) in self.buffs.items() if who == self.me),
             since_last=(ts - self.last_end).total_seconds() if self.last_end else None,
             forbearance=self.buffs.get("Forbearance", (None, None))[1],
-            start_hp=self.hp, start_power=self.power, cast_before=dict(self.last_cast))
+            start_hp=self.hp, start_power=self.power, cast_before=dict(self.last_cast), boss=self.encounter)
 
     def _close(self) -> FightData:
         f = self.fight

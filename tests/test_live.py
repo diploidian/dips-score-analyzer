@@ -89,6 +89,22 @@ class Live(unittest.TestCase):
         self.assertEqual(where('1,"The Barrens",0', None)[:2], ("PvP", 0))                          # players only: the zone line
         self.assertEqual(where('489,"Warsong Gulch",0', None)[:2], ("PvP", 489))
 
+    def _kinds(self, *raw):
+        mob = MOB.replace("-0-1-1-1-", "-0-1-129-1-")
+        log = [line(0, 'ZONE_CHANGE,129,"Razorfen Downs",1'), *raw,
+               *[dmg(t, ME, mob, 8092, "Mind Blast", 300) for t in (1, 3, 5)],
+               line(6, f"UNIT_DIED,{NONE},{mob},0"), line(40, f"SPELL_AURA_APPLIED,{ME},{ME},588,\"Inner Fire\",0x2,BUFF")]
+        tr = Tracker()
+        return [summarize(f, tr.me, tr.me_name, {}, [])["kind"] for f in tr.feed_lines(sorted(log))]
+
+    def test_encounter_before_the_pull_is_a_boss(self):
+        """Amnennar: the encounter started half a second before the first hit"""
+        self.assertEqual(self._kinds(line(0.5, 'ENCOUNTER_START,2785,"Amnennar the Coldbringer",1,5,129')), ["Boss"])
+
+    def test_fight_after_encounter_end_is_no_boss(self):
+        self.assertEqual(self._kinds(line(0.3, 'ENCOUNTER_START,2785,"Amnennar the Coldbringer",1,5,129'),
+                                     line(0.6, 'ENCOUNTER_END,2785,"Amnennar the Coldbringer",1,5,0,9000')), ["Dungeon"])
+
     def test_two_fights_and_a_summary(self):
         log = [
             line(0, f"SPELL_CAST_SUCCESS,{ME},{MOB},8092,\"Mind Blast\",0x20"),
