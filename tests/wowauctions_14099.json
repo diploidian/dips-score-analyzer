@@ -1,0 +1,70 @@
+{
+ "props": {
+  "pageProps": {
+   "item": {
+    "item_info": {
+     "entry": 14099,
+     "name": "Native Sash",
+     "icon_name": "inv_belt_11",
+     "SellPrice": 47,
+     "BuyPrice": 237,
+     "BuyCount": 1,
+     "Quality": 1,
+     "stackable": 1,
+     "class": 4,
+     "subclass": 1,
+     "available_from_vendor": true
+    },
+    "stats": {
+     "scan_id": 1,
+     "item_entry": 14099,
+     "item_last_seen": "2026-11-26 06:26:25",
+     "avg_price": 200100,
+     "minimum_buyout": 200100,
+     "minimum_bid": null,
+     "item_count": 5
+    },
+    "realm_last_scan": "2026-11-26 06:26:25"
+   },
+   "route_info": {
+    "server": "forever-us",
+    "realm": "pvp-forever-us",
+    "faction": "alliance"
+   },
+   "names": {
+    "server": "WoW Forever - US",
+    "realm": "PvP",
+    "expansion": "forever",
+    "region": "us"
+   },
+   "v2": {
+    "expansion": "forever",
+    "faction": "alliance",
+    "regionWide": false,
+    "row": {
+     "auction_house_id": 7,
+     "variant": 0,
+     "avg_price": 200100,
+     "min_buyout": 200100,
+     "quantity": 5,
+     "auctions": 5,
+     "seen_at": "2026-11-26T06:26:25Z",
+     "in_latest_scan": true,
+     "median": 200100,
+     "cheap30": 200100,
+     "market_value": 275,
+     "stats": {
+      "days": 18,
+      "median_30d": 196,
+      "min_30d": 90,
+      "max_30d": 200100,
+      "change_1d_pct": 159980,
+      "change_7d_pct": 99950,
+      "flip_pct": 101991.836,
+      "quantity_change_7d_pct": 150
+     }
+    }
+   }
+  }
+ }
+}
