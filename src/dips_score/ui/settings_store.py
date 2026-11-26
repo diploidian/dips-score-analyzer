@@ -19,7 +19,12 @@ DEFAULTS = {"theme": "timeless",
             "texture": None,          # None: follow dips-Core's own setting; True/False: your pick here
             "texture_alpha": None,
             "wow_folder": None,       # None: --wow, DIPS_WOW or the default (config.paths reads these two)
-            "logs_folder": None}      # None: <wow folder>\Logs
+            "logs_folder": None,      # None: <wow folder>\Logs
+            "web_prices": False,      # live/webprices.py: no network unless this is on
+            "web_server": "forever-us",   # forever-us | forever-eu
+            "web_realm": "pvp",       # pve | pvp | rp | rp-pvp, joined to the server as wowauctions.net's realm slug
+            "web_faction": "alliance",
+            "undermine_key": ""}      # your own Undermine Exchange API key
 
 
 def load(paths: Paths) -> dict:
