@@ -124,6 +124,7 @@ game's `Logs`. From a terminal, `--wow "<your folder>"` overrides it; the `DIPS_
 | `/dscore button` | Shows or hides the record button |
 | `/dscore clear` | Deletes the saved runs |
 | `/dscore char` | Takes a character snapshot and prints what the game returned |
+| `/dscore upgrades` | At the auction house: scans it for upgrades you can wear and afford (`stop` cancels, `list` shows the last scan) |
 | `/dscore probe` | Notes which game calls this client has, for the developer; saved on `/reload` (run it once anywhere, once at the auction house, once at a mailbox with a sale in it) |
 
 In the settings you choose where recording starts by itself: dungeons (on by default), raids,
@@ -1185,6 +1186,41 @@ Titles are saved with each finished 15-day block, so Earlier reads as a history 
   while the app was closed, so the history grows past what the app saw live. It can only use the logs you
   still have.
 
+### Upgrades
+
+Upgrades answers one question: which gear on the auction house, that you can wear and afford, is the
+biggest upgrade for your gold?
+
+1. At the auction house, press **Find upgrades** under its window (or type `/dscore upgrades`). The add-on
+   browses each kind of gear slot near your level, keeps what you can use and afford, and reads the stats and
+   tooltip of up to 40 of the best candidates. Chat shows its progress; `/dscore upgrades stop` cancels it.
+2. **List** beside it (or `/dscore upgrades list`) shows the scan in the game, ranked by gain per gold with
+   standard weights. Click a row to search the auction house for it, then buy with the game's own button.
+   Nothing is ever bought for you.
+3. After a `/reload`, the Profile page's Upgrades drawer ranks the same scan with what your own fights
+   measured. Each row shows the item in its rarity's colour, its slot, its gain, its price, gain per gold, and
+   where the price came from with its age. Hover a row for its tooltip, word for word.
+
+How the gain is worked out:
+
+- Each item is compared with what you wear in that slot: rings and trinkets with the weaker of your two, a
+  two-hander with your main hand and off hand together. A one-hander while you wear a two-hander is "not
+  compared", and a unique item you already wear is left out.
+- Attack power is measured from your own swings (see the Character sheet's "What a point is worth"), so for a
+  melee damage dealer it shows as damage per second, marked measured. Every other stat uses standard rules of
+  thumb for your role and shows as points, marked standard. Healers, tanks, ranged damage dealers and weapon
+  swaps get standard points only. The two are never added together.
+- Filters: at most a set amount of gold (half of what you carried at the scan, to start) and nothing over a set
+  number of times its usual price (2 to start).
+- The usual price comes from your own scans once there are 3 days of them, then from the web.
+
+Prices from the web are off until you turn them on in Settings (Prices from the web), with your server, realm
+and faction. wowauctions.net is read from each item's own page, 2 seconds apart and at most once an hour. It
+blends random-stat items ("of the Owl") into one price, so its prices are used only for gear without them.
+Undermine Exchange is read only through its API with your own key, and only if it lists a Forever realm. A usual
+price from the web says which site and how old, and "lowest price only" when that is all the site gave. The drawer says why when a lookup didn't work (offline, no
+key).
+
 ### Tray mode and the command line
 
 Run `projectArthas.pyw live` to keep the app in the system tray while you play, with the overlay. Its
@@ -1197,7 +1233,8 @@ them.
 
 ### Files the app keeps
 
-Everything is in `%APPDATA%\dips-score`: `weights.json` and `classes.json` (your settings),
+Everything is in `%APPDATA%\dips-score`: `weights.json` and `classes.json` (your settings), `market.json`
+(lowest auction prices from your scans, 30 days), `webprices.json` (prices from the web),
 `fights.jsonl` (the last 5,000 fights), `spells.json` (a spell book per character) and `help.jsonl` (what you did for
 other players, without their names).
 `errors.log` holds any error the app ran into and carried on past, for a bug report (it starts over past 1 MB).

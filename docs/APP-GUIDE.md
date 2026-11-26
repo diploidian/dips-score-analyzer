@@ -19,11 +19,12 @@ threshold and formula, and [First run](FIRST-RUN.md) walks you to your first sco
 5. [From records to a grade](#from-records-to-a-grade)
 6. [After every fight](#after-every-fight)
 7. [Over weeks of play](#over-weeks-of-play)
-8. [Raids, sharing and names](#raids-sharing-and-names)
-9. [Why each role would use it](#why-each-role-would-use-it)
-10. [Why each class would use it](#why-each-class-would-use-it)
-11. [How it compares with a log parser](#how-it-compares-with-a-log-parser)
-12. [What it can't do](#what-it-cant-do)
+8. [Upgrades from the auction house](#upgrades-from-the-auction-house)
+9. [Raids, sharing and names](#raids-sharing-and-names)
+10. [Why each role would use it](#why-each-role-would-use-it)
+11. [Why each class would use it](#why-each-class-would-use-it)
+12. [How it compares with a log parser](#how-it-compares-with-a-log-parser)
+13. [What it can't do](#what-it-cant-do)
 
 ## What it is for
 
@@ -351,6 +352,41 @@ Other cards catch the slow leaks: the cooldown that costs you the most, your mos
 pull buffs you usually have but sometimes forget, mana at the pull when it averages under 70%,
 damage spells you know and never use (when you had a chance to use them), swings not landing, empty gear slots, and gear that went into a pull broken or
 under 20% durability.
+
+## Upgrades from the auction house
+
+Upgrades answers one question: which gear on the auction house, that you can wear and afford, is the
+biggest upgrade for your gold?
+
+1. At the auction house, press **Find upgrades** under its window (or type `/dscore upgrades`). The add-on
+   browses each kind of gear slot near your level, keeps what you can use and afford, and reads the stats and
+   tooltip of up to 40 of the best candidates. Chat shows its progress; `/dscore upgrades stop` cancels it.
+2. **List** beside it (or `/dscore upgrades list`) shows the scan in the game, ranked by gain per gold with
+   standard weights. Click a row to search the auction house for it, then buy with the game's own button.
+   Nothing is ever bought for you.
+3. After a `/reload`, the Profile page's Upgrades drawer ranks the same scan with what your own fights
+   measured. Each row shows the item in its rarity's colour, its slot, its gain, its price, gain per gold, and
+   where the price came from with its age. Hover a row for its tooltip, word for word.
+
+How the gain is worked out:
+
+- Each item is compared with what you wear in that slot: rings and trinkets with the weaker of your two, a
+  two-hander with your main hand and off hand together. A one-hander while you wear a two-hander is "not
+  compared", and a unique item you already wear is left out.
+- Attack power is measured from your own swings (see the Character sheet's "What a point is worth"), so for a
+  melee damage dealer it shows as damage per second, marked measured. Every other stat uses standard rules of
+  thumb for your role and shows as points, marked standard. Healers, tanks, ranged damage dealers and weapon
+  swaps get standard points only. The two are never added together.
+- Filters: at most a set amount of gold (half of what you carried at the scan, to start) and nothing over a set
+  number of times its usual price (2 to start).
+- The usual price comes from your own scans once there are 3 days of them, then from the web.
+
+Prices from the web are off until you turn them on in Settings (Prices from the web), with your server, realm
+and faction. wowauctions.net is read from each item's own page, 2 seconds apart and at most once an hour. It
+blends random-stat items ("of the Owl") into one price, so its prices are used only for gear without them.
+Undermine Exchange is read only through its API with your own key, and only if it lists a Forever realm. A usual
+price from the web says which site and how old, and "lowest price only" when that is all the site gave. The drawer says why when a lookup didn't work (offline, no
+key).
 
 ## Raids, sharing and names
 
