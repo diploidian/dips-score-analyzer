@@ -16,13 +16,15 @@ role.
   projections  {key: {"value", "source" ("measured", "game", "estimate" or None), "n" (what it rests on)}}, see _projections
 
   worth        worth.spells: what spell power adds to a hit of each spell
-  swings       worth.hits: how your swings landed, None with too few"""
+  swings       worth.hits: how your swings landed, None with too few
+  gear_role    gearworth.role: the table a point of a stat is worth by ("melee", "caster", ...), "class" with it
+  measured     gearworth.measured: what your fights say a point of attack power or spell power is worth"""
 from __future__ import annotations
 
 import re
 from statistics import median
 
-from . import traits, worth
+from . import gearworth, traits, worth
 from .habits import _damage_fights
 from .summary import NO_GEAR_LEVEL
 
@@ -250,7 +252,10 @@ def sheet(char: dict | None, win: list[dict], fig: dict | None = None) -> dict |
     if not char or not (char.get("stats") or char.get("items")):
         return None
     stats, fig = _stats(char), fig or {}
+    proj, spells = _projections(char, win, stats), worth.spells(win, char.get("levels"))
+    role = gearworth.role(fig.get("main_role"), win, char.get("class"))
     return {"taken": char.get("geartaken") or char.get("taken"), "gear": _gear(char), "stats": stats, "abilities": _abilities(char, win),
             "points": char.get("points") or [], "trees": char.get("trees") or [], "skills": char.get("skills") or [],
-            "projections": _projections(char, win, stats), "role": fig.get("main_role"), "auto": _auto(win),
-            "worth": worth.spells(win, char.get("levels")), "swings": worth.hits(win)}
+            "projections": proj, "role": fig.get("main_role"), "auto": _auto(win),
+            "worth": spells, "swings": worth.hits(win), "gear_role": role, "class": char.get("class"),
+            "measured": gearworth.measured(role, proj, worth.per_second(win, spells))}

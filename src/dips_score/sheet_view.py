@@ -6,6 +6,8 @@ unknown reads "–". Inks are token names: an item's by its rarity, which its ro
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from .live import gearworth
+
 NA = "–"
 HIDDEN = "hidden by the game"
 NONE = "Your character sheet fills in after you /reload with the add-on from 0.21 or newer."
@@ -14,6 +16,9 @@ PARTLY = "Some items show only their basic stats until you /reload with add-on 0
 QUALITY = {0: ("poor", "mu"), 1: ("common", "tx"), 2: ("uncommon", "q-uncommon"), 3: ("rare", "q-rare"),
            4: ("epic", "q-epic"), 5: ("legendary", "q-legendary")}
 ROLE_INK = {"damage": "role-dmg", "healer": "role-heal", "tank": "role-tank"}
+WORTH = "What a point is worth"
+GEAR_ROLE = {"melee": "a melee damage dealer", "ranged": "a ranged damage dealer", "caster": "a spellcaster", "healer": "a healer",
+             "tank": "a tank"}
 
 
 @dataclass
@@ -85,6 +90,7 @@ class SheetView:
     legacy: list[Talent] = field(default_factory=list)
     legacy_note: str = ""
     partly: str = ""            # said over the gear when an item is not shown whole
+    worth_note: str = ""        # under What a point is worth: what a point is, and that standard values are estimates
 
 
 def _n(v, decimals=0) -> str:
@@ -232,6 +238,18 @@ def _spell_worth(s: dict) -> list[Figure]:
     return rows
 
 
+def _point_worth(s: dict) -> tuple[list[Figure], str]:
+    """what one point of each stat on gear is worth to you, and the line that says what a point is"""
+    role = s.get("gear_role")
+    rows = [Figure(r["name"], _n(r["dps"], 3), f"damage per second, measured over {_plural(r['n'], r['of'])}") if r["dps"] is not None
+            else Figure(r["name"], _trim(r["points"]), "points, standard") for r in gearworth.worth(role, s.get("measured"), s.get("class"))]
+    if not rows:
+        return [], ""
+    only = f" For {GEAR_ROLE[role].removeprefix('a ')}s every value is standard." if role in gearworth.STANDARD_ONLY else ""
+    return rows, (f"For {GEAR_ROLE[role]}, a point is what 1 {gearworth.ANCHOR[role]} adds. Standard values are classic rules of thumb, "
+                  f"estimates, not measured in your fights.{only}")
+
+
 def _swings(s: dict) -> list[Figure]:
     """how your swings landed, against what you fought"""
     if not (h := s["swings"]):
@@ -279,9 +297,10 @@ def build_sheet(s: dict | None, broken: int | None = None) -> SheetView:
     rows = lambda specs: [f for spec in specs if (f := _stat(s, *spec))]  # noqa: E731
     resist = rows([(f"res_{k}", f"{k.title()} resistance") for k in RESIST])
     skills = [Figure(k["name"], f"{k['level']:,}" + (f" of {k['max']:,}" if k["max"] else "")) for k in s["skills"]]
+    worth, v.worth_note = _point_worth(s)
     v.stats = [(t, r) for t, r in (("From your fights", _measured(s["projections"])), ("Primary", _primary(s)), ("Attack", _attack(s)),
-                                   ("How your swings land", _swings(s)), ("Spells", rows(SPELL)), ("10 more spell power adds", _spell_worth(s)), ("Defense", rows(DEFENSE)), ("Resistances", resist),
-                                   ("Professions", skills)) if r]
+                                   ("How your swings land", _swings(s)), ("Spells", rows(SPELL)), ("10 more spell power adds", _spell_worth(s)),
+                                   (WORTH, worth), ("Defense", rows(DEFENSE)), ("Resistances", resist), ("Professions", skills)) if r]
     v.lead, v.abilities, v.idle = _abilities(s)
     v.talents, v.talents_note = _points(s, "talent")
     v.legacy, v.legacy_note = _points(s, "legacy")

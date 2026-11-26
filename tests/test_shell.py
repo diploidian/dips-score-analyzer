@@ -795,6 +795,89 @@ class ShellTests(unittest.TestCase):
             self.assertGreater(page.trade.height(), 200)
         page.hide()
 
+    def test_upgrades(self):
+        """a drawer, shut and with no count, under the Character sheet; its sentence before any scan; the guardrails pick again;
+        a row's tooltip on hover; never sideways"""
+        from dips_score.upgrades_view import NEED, build_upgrades
+        from dips_score.ui import theme
+        theme.load_fonts()
+        page, v = self.profile_page()
+        self.assertEqual((page.upgrades_drawer.accessibleName(), page.upgrades_drawer.open), ("Upgrades", False))
+        self.assertEqual(page.upgrades.list.accessibleName(), f"Upgrades: {NEED}")
+        self.assertEqual(page.stack.indexOf(page.sheet_fold) + 1, page.stack.indexOf(page.upgrades_fold))
+        row = lambda n, price: {"n": n, "id": n, "name": f"Ring {n}, Lesser", "quality": 2, "kind": 11, "price": price, "count": 1,  # noqa: E731
+                                "tips": [(True, f"Ring {n}, Lesser", ""), (True, "+5 Strength", "")], "slot": "Ring", "source": "scan",
+                                "age": 600, "gain": {"dps": None, "points": 10, "rank": 10}, "why": "", "usual": None, "usual_from": None,
+                                "usual_seen": None, "usual_min": False, "per_gold": 10 / (price / 10000), "gold_rank": n}
+        v.upgrades = build_upgrades({"taken": 1, "money": 2000000, "age": 600, "role": "melee", "rows": [row(1, 50000), row(2, 900000)], "unread": 3})
+        page.show_view(v)
+        page.upgrades_drawer.flip()
+        said = page.upgrades.list.accessibleName()
+        self.assertTrue(said.startswith("Upgrades: Ring 1, Lesser is your biggest upgrade, for 5g."), said)
+        self.assertEqual((page.upgrades.gold.value(), page.upgrades.times.value()), (100, 2))
+        self.assertIn("Ring 2, Lesser", said)
+        page.upgrades.gold.setValue(10)                 # the guardrail moves: picked again
+        self.assertNotIn("Ring 2, Lesser", page.upgrades.list.accessibleName())
+        self.assertIn("1 more costs over 10g.", page.upgrades.list.accessibleName())
+        page.show_view(v)                               # the same scan keeps what you set
+        self.assertEqual(page.upgrades.gold.value(), 10)
+        for w in (1500, 1000, 620, 360):
+            self.show_at(page, w)
+            self.assertLessEqual(page.widget().width(), page.viewport().width())
+            self.assertTrue(page.sheet_fold.y() < page.upgrades_fold.y())
+        self.assertEqual(page.upgrades.list.tips[0][1], "Ring 1, Lesser\n+5 Strength")
+        page.hide()
+
+    def test_web_prices(self):
+        """with Prices from the web on and a scan, the Profile looks prices up off the window's thread, at most once an hour, for
+        the rows under their own name; Settings' Look up prices now asks again; what it said is a line in the Upgrades drawer"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        from test_profile import fight
+
+        class Now:          # the lookup's thread, run at once
+            def __init__(self, target, args, daemon):
+                self.go = lambda: target(*args)
+
+            def start(self):
+                self.go()
+        asked = []
+
+        def refresh(paths, settings, ids):          # no network
+            asked.append(ids)
+            return "Undermine has no Forever realms; 1 of 1 prices from the web"
+        row = lambda n, name, base, looked: {"n": n, "id": n, "name": name, "base": base, "quality": 2, "kind": 11,  # noqa: E731
+                                             "price": 100, "count": 1, "unique": False, "tips": [], "link": None,
+                                             "stats": {"ITEM_MOD_STRENGTH_SHORT": 5} if looked else {}}
+        market = {"taken": datetime.now().timestamp() - 60, "money": 10000,
+                  "rows": [row(1, "Ring", "Ring", True), row(2, "Ring of the Bear", "Ring", True), row(3, "Band", "Band", False)]}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}), \
+                mock.patch("dips_score.ui.app.threading", SimpleNamespace(Thread=Now)), \
+                mock.patch("dips_score.live.webprices.refresh", side_effect=refresh):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            w.live.history.fights = [fight()]
+            w.live.history.chars["A"] = {"guid": "A", "market": market, "items": {}, "itemstats": {}}
+            said = w.profile_page.upgrades.list.accessibleName
+            w._show_profile()
+            self.assertEqual(asked, [])                     # off by default: nothing asked of the web
+            w.settings["web_prices"] = True
+            w._show_profile()
+            self.assertEqual(asked, [[1]])                  # a random-stat name and a row not looked at closely are left out
+            self.assertIn("Undermine has no Forever realms; 1 of 1 prices from the web.", said())
+            w._show_profile()
+            self.assertEqual(len(asked), 1)                 # once an hour
+            w._open_settings()
+            w.settings_dialog.web_now.click()
+            self.assertEqual(len(asked), 2)                 # now
+            w.settings_dialog.close()
+            w.settings["web_prices"] = False
+            w._show_profile()
+            self.assertNotIn("from the web", said())
+
     def test_character_sheet(self):
         """the drawer: shut, no count; a message before there is a sheet; one tab at a time; everything said; never sideways"""
         from dips_score.sheet_view import NONE, Ability, Figure, Item, Ladder, SheetView, Talent

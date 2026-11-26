@@ -6,7 +6,7 @@ from pathlib import Path
 from PyQt6.QtCore import QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QDialog, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout,
+from PyQt6.QtWidgets import (QButtonGroup, QCheckBox, QComboBox, QDialog, QFileDialog, QGridLayout, QGroupBox, QHBoxLayout,
                              QLabel, QLineEdit, QMessageBox, QPushButton, QRadioButton, QSlider, QVBoxLayout)
 
 from ..config import Paths, game_folder
@@ -50,6 +50,7 @@ class SettingsDialog(QDialog):
     folders_changed = pyqtSignal()
     overlay_changed = pyqtSignal()
     move_overlay = pyqtSignal(bool)
+    look_up_prices = pyqtSignal()       # Look up prices now
 
     def set_theme(self, key: str):
         """show the look chosen elsewhere (the rail), without echoing it back"""
@@ -184,6 +185,37 @@ class SettingsDialog(QDialog):
         ol.addWidget(dim_label("Works with the game in borderless fullscreen (not exclusive fullscreen). Fights come from "
                                "the combat log alone, so /combatlog must be on; the game writes it in batches, so a "
                                "summary shows up a few seconds after the fight ends."))
+        lay.addWidget(box)
+
+        box = QGroupBox("Prices from the web")
+        wl = QGridLayout(box)
+        self.web_on = QCheckBox("Look up auction prices on the web")
+        self.web_on.setChecked(bool(self.settings.get("web_prices", False)))
+        self.web_on.toggled.connect(lambda on: self._set("web_prices", on))
+        wl.addWidget(self.web_on, 0, 0, 1, 4)
+        for col, (key, label, choices) in enumerate((
+                ("web_server", "Server", (("forever-us", "Forever US"), ("forever-eu", "Forever EU"))),
+                ("web_realm", "Realm", (("pve", "Normal"), ("pvp", "PvP"), ("rp", "Roleplay"),
+                                        ("rp-pvp", "Roleplay PvP"))),
+                ("web_faction", "Faction", (("alliance", "Alliance"), ("horde", "Horde"))))):
+            combo = QComboBox()
+            for value, text in choices:
+                combo.addItem(text, value)
+            combo.setCurrentIndex(max(0, combo.findData(self.settings.get(key, DEFAULTS[key]))))
+            combo.currentIndexChanged.connect(lambda _, c=combo, k=key: self._set(k, c.currentData()))
+            wl.addWidget(QLabel(label), 1, col)
+            wl.addWidget(combo, 2, col)
+        wl.addWidget(QLabel("Undermine API key"), 3, 0)
+        self.undermine_key = QLineEdit(self.settings.get("undermine_key", ""))
+        self.undermine_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.undermine_key.editingFinished.connect(lambda: self._set("undermine_key", self.undermine_key.text().strip()))
+        wl.addWidget(self.undermine_key, 3, 1, 1, 3)
+        wl.addWidget(dim_label("wowauctions.net blends random-stat variants, so their prices are used only for gear "
+                               "without them; Undermine needs your own API key."), 4, 0, 1, 4)
+        self.web_now = QPushButton("Look up prices now")
+        self.web_now.setToolTip("For your last auction house scan, at most once an hour")
+        self.web_now.clicked.connect(self.look_up_prices.emit)
+        wl.addWidget(self.web_now, 5, 0)
         lay.addWidget(box)
 
         box = QGroupBox("Game art")

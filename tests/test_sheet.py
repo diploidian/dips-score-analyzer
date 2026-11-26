@@ -27,6 +27,7 @@ dipsScoreLog = { ["version"] = 1, ["runs"] = {}, ["char"] = { ["guid"] = "Player
   "16,267369,0,Chance on hit: Wounds the target, for 12 damage.", "16,267369,0,Something new", "16,267369,0,Wolf Set (1/2)",
   "16,267369,0,  Wolf Cap", "16,267369,0,(2) Set: Bites.", "16,267369,0,\"It howls.\"", "16,267369,11,Sell Price: 1", "5,9,0,Another item", "x", },
 ["ranks"] = { "679,Rank 2", "678,Rank 1", },
+["links"] = { "16,item:267369:0:0:0:0:0:0:0:31:0:0:1:1730", "5,item:273035:1234::", "x,item:1", "1,nothing", },
 ["points"] = { "talent,1100,105625,1,1,Conviction, Improved", "talent,1100,105626,5,5,Benediction", },
 ["trees"] = { "talent,1100,51,12,", "legacy,1187,9,0,3", "legacy,1188,9,0,", },
 ["skills"] = { "120,150,Mining, Smelting", "bad,1,x", },
@@ -62,10 +63,11 @@ class Load(unittest.TestCase):
         self.assertEqual(c["spell_ids"], {6603: "Attack", 20271: "Judgement", 679: "Holy Strike", 678: "Holy Strike", 7328: "Redemption"})
         self.assertEqual((c["points"][0]["name"], c["skills"]), ("Conviction, Improved", [{"name": "Mining, Smelting", "level": 120, "max": 150}]))
         self.assertEqual([t["left"] for t in c["trees"]], [None, 3, None])
+        self.assertEqual(c["links"], {16: "item:267369:0:0:0:0:0:0:0:31:0:0:1:1730", 5: "item:273035:1234::"})
 
     def test_an_older_snapshot(self):
         c = load('dipsScoreLog = {["version"] = 1, ["char"] = {["guid"] = "A", ["gear"] = {"1,1,30"}}}')
-        self.assertEqual((c["stats"], c["items"], c["ranks"]), ({}, {}, {}))
+        self.assertEqual((c["stats"], c["items"], c["ranks"], c["links"]), ({}, {}, {}, {}))
         self.assertIsNone(sheet(c, []))
         self.assertIsNone(sheet(None, []))
         self.assertEqual(build_sheet(None).need, NONE)

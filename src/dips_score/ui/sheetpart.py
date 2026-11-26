@@ -9,7 +9,7 @@ from PyQt6.QtCore import QPointF, QRectF, Qt
 from PyQt6.QtGui import QPolygonF, QTextLayout
 from PyQt6.QtWidgets import QBoxLayout, QButtonGroup, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
 
-from ..sheet_view import NA, QUALITY, Ability, Figure, Item, Ladder, SheetView, Talent
+from ..sheet_view import NA, QUALITY, WORTH, Ability, Figure, Item, Ladder, SheetView, Talent
 from .kit import Part, adv, baseline, box, font, line, rule, text_at, wrapped
 from .theme import tok
 
@@ -197,8 +197,8 @@ class Stats(Part):
     def set(self, v: SheetView):
         self.view = v
         # nothing of the game's own figures in the snapshot
-        self.unread = {t for t, _ in v.stats} <= {"From your fights", "How your swings land", "Professions"}
-        self.setAccessibleName("Stats: " + ("could not be read. " if self.unread else "") + " ".join(f"{g}: " + "; ".join(", ".join(filter(None, (
+        self.unread = {t for t, _ in v.stats} <= {"From your fights", "How your swings land", "Professions", WORTH}
+        self.setAccessibleName("Stats: " + ("could not be read. " if self.unread else "") + " ".join(f"{g}: " + (v.worth_note + " " if g == WORTH else "") + "; ".join(", ".join(filter(None, (
             f"{f.name} {f.value}", f.note + (" (estimate)" if f.estimate else "")))) for f in rows) + "." for g, rows in v.stats))
         self.changed()
 
@@ -227,6 +227,8 @@ class Stats(Part):
         y = y0 + heading(p, x, y0, title)
         if title == "Primary" and any(f.gear or f.buffs is not None for f in rows):
             y += self.key(p, x, y, w) + 8
+        if title == WORTH and self.view.worth_note:
+            y += wrapped(p, font(12), tok("tx2"), x, y, w, 12 * 1.4, self.view.worth_note) + 8
         for f in rows:
             y += self.figure(p, x, y, w, f, big=title == "From your fights")
         return y - y0
