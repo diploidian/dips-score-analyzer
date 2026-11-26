@@ -36,6 +36,8 @@ Source: "..\addon\dips-Score\*"; DestDir: "{code:WowDir}\Interface\AddOns\dips-S
 Type: files; Name: "{app}\dips-score.exe"
 Type: files; Name: "{autoprograms}\dips score.lnk"
 Type: files; Name: "{autodesktop}\dips score.lnk"
+; the old add-on goes first, so a file a newer version dropped can't linger (your saved runs live in WTF, not here)
+Type: filesandordirs; Name: "{code:WowDir}\Interface\AddOns\dips-Score"; Check: AddonNotLinked
 
 [Icons]
 Name: "{autoprograms}\projectArthas"; Filename: "{app}\projectArthas.exe"
