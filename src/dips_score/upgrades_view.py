@@ -2,7 +2,8 @@
 scan was, then the gear in your last auction house scan that beats what you wear, the biggest gain first. Each row says what it
 adds (damage per second measured in your fights, and standard points, apart), its price, its gain per gold and where its price
 is from, and carries its tooltip word for word. Two guardrails pick what is shown: at most so much gold (half of what you had
-at the scan, at first) and nothing over so many times its usual price. Inks are token names: an item's by its rarity."""
+at the scan, at first) and nothing over so many times its usual price. Under them, what the last web price lookup said ("web", which
+the app adds to the data). Inks are token names: an item's by its rarity."""
 from __future__ import annotations
 
 import math
@@ -39,6 +40,7 @@ class UpgradesView:
     cap: str = ""                   # when the scan was, and what is measured
     rows: list[UpgradeRow] = field(default_factory=list)
     hidden: str = ""                # "3 more cost over 20g."
+    web: str = ""                   # what the last web price lookup said: "Undermine has no Forever realms."
     gold: int = 0                   # the first guardrail as it stands, whole gold
     most: int = 0                   # what you had at the scan, whole gold: the guardrail's top
     times: int = TIMES              # the second guardrail
@@ -109,4 +111,5 @@ def build_upgrades(u: dict | None, gold: int | None = None, times: int = TIMES, 
         f"{over_usual:,} {'costs' if over_usual == 1 else 'cost'} over {times:g} times {'its' if over_usual == 1 else 'their'} usual price"
         if over_usual else "") if x)
     v.hidden = v.hidden[:1].upper() + v.hidden[1:] + "." if v.hidden else ""
+    v.web = f"{u['web']}." if u.get("web") else ""          # the app adds it, with Prices from the web on
     return v

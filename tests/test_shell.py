@@ -828,6 +828,56 @@ class ShellTests(unittest.TestCase):
         self.assertEqual(page.upgrades.list.tips[0][1], "Ring 1, Lesser\n+5 Strength")
         page.hide()
 
+    def test_web_prices(self):
+        """with Prices from the web on and a scan, the Profile looks prices up off the window's thread, at most once an hour, for
+        the rows under their own name; Settings' Look up prices now asks again; what it said is a line in the Upgrades drawer"""
+        os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+        from PyQt6.QtWidgets import QApplication
+        app = QApplication.instance() or QApplication([])  # noqa: F841 (kept alive for the window)
+        from dips_score.config import Paths
+        from dips_score.ui.app import Window
+        from test_profile import fight
+
+        class Now:          # the lookup's thread, run at once
+            def __init__(self, target, args, daemon):
+                self.go = lambda: target(*args)
+
+            def start(self):
+                self.go()
+        asked = []
+
+        def refresh(paths, settings, ids):          # no network
+            asked.append(ids)
+            return "Undermine has no Forever realms; 1 of 1 prices from the web"
+        row = lambda n, name, base, looked: {"n": n, "id": n, "name": name, "base": base, "quality": 2, "kind": 11,  # noqa: E731
+                                             "price": 100, "count": 1, "unique": False, "tips": [], "link": None,
+                                             "stats": {"ITEM_MOD_STRENGTH_SHORT": 5} if looked else {}}
+        market = {"taken": datetime.now().timestamp() - 60, "money": 10000,
+                  "rows": [row(1, "Ring", "Ring", True), row(2, "Ring of the Bear", "Ring", True), row(3, "Band", "Band", False)]}
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.dict(os.environ, {"APPDATA": tmp}), \
+                mock.patch("dips_score.ui.app.threading", SimpleNamespace(Thread=Now)), \
+                mock.patch("dips_score.live.webprices.refresh", side_effect=refresh):
+            w = Window(Paths(Path(tmp) / "no game"))
+            w.live.timer.stop()
+            w.live.history.fights = [fight()]
+            w.live.history.chars["A"] = {"guid": "A", "market": market, "items": {}, "itemstats": {}}
+            said = w.profile_page.upgrades.list.accessibleName
+            w._show_profile()
+            self.assertEqual(asked, [])                     # off by default: nothing asked of the web
+            w.settings["web_prices"] = True
+            w._show_profile()
+            self.assertEqual(asked, [[1]])                  # a random-stat name and a row not looked at closely are left out
+            self.assertIn("Undermine has no Forever realms; 1 of 1 prices from the web.", said())
+            w._show_profile()
+            self.assertEqual(len(asked), 1)                 # once an hour
+            w._open_settings()
+            w.settings_dialog.web_now.click()
+            self.assertEqual(len(asked), 2)                 # now
+            w.settings_dialog.close()
+            w.settings["web_prices"] = False
+            w._show_profile()
+            self.assertNotIn("from the web", said())
+
     def test_character_sheet(self):
         """the drawer: shut, no count; a message before there is a sheet; one tab at a time; everything said; never sideways"""
         from dips_score.sheet_view import NONE, Ability, Figure, Item, Ladder, SheetView, Talent

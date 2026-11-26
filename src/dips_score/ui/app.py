@@ -8,11 +8,13 @@ a new visit opens by itself.
 from __future__ import annotations
 
 import sys
+import threading
+import time
 import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from PyQt6.QtCore import QFileSystemWatcher, QLockFile, QStandardPaths, Qt, QTimer
+from PyQt6.QtCore import QFileSystemWatcher, QLockFile, QStandardPaths, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QFont, QGuiApplication, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (QApplication, QButtonGroup, QHBoxLayout, QInputDialog, QLabel, QMainWindow, QMenu,
                              QMessageBox, QProgressBar, QPushButton, QSplitter, QStackedWidget, QTabWidget,
@@ -39,7 +41,7 @@ from .spells import SpellsTab
 from .timelinetab import TimelineTab
 from .settings import SettingsDialog
 from .tokens import THEMES
-from ..live import profile_history, profile_runs, upgrades
+from ..live import profile_history, profile_runs, upgrades, webprices
 from ..live.habits import habits
 from ..live.profile import profile
 from ..live.tail import LogTail
@@ -53,6 +55,8 @@ RUN_ROLE = Qt.ItemDataRole.UserRole
 
 
 class Window(QMainWindow):
+    web_done = pyqtSignal(str)      # what the web price lookup said, from its thread
+
     def __init__(self, paths: Paths, live=None):
         super().__init__()
         self.paths = paths
@@ -169,6 +173,8 @@ class Window(QMainWindow):
         self.settings_dialog: SettingsDialog | None = None
         # opened from the tray: share the controller's settings, so changes here reach the overlay
         self.settings = live.settings if live else app_settings.load(paths)
+        self.web_busy, self.web_asked, self.web_note = False, 0.0, ""      # the web price lookup (_look_up_prices)
+        self.web_done.connect(self._web_done)
         self._sync_look_buttons()
         QGuiApplication.styleHints().colorSchemeChanged.connect(
             lambda *_: self._set_look() if self.settings["mode"] == "auto" else None)
@@ -629,8 +635,36 @@ class Window(QMainWindow):
         p, char = profile(h.fights, h.chars.get(me), h.book(me) if me else None, runs, now, h.types, h.helped(me)), h.chars.get(me)
         if char and char.get("market"):         # what your last auction house scan has for you, by its usual prices
             p["upgrades"] = upgrades.upgrades(char, p.get("sheet"), upgrades.remember(self.paths, char["market"]), upgrades.web(self.paths))
+            if p["upgrades"] and self.settings.get("web_prices"):
+                p["upgrades"]["web"] = self.web_note
         self.profile_page.show_view(build_profile(p, saved.get(me, [])))
         self.stack.setCurrentIndex(5)
+        self._look_up_prices()
+
+    def _look_up_prices(self, now: bool = False):
+        """the web's prices for the last scan's items, off the window's thread, with Prices from the web on: asked once an hour
+        by the Profile, or now by Settings' Look up prices now; webprices keeps to its own hour either way"""
+        h = self.live.history
+        market = (h.chars.get(h.fights[-1]["me"] if h.fights else "") or {}).get("market")
+        if not self.settings.get("web_prices") or not market or self.web_busy or \
+                not now and time.time() - self.web_asked < webprices.EVERY:
+            return
+        # the rows the drawer can weigh, under their own name: the sites blend random-stat variants
+        ids = [r["id"] for r in market["rows"] if r["name"] and r["name"] == r["base"] and (r["stats"] or r["tips"])]
+        self.web_busy, self.web_asked = True, time.time()
+        threading.Thread(target=self._web_work, args=(dict(self.settings), ids), daemon=True).start()
+
+    def _web_work(self, settings: dict, ids: list[int]):
+        reason = webprices.refresh(self.paths, settings, ids)       # never raises
+        try:
+            self.web_done.emit(reason)
+        except RuntimeError:        # the window was deleted meanwhile
+            pass
+
+    def _web_done(self, reason: str):
+        self.web_busy, self.web_note = False, reason
+        if self.stack.currentIndex() == 5:      # the Upgrades drawer shows the new prices and what the lookup said
+            self._show_profile()
 
     def _keep_profile(self) -> tuple[list[dict] | None, dict]:
         """save the run rows that came in and the slices that finished; returns the rows and every saved slice"""
@@ -780,6 +814,7 @@ class Window(QMainWindow):
             d.folders_changed.connect(self._folders_changed)
             d.overlay_changed.connect(self.live.refresh)
             d.move_overlay.connect(self.live.move_mode)
+            d.look_up_prices.connect(lambda: self._look_up_prices(now=True))
             self.settings_dialog = d
         self.settings_dialog.show()
         self.settings_dialog.raise_()

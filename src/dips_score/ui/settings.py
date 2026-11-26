@@ -50,6 +50,7 @@ class SettingsDialog(QDialog):
     folders_changed = pyqtSignal()
     overlay_changed = pyqtSignal()
     move_overlay = pyqtSignal(bool)
+    look_up_prices = pyqtSignal()       # Look up prices now
 
     def set_theme(self, key: str):
         """show the look chosen elsewhere (the rail), without echoing it back"""
@@ -211,6 +212,10 @@ class SettingsDialog(QDialog):
         wl.addWidget(self.undermine_key, 3, 1, 1, 3)
         wl.addWidget(dim_label("wowauctions.net blends random-stat variants, so their prices are used only for gear "
                                "without them; Undermine needs your own API key."), 4, 0, 1, 4)
+        self.web_now = QPushButton("Look up prices now")
+        self.web_now.setToolTip("For your last auction house scan, at most once an hour")
+        self.web_now.clicked.connect(self.look_up_prices.emit)
+        wl.addWidget(self.web_now, 5, 0)
         lay.addWidget(box)
 
         box = QGroupBox("Game art")

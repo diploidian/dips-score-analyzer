@@ -57,6 +57,11 @@ local function Button()
         button:SetSize(120, 22)
         button:SetPoint("TOPRIGHT", AuctionHouseFrame, "BOTTOMRIGHT", 0, -2)
         button:SetScript("OnClick", function() ns.Upgrades(scan and "stop" or "") end)
+        local list = CreateFrame("Button", nil, AuctionHouseFrame, "UIPanelButtonTemplate")
+        list:SetSize(60, 22)
+        list:SetPoint("RIGHT", button, "LEFT", -4, 0)
+        list:SetText("List")
+        list:SetScript("OnClick", function() ns.UpgradesList() end) -- Upgrades.lua
     end
     if button then button:SetText(scan and "Stop the scan" or "Find upgrades") end
 end
@@ -148,8 +153,9 @@ local function Save()
         end
     end
     log.market = m
-    Say(string.format("saved %d listings, %d of them looked at closely%s. /reload, then open Upgrades on the app's Profile.",
-        n, looked, s.missed > 0 and (", " .. s.missed .. " queries went unanswered") or ""))
+    if ns.RefreshUpgrades then pcall(ns.RefreshUpgrades) end -- Upgrades.lua's list, when open
+    Say(string.format("saved %d listings, %d of them looked at closely%s. List shows them here; /reload, then open Upgrades on "
+        .. "the app's Profile.", n, looked, s.missed > 0 and (", " .. s.missed .. " queries went unanswered") or ""))
 end
 
 local Send
@@ -239,8 +245,12 @@ local function Looked()
     Tip(row, scan.filtered)
 end
 
--- /dscore upgrades [stop]
+-- The auction house is open; a scan is under way (Upgrades.lua's Jump waits for it).
+function ns.MarketState() return shown == true, scan ~= nil end
+
+-- /dscore upgrades [stop | list]
 function ns.Upgrades(arg)
+    if arg == "list" then return ns.UpgradesList() end -- Upgrades.lua
     if arg == "stop" then
         Say(scan and "scan stopped, nothing saved." or "no scan under way.")
         scan = nil

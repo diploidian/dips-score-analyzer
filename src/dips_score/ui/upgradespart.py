@@ -20,7 +20,7 @@ class UpgradeList(Tips):
     def set(self, v: UpgradesView):
         self.view = v
         said = lambda r: ", ".join(filter(None, (r.name, r.slot, r.price, r.gain, r.points, r.per_gold, r.source)))  # noqa: E731
-        self.setAccessibleName("Upgrades: " + (v.need or " ".join(filter(None, (v.say, v.cap, *map(said, v.rows), v.hidden)))))
+        self.setAccessibleName("Upgrades: " + (v.need or " ".join(filter(None, (v.say, v.cap, *map(said, v.rows), v.hidden, v.web)))))
         self.changed()
 
     def draw(self, p, w):
@@ -40,6 +40,8 @@ class UpgradeList(Tips):
             if p:
                 rule(p, 0, y, w, tok("ln"))
             y += 8 + wrapped(p, font(13), tok("tx2"), 0, y + 8, w, 13 * 1.4, v.hidden)
+        if v.web:
+            y += 8 + wrapped(p, font(12), tok("mu"), 0, y + 8, w, 12 * 1.4, v.web)
         return y + 18
 
     @staticmethod
